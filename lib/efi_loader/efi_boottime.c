@@ -18,6 +18,7 @@
 #include <log.h>
 #include <malloc.h>
 #include <mapmem.h>
+#include <net-common.h>
 #include <pe.h>
 #include <time.h>
 #include <u-boot/crc.h>
@@ -2314,6 +2315,8 @@ static efi_status_t EFIAPI efi_exit_boot_services(efi_handle_t image_handle,
 
 	if (!bs->keep_devices) {
 		bootm_disable_interrupts();
+		if (IS_ENABLED(CONFIG_DM_ETH))
+			eth_halt();
 		bootm_final(0);
 	}
 
