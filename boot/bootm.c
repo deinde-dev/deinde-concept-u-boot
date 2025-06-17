@@ -370,7 +370,10 @@ static int bootm_pre_load(const char *addr_str)
 static int resolve_os_comp_buf(struct bootm_info *bmi)
 {
 	if (bmi->kern_comp_addr) {
-		if (lmb_reserve(bmi->kern_comp_addr, bmi->kern_comp_size, 0) < 0)
+		phys_addr_t comp_addr = bmi->kern_comp_addr;
+
+		if (lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &comp_addr,
+				  bmi->kern_comp_size, LMB_NONE))
 			return -EXDEV;
 	} else {
 		phys_addr_t addr;
@@ -979,9 +982,18 @@ static int bootm_load_os(struct bootm_info *bmi, int boot_progress)
 		images->os.end = relocated_addr + image_size;
 	}
 
-	if (IS_ENABLED(CONFIG_LMB))
-		lmb_reserve(images->os.load, (load_end - images->os.load),
-			    LMB_NONE);
+	if (IS_ENABLED(CONFIG_LMB)) {
+		phys_addr_t load_addr;
+
+		load_addr = (phys_addr_t)images->os.load;
+		err = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &load_addr,
+				    (load_end - images->os.load), LMB_NONE);
+		if (err) {
+			log_err("Unable to allocate memory %#lx for loading OS\n",
+				images->os.load);
+			return 1;
+		}
+	}
 
 	return 0;
 }
@@ -1497,6 +1509,7 @@ int bootz_run(struct bootm_info *bmi)
 {
 	struct bootm_headers *images = bmi->images;
 	ulong zi_start, zi_end;
+	phys_addr_t ep_addr;
 	int ret;
 
 	ret = bootm_run_states(bmi, BOOTM_STATE_START);
@@ -1510,7 +1523,14 @@ int bootz_run(struct bootm_info *bmi)
 	if (ret)
 		return ret;
 
-	lmb_reserve(images->ep, zi_end - zi_start, 0);
+	ep_addr = (phys_addr_t)images->ep;
+	ret = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &ep_addr, zi_end - zi_start,
+			    LMB_NONE);
+	if (ret) {
+		printf("Failed to allocate memory for the image at %#llx\n",
+		       (unsigned long long)images->ep);
+		return ret;
+	}
 
 	/*
 	 * Handle the BOOTM_STATE_FINDOTHER state ourselves as we do not

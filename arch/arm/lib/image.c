@@ -181,6 +181,7 @@ static int booti_check_granule(u64 flags)
 static int booti_place(ulong cur, u64 text_offset, u64 image_size, u64 flags,
 		       bool force_reloc, bool placed, ulong *addrp)
 {
+	phys_addr_t addr;
 	u64 dst;
 
 	/*
@@ -202,10 +203,11 @@ static int booti_place(ulong cur, u64 text_offset, u64 image_size, u64 flags,
 			    !bootargs_has_nokaslr() &&
 			    !booti_random_base(image_size, &dst))
 				done = true;
+			addr = cur - text_offset;
 			if (!done && cur >= text_offset &&
 			    IS_ALIGNED(cur - text_offset, SZ_2M) &&
-			    !lmb_alloc_addr(cur - text_offset, image_size,
-					    LMB_NONE)) {
+			    !lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr,
+					   image_size, LMB_NONE)) {
 				dst = cur - text_offset;
 				done = true;
 			}

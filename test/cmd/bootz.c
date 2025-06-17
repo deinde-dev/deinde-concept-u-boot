@@ -32,9 +32,10 @@
 /*
  * Where the image is built. The command reserves the image where it finds it,
  * so this must be in the region the board keeps for loading images rather
- * than on the heap
+ * than on the heap, and clear of the memory which the test devicetree
+ * reserves at 1MB
  */
-#define IMAGE_ADDR		((ulong)CONFIG_SYS_LOAD_ADDR + 0x100000)
+#define IMAGE_ADDR		((ulong)CONFIG_SYS_LOAD_ADDR + 0x200000)
 
 /**
  * struct arm_z_header - The part of an ARM zImage header which bootz reads

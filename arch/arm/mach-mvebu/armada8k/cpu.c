@@ -74,7 +74,9 @@ struct mm_region *mem_map = mvebu_mem_map;
  */
 static void mvebu_lmb_reserve(phys_addr_t base, phys_size_t size)
 {
-	if (lmb_reserve(base, size, LMB_NOOVERWRITE))
+	phys_addr_t addr = base;
+
+	if (lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr, size, LMB_NOOVERWRITE))
 		log_err("Failed to reserve 0x%llx bytes at 0x%llx\n",
 			(unsigned long long)size, (unsigned long long)base);
 }

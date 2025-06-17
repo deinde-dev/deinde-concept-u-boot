@@ -448,7 +448,7 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 			return EFI_NOT_FOUND;
 
 		addr = *memory;
-		if (lmb_alloc_addr(addr, len, flags))
+		if (lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr, len, flags))
 			return EFI_NOT_FOUND;
 		break;
 	default:

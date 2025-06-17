@@ -201,7 +201,11 @@ void lmb_arch_add_memory(void)
 	}
 
 	/* Keep images away from the 64-bit page tables in low memory */
-	if (IS_ENABLED(CONFIG_X86_64))
-		lmb_reserve(X86_PAGETABLE_BASE, X86_PAGETABLE_SIZE, LMB_NONE);
+	if (IS_ENABLED(CONFIG_X86_64)) {
+		phys_addr_t addr = X86_PAGETABLE_BASE;
+
+		lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr, X86_PAGETABLE_SIZE,
+			      LMB_NONE);
+	}
 }
 #endif /* IS_ENABLED(CONFIG_LMB_ARCH_MEM_MAP) */

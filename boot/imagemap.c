@@ -252,7 +252,8 @@ void *imagemap_map(struct udevice *dev, loff_t img_offset, ulong size)
 			lmb_free(addr, ALIGN(old_size, ARCH_DMA_MINALIGN));
 
 			/* Try to re-reserve at the same address with new size */
-			if (lmb_alloc_addr(addr, alloc_size, LMB_NONE)) {
+			if (lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr,
+					  alloc_size, LMB_NONE)) {
 				/* In-place extend failed, allocate elsewhere */
 				addr = lmb_alloc(alloc_size, ARCH_DMA_MINALIGN);
 				if (!addr) {

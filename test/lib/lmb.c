@@ -72,6 +72,19 @@ static int setup_lmb_test(struct unit_test_state *uts, struct lmb *store,
 	return 0;
 }
 
+static int lmb_reserve(phys_addr_t addr, phys_size_t size, u32 flags)
+{
+	int err;
+
+	err = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr, size, flags);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+#define lmb_alloc_addr(addr, size, flags) lmb_reserve(addr, size, flags)
+
 static int test_multi_alloc(struct unit_test_state *uts, const phys_addr_t ram,
 			    const phys_size_t ram_size, const phys_addr_t ram0,
 			    const phys_size_t ram0_size,
