@@ -392,8 +392,8 @@ static int resolve_os_comp_buf(struct bootm_info *bmi)
 			bmi->kern_comp_size = ALIGN(bmi->os_size * 8, SZ_1M);
 		}
 
-		addr = lmb_alloc(bmi->kern_comp_size, SZ_2M);
-		if (!addr) {
+		if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M, &addr,
+				  bmi->kern_comp_size, LMB_NONE)) {
 			printf("Cannot reserve space for kernel decompression (size %lx)\n",
 			       bmi->kern_comp_size);
 			printf("- provide kernel_comp_addr_r and kernel_comp_size?\n");

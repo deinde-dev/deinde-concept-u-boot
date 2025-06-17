@@ -23,6 +23,9 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#define lmb_alloc(size, addr) \
+	lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M, addr, size, LMB_NONE)
+
 struct efi_fw_image fw_images[] = {
 	{
 		.fw_name = u"UBOOT_BOOT_PARTITION",
@@ -253,8 +256,7 @@ static int exynos_fastboot_setup(void)
 	int offset, i, j;
 
 	/* Allocate and define buffer address for fastboot interface. */
-	addr = lmb_alloc(CONFIG_FASTBOOT_BUF_SIZE, SZ_2M);
-	if (!addr) {
+	if (lmb_alloc(CONFIG_FASTBOOT_BUF_SIZE, &addr)) {
 		log_err("%s: failed to allocate fastboot buffer\n", __func__);
 		return -ENOMEM;
 	}

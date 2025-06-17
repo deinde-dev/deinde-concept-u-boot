@@ -255,8 +255,10 @@ void *imagemap_map(struct udevice *dev, loff_t img_offset, ulong size)
 			if (lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr,
 					  alloc_size, LMB_NONE)) {
 				/* In-place extend failed, allocate elsewhere */
-				addr = lmb_alloc(alloc_size, ARCH_DMA_MINALIGN);
-				if (!addr) {
+				if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY,
+						  ARCH_DMA_MINALIGN,
+						  &addr, alloc_size,
+						  LMB_NONE)) {
 					log_err("imagemap: LMB alloc failed (0x%lx bytes)\n",
 						(ulong)alloc_size);
 					return ERR_PTR(-ENOMEM);
@@ -287,8 +289,8 @@ void *imagemap_map(struct udevice *dev, loff_t img_offset, ulong size)
 	}
 
 	/* New region - allocate from LMB */
-	addr = lmb_alloc(alloc_size, ARCH_DMA_MINALIGN);
-	if (!addr) {
+	if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, ARCH_DMA_MINALIGN,
+			  &addr, alloc_size, LMB_NONE)) {
 		log_err("imagemap: LMB alloc failed (0x%lx bytes)\n",
 			(ulong)alloc_size);
 		return ERR_PTR(-ENOMEM);

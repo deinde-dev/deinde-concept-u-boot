@@ -212,9 +212,10 @@ static int booti_place(ulong cur, u64 text_offset, u64 image_size, u64 flags,
 				done = true;
 			}
 			if (!done) {
-				dst = lmb_alloc(image_size, SZ_2M);
-				if (!dst)
+				if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M,
+						  &addr, image_size, LMB_NONE))
 					return -ENOSPC;
+				dst = addr;
 			}
 		} else {
 			dst = cur - text_offset;
@@ -299,8 +300,8 @@ int booti_alloc(ulong size, ulong *addrp)
 		*addrp = base;
 		return 0;
 	}
-	addr = lmb_alloc(alloc_size(size), SZ_2M);
-	if (!addr)
+	if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M, &addr, alloc_size(size),
+			  LMB_NONE))
 		return -ENOSPC;
 	*addrp = addr;
 

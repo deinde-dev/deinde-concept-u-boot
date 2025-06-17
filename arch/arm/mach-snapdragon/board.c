@@ -391,7 +391,7 @@ void __weak qcom_late_init(void)
 #define FASTBOOT_BUF_SIZE 0
 #endif
 
-#define addr_alloc(size) lmb_alloc(size, SZ_2M)
+#define lmb_alloc(size, addr) lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M, addr, size, LMB_NONE)
 
 /* Stolen from arch/arm/mach-apple/board.c */
 int board_late_init(void)
@@ -402,25 +402,33 @@ int board_late_init(void)
 	int ret;
 
 	/* We need to be fairly conservative here as we support boards with just 1G of TOTAL RAM */
-	addr = addr_alloc(SZ_128M);
+	status |= !lmb_alloc(SZ_128M, &addr) ?
+		env_set_hex("loadaddr", addr) : 1;
 	status |= env_set_hex("kernel_addr_r", addr);
-	status |= env_set_hex("loadaddr", addr);
-	status |= env_set_hex("ramdisk_addr_r", addr_alloc(SZ_128M));
-	status |= env_set_hex("kernel_comp_addr_r", addr_alloc(KERNEL_COMP_SIZE));
+	status |= !lmb_alloc(SZ_128M, &addr) ?
+		env_set_hex("ramdisk_addr_r", addr) : 1;
+	status |= !lmb_alloc(KERNEL_COMP_SIZE, &addr) ?
+		env_set_hex("kernel_comp_addr_r", addr) : 1;
 	status |= env_set_hex("kernel_comp_size", KERNEL_COMP_SIZE);
+	status |= !lmb_alloc(SZ_4M, &addr) ?
+		env_set_hex("scriptaddr", addr) : 1;
+	status |= !lmb_alloc(SZ_4M, &addr) ?
+		env_set_hex("pxefile_addr_r", addr) : 1;
+
 	if (IS_ENABLED(CONFIG_FASTBOOT)) {
-		addr = addr_alloc(FASTBOOT_BUF_SIZE);
-		status |= env_set_hex("fastboot_addr_r", addr);
+		status |= !lmb_alloc(FASTBOOT_BUF_SIZE, &addr) ?
+			env_set_hex("fastboot_addr_r", addr) : 1;
 		/* override loadaddr for memory rich soc */
 		status |= env_set_hex("loadaddr", addr);
 	}
-	status |= env_set_hex("scriptaddr", addr_alloc(SZ_4M));
-	status |= env_set_hex("pxefile_addr_r", addr_alloc(SZ_4M));
-	addr = addr_alloc(SZ_2M);
-	status |= env_set_hex("fdt_addr_r", addr);
 
-	if (IS_ENABLED(CONFIG_OF_LIBFDT_OVERLAY))
-		status |= env_set_hex("fdtoverlay_addr_r", addr_alloc(SZ_1M));
+	if (IS_ENABLED(CONFIG_OF_LIBFDT_OVERLAY)) {
+		status |= !lmb_alloc(SZ_1M, &addr) ?
+			env_set_hex("fdtoverlay_addr_r", addr) : 1;
+	}
+
+	status |= !lmb_alloc(SZ_2M, &addr) ?
+		env_set_hex("fdt_addr_r", addr) : 1;
 
 	if (status)
 		log_warning("%s: Failed to set run time variables\n", __func__);

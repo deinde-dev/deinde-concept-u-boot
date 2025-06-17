@@ -410,6 +410,7 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 					enum efi_memory_type memory_type,
 					efi_uintn_t pages, uint64_t *memory)
 {
+	int err;
 	u64 len;
 	uint flags;
 	efi_status_t ret;
@@ -431,16 +432,17 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 	switch (type) {
 	case EFI_ALLOCATE_ANY_PAGES:
 		/* Any page */
-		addr = (u64)lmb_alloc_base(len, EFI_PAGE_SIZE,
-						 LMB_ALLOC_ANYWHERE, flags);
-		if (!addr)
+		err = lmb_alloc_mem(LMB_MEM_ALLOC_ANY, EFI_PAGE_SIZE, &addr,
+				    len, flags);
+		if (err)
 			return EFI_OUT_OF_RESOURCES;
 		break;
 	case EFI_ALLOCATE_MAX_ADDRESS:
 		/* Max address */
-		addr = (u64)lmb_alloc_base(len, EFI_PAGE_SIZE, *memory,
-						 flags);
-		if (!addr)
+		addr = *memory;
+		err = lmb_alloc_mem(LMB_MEM_ALLOC_MAX, EFI_PAGE_SIZE, &addr,
+				    len, flags);
+		if (err)
 			return EFI_OUT_OF_RESOURCES;
 		break;
 	case EFI_ALLOCATE_ADDRESS:

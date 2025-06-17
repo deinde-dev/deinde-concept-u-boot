@@ -459,9 +459,8 @@ int bootmeth_common_read_file(struct udevice *dev, struct bootflow *bflow,
 
 		if (!IS_ENABLED(CONFIG_LMB))
 			return log_msg_ret("brf", -ENOTSUPP);
-		addr = lmb_alloc(size, align);
-
-		if (!addr)
+		if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, align, &addr, size,
+				  LMB_NONE))
 			return -ENOSPC;
 		*addrp = addr;
 	}
