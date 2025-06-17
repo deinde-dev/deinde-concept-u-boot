@@ -406,7 +406,7 @@ static int imagemap_test_map_to_not_resized(struct unit_test_state *uts)
 	 * The caller's own reservation was never taken over by imagemap and
 	 * is still ours to release.
 	 */
-	lmb_free(dst_phys, NOT_RESIZED_DST);
+	lmb_free(dst_phys, NOT_RESIZED_DST, LMB_NONE);
 
 	return 0;
 }

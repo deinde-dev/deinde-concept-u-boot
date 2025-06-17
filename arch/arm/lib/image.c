@@ -314,7 +314,7 @@ int booti_check(ulong image, ulong size, ulong *relocated_addr, ulong *sizep)
 	 * Release the space so that setup_image() can reserve exactly what the
 	 * header says is needed, or move the Image if that is not possible
 	 */
-	lmb_free(image, alloc_size(size));
+	lmb_free(image, alloc_size(size), LMB_NONE);
 
 	return setup_image(image, relocated_addr, sizep, false, true);
 }

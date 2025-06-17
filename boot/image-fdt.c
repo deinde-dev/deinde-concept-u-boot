@@ -113,7 +113,7 @@ static void boot_fdt_handle_region(u64 addr, u64 size, u32 flags, bool free)
 
 	rsv_addr = (phys_addr_t)addr;
 	if (free)
-		ret = lmb_free_flags(rsv_addr, size, flags);
+		ret = lmb_free(rsv_addr, size, flags);
 	else
 		ret = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &rsv_addr, size,
 				    flags);
@@ -852,7 +852,7 @@ int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 
 	/* Delete the old LMB reservation */
 	if (IS_ENABLED(CONFIG_LMB) && lmb)
-		lmb_free(map_to_sysmem(blob), fdt_totalsize(blob));
+		lmb_free(map_to_sysmem(blob), fdt_totalsize(blob), LMB_NONE);
 
 	ret = fdt_shrink_to_minimum(blob, 0);
 	if (ret < 0)

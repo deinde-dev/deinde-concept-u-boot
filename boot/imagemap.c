@@ -125,7 +125,7 @@ imagemap_record(struct udevice *dev, loff_t img_offset, ulong size,
 		 */
 		if (r->lmb_reserved && r->ram != ram)
 			lmb_free(map_to_sysmem(r->ram),
-				 ALIGN(r->size, ARCH_DMA_MINALIGN));
+				 ALIGN(r->size, ARCH_DMA_MINALIGN), LMB_NONE);
 
 		r->size = size;
 		r->ram = ram;
@@ -249,7 +249,8 @@ void *imagemap_map(struct udevice *dev, loff_t img_offset, ulong size)
 			old_addr = map_to_sysmem(r->ram);
 			addr = old_addr;
 
-			lmb_free(addr, ALIGN(old_size, ARCH_DMA_MINALIGN));
+			lmb_free(addr, ALIGN(old_size, ARCH_DMA_MINALIGN),
+				 LMB_NONE);
 
 			/* Try to re-reserve at the same address with new size */
 			if (lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr,
@@ -277,7 +278,7 @@ void *imagemap_map(struct udevice *dev, loff_t img_offset, ulong size)
 			if (ret < 0) {
 				log_err("imagemap: read failed at offset 0x%llx (size 0x%lx): %d\n",
 					(unsigned long long)img_offset, size, ret);
-				lmb_free(addr, alloc_size);
+				lmb_free(addr, alloc_size, LMB_NONE);
 				return ERR_PTR(ret);
 			}
 			r->size = read_size;
@@ -302,12 +303,12 @@ void *imagemap_map(struct udevice *dev, loff_t img_offset, ulong size)
 	if (ret < 0) {
 		log_err("imagemap: read failed at offset 0x%llx (size 0x%lx): %d\n",
 			(unsigned long long)img_offset, size, ret);
-		lmb_free(addr, alloc_size);
+		lmb_free(addr, alloc_size, LMB_NONE);
 		return ERR_PTR(ret);
 	}
 
 	if (!imagemap_record(dev, base_off, read_size, base, true)) {
-		lmb_free(addr, alloc_size);
+		lmb_free(addr, alloc_size, LMB_NONE);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -352,7 +353,8 @@ void imagemap_cleanup(struct udevice *dev)
 	alist_for_each(r, &priv->regions) {
 		if (r->lmb_reserved)
 			lmb_free(map_to_sysmem(r->ram),
-				 ALIGN(r->size, ARCH_DMA_MINALIGN));
+				 ALIGN(r->size, ARCH_DMA_MINALIGN),
+				 LMB_NONE);
 	}
 
 	alist_uninit(&priv->regions);

@@ -48,7 +48,7 @@ static int decomp_direct(int ctype, ulong ld, ulong comp_len, ulong *destp,
 			   map_sysmem(dest, size), map_sysmem(ld, 0), comp_len,
 			   size, &end);
 	if (ret) {
-		lmb_free(dest, size);
+		lmb_free(dest, size, LMB_NONE);
 		return ret;
 	}
 	*destp = dest;

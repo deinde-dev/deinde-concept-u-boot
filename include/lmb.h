@@ -182,7 +182,7 @@ int lmb_alloc_random(phys_size_t size, ulong align, u32 flags, ulong rnd,
 int lmb_is_reserved_flags(phys_addr_t addr, int flags);
 
 /**
- * lmb_free_flags() - Free up a region of memory
+ * lmb_free() - Free up a region of memory
  * @base: Base Address of region to be freed
  * @size: Size of the region to be freed
  * @flags: Memory region attributes
@@ -191,9 +191,7 @@ int lmb_is_reserved_flags(phys_addr_t addr, int flags);
  *
  * The return value can be -EFAULT when the region has not been allocated.
  */
-long lmb_free_flags(phys_addr_t base, phys_size_t size, uint flags);
-
-long lmb_free(phys_addr_t base, phys_size_t size);
+long lmb_free(phys_addr_t base, phys_size_t size, u32 flags);
 
 void lmb_dump_all(void);
 void lmb_dump_all_force(void);

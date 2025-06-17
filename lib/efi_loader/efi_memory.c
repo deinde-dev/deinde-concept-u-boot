@@ -462,7 +462,7 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 	ret = efi_update_memory_map(addr, pages, memory_type, true, false);
 	if (ret != EFI_SUCCESS) {
 		/* Map would overlap, bail out */
-		lmb_free_flags(addr, (u64)pages << EFI_PAGE_SHIFT, flags);
+		lmb_free(addr, (u64)pages << EFI_PAGE_SHIFT, flags);
 		if (type == EFI_ALLOCATE_ADDRESS)
 			return EFI_NOT_FOUND;
 		return EFI_OUT_OF_RESOURCES;
@@ -505,7 +505,7 @@ static efi_status_t efi_free_pages_(uint64_t memory, efi_uintn_t pages)
 	}
 
 	len = (u64)pages << EFI_PAGE_SHIFT;
-	status = lmb_free_flags(memory, len, LMB_NOOVERWRITE);
+	status = lmb_free(memory, len, LMB_NOOVERWRITE);
 	if (status)
 		return EFI_NOT_FOUND;
 
