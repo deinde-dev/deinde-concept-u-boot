@@ -418,7 +418,12 @@ int board_late_init(void)
 	if (IS_ENABLED(CONFIG_FASTBOOT)) {
 		status |= !lmb_alloc(FASTBOOT_BUF_SIZE, &addr) ?
 			env_set_hex("fastboot_addr_r", addr) : 1;
-		/* override loadaddr for memory rich soc */
+		/*
+		 * Override loadaddr for memory rich soc since ${loadaddr} and
+		 * ${kernel_addr_r} need to be different for the Android boot image
+		 * flow. It's typically safe for ${loadaddr} to be the same address
+		 * as the fastboot buffer.
+		 */
 		status |= env_set_hex("loadaddr", addr);
 	}
 
