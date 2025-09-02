@@ -202,6 +202,13 @@ static int fit_calc_size(struct imgtool *itl)
 		total_size += size;
 	}
 
+	if (itl->fit_tfa_bl31) {
+		size = imagetool_get_filesize(itl, itl->fit_tfa_bl31);
+		if (size < 0)
+			return -1;
+		total_size += size;
+	}
+
 	for (cont = itl->content_head; cont; cont = cont->next) {
 		size = imagetool_get_filesize(itl, cont->fname);
 		if (size < 0)
@@ -459,6 +466,29 @@ static int fit_write_images(struct imgtool *itl, char *fdt)
 		fdt_end_node(fdt);
 	}
 
+	/* And a TFA BL31 file if available */
+	if (itl->fit_tfa_bl31) {
+		fdt_begin_node(fdt, FIT_TFA_BL31_PROP "-1");
+
+		fdt_property_string(fdt, FIT_TYPE_PROP, FIT_TFA_BL31_PROP);
+		fdt_property_string(fdt, FIT_OS_PROP,
+				    genimg_get_os_short_name(itl->os));
+		fdt_property_string(fdt, FIT_ARCH_PROP,
+				    genimg_get_arch_short_name(itl->arch));
+		get_basename(str, sizeof(str), itl->fit_tfa_bl31);
+		fdt_property_string(fdt, FIT_DESC_PROP, str);
+
+		ret = fdt_property_file(itl, fdt, itl->fit_tfa_bl31, NULL);
+		if (ret)
+			return ret;
+		fdt_property_u32(fdt, FIT_LOAD_PROP, itl->fit_tfa_bl31_addr);
+		fdt_property_u32(fdt, FIT_ENTRY_PROP, itl->fit_tfa_bl31_addr);
+		fit_add_hash_or_sign(itl, fdt, true);
+		if (ret)
+			return ret;
+		fdt_end_node(fdt);
+	}
+
 	fdt_end_node(fdt);
 
 	return 0;
@@ -533,6 +563,10 @@ static void fit_write_configs(struct imgtool *itl, char *fdt)
 		snprintf(str, sizeof(str), "%s-1", typename);
 		fdt_property_string(fdt, typename, str);
 
+		if (itl->fit_tfa_bl31)
+			fdt_property_string(fdt, FIT_LOADABLE_PROP,
+					    FIT_TFA_BL31_PROP "-1");
+
 		if (itl->fit_ramdisk)
 			fdt_property_string(fdt, FIT_RAMDISK_PROP,
 					    FIT_RAMDISK_PROP "-1");
@@ -554,6 +588,10 @@ static void fit_write_configs(struct imgtool *itl, char *fdt)
 		typename = genimg_get_type_short_name(itl->fit_image_type);
 		snprintf(str, sizeof(str), "%s-1", typename);
 		fdt_property_string(fdt, typename, str);
+
+		if (itl->fit_tfa_bl31)
+			fdt_property_string(fdt, FIT_LOADABLE_PROP,
+					    FIT_TFA_BL31_PROP "-1");
 
 		if (itl->fit_ramdisk)
 			fdt_property_string(fdt, FIT_RAMDISK_PROP,

@@ -112,6 +112,8 @@ struct imgtool {
 	bool reset_timestamp;	/* Reset the timestamp on an existing image */
 	struct image_summary summary;	/* results of signing process */
 	bool load_only;		/* true to create a load-only FIT */
+	char *fit_tfa_bl31;	/* TFA BL31 file to include */
+	unsigned int fit_tfa_bl31_addr;	/* TFA BL31 load and entry point address */
 };
 
 /** struct imgtool_funcs - image-type-specific variables and callbacks */
