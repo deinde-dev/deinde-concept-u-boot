@@ -45,6 +45,9 @@ else
 obj-$(CONFIG_FRAMEWORK) += spl.o
 obj-$(CONFIG_OF_LIBFDT) += bootm-fdt.o
 endif
+ifndef CONFIG_ARM64
+obj-$(CONFIG_BOOTM_OPTEE) += bootm-optee.o
+endif
 ifdef CONFIG_ARM64
 obj-$(CONFIG_USE_ARCH_MEMSET) += memset-arm64.o
 obj-$(CONFIG_USE_ARCH_MEMCPY) += memcpy-arm64.o
