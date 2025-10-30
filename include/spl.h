@@ -283,6 +283,9 @@ struct spl_image_info {
 #if IS_ENABLED(CONFIG_LOAD_FIT) || IS_ENABLED(CONFIG_LOAD_FIT_FULL)
 	void *fdt_addr;
 #endif
+#if defined(CONFIG_BOOTM_OPTEE) && defined(CONFIG_ARM) && !defined(CONFIG_ARM64)
+	ulong optee_addr;
+#endif
 	u32 boot_device;
 	u32 offset;
 	u32 size;
