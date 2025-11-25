@@ -114,6 +114,8 @@ struct imgtool {
 	bool load_only;		/* true to create a load-only FIT */
 	char *fit_tfa_bl31;	/* TFA BL31 file to include */
 	unsigned int fit_tfa_bl31_addr;	/* TFA BL31 load and entry point address */
+	char *fit_tee;		/* TEE file to include */
+	unsigned int fit_tee_addr;	/* TEE load and entry point address */
 };
 
 /** struct imgtool_funcs - image-type-specific variables and callbacks */

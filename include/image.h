@@ -1394,6 +1394,7 @@ int booti_check(ulong image, ulong size, ulong *relocated_addr, ulong *sizep);
 #define FIT_LOAD_ONLY_PROP	"load-only"
 #define FIT_COMPATIBLE_PROP	"compatible"
 #define FIT_TFA_BL31_PROP	"tfa-bl31"
+#define FIT_TEE_PROP		"tee"
 
 #define FIT_MAX_HASH_LEN	HASH_MAX_DIGEST_SIZE
 
