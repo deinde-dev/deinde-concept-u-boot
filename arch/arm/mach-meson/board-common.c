@@ -30,6 +30,7 @@ __weak int board_init(void)
 	return 0;
 }
 
+#ifndef CONFIG_SPL_BUILD
 int dram_init(void)
 {
 	const fdt64_t *val;
@@ -49,6 +50,7 @@ int dram_init(void)
 
 	return 0;
 }
+#endif
 
 __weak int meson_ft_board_setup(void *blob, struct bd_info *bd)
 {
