@@ -16,6 +16,10 @@ obj-$(CONFIG_EFI_LOADER) += efi_state.o
 obj-$(CONFIG_EFI_LOADER) += efi_variable.o
 obj-$(CONFIG_EFI_SECURE_BOOT) += efi_image_region.o
 obj-$(CONFIG_EFI_LOG) += efi_log.o
+ifdef CONFIG_RISCV
+obj-$(CONFIG_USE_PRIVATE_LIBGCC) += test_clz.o
+obj-$(CONFIG_USE_PRIVATE_LIBGCC) += test_ctz.o
+endif
 obj-y += hexdump.o
 obj-$(CONFIG_JSON) += json.o
 obj-$(CONFIG_SANDBOX) += kconfig.o
