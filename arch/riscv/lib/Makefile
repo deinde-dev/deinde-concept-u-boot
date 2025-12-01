@@ -6,6 +6,8 @@
 # Copyright (C) 2017 Andes Technology Corporation
 # Rick Chen, Andes Technology Corporation <rick@andestech.com>
 
+lib-$(CONFIG_USE_PRIVATE_LIBGCC) += clz.o ctz.o
+
 obj-$(CONFIG_LIB_BOOTM) += bootm.o
 obj-$(CONFIG_LIB_BOOTI) += image.o
 obj-$(CONFIG_CMD_GO) += boot.o
