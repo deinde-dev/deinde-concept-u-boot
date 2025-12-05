@@ -7,6 +7,7 @@ Toradex
    :maxdepth: 2
 
    apalis-imx8
+   aquila-am69
    aquila-imx95
    colibri_imx7
    colibri-imx8x
