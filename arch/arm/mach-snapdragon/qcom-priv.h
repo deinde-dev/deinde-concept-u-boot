@@ -3,8 +3,6 @@
 #ifndef __QCOM_PRIV_H__
 #define __QCOM_PRIV_H__
 
-#include <stdbool.h>
-
 /**
  * enum qcom_boot_source - Track where we got loaded from.
  * Used for capsule update logic.
@@ -25,6 +23,6 @@ void qcom_configure_capsule_updates(void);
 void qcom_configure_capsule_updates(void) {}
 #endif /* EFI_HAVE_CAPSULE_SUPPORT */
 
-void qcom_parse_memory(bool fdt_is_internal);
+int qcom_parse_memory(const void *fdt);
 
 #endif /* __QCOM_PRIV_H__ */

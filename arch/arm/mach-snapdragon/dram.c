@@ -10,44 +10,11 @@
 #include <dm.h>
 #include <log.h>
 #include <sort.h>
-#include <soc/qcom/smem.h>
-
-#define SMEM_USABLE_RAM_PARTITION_TABLE 402
-#define RAM_PART_NAME_LENGTH            16
-#define RAM_NUM_PART_ENTRIES            32
-#define CATEGORY_SDRAM 0x0E
-#define TYPE_SYSMEM 0x01
 
 static struct {
 	phys_addr_t start;
 	phys_size_t size;
 } prevbl_ddr_banks[CONFIG_NR_DRAM_BANKS] __section(".data") = { 0 };
-
-struct smem_ram_ptable_hdr {
-	u32 magic[2];
-	u32 version;
-	u32 reserved;
-	u32 len;
-} __packed;
-
-struct smem_ram_ptn {
-	char name[RAM_PART_NAME_LENGTH];
-	u64 start;
-	u64 size;
-	u32 attr;
-	u32 category;
-	u32 domain;
-	u32 type;
-	u32 num_partitions;
-	u32 reserved[3];
-	u32 reserved2[2]; /* The struct grew by 8 bytes at some point */
-} __packed;
-
-struct smem_ram_ptable {
-	struct smem_ram_ptable_hdr hdr;
-	u32 reserved;     /* Added for 8 bytes alignment of header */
-	struct smem_ram_ptn parts[RAM_NUM_PART_ENTRIES];
-} __packed;
 
 int dram_init(void)
 {
@@ -81,10 +48,6 @@ static void qcom_configure_dram(void)
 	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		gd->dram[i].start = prevbl_ddr_banks[i].start;
 		gd->dram[i].size = prevbl_ddr_banks[i].size;
-		debug("Bank[%d]: start = %#011llx, size = %#011llx\n",
-		      i, gd->dram[i].start, gd->dram[i].size);
-		if (!prevbl_ddr_banks[i].size)
-			break;
 	}
 }
 
@@ -95,49 +58,48 @@ int dram_init_banksize(void)
 	return 0;
 }
 
-/* Parse memory map from SMEM, return the number of entries */
-static int qcom_parse_memory_smem(phys_addr_t *ram_end)
+/**
+ * The generic memory parsing code in U-Boot lacks a few things that we
+ * need on Qualcomm:
+ *
+ * 1. It sets gd->ram_size and gd->ram_base to represent a single memory block
+ * 2. setup_dest_addr() later relocates U-Boot to ram_base + ram_size, the end
+ *    of that first memory block.
+ *
+ * This results in all memory beyond U-Boot being unusable in Linux when booting
+ * with EFI.
+ *
+ * Since the ranges in the memory node may be out of order, the only way for us
+ * to correctly determine the relocation address for U-Boot is to parse all
+ * memory regions and find the highest valid address.
+ *
+ * We can't use fdtdec_setup_memory_banksize() since it stores the result in
+ * gd->bd, which is not yet allocated.
+ *
+ * @fdt: FDT blob to parse /memory node from
+ *
+ * Return: 0 on success or -ENODATA if /memory node is missing or incomplete
+ */
+int qcom_parse_memory(const void *fdt)
 {
-	size_t size;
-	int i, j = 0, ret;
-	struct smem_ram_ptable *ram_ptable;
-	struct smem_ram_ptn *p;
+	int offset;
+	const fdt64_t *memory;
+	int memsize;
+	phys_addr_t ram_end = 0;
+	int i, j, banks;
 
-	ret = qcom_smem_init();
-	if (ret) {
-		debug("Failed to initialize SMEM: %d.\n", ret);
-		return ret;
-	}
+	offset = fdt_path_offset(fdt, "/memory");
+	if (offset < 0)
+		return -ENODATA;
 
-	ram_ptable = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_USABLE_RAM_PARTITION_TABLE, &size);
-	if (!ram_ptable) {
-		debug("Failed to find SMEM partition.\n");
-		return -ENODEV;
-	}
+	memory = fdt_getprop(fdt, offset, "reg", &memsize);
+	if (!memory)
+		return -ENODATA;
 
-	/* Check validy of RAM */
-	for (i = 0; i < RAM_NUM_PART_ENTRIES && j < CONFIG_NR_DRAM_BANKS; i++) {
-		p = &ram_ptable->parts[i];
-		if (p->category != CATEGORY_SDRAM || p->type != TYPE_SYSMEM)
-			continue;
-		if (!p->size && !p->start)
-			break;
+	banks = min(memsize / (2 * sizeof(u64)), (ulong)CONFIG_NR_DRAM_BANKS);
 
-		prevbl_ddr_banks[j].start = p->start;
-		prevbl_ddr_banks[j].size = p->size;
-		*ram_end = max(*ram_end, prevbl_ddr_banks[j].start + prevbl_ddr_banks[j].size);
-		j++;
-	}
-
-	if (j == CONFIG_NR_DRAM_BANKS)
-		log_err("SMEM: More than CONFIG_NR_DRAM_BANKS (%u) entries!", CONFIG_NR_DRAM_BANKS);
-
-	return j;
-}
-
-static void qcom_parse_memory_dt(const fdt64_t *memory, int banks, phys_addr_t *ram_end)
-{
-	int i, j;
+	if (memsize / sizeof(u64) > CONFIG_NR_DRAM_BANKS * 2)
+		log_err("Provided more than the max of %d memory banks\n", CONFIG_NR_DRAM_BANKS);
 
 	if (banks > CONFIG_NR_DRAM_BANKS)
 		log_err("Provided more memory banks than we can handle\n");
@@ -145,70 +107,21 @@ static void qcom_parse_memory_dt(const fdt64_t *memory, int banks, phys_addr_t *
 	for (i = 0, j = 0; i < banks * 2; i += 2, j++) {
 		prevbl_ddr_banks[j].start = get_unaligned_be64(&memory[i]);
 		prevbl_ddr_banks[j].size = get_unaligned_be64(&memory[i + 1]);
-		/* SM8650 boards sometimes have empty regions! */
 		if (!prevbl_ddr_banks[j].size) {
 			j--;
 			continue;
 		}
-		*ram_end = max(*ram_end, prevbl_ddr_banks[j].start + prevbl_ddr_banks[j].size);
-	}
-}
-
-/*
- * Parse the memory layout from FDT or SMEM:
- *
- * If using an internal FDT (where the memory map must have
- * been written by hand) then we prefer using the layout from
- * there. This allows overriding SMEM.
- *
- * If using an external FDT (coming from ABL), we prefer SMEM
- * since it is likely to be more accurate / simple, especially
- * on newer platforms.
- *
- * If SMEM parsing fails, we always try to fall back to FDT.
- *
- */
-void qcom_parse_memory(bool fdt_is_internal)
-{
-	ofnode node;
-	const fdt64_t *memory;
-	int memsize;
-	phys_addr_t ram_end = 0;
-	int banks;
-
-	node = ofnode_path("/memory");
-	if (!ofnode_valid(node)) {
-		log_err("No memory node found in device tree!\n");
-		return;
-	}
-	memory = ofnode_read_prop(node, "reg", &memsize);
-	if (!memory) {
-		log_err("No memory configuration was provided by the previous bootloader!\n");
-		return;
+		ram_end = max(ram_end, prevbl_ddr_banks[j].start + prevbl_ddr_banks[j].size);
 	}
 
-	banks = min(memsize / (2 * sizeof(u64)), (ulong)CONFIG_NR_DRAM_BANKS);
-
-	if (memsize / sizeof(u64) > CONFIG_NR_DRAM_BANKS * 2)
-		log_err("Provided more than the max of %d memory banks\n", CONFIG_NR_DRAM_BANKS);
-
-	qcom_parse_memory_dt(memory, banks, &ram_end);
-
-	/*
-	 * If using an internal FDT but the memory node is empty
-	 * then fall back to SMEM.
-	 */
-	if (!prevbl_ddr_banks[0].size && fdt_is_internal) {
-		banks = qcom_parse_memory_smem(&ram_end);
-		if (banks < 0)
-			panic("Couldn't find a valid memory map!\n");
-	}
+	if (!banks || !prevbl_ddr_banks[0].size)
+		return -ENODATA;
 
 	/* Sort our RAM banks -_- */
 	qsort(prevbl_ddr_banks, banks, sizeof(prevbl_ddr_banks[0]), ddr_bank_cmp);
 
 	gd->ram_base = prevbl_ddr_banks[0].start;
 	gd->ram_size = ram_end - gd->ram_base;
-	debug("%d banks, ram_base = %#011lx, ram_size = %#011llx, ram_end = %#011llx\n",
-	      banks, gd->ram_base, gd->ram_size, ram_end);
+
+	return 0;
 }
