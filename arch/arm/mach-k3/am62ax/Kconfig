@@ -55,7 +55,6 @@ config TARGET_AM62D2_A53_EVM
 	bool "TI K3 based AM62D2 EVM running on A53"
 	select ARM64
 	select BINMAN
-	select OF_SYSTEM_SETUP
 	imply BOARD
 	imply SPL_BOARD
 	imply TI_I2C_BOARD_DETECT
