@@ -7,6 +7,7 @@
 
 #include <bootstage.h>
 #include <malloc.h>
+#include <spl.h>
 #include <asm/global_data.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
@@ -39,7 +40,9 @@ static int test_bootstage_mark(struct unit_test_state *uts)
 	ut_asserteq(BOOTSTAGE_ID_USER + 50, rec->id);
 	ut_asserteq_str("test_stage_mark", rec->name);
 	ut_asserteq(time, rec->time_us);
-	ut_asserteq(0, rec->flags);
+	ut_asserteq(0, rec->flags & ~BOOTSTAGEF_PHASE_MASK);
+	ut_asserteq(PHASE_BOARD_F << BOOTSTAGEF_PHASE_SHIFT,
+		    rec->flags & BOOTSTAGEF_PHASE_MASK);
 	ut_asserteq(time, bootstage_get_time(BOOTSTAGE_ID_USER + 50));
 
 	/* A mark is not an accumulator, so it never counts a run */
@@ -71,7 +74,7 @@ static int test_bootstage_error(struct unit_test_state *uts)
 	ut_asserteq(BOOTSTAGE_ID_USER + 51, rec->id);
 	ut_asserteq_str("test_error", rec->name);
 	ut_asserteq(time, rec->time_us);
-	ut_asserteq(BOOTSTAGEF_ERROR, rec->flags);
+	ut_asserteq(BOOTSTAGEF_ERROR, rec->flags & ~BOOTSTAGEF_PHASE_MASK);
 
 	/* Restore the original count */
 	bootstage_set_rec_count(count);

@@ -20,6 +20,14 @@
 enum bootstage_flags {
 	BOOTSTAGEF_ERROR	= 1 << 0,	/* Error record */
 	BOOTSTAGEF_ALLOC	= 1 << 1,	/* Allocate an id */
+
+	/*
+	 * Phase which created the record, an enum xpl_phase_t. Records are
+	 * kept separate for each phase, so that an ID used in more than one
+	 * does not have its times merged
+	 */
+	BOOTSTAGEF_PHASE_SHIFT	= 2,
+	BOOTSTAGEF_PHASE_MASK	= 7 << BOOTSTAGEF_PHASE_SHIFT,
 };
 
 /* bootstate sub-IDs used for kernel and ramdisk ranges */

@@ -100,15 +100,49 @@ int bootstage_relocate(void *to, int size)
 	return 0;
 }
 
+/**
+ * bootstage_phase() - Find the phase which records are made against
+ *
+ * An ID can be used in more than one phase: dm_spl, for example, runs in both
+ * TPL and SPL. Recording the phase in each record keeps those apart, so that
+ * the report shows what each phase cost rather than their total.
+ *
+ * U-Boot proper counts as a single phase, since an accumulator can be started
+ * before relocation and finished after it.
+ *
+ * This and bootstage_phase_flags() run for every record, so they are not
+ * traced, which keeps them from cluttering the function graph
+ *
+ * Return: current phase (enum xpl_phase_t)
+ */
+static notrace int bootstage_phase(void)
+{
+	enum xpl_phase_t phase = xpl_phase();
+
+	return phase == PHASE_BOARD_R ? PHASE_BOARD_F : phase;
+}
+
+/**
+ * bootstage_phase_flags() - Get the flag bits for the current phase
+ *
+ * Return: current phase, shifted ready to go into a record's flags
+ */
+static notrace int bootstage_phase_flags(void)
+{
+	return bootstage_phase() << BOOTSTAGEF_PHASE_SHIFT;
+}
+
 struct bootstage_record *find_id(struct bootstage_data *data,
 				 enum bootstage_id id)
 {
+	int phase = bootstage_phase_flags();
 	struct bootstage_record *rec;
 	struct bootstage_record *end;
 
 	for (rec = data->record, end = rec + data->rec_count; rec < end;
 	     rec++) {
-		if (rec->id == id)
+		if (rec->id == id &&
+		    (rec->flags & BOOTSTAGEF_PHASE_MASK) == phase)
 			return rec;
 	}
 
@@ -125,6 +159,7 @@ struct bootstage_record *ensure_id(struct bootstage_data *data,
 		rec = &data->record[data->rec_count++];
 		rec->id = id;
 		rec->run_cnt = 0;
+		rec->flags = bootstage_phase_flags();
 		return rec;
 	}
 
@@ -154,7 +189,7 @@ ulong bootstage_add_record(enum bootstage_id id, const char *name,
 			rec = &data->record[data->rec_count++];
 			rec->time_us = mark;
 			rec->name = name;
-			rec->flags = flags;
+			rec->flags = flags | bootstage_phase_flags();
 			rec->id = id;
 			rec->run_cnt = 0;
 		} else {
@@ -326,6 +361,7 @@ static const char *get_record_name(char *buf, int len,
 static uint32_t print_time_record(struct bootstage_record *rec, uint32_t prev)
 {
 	char buf[20];
+	int phase;
 
 	if (prev == -1U) {
 		printf("%11s", "");
@@ -337,6 +373,15 @@ static uint32_t print_time_record(struct bootstage_record *rec, uint32_t prev)
 		print_grouped_ull(rec->time_us - prev, BOOTSTAGE_DIGITS);
 	}
 	printf("  %s", get_record_name(buf, sizeof(buf), rec));
+
+	/*
+	 * Say which phase made the record, so that an ID used in several of
+	 * them can be told apart. U-Boot proper is left unmarked, being the
+	 * common case
+	 */
+	phase = (rec->flags & BOOTSTAGEF_PHASE_MASK) >> BOOTSTAGEF_PHASE_SHIFT;
+	if (phase && phase != PHASE_BOARD_F)
+		printf(" [%s]", xpl_name(phase));
 
 	/*
 	 * For an accumulator, show how often it ran and the average cost of
