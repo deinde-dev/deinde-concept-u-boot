@@ -1183,6 +1183,17 @@ config SPL_OF_LIBFDT_ASSUME_MASK
 	  0xff means all assumptions are made and any invalid data may cause
 	  unsafe execution. See FDT_ASSUME_PERFECT, etc. in libfdt_internal.h
 
+config SPL_OF_PRERELOC_FAST
+	bool "Speed up devicetree access in SPL"
+	depends on SPL_OF_LIBFDT
+	help
+	  Enable the same optimisations as OF_PRERELOC_FAST, but for SPL.
+
+	  SPL uses a devicetree trimmed to the nodes it needs, so there are
+	  far fewer of them than in U-Boot proper. Each read is slow enough
+	  that cutting their number is still worthwhile, but this adds about
+	  100 bytes to SPL.
+
 config TPL_OF_LIBFDT
 	bool "Enable the FDT library for TPL"
 	depends on TPL_LIBGENERIC_SUPPORT
@@ -1204,6 +1215,17 @@ config TPL_OF_LIBFDT_ASSUME_MASK
 	  are made, and libfdt is able to deal with malicious data. A value of
 	  0xff means all assumptions are made and any invalid data may cause
 	  unsafe execution. See FDT_ASSUME_PERFECT, etc. in libfdt_internal.h
+
+config TPL_OF_PRERELOC_FAST
+	bool "Speed up devicetree access in TPL"
+	depends on TPL_OF_LIBFDT
+	help
+	  Enable the same optimisations as OF_PRERELOC_FAST, but for TPL.
+
+	  TPL uses a devicetree trimmed to the nodes it needs, so there are
+	  even fewer of them than in SPL, but each read is still slow enough
+	  that cutting their number is worthwhile. This adds about 100 bytes
+	  to TPL.
 
 config VPL_OF_LIBFDT
 	bool "Enable the FDT library for VPL"
