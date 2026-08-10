@@ -707,7 +707,8 @@ stages:
           python3 -m venv /tmp/venv
           . /tmp/venv/bin/activate
           pip install -r tools/binman/requirements.txt -r tools/dtoc/requirements.txt \
-            -r tools/buildman/requirements.txt
+            -r tools/buildman/requirements.txt \
+            -r board/qualcomm/requirements.txt
           if [[ "${BUILDMAN}" != "" ]]; then
               ret=0;
               buildman -o /tmp -PEWM ${BUILDMAN} ${OVERRIDE} || ret=$?;
