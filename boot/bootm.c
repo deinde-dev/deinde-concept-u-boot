@@ -837,13 +837,25 @@ static int bootm_load_os(struct bootm_info *bmi, int boot_progress)
 		  genimg_get_type_short_name(os.type),
 		  genimg_get_os_short_name(os.type),
 		  genimg_get_comp_short_name(os.comp));
+	image_buf = map_sysmem(os.image_start, image_len);
+
 	/*
 	 * For a "noload" compressed kernel we need to allocate a buffer large
 	 * enough to decompress in to and use that as the load address now.
+	 * When the compressed stream records its uncompressed size, allocate
+	 * exactly that, capped at CONFIG_SYS_BOOTM_LEN since the value is
+	 * attacker-controlled. Otherwise resolve_os_comp_buf() falls back to
+	 * an 8x multiplier.
 	 */
 	if (os.type == IH_TYPE_KERNEL_NOLOAD && os.comp) {
+		ulong hdr_size;
 		int ret;
 
+		if (!bmi->kern_comp_size &&
+		    !image_decomp_size(os.comp, image_buf, image_len,
+				       &hdr_size) &&
+		    hdr_size && hdr_size <= bootm_len())
+			bmi->kern_comp_size = ALIGN(hdr_size, SZ_1M);
 		if (!bmi->os_size)
 			bmi->os_size = image_len;
 		ret = resolve_os_comp_buf(bmi);
@@ -860,7 +872,6 @@ static int bootm_load_os(struct bootm_info *bmi, int boot_progress)
 		  image_start, image_len);
 
 	load_buf = map_sysmem(load, 0);
-	image_buf = map_sysmem(os.image_start, image_len);
 	if (os.type == IH_TYPE_KERNEL_NOLOAD && os.comp) {
 		decomp_len = bmi->kern_comp_size;
 		decomp_limit = BOOTM_DECOMP_LIMIT_PER_IMAGE;
