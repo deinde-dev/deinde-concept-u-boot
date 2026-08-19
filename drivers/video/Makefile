@@ -24,6 +24,7 @@ obj-$(CONFIG_VIDEO) += video-uclass.o vidconsole-uclass.o
 obj-$(CONFIG_VIDEO) += video_bmp.o
 obj-$(CONFIG_PANEL) += panel-uclass.o
 obj-$(CONFIG_PANEL_HX8238D) += hx8238d.o
+obj-$(CONFIG_PANEL_STARTEK_KD070FHFID015) += panel-startek-kd070fhfid015.o
 obj-$(CONFIG_SIMPLE_PANEL) += simple_panel.o
 
 obj-$(CONFIG_BMP) += bmp.o

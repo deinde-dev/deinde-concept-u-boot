@@ -1794,6 +1794,12 @@ F:	include/bloblist.h
 F:	include/stdpass/
 F:	test/common/bloblist.c
 
+STARTEK KD070FHFID015 PANEL
+M:	Julien Stephan <jstephan@baylibre.com>
+R:	GSS_MTK_Uboot_upstream <GSS_MTK_Uboot_upstream@mediatek.com>
+S:	Maintained
+F:	drivers/video/panel-startek-kd070fhfid015.c
+
 TARGET_BCMNS3
 M:	Rayagonda Kokatanur <rayagonda.kokatanur@broadcom.com>
 S:	Maintained
