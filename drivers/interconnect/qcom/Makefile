@@ -4,4 +4,5 @@
 #
 
 obj-$(CONFIG_INTERCONNECT_QCOM_RPMH) += icc-rpmh.o bcm-voter.o
+obj-$(CONFIG_INTERCONNECT_QCOM_SC7280) += sc7280.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SM8650) += sm8650.o
