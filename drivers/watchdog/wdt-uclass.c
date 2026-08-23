@@ -281,12 +281,21 @@ static int wdt_pre_probe(struct udevice *dev)
 	return 0;
 }
 
+/*
+ * The cyclic_info that wdt_start() registered lives inside this device's uclass
+ * private data, which device_free() releases as soon as the device is removed.
+ * Take it off the cyclic list first, or the next schedule() walks a freed node
+ * and calls through whatever has since been allocated over it.
+ */
 static int wdt_pre_remove(struct udevice *dev)
 {
 	struct wdt_priv *priv = dev_get_uclass_priv(dev);
 
-	if (IS_ENABLED(CONFIG_WATCHDOG) && priv->running)
-		cyclic_unregister(&priv->cyclic);
+	if (!IS_ENABLED(CONFIG_WATCHDOG) || !priv || !priv->running)
+		return 0;
+
+	cyclic_unregister(&priv->cyclic);
+	priv->running = false;
 
 	return 0;
 }
