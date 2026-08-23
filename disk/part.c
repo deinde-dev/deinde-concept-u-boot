@@ -340,7 +340,6 @@ static void print_part_header(const char *type, struct blk_desc *desc)
 #if IS_ENABLED(CONFIG_MAC_PARTITION) || \
 	IS_ENABLED(CONFIG_DOS_PARTITION) || \
 	IS_ENABLED(CONFIG_ISO_PARTITION) || \
-	IS_ENABLED(CONFIG_AMIGA_PARTITION) || \
 	IS_ENABLED(CONFIG_EFI_PARTITION) || \
 	IS_ENABLED(CONFIG_MTD_PARTITIONS)
 	printf("\nPartition Map for %s device %d  --   Partition Type: %s\n\n",
