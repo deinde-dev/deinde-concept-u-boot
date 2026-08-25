@@ -477,6 +477,8 @@ struct bootm_headers {
 
 	/* true if this is a load-only FIT with no OS */
 	bool no_os;
+
+	struct udevice *imagemap;	/* on-demand storage loader, or NULL */
 };
 
 extern struct bootm_headers images;
