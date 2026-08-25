@@ -163,10 +163,12 @@ static int cmd_test_nand_base(struct unit_test_state *uts)
 	/*
 	 * The bad-block table is scanned the first time a block of a chip is
 	 * queried and that sets NAND_BBT_SCANNED in the options, so query
-	 * both chips here to report the same whatever has run before
+	 * all chips here to report the same whatever has run before
 	 */
 	ut_assertok(run_command("nand bad", 0));
 	ut_assertok(run_command("nand device 1", 0));
+	ut_assertok(run_command("nand bad", 0));
+	ut_assertok(run_command("nand device 2", 0));
 	ut_assertok(run_command("nand bad", 0));
 	ut_assertok(run_command("nand device 0", 0));
 	console_record_reset();
@@ -191,15 +193,24 @@ static int cmd_test_nand_base(struct unit_test_state *uts)
 	ut_assert_nextline("  subpagesize       4096 b");
 	ut_assert_nextline("  options       0x40005200");
 	ut_assert_nextline("  bbt options   0x00000000");
+	ut_assert_nextline("Device 2: nand2, sector size 8 KiB");
+	ut_assert_nextline("  Page size          512 b");
+	ut_assert_nextline("  OOB size            16 b");
+	ut_assert_nextline("  Erase size        8192 b");
+	ut_assert_nextline("  ecc strength         1 bits");
+	ut_assert_nextline("  ecc step size      256 b");
+	ut_assert_nextline("  subpagesize        512 b");
+	ut_assert_nextline("  options       0x40000300");
+	ut_assert_nextline("  bbt options   0x00000000");
 	ut_assert_console_end();
 
 	/*
 	 * The geometry variables describe the last chip printed rather than
 	 * the current device
 	 */
-	ut_asserteq_str("1000", env_get("nand_writesize"));
-	ut_asserteq_str("e0", env_get("nand_oobsize"));
-	ut_asserteq_str("80000", env_get("nand_erasesize"));
+	ut_asserteq_str("200", env_get("nand_writesize"));
+	ut_asserteq_str("10", env_get("nand_oobsize"));
+	ut_asserteq_str("2000", env_get("nand_erasesize"));
 
 	return 0;
 }
