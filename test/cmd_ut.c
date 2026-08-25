@@ -77,6 +77,7 @@ SUITE_DECL(pci_mps);
 SUITE_DECL(pxe);
 SUITE_DECL(seama);
 SUITE_DECL(setexpr);
+SUITE_DECL(imagemap);
 SUITE_DECL(upl);
 
 static struct suite suites[] = {
@@ -110,6 +111,7 @@ static struct suite suites[] = {
 	SUITE(pxe, "PXE/extlinux parser tests"),
 	SUITE(seama, "seama command parameters loading and decoding"),
 	SUITE(setexpr, "setexpr command"),
+	SUITE(imagemap, "imagemap on-demand storage loading"),
 	SUITE(upl, "Universal payload support"),
 };
 
