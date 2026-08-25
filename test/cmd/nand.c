@@ -179,8 +179,8 @@ static int cmd_test_nand_base(struct unit_test_state *uts)
 	ut_assert_nextline("  Erase size        8192 b");
 	ut_assert_nextline("  ecc strength         1 bits");
 	ut_assert_nextline("  ecc step size      256 b");
-	ut_assert_nextline("  subpagesize        256 b");
-	ut_assert_nextline("  options       0x40000100");
+	ut_assert_nextline("  subpagesize        512 b");
+	ut_assert_nextline("  options       0x40000300");
 	ut_assert_nextline("  bbt options   0x00000000");
 	ut_assert_nextline("Device 1: nand1, sector size 512 KiB");
 	ut_assert_nextline("  Page size         4096 b");
@@ -188,8 +188,8 @@ static int cmd_test_nand_base(struct unit_test_state *uts)
 	ut_assert_nextline("  Erase size      524288 b");
 	ut_assert_nextline("  ecc strength         4 bits");
 	ut_assert_nextline("  ecc step size      512 b");
-	ut_assert_nextline("  subpagesize       1024 b");
-	ut_assert_nextline("  options       0x40005000");
+	ut_assert_nextline("  subpagesize       4096 b");
+	ut_assert_nextline("  options       0x40005200");
 	ut_assert_nextline("  bbt options   0x00000000");
 	ut_assert_console_end();
 
