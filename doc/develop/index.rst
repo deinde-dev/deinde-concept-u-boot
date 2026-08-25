@@ -34,6 +34,7 @@ Implementation
 
    directories
    bloblist
+   imagemap
    bootstd/index
    chid
    ci_testing
