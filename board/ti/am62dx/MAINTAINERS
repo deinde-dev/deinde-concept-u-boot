@@ -1,4 +1,4 @@
-AM62Dx BOARD
+AUDIO-AM62D-EVM BOARD
 M:	Vignesh Raghavendra <vigneshr@ti.com>
 M:	Bryan Brattlof <bb@ti.com>
 S:	Maintained
