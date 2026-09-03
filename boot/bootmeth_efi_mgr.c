@@ -209,7 +209,8 @@ static int efi_mgr_boot(struct udevice *dev, struct bootflow *bflow)
 			ret = efi_bootmgr_run(EFI_FDT_USE_INTERNAL);
 	}
 	if (ret != EFI_SUCCESS)
-		return log_msg_ret("run", -EIO);
+		return log_msg_ret("mgr",
+				   ret == EFI_NOT_FOUND ? -ENOENT : -EIO);
 
 	return 0;
 }
