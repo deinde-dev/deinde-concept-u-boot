@@ -642,6 +642,7 @@ int video_get_ysize(struct udevice *dev)
 	return priv->ysize;
 }
 
+#if IS_ENABLED(CONFIG_VIDEO_LOGO)
 void *video_get_u_boot_logo(int *sizep)
 {
 	void *ptr;
@@ -653,6 +654,7 @@ void *video_get_u_boot_logo(int *sizep)
 
 	return ptr;
 }
+#endif
 
 int video_default_font_height(struct udevice *dev)
 {
