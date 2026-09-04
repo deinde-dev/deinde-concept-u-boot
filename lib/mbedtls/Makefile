@@ -11,6 +11,9 @@ obj-$(CONFIG_SHA1_MBEDTLS) += sha1.o
 obj-$(CONFIG_SHA256_MBEDTLS) += sha256.o
 obj-$(CONFIG_SHA512_MBEDTLS) += sha512.o
 
+# shim layer for ecdsa verify
+obj-$(CONFIG_ECDSA_VERIFY_MBEDTLS) += ecdsa.o
+
 # x509 libraries
 obj-$(CONFIG_ASYMMETRIC_PUBLIC_KEY_MBEDTLS) += \
 	public_key.o
