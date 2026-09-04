@@ -10,6 +10,7 @@ obj-y += abuf.o
 obj-y += alist.o
 obj-$(CONFIG_DDR5_SPD) += ddr5_spd.o
 obj-$(CONFIG_BACKTRACE) += backtrace.o
+obj-$(CONFIG_ECDSA_VERIFY_MBEDTLS) += ecdsa.o
 obj-$(CONFIG_EFI_LOADER) += efi_device_path.o
 obj-$(CONFIG_EFI_LOADER) += efi_state.o
 obj-$(CONFIG_EFI_LOADER) += efi_variable.o
