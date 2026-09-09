@@ -61,6 +61,7 @@ Implementation
    printf
    smbios
    spl
+   splash
    falcon
    std_passage
    uefi/index
