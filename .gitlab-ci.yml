@@ -331,14 +331,14 @@ docs:
     - make htmldocs KDOC_WERROR=1
     - make infodocs
 
-# ensure all configs have MAINTAINERS entries
-Check for configs without MAINTAINERS entry:
+Check all configs are in MAINTAINERS and validate MAINTAINERS:
   extends: .test_suites
   script:
     - python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r tools/buildman/requirements.txt
     - buildman --maintainer-check
+    - ./scripts/check_maintainers_files.sh
 
 # Ensure host tools build
 Build allyesconfig, tools-only and envtools:
