@@ -660,7 +660,7 @@ F:	drivers/mmc/msm_sdhci.c
 F:	drivers/phy/qcom/
 F:	drivers/serial/serial_msm.c
 F:	drivers/serial/serial_msm_geni.c
-F:	drivers/smem/msm_smem.c
+F:	drivers/soc/qcom/smem.c
 F:	drivers/spmi/spmi-msm.c
 F:	drivers/usb/host/ehci-msm.c
 N:	qcom
@@ -1036,7 +1036,7 @@ EMULATION
 M:	Simon Glass <sjg@chromium.org>
 S:	Maintained
 W:	https://docs.u-boot.org/en/latest/board/emulation/script.html
-F:	configs/qemu_x86*
+F:	configs/qemu-x86*
 F:	doc/board/emulation/script.rst
 F:	scripts/build-qemu
 F:	scripts/build_helper.py
@@ -1793,7 +1793,7 @@ F:	common/bloblist.c
 F:	doc/develop/std_passage.rst
 F:	include/bloblist.h
 F:	include/stdpass/
-F:	test/bloblist.c
+F:	test/common/bloblist.c
 
 TARGET_BCMNS3
 M:	Rayagonda Kokatanur <rayagonda.kokatanur@broadcom.com>
