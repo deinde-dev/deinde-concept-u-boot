@@ -139,6 +139,7 @@ obj-y += linux_compat.o
 obj-y += linux_string.o
 obj-$(CONFIG_LMB) += lmb.o
 obj-y += membuf.o
+obj-$(CONFIG_LIB_QRCODE) += qrcodegen.o
 obj-$(CONFIG_REGEX) += slre.o
 obj-y += string.o
 obj-y += tables_csum.o
