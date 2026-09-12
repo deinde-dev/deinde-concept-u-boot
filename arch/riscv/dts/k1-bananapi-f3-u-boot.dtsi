@@ -127,6 +127,16 @@
 	};
 };
 
+&emmc {
+	bootph-pre-ram;
+	max-frequency = <204800000>;
+};
+
+&sdhci0 {
+	bootph-pre-ram;
+	max-frequency = <204800000>;
+};
+
 &uart0 {
 	/*
 	 * TODO(sjg): experiment - the k1 clk driver reports 24MHz for the
