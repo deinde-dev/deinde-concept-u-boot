@@ -1302,6 +1302,7 @@ int booti_check(ulong image, ulong size, ulong *relocated_addr, ulong *sizep);
 #define FIT_CIPHER_NODENAME	"cipher"
 #define FIT_IV_HINT		"iv-name-hint"
 #define FIT_IV_PROP		"iv"
+#define FIT_DATA_SIZE_UNCIPHERED_PROP	"data-size-unciphered"
 
 /* dm-verity node */
 #define FIT_VERITY_NODENAME	"dm-verity"
@@ -1325,6 +1326,7 @@ int booti_check(ulong image, ulong size, ulong *relocated_addr, ulong *sizep);
 #define FIT_DATA_POSITION_PROP	"data-position"
 #define FIT_DATA_OFFSET_PROP	"data-offset"
 #define FIT_DATA_SIZE_PROP	"data-size"
+#define FIT_IMAGE_DATA_PROP	"image-data"
 #define FIT_TIMESTAMP_PROP	"timestamp"
 #define FIT_DESC_PROP		"description"
 #define FIT_ARCH_PROP		"arch"
