@@ -1300,7 +1300,6 @@ int booti_check(ulong image, ulong size, ulong *relocated_addr, ulong *sizep);
 
 /* cipher node */
 #define FIT_CIPHER_NODENAME	"cipher"
-#define FIT_ALGO_PROP		"algo"
 
 /* dm-verity node */
 #define FIT_VERITY_NODENAME	"dm-verity"
