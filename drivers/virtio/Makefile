@@ -14,3 +14,4 @@ obj-$(CONFIG_VIRTIO_BLK) += virtio_blk.o
 obj-$(CONFIG_VIRTIO_RNG) += virtio_rng.o
 obj-$(CONFIG_VIRTIO_FS) += fs.o fs_dir.o fs_file.o fs_compat.o
 obj-$(CONFIG_VIRTIO_SCSI) += virtio_scsi.o
+obj-$(CONFIG_VIRTIO_9P) += virtio_9p.o
