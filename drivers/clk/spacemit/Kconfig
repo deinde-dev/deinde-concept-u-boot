@@ -17,6 +17,7 @@ config CLK_SPACEMIT_K1
 	select CLK_CCF
 	select LIB_RATIONAL
 	select SPL_REGMAP if SPL_CLK
+	select RESET_SPACEMIT_K1
 	help
 	  This enables support clock driver for Spacemit K1 SoC.
 	  It's based on Common Clock Framework.
