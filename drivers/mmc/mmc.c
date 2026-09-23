@@ -1008,7 +1008,8 @@ static int mmc_set_card_speed(struct mmc *mmc, enum bus_mode mode,
 		return err;
 
 #if IS_ENABLED(CONFIG_MMC_HS200_SUPPORT) || \
-    IS_ENABLED(CONFIG_MMC_HS400_SUPPORT)
+	IS_ENABLED(CONFIG_MMC_HS400_SUPPORT) || \
+	IS_ENABLED(CONFIG_MMC_HS400_ES_SUPPORT)
 	/*
 	 * In case the eMMC is in HS200/HS400 mode and we are downgrading
 	 * to HS mode, the card clock are still running much faster than
