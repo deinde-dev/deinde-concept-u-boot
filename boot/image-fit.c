@@ -1783,7 +1783,8 @@ static int fit_image_load_storage(struct bootm_headers *images, const void *fit,
 
 		if (!fit_image_get_type(fit, noffset, &img_type) &&
 		    img_type == IH_TYPE_FILESYSTEM &&
-		    fdt_subnode_offset(fit, noffset, "dm-verity") >= 0) {
+		    fdt_subnode_offset(fit, noffset,
+				       FIT_VERITY_NODENAME) >= 0) {
 			struct fit_print_ctx ctx;
 
 			fit_print_init(&ctx, fit);
