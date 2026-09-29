@@ -25,6 +25,7 @@ struct dhcp_handoff_test {
 	bool rx_burst;
 	unsigned int rx_packets;
 	int rx_error;
+	unsigned int discovers;
 	unsigned int arp_replies;
 	unsigned int tftp;
 	unsigned int nfs;
@@ -45,6 +46,13 @@ static int dhcp_handoff_reply(struct udevice *dev, struct dhcp_msg *request)
 	size_t len;
 
 	if (type != DHCP_DISCOVER && type != DHCP_REQUEST)
+		return 0;
+	/*
+	 * The short initial retransmit period lets lwIP's fine timer resend
+	 * DISCOVER on the first poll. Offer only once so that the receive
+	 * burst holds a known number of packets.
+	 */
+	if (test->rx_burst && type == DHCP_DISCOVER && test->discovers++)
 		return 0;
 	if (test->timeout) {
 		timer_test_add_offset(10001);
