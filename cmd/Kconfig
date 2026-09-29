@@ -2202,15 +2202,27 @@ config BOOTP_MAY_FAIL
 	  over to Link-local IP address configuration if the DHCP server is not
 	  available.
 
+endif  # CMD_BOOTP
+
+endif  # NET_LEGACY
+
 config BOOTP_BOOTPATH
 	bool "Request & store 'rootpath' from BOOTP/DHCP server"
 	default y
+	depends on CMD_BOOTP || CMD_DHCP
 	help
 	  Even though the config is called BOOTP_BOOTPATH, it stores the
 	  path in the variable 'rootpath'.
 
 config BOOTP_BOOTFILESIZE
-	bool "Request & store 'bootfilesize' from BOOTP/DHCP server"
+	bool "Request the boot file size from BOOTP/DHCP server"
+	depends on CMD_BOOTP || CMD_DHCP
+	help
+	  Save the expected file size in 512-byte blocks for download progress.
+
+if NET_LEGACY
+
+if CMD_BOOTP
 
 config BOOTP_DNS
 	bool "Request & store 'dnsip' from BOOTP/DHCP server"
@@ -2235,11 +2247,20 @@ config BOOTP_GATEWAY
 	bool "Request & store 'gatewayip' from BOOTP/DHCP server"
 	default y
 
+endif  # CMD_BOOTP
+
+endif  # NET_LEGACY
+
 config BOOTP_HOSTNAME
 	bool "Request & store 'hostname' from BOOTP/DHCP server"
 	default y
+	depends on CMD_BOOTP || CMD_DHCP
 	help
 	  The name may or may not be qualified with the local domain name.
+
+if NET_LEGACY
+
+if CMD_BOOTP
 
 config BOOTP_PREFER_SERVERIP
 	bool "serverip variable takes precedent over DHCP server IP."
@@ -2254,15 +2275,26 @@ config BOOTP_SUBNETMASK
 	bool "Request & store 'netmask' from BOOTP/DHCP server"
 	default y
 
+endif  # CMD_BOOTP
+
+endif  # NET_LEGACY
+
 config BOOTP_NISDOMAIN
-	bool "Request & store 'nisdomain' from BOOTP/DHCP server"
+	bool "Request & store 'domain' from BOOTP/DHCP server"
+	depends on CMD_BOOTP || CMD_DHCP
 
 config BOOTP_NTPSERVER
 	bool "Request & store 'ntpserverip' from BOOTP/DHCP server"
+	depends on CMD_BOOTP || CMD_DHCP
+	default y if NET_LWIP && CMD_SNTP
 
 config BOOTP_TIMEOFFSET
 	bool "Request & store 'timeoffset' from BOOTP/DHCP server"
-	depends on CMD_SNTP
+	depends on (CMD_BOOTP || CMD_DHCP) && CMD_SNTP
+
+if NET_LEGACY
+
+if CMD_BOOTP
 
 config BOOTP_PXE
 	bool "Send PXE client arch to BOOTP/DHCP server"
@@ -2293,12 +2325,21 @@ config BOOTP_PXE_DHCP_OPTION
 	default y
 	depends on BOOTP_PXE
 
+endif  # CMD_BOOTP
+
+endif  # NET_LEGACY
+
 config BOOTP_VCI_STRING
 	string
+	depends on CMD_BOOTP || CMD_DHCP
 	default "U-Boot.armv7" if CPU_V7A || CPU_V7M_V8M || CPU_V7R
 	default "U-Boot.armv8" if ARM64
 	default "U-Boot.arm" if ARM
 	default "U-Boot"
+
+if NET_LEGACY
+
+if CMD_BOOTP
 
 config BOOTP_RANDOM_XID
 	bool "Send random transaction ID to BOOTP/DHCP server"
