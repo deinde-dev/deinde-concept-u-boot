@@ -741,8 +741,10 @@ out:
  *
  * @pkt:	packet received by dhcp_handler()
  * @len:	length of the packet received
+ * @proxy:	optional direct ProxyDHCP reply from the same exchange
+ * @proxy_len:	length of the proxy reply, zero if absent
  */
-void efi_net_set_dhcp_ack(void *pkt, int len)
+void efi_net_set_dhcp_ack(void *pkt, int len, void *proxy, int proxy_len)
 {
 	struct efi_net *net = &efis->net;
 	struct efi_net_dhcp_entry *entry;
@@ -766,8 +768,18 @@ void efi_net_set_dhcp_ack(void *pkt, int len)
 		if (!*dhcp_ack)
 			return;
 	}
+	if (proxy && proxy_len > 0 && !entry->proxy_offer) {
+		entry->proxy_offer = malloc(maxsize);
+		if (!entry->proxy_offer)
+			return;
+	}
 	memset(*dhcp_ack, 0, maxsize);
 	memcpy(*dhcp_ack, pkt, min(len, maxsize));
+	entry->have_proxy = proxy && proxy_len > 0;
+	if (entry->have_proxy) {
+		memset(entry->proxy_offer, 0, maxsize);
+		memcpy(entry->proxy_offer, proxy, min(proxy_len, maxsize));
+	}
 
 	entry->is_valid = true;
 	entry->dev = dev;
@@ -795,7 +807,9 @@ void efi_net_get_dhcp_ack(struct udevice *dev, struct efi_pxe_mode *mode)
 	int i, j;
 
 	mode->dhcp_ack_received = false;
+	mode->proxy_offer_received = false;
 	memset(&mode->dhcp_ack, 0, sizeof(mode->dhcp_ack));
+	memset(&mode->proxy_offer, 0, sizeof(mode->proxy_offer));
 	i = (net->next_dhcp_entry + EFI_NET_MAX_DHCP_ENTRIES - 1) %
 		EFI_NET_MAX_DHCP_ENTRIES;
 	for (j = 0;
@@ -805,6 +819,11 @@ void efi_net_get_dhcp_ack(struct udevice *dev, struct efi_pxe_mode *mode)
 		if (dev == net->dhcp_cache[i].dev) {
 			mode->dhcp_ack = *net->dhcp_cache[i].dhcp_ack;
 			mode->dhcp_ack_received = true;
+			if (net->dhcp_cache[i].have_proxy) {
+				mode->proxy_offer =
+					*net->dhcp_cache[i].proxy_offer;
+				mode->proxy_offer_received = true;
+			}
 			break;
 		}
 	}
@@ -1747,6 +1766,9 @@ void efi_net_uninit_state(struct efi_net *net)
 	for (i = 0; i < EFI_NET_MAX_DHCP_ENTRIES; i++) {
 		free(net->dhcp_cache[i].dhcp_ack);
 		net->dhcp_cache[i].dhcp_ack = NULL;
+		free(net->dhcp_cache[i].proxy_offer);
+		net->dhcp_cache[i].proxy_offer = NULL;
+		net->dhcp_cache[i].have_proxy = false;
 		net->dhcp_cache[i].is_valid = false;
 	}
 }
