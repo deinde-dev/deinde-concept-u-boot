@@ -227,8 +227,11 @@ build all 32bit ARM platforms:
         -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
+      if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
+        T="-T $(( (q + p - 1) / p ))";
+      fi;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      buildman -o /tmp -PEWM arm -x aarch64 || ret=$?;
+      buildman ${T} -o /tmp -PEWM arm -x aarch64 || ret=$?;
       if [[ $ret -ne 0 ]]; then
         buildman -o /tmp -seP;
         exit $ret;
@@ -247,9 +250,12 @@ build all 64bit ARM platforms:
         -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
+      if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
+        T="-T $(( (q + p - 1) / p ))";
+      fi;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
       pip install -r tools/buildman/requirements.txt;
-      buildman -o /tmp -PEWM aarch64 || ret=$?;
+      buildman ${T} -o /tmp -PEWM aarch64 || ret=$?;
       if [[ $ret -ne 0 ]]; then
         buildman -o /tmp -seP;
         exit $ret;
@@ -268,8 +274,11 @@ build all PowerPC platforms:
         -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
+      if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
+        T="-T $(( (q + p - 1) / p ))";
+      fi;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      buildman -o /tmp -P -E -W powerpc || ret=$?;
+      buildman ${T} -o /tmp -P -E -W powerpc || ret=$?;
       if [[ $ret -ne 0 ]]; then
         buildman -o /tmp -seP;
         exit $ret;
@@ -294,8 +303,11 @@ build all other platforms:
         -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
+      if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
+        T="-T $(( (q + p - 1) / p ))";
+      fi;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      buildman -o /tmp -PEWM -x arm,powerpc,xtensa || ret=$?;
+      buildman ${T} -o /tmp -PEWM -x arm,powerpc,xtensa || ret=$?;
       if [[ $ret -ne 0 ]]; then
         buildman -o /tmp -seP;
         exit $ret;
