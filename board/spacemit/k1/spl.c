@@ -274,8 +274,16 @@ void pmic_init(void)
 	int ret;
 
 	ret = uclass_get_device(UCLASS_PMIC, 0, &pmic_dev);
-	if (ret)
-		panic("Fail to detect PMIC (%d)\n", ret);
+	if (ret) {
+		/*
+		 * Not every K1 board describes its PMIC to the SPL, and on some
+		 * the rails are already up when the SPL runs. Only boards whose
+		 * DDR bring-up depends on programming the bucks need one, so a
+		 * missing PMIC is not fatal here.
+		 */
+		log_info("No PMIC (%d), leaving rails as found\n", ret);
+		return;
+	}
 	set_vdd_core();
 	set_vdd_1v8();
 	set_vdd_mmc();
