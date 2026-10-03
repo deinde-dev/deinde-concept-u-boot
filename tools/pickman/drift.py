@@ -725,6 +725,41 @@ def build_patch(fdiffs, verdicts, states=(DRIFT,)):
     return '\n'.join(out) + '\n'
 
 
+def pick_boards(candidates, limit, preferred=None):
+    """Choose a few boards which between them build as many files as possible
+
+    This is a greedy set cover: take the board which builds the most files
+    not yet covered, and repeat.  Ties go to a preferred board, then to the
+    name which sorts first, so the choice is stable from one run to the next.
+
+    Args:
+        candidates (dict): Maps path to the set of boards which build it
+        limit (int): Most boards to choose
+        preferred (set of str): Boards to choose over others which build as
+            many files, e.g. those with a commonly installed toolchain
+
+    Return:
+        tuple:
+            list of str: Boards chosen
+            list of str: Paths which none of them builds
+    """
+    todo = {path: boards for path, boards in candidates.items() if boards}
+    chosen = []
+    while todo and len(chosen) < limit:
+        count = {}
+        for boards in todo.values():
+            for board in boards:
+                count[board] = count.get(board, 0) + 1
+        best = min(count, key=lambda board: (
+            -count[board], board not in (preferred or ()), board))
+        chosen.append(best)
+        todo = {path: boards for path, boards in todo.items()
+                if best not in boards}
+    left = sorted(set(todo) | {path for path, boards in candidates.items()
+                               if not boards})
+    return chosen, left
+
+
 def group_by_area(paths):
     """Group paths by the area of the tree they sit in
 

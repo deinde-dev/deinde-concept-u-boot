@@ -9,6 +9,7 @@
 from collections import namedtuple
 from datetime import date
 import fnmatch
+import json
 import os
 import re
 import sys
@@ -1244,6 +1245,28 @@ DEFAULT_BUILD_CMD = 'um build sandbox'
 # How many lines of a failed build to show; the first errors name the symbol
 BUILD_ERROR_LINES = 8
 
+# Builds boards which compile the reverted files, from the tree being fixed
+BUILDMAN = './tools/buildman/buildman'
+
+# Where those builds go; each board keeps its own directory, so that the
+# next revert in the same area builds incrementally
+BOARDS_DIR = os.path.join(tempfile.gettempdir(), 'pickman-drift-boards')
+
+# buildman's exit code when a board built with warnings but no errors
+BUILDMAN_WARNINGS = 101
+
+# Most boards to build for one area, beyond sandbox
+DEFAULT_MAX_BOARDS = 4
+
+# Architectures whose boards are chosen first, other things being equal,
+# since their toolchains are the ones most often installed
+PREFERRED_ARCHS = ('arm', 'riscv', 'x86')
+
+# Says which boards build some lines in the tree being fixed; this is the
+# copy beside pickman, since the tree may be too old to have the command
+CODMAN = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..',
+                      'codman', 'codman.py')
+
 
 def drift_build_cmd(args):
     """Work out the build command which checks a revert
@@ -1296,6 +1319,135 @@ def drift_build_ok(build_cmd):
     out = (res.combined or res.stderr or res.stdout or '')
     lines = [line for line in out.splitlines() if line.strip()]
     return False, chr(10).join(lines[:BUILD_ERROR_LINES])
+
+
+def drift_codman_boards(info, paths):
+    """Ask codman which boards build the lines each revert touches
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files being reverted
+
+    Return:
+        tuple:
+            dict: Maps each path to the set of boards which build its drift
+            set of str: Boards of a commonly used architecture
+    """
+    specs = []
+    for path in paths:
+        lines = []
+        for vdt in info.verdicts.get(path, []):
+            if vdt.state == drift.DRIFT:
+                hunk = vdt.hunk
+                lines += range(hunk.start, hunk.start + max(hunk.count, 1))
+        ranges = drift.line_ranges(lines)
+        specs += [f'{path}:{first}-{last}' for first, last in ranges] or [path]
+    candidates = {path: set() for path in paths}
+    preferred = set()
+    if not specs or not os.path.exists(CODMAN):
+        return candidates, preferred
+    res = command.run_one(CODMAN, 'boards', '--format', 'json', *specs,
+                          capture=True, capture_stderr=True,
+                          raise_on_error=False)
+    try:
+        found = json.loads(res.stdout or '[]')
+    except ValueError:
+        tout.warning(f'codman could not say which boards build these files: '
+                     f'{(res.stderr or "").strip()[:200]}')
+        return candidates, preferred
+    for entry in found:
+        for board, detail in entry['boards'].items():
+            candidates.setdefault(entry['path'], set()).add(board)
+            if detail['arch'] in PREFERRED_ARCHS:
+                preferred.add(board)
+    return candidates, preferred
+
+
+def drift_choose_boards(info, paths, limit):
+    """Choose boards to build, beyond sandbox, which compile some files
+
+    Sandbox builds very little driver or arch code, so a revert can pass
+    the build check and still break the board it was written for. codman
+    says which boards build the lines each revert touches, so a hunk inside
+    an '#ifdef' is checked on a board which has it on.
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files being reverted
+        limit (int): Most boards to choose
+
+    Return:
+        tuple:
+            list of str: Boards to build
+            list of str: Files which no board was found for, sandbox aside
+    """
+    found, preferred = drift_codman_boards(info, paths)
+    # Sandbox is built anyway by the build check
+    candidates = {path: boards for path, boards in found.items()
+                  if not any(board.startswith('sandbox') for board in boards)}
+    return drift.pick_boards(candidates, limit, preferred)
+
+
+def drift_build_boards(boards):
+    """Build some boards from the working tree with buildman
+
+    Args:
+        boards (list of str): Boards to build
+
+    Return:
+        dict: Maps each board which failed to the tail of its errors
+    """
+    failed = {}
+    for board in boards:
+        tout.info(f'  building {board} with buildman')
+        # --boards matches the name exactly; a bare name is a pattern, and
+        # one which matches more boards (e.g. a '-optee' variant) is refused
+        # with -w, so would look like a failed build
+        res = command.run_one(BUILDMAN, '-w', '-o',
+                              os.path.join(BOARDS_DIR, board), '--boards',
+                              board, capture=True, capture_stderr=True,
+                              raise_on_error=False)
+        # buildman exits with 100 for errors and 101 for warnings alone,
+        # which a missing binary blob counts as
+        if res.return_code not in (0, BUILDMAN_WARNINGS):
+            out = (res.stdout or '') + (res.stderr or '')
+            errors = [line for line in out.splitlines()
+                      if 'error' in line.lower()] or out.splitlines()
+            failed[board] = chr(10).join(errors[:BUILD_ERROR_LINES])
+    return failed
+
+
+def drift_check_boards(boards, paths):
+    """Check that a reverted working tree still builds some boards
+
+    A board which fails is built again without the revert, so that a board
+    which was already broken, or has no toolchain here, is not held against
+    the revert.
+
+    Args:
+        boards (list of str): Boards to build
+        paths (list of str): Files being reverted, to name in a failure
+
+    Return:
+        tuple:
+            dict: Maps each board the revert breaks to the tail of its errors
+            list of str: Reverted files which those errors name
+    """
+    failed = drift_build_boards(boards)
+    if not failed:
+        return {}, []
+    run_git(['stash'])
+    try:
+        before = drift_build_boards(list(failed))
+    finally:
+        run_git(['stash', 'pop'])
+    for board in sorted(before):
+        tout.warning(f'  {board} fails without the revert too, so it says '
+                     'nothing about it')
+        del failed[board]
+    text = chr(10).join(failed.values())
+    culprits = [path for path in paths if f'{path}:' in text]
+    return failed, culprits
 
 
 # Names searched for in one go, to keep the command line sane
@@ -2111,7 +2263,7 @@ def drift_decline_partial(info, area, paths, args):
 
 # pylint: disable-next=too-many-arguments,too-many-locals,too-many-branches
 def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
-                      build_cmd=None):
+                      build_cmd=None, max_boards=0):
     """Create a branch which reverts the drift in one area of the tree
 
     Args:
@@ -2124,15 +2276,33 @@ def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
             revert drift hunks
         build_cmd (str): Command to check the reverted tree builds, or None
             to commit without checking
+        max_boards (int): Most boards to build with buildman as well, since
+            the build command may not compile these files at all; 0 for none
 
     Return:
-        str: Name of the branch created, or None on failure
+        tuple:
+            str: Name of the branch created, or None on failure
+            list of str: Files which a failed board build names, so that the
+                rest can be tried again without them
     """
     name = ('missing-' if missing else 'drift-') + area.replace('/', '-')
     if gitutil.branch_exists(name):
         tout.info(f'Deleting existing branch {name}')
         gitutil.delete_branch(name)
     gitutil.create_branch(name, branch)
+
+    # Choose now, with the branch checked out, since the drift's line numbers
+    # are those of the branch rather than of whatever was checked out before
+    boards = []
+    if build_cmd and max_boards:
+        boards, unbuilt = drift_choose_boards(info, paths, max_boards)
+        if boards:
+            tout.info(f"  also building {', '.join(boards)}, which compile "
+                      'these files')
+        if unbuilt:
+            # Either no board builds these lines, or the limit left it out
+            tout.info(f'  {len(unbuilt)} file(s) not built by any of those, '
+                      f'e.g. {unbuilt[0]}')
 
     wanted = set(paths)
     fdiffs = [fdiff for fdiff in info.fdiffs if fdiff.path in wanted]
@@ -2153,7 +2323,7 @@ def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
         except Exception as exc:  # pylint: disable=broad-except
             what = 'restore' if missing else 'revert drift in'
             tout.error(f'Failed to {what} {area}: {exc}')
-            return None
+            return None, []
         finally:
             os.unlink(pname)
 
@@ -2166,23 +2336,32 @@ def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
     # left where it is
     # Check before committing: a revert can remove something another file
     # still uses, and the identifier check cannot see every such name
+    culprits = []
+    errors = None
     if build_cmd:
         built, errors = drift_build_ok(build_cmd)
-        if not built:
-            tout.error(f'{area}: the revert does not build, so it is not '
-                       'worth a merge request:')
-            for line in errors.splitlines():
-                tout.error(f'    {line}')
-            # Put the working tree back and drop the branch, which has no
-            # commit on it yet
-            run_git(['reset', '--hard'])
-            gitutil.checkout_branch(branch)
-            gitutil.delete_branch(name)
-            return None
+        if built:
+            errors = None
+    if errors is None and boards:
+        broken, culprits = drift_check_boards(boards, paths)
+        if broken:
+            errors = chr(10).join(f'{board}: {text}'
+                                  for board, text in broken.items())
+    if errors is not None:
+        tout.error(f'{area}: the revert does not build, so it is not '
+                   'worth a merge request:')
+        for line in errors.splitlines():
+            tout.error(f'    {line}')
+        # Put the working tree back and drop the branch, which has no
+        # commit on it yet
+        run_git(['reset', '--hard'])
+        gitutil.checkout_branch(branch)
+        gitutil.delete_branch(name)
+        return None, culprits
 
     gitutil.add(paths)
     gitutil.commit_paths(msg or drift_commit_msg(area, paths, info), paths)
-    return name
+    return name, []
 
 
 def do_drift_fix(args, dbs):
@@ -2308,8 +2487,23 @@ def do_drift_fix(args, dbs):
                 if not paths:
                     continue
                 msg = drift_commit_msg(area, paths, info, whole)
-            name = drift_revert_area(info, area, paths, args.branch, msg,
-                                     missing, build_cmd)
+            max_boards = getattr(args, 'max_boards', DEFAULT_MAX_BOARDS)
+            name, culprits = drift_revert_area(info, area, paths, args.branch,
+                                               msg, missing, build_cmd,
+                                               max_boards)
+            if not name and culprits and len(culprits) < len(paths):
+                # The errors name the files at fault, so the rest of the
+                # area is still worth having
+                tout.warning(f'{area}: trying again without '
+                             f"{', '.join(culprits)}, which the errors name")
+                paths = [path for path in paths if path not in culprits]
+                if missing:
+                    msg = drift_absent_msg(area, paths, info, reasons)
+                else:
+                    msg = drift_commit_msg(area, paths, info, whole)
+                name, _ = drift_revert_area(info, area, paths, args.branch,
+                                            msg, missing, build_cmd,
+                                            max_boards)
             if not name:
                 ret = 1
                 continue

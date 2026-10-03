@@ -801,6 +801,20 @@ bytes being reverted - one test reads the first 32 bytes of the README and
 asserts them, so restoring a single leading space there builds fine and fails
 two tests.  A check which passes says the check passed, nothing more.
 
+Sandbox compiles very little driver or arch code, so a revert can pass that
+check and still break the board it was written for.  Pickman therefore also
+builds a few boards which do compile the reverted lines, with buildman from
+the tree being fixed.  It asks ``codman boards`` which boards build the lines
+each drift hunk touches: codman works this out from the Makefiles, qconfig's
+database and unifdef, without building anything, so a hunk inside an
+``#ifdef`` is checked on a board which has that option on.  Up to
+``--max-boards`` boards are chosen (default 4, 0 to skip) to cover as many
+files as possible, preferring ARM, RISC-V and x86 boards since their
+toolchains are the common ones.  A board which fails is built again without
+the revert, so that one which is already broken, or has no toolchain
+installed, is not held against it.  When the errors name some of the
+reverted files, the area is tried again without them.
+
 Drift is not always a mangled conflict resolution.  Sometimes an upstream
 commit never arrived at all, and the part of it in a file which otherwise
 arrived shows up as drift.  Reverting just that part can bring in code which
@@ -909,6 +923,8 @@ Options:
   drift therefore cannot be wanted; the safest first run
 - ``-p`` push each branch and open an MR for it
 - ``-s`` skip blaming touched files, matching a shallow ``drift`` run
+- ``--max-boards N`` most boards to build, beyond the build command, which
+  compile the reverted files (default 4, 0 to skip)
 - ``-r`` git remote for the push (default: ci)
 - ``-t`` target branch for the MR (default: master)
 

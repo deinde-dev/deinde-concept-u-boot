@@ -8,6 +8,7 @@
 
 import asyncio
 import argparse
+import json
 import os
 import shutil
 import sqlite3
@@ -9174,6 +9175,113 @@ class TestDriftPartial(unittest.TestCase):
                     info, 'drivers/clk', ['a.c', 'b.c'], args)
         self.assertEqual(paths, ['b.c'])
         self.assertIn('run: pickman pick ccccccccccc', stderr.getvalue())
+
+
+class TestDriftBoards(unittest.TestCase):
+    """Tests for building boards which compile the reverted files"""
+
+    def tearDown(self):
+        """Clean up test fixtures"""
+        command.TEST_RESULT = None
+
+    @staticmethod
+    def _info():
+        """Build a DriftInfo with drift in two hunks of one file"""
+        hunks = [drift.Hunk('a.c', 10, 3, [11], ['@@ -10,3 +10,3 @@'], 'f'),
+                 drift.Hunk('a.c', 40, 0, [], ['@@ -40,2 +39,0 @@'], 'g')]
+        return control.DriftInfo(
+            'a' * 40, [],
+            {'a.c': [drift.Verdict(hunk, drift.DRIFT, None)
+                     for hunk in hunks]}, [], set(), set(), 0, [], [])
+
+    def test_codman_boards(self):
+        """Test asking codman about the lines each revert touches"""
+        calls = []
+
+        def handle(pipe_list=None, **_):
+            calls.append(list(pipe_list[0]))
+            return command.CommandResult(stdout=json.dumps([
+                {'path': 'a.c', 'lines': [10, 12], 'note': None,
+                 'boards': {'x': {'arch': 'arm', 'phases': ['U-Boot']}}},
+                {'path': 'a.c', 'lines': [40, 40], 'note': None,
+                 'boards': {'y': {'arch': 'm68k', 'phases': ['SPL']}}}]))
+
+        command.TEST_RESULT = handle
+        with mock.patch.object(control.os.path, 'exists', return_value=True):
+            found, preferred = control.drift_codman_boards(self._info(),
+                                                           ['a.c'])
+        self.assertEqual(found, {'a.c': {'x', 'y'}})
+        self.assertEqual(preferred, {'x'})
+        # Each hunk's lines are asked about; one which only removes lines
+        # still names the line it sits at
+        self.assertEqual(calls[0][-2:], ['a.c:10-12', 'a.c:40-40'])
+
+    def test_codman_fails(self):
+        """Test that codman failing gives no boards rather than an error"""
+        command.TEST_RESULT = command.CommandResult(stdout='',
+                                                    stderr='oops',
+                                                    return_code=1)
+        with mock.patch.object(control.os.path, 'exists', return_value=True):
+            with terminal.capture():
+                found, _ = control.drift_codman_boards(self._info(), ['a.c'])
+        self.assertEqual(found, {'a.c': set()})
+
+    def test_pick_boards(self):
+        """Test choosing few boards which build many files"""
+        cands = {'a.c': {'x', 'y'}, 'b.c': {'y', 'z'}, 'c.c': {'w'},
+                 'd.c': set()}
+        self.assertEqual(drift.pick_boards(cands, 4),
+                         (['y', 'w'], ['d.c']))
+        self.assertEqual(drift.pick_boards(cands, 1),
+                         (['y'], ['c.c', 'd.c']))
+        # A preferred board wins a tie
+        self.assertEqual(drift.pick_boards({'a.c': {'m', 'n'}}, 1, {'n'}),
+                         (['n'], []))
+
+    def test_choose_skips_sandbox(self):
+        """Test that a file sandbox builds needs no other board"""
+        found = {'a.c': {'sandbox', 'x'}, 'b.c': {'y'}}
+        with mock.patch.object(control, 'drift_codman_boards',
+                               return_value=(found, set())):
+            self.assertEqual(control.drift_choose_boards(None, ['a.c', 'b.c'],
+                                                         4),
+                             (['y'], []))
+
+    def test_check_boards_blames_files(self):
+        """Test that a board the revert breaks names the file at fault"""
+        calls = []
+
+        def build(boards):
+            calls.append(list(boards))
+            if len(calls) == 1:
+                return {'x': 'drivers/clk/a.c:3:1: error: no member',
+                        'y': 'toolchain not found'}
+            # Without the revert, only y still fails
+            return {'y': 'toolchain not found'}
+
+        with mock.patch.object(control, 'drift_build_boards',
+                               side_effect=build), \
+                mock.patch.object(control, 'run_git') as run_git:
+            with terminal.capture():
+                broken, culprits = control.drift_check_boards(
+                    ['x', 'y'], ['drivers/clk/a.c', 'drivers/clk/b.c'])
+        self.assertEqual(list(broken), ['x'])
+        self.assertEqual(culprits, ['drivers/clk/a.c'])
+        self.assertEqual(calls[1], ['x', 'y'])
+        run_git.assert_any_call(['stash'])
+        run_git.assert_any_call(['stash', 'pop'])
+
+    def test_build_boards_warnings_pass(self):
+        """Test that warnings alone, such as a missing blob, pass"""
+        command.TEST_RESULT = command.CommandResult(
+            stdout='Missing blob', return_code=control.BUILDMAN_WARNINGS)
+        with terminal.capture():
+            self.assertEqual(control.drift_build_boards(['x']), {})
+        command.TEST_RESULT = command.CommandResult(
+            stdout='a.c:1: error: oops', return_code=100)
+        with terminal.capture():
+            self.assertEqual(control.drift_build_boards(['x']),
+                             {'x': 'a.c:1: error: oops'})
 
 
 class TestClaudeCli(unittest.TestCase):
