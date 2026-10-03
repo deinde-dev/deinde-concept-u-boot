@@ -31,6 +31,7 @@ sys.path.append(os.path.join(our_path, '..'))
 from u_boot_pylib import terminal, tools, tout
 
 # Import analysis modules
+import boards
 import dwarf
 import lsp
 import multiboard
@@ -619,6 +620,17 @@ def parse_args(argv=None):
     # query info - database statistics
     query_sub.add_parser('info', help='Show database statistics')
 
+    # boards command - which boards build a file, without building
+    brd = subparsers.add_parser(
+        'boards',
+        help='Find the boards which build a file or lines, without building')
+    brd.add_argument('specs', nargs='+', metavar='FILE[:LINE[-LINE]]',
+                     help='File, optionally with a line or range of lines')
+    brd.add_argument('--arch', type=str,
+                     help='Only show boards of this architecture')
+    brd.add_argument('--format', choices=['table', 'list', 'json'],
+                     default='table', help='Output format (default: table)')
+
     args = parser.parse_args(argv)
 
     # Default command is stats
@@ -775,6 +787,8 @@ def main(argv=None):
         return multiboard.do_scan(args)
     if args.cmd == 'query':
         return multiboard.do_query(args)
+    if args.cmd == 'boards':
+        return boards.do_boards(args)
 
     srcdir, build_dir = do_build(args)
     all_srcs, used, skipped = select_sources(srcdir, build_dir, args.filter,
