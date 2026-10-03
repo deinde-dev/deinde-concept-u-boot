@@ -22,6 +22,7 @@ ifdef CONFIG_SANDBOX
 obj-$(CONFIG_TKEY) += tkey_emul.o
 obj-$(CONFIG_TKEY) += tkey_sandbox.o
 endif
+obj-$(CONFIG_SANDBOX) += spi_eeprom_emul.o
 endif
 
 ifdef CONFIG_DM_I2C
