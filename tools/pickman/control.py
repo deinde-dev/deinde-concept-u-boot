@@ -1822,6 +1822,189 @@ def drift_absent_reason(dbs, source_id, paths):
     return found
 
 
+def drift_cited(source, branch):
+    """Collect the upstream commits which downstream cherry-picks name
+
+    Args:
+        source (str): Source branch name, e.g. 'us/main'
+        branch (str): Downstream branch, e.g. 'ci/master'
+
+    Return:
+        set of str: Hashes from '(cherry picked from commit ...)' lines, as
+            written, so possibly abbreviated
+    """
+    fork = gitutil.merge_base(branch, source)
+    cited = set()
+    for _, body in gitutil.log_bodies(f'{fork}..{branch}', no_merges=True):
+        cited.update(RE_CHERRY_PICK.findall(body))
+    return cited
+
+
+def drift_arrived(chash, branch, cited):
+    """Check whether an upstream commit has reached the downstream branch
+
+    Args:
+        chash (str): Full hash of the upstream commit
+        branch (str): Downstream branch
+        cited (set of str): Result from drift_cited()
+
+    Return:
+        bool: True if the branch has the commit, merged or cherry-picked
+    """
+    if chash in cited or any(len(ref) < 40 and chash.startswith(ref)
+                             for ref in cited):
+        return True
+    return gitutil.is_ancestor(chash, branch)
+
+
+def drift_remover(hunk, path, rng):
+    """Find the upstream commit which removed the lines a hunk adds
+
+    Blame says who wrote a line, not who deleted one, so a hunk which only
+    adds lines downstream - lines upstream has since dropped - has nothing
+    to blame.  Searching upstream for the longest of those lines finds the
+    commit which took it away.
+
+    Args:
+        hunk (Hunk): Hunk to examine
+        path (str): File the hunk is in
+        rng (str): Upstream range to search, e.g. 'fork..base'
+
+    Return:
+        str: Hash of the commit, or None if upstream never had the lines
+    """
+    lines = [line[1:].strip() for line in hunk.lines[1:]
+             if line.startswith('+')]
+    lines = [line for line in lines if len(line) >= drift.SIGNIFICANT_LEN]
+    if not lines:
+        return None
+    # A change and its revert can sit on a branch whose net effect is nil,
+    # which history simplification would hide; that is just the case here
+    out = command.output('git', 'log', '--full-history', '--format=%H', '-S',
+                         max(lines, key=len), rng, '--', path,
+                         raise_on_error=False)
+    found = out.split()
+    return found[0] if found else None
+
+
+def drift_origins(info, paths, rng):
+    """Find the upstream commits behind the hunks a revert puts back
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files to be reverted
+        rng (str): Upstream range to search for removals, e.g. 'fork..base'
+
+    Return:
+        dict: Maps path to the set of upstream hashes behind its drift
+    """
+    origins = {}
+    for path in paths:
+        lines = []
+        hashes = set()
+        for vdt in info.verdicts.get(path, []):
+            if vdt.state != drift.DRIFT:
+                continue
+            ups = drift.upstream_lines(vdt.hunk)
+            if ups:
+                lines += ups
+            else:
+                chash = drift_remover(vdt.hunk, path, rng)
+                if chash:
+                    hashes.add(chash)
+        if lines:
+            try:
+                out = gitutil.blame(info.base, path,
+                                    ranges=drift.line_ranges(lines))
+                hashes.update(match.group(1) for match in
+                              map(RE_BLAME_LINE.match, out.splitlines())
+                              if match)
+            except command.CommandExc:
+                pass
+        if hashes:
+            origins[path] = hashes
+    return origins
+
+
+def drift_missing_parts(chash, paths, branch):
+    """Find the files where an upstream commit's change is still missing
+
+    Args:
+        chash (str): Upstream commit
+        paths (set of str): Files the revert covers, which are left out
+        branch (str): Downstream branch
+
+    Return:
+        list of str: Other files the commit changes whose change is not on
+            the downstream branch
+    """
+    missing = []
+    for status, name in gitutil.commit_file_status(chash):
+        if name in paths or status == 'D':
+            continue
+        patch = command.output('git', 'show', '--format=', chash, '--', name,
+                               binary=True).decode('utf-8',
+                                                   errors='surrogateescape')
+        res = command.run_one('git', 'show', f'{branch}:{name}', capture=True,
+                              capture_stderr=True, raise_on_error=False,
+                              binary=True)
+        text = (res.stdout.decode('utf-8', errors='surrogateescape')
+                if not res.return_code else None)
+        if not drift.change_present(patch, text):
+            missing.append(name)
+    return missing
+
+
+def drift_partial(info, paths, source, branch):
+    """Find files whose revert would apply only part of an upstream commit
+
+    Drift is not always a mangled conflict resolution.  Sometimes an upstream
+    commit never arrived at all, and the half of it in a file which is
+    otherwise in step shows up as drift.  Reverting that half alone brings in
+    code which uses a struct member or function from the other half, which
+    does not build - or, worse, builds on sandbox and breaks a board.
+    Picking the commit brings the whole change instead.
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files to be reverted
+        source (str): Source branch name, e.g. 'us/main'
+        branch (str): Downstream branch, e.g. 'ci/master'
+
+    Return:
+        tuple:
+            dict: Maps each path to decline to a list of (hash, subject,
+                other files still missing) for the commits it would split
+            dict: Maps the hash of each commit the revert brings in whole,
+                which never arrived here, to its subject
+    """
+    origins = drift_origins(
+        info, paths, f'{gitutil.merge_base(branch, source)}..{info.base}')
+    if not origins:
+        return {}, {}
+    cited = drift_cited(source, branch)
+    want = set(paths)
+    partial = {}
+    whole = {}
+    seen = {}
+    for path, hashes in sorted(origins.items()):
+        for chash in sorted(hashes):
+            if chash not in seen:
+                if drift_arrived(chash, branch, cited):
+                    seen[chash] = None
+                else:
+                    seen[chash] = drift_missing_parts(chash, want, branch)
+            others = seen[chash]
+            if others is None:
+                continue
+            subj = gitutil.commit_summaries([chash])[0].split(' ', 1)[-1]
+            if others:
+                partial.setdefault(path, []).append((chash, subj, others))
+            else:
+                whole[chash] = subj
+    return partial, whole
+
+
 def drift_absent_msg(area, paths, info, reasons):
     """Compose the commit message for restoring files upstream has
 
@@ -1856,13 +2039,15 @@ def drift_absent_msg(area, paths, info, reasons):
     return chr(10).join(out)
 
 
-def drift_commit_msg(area, paths, info):
+def drift_commit_msg(area, paths, info, whole=None):
     """Compose the commit message for a revert of drift in one area
 
     Args:
         area (str): Area of the tree the revert covers, e.g. 'drivers/video'
         paths (list of str): Files being reverted
         info (DriftInfo): Result from drift_collect()
+        whole (dict): Maps the hash of each upstream commit which never
+            arrived, and which the revert brings in whole, to its subject
 
     Return:
         str: Commit message
@@ -1870,16 +2055,58 @@ def drift_commit_msg(area, paths, info):
     hunks = sum(sum(1 for vdt in info.verdicts.get(path, [])
                     if vdt.state == drift.DRIFT) for path in paths)
     files = '\n'.join(f' - {path}' for path in paths)
-    return (
+    msg = (
         f'{area}: Drop unintended deltas from upstream\n'
         '\n'
         'These deltas differ from upstream but no downstream commit accounts\n'
         'for them, so they crept in while cherry-picking, most likely through\n'
         'a conflict resolution.  Put the affected hunks back to what upstream\n'
         f'has at {info.base[:12]}\n'
-        '\n'
-        f'This reverts {hunks} hunk(s) in {len(paths)} file(s):\n'
-        f'{files}\n')
+        '\n')
+    if whole:
+        commits = '\n'.join(f' - {chash[:11]} {subj}'
+                             for chash, subj in sorted(whole.items()))
+        msg += ('Some of these lines come from upstream commits which never\n'
+                'arrived here, so this brings in their change as well:\n'
+                f'{commits}\n'
+                '\n')
+    return msg + (f'This reverts {hunks} hunk(s) in {len(paths)} file(s):\n'
+                  f'{files}\n')
+
+
+def drift_decline_partial(info, area, paths, args):
+    """Leave out the files whose revert would split an upstream commit
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        area (str): Area of the tree, e.g. 'drivers/clk'
+        paths (list of str): Files to revert
+        args (Namespace): Parsed arguments with 'source' and 'branch'
+
+    Return:
+        tuple:
+            list of str: The files still to revert
+            dict: Result from drift_partial() of the commits brought in whole
+    """
+    partial, whole = drift_partial(info, paths, args.source, args.branch)
+    if not partial:
+        return paths, whole
+    tout.warning(f'{area}: declining {len(partial)} file(s) which would '
+                 'apply only part of an upstream commit which never arrived:')
+    shown = sorted(partial.items())[:DECLINE_SHOWN]
+    for path, splits in shown:
+        chash, subj, others = splits[0]
+        tout.warning(f'  {path}: part of {chash[:11]} {subj}')
+        tout.warning(f'    its change to {len(others)} other file(s) is '
+                     f'missing too, e.g. {others[0]}')
+        tout.warning(f'    run: pickman pick {chash[:11]}')
+    if len(partial) > len(shown):
+        tout.warning(f'  ... and {len(partial) - len(shown)} more (showing '
+                     f'{len(shown)} of {len(partial)})')
+    paths = [path for path in paths if path not in partial]
+    if not paths:
+        tout.warning(f'{area}: nothing left to revert, skipping')
+    return paths, whole
 
 
 # pylint: disable-next=too-many-arguments,too-many-locals,too-many-branches
@@ -2077,7 +2304,10 @@ def do_drift_fix(args, dbs):
                            for path, rec in origin.items() if path in paths}
                 msg = drift_absent_msg(area, paths, info, reasons)
             else:
-                msg = drift_commit_msg(area, paths, info)
+                paths, whole = drift_decline_partial(info, area, paths, args)
+                if not paths:
+                    continue
+                msg = drift_commit_msg(area, paths, info, whole)
             name = drift_revert_area(info, area, paths, args.branch, msg,
                                      missing, build_cmd)
             if not name:

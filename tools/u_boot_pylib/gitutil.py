@@ -49,7 +49,7 @@ def diff(old, new, git_dir=None):
     return raw.decode('utf-8', errors='surrogateescape')
 
 
-def blame(rev, path, git_dir=None):
+def blame(rev, path, git_dir=None, ranges=None):
     """Get 'git blame --porcelain' output for a file
 
     Decoded with surrogateescape, so a file which is not UTF-8 does not raise.
@@ -59,12 +59,15 @@ def blame(rev, path, git_dir=None):
         path (str): File to blame
         git_dir (str): Directory containing git repo, or None for the current
             working directory
+        ranges (list of tuple): (first, last) line ranges to blame, or None
+            for the whole file
 
     Return:
         str: The porcelain blame output
     """
-    raw = command.output('git', 'blame', '--porcelain', rev, '--', path,
-                         cwd=git_dir, binary=True)
+    limits = [f'-L{first},{last}' for first, last in ranges or []]
+    raw = command.output('git', 'blame', '--porcelain', *limits, rev, '--',
+                         path, cwd=git_dir, binary=True)
     return raw.decode('utf-8', errors='surrogateescape')
 
 

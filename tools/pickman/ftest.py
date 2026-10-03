@@ -9041,6 +9041,141 @@ class TestAbsentOrigin(unittest.TestCase):
         self.assertEqual(partial, {})
 
 
+class TestDriftPartial(unittest.TestCase):
+    """Tests for finding a revert which splits an upstream commit"""
+
+    def tearDown(self):
+        """Clean up test fixtures"""
+        command.TEST_RESULT = None
+
+    def test_upstream_lines(self):
+        """Test finding the upstream lines a hunk puts back"""
+        hunk = drift.Hunk('a.c', 10, 3, [11],
+                          ['@@ -20,3 +10,3 @@', ' keep', '-upstream',
+                           '+downstream', ' keep', '-also upstream'], 'f')
+        self.assertEqual(drift.upstream_lines(hunk), [21, 23])
+
+    def test_upstream_lines_added_only(self):
+        """Test that a hunk which only adds lines puts nothing back"""
+        hunk = drift.Hunk('a.c', 1, 2, [2], ['@@ -1 +1,2 @@', ' x', '+y'],
+                          'f')
+        self.assertEqual(drift.upstream_lines(hunk), [])
+
+    def test_upstream_lines_bad_header(self):
+        """Test that a hunk without a valid header puts nothing back"""
+        hunk = drift.Hunk('a.c', 1, 1, [], ['@@ bad @@', '-upstream'], 'f')
+        self.assertEqual(drift.upstream_lines(hunk), [])
+
+    def test_line_ranges(self):
+        """Test collapsing line numbers into blame ranges"""
+        self.assertEqual(drift.line_ranges([7, 3, 4, 5, 9, 4]),
+                         [(3, 5), (7, 7), (9, 9)])
+        self.assertEqual(drift.line_ranges([]), [])
+
+    def test_change_present_added(self):
+        """Test that a change is present when its added lines are there"""
+        patch = ('--- a/x.h\n+++ b/x.h\n@@ -1 +1,2 @@\n'
+                 '+\tstruct udevice *dev;\n }\n')
+        self.assertTrue(drift.change_present(
+            patch, 'struct a {\n\tstruct udevice *dev;\n};\n'))
+        self.assertFalse(drift.change_present(patch, 'struct a {\n};\n'))
+
+    def test_change_present_removed(self):
+        """Test that a change which only removes lines is judged by them"""
+        patch = '@@ -1,2 +1 @@\n-\tstruct clk clk;\n bool probed;\n'
+        self.assertTrue(drift.change_present(patch, 'bool probed;\n'))
+        self.assertFalse(drift.change_present(
+            patch, 'bool probed;\n\tstruct clk clk;\n'))
+
+    def test_change_present_short_lines(self):
+        """Test that braces and blank lines say nothing either way"""
+        self.assertTrue(drift.change_present('+}\n+\n-{\n', 'other\n'))
+
+    def test_change_present_absent_file(self):
+        """Test that a missing file lacks whatever the commit added"""
+        self.assertFalse(drift.change_present('+int value_here;\n', None))
+        self.assertTrue(drift.change_present('-int value_here;\n', None))
+
+    def test_arrived(self):
+        """Test telling whether an upstream commit is downstream"""
+        full = 'a' * 40
+        with mock.patch.object(control.gitutil, 'is_ancestor',
+                               return_value=False):
+            self.assertTrue(control.drift_arrived(full, 'ci/master', {full}))
+            # A trailer may abbreviate the hash
+            self.assertTrue(control.drift_arrived(full, 'ci/master',
+                                                  {'a' * 12}))
+            self.assertFalse(control.drift_arrived(full, 'ci/master',
+                                                   {'b' * 40}))
+        with mock.patch.object(control.gitutil, 'is_ancestor',
+                               return_value=True):
+            self.assertTrue(control.drift_arrived(full, 'ci/master', set()))
+
+    def _partial(self, missing):
+        """Run drift_partial() with a.c's drift coming from one commit
+
+        Args:
+            missing (list of str): Other files whose change is missing
+
+        Return:
+            tuple: Result of drift_partial()
+        """
+        chash = 'c' * 40
+        with mock.patch.object(control, 'drift_origins',
+                               return_value={'a.c': {chash}}), \
+                mock.patch.object(control, 'drift_cited', return_value=set()), \
+                mock.patch.object(control.gitutil, 'merge_base',
+                                  return_value='f' * 40), \
+                mock.patch.object(control.gitutil, 'is_ancestor',
+                                  return_value=False), \
+                mock.patch.object(control, 'drift_missing_parts',
+                                  return_value=missing), \
+                mock.patch.object(control.gitutil, 'commit_summaries',
+                                  return_value=['ccccccc Add a member']):
+            info = control.DriftInfo('a' * 40, [], {}, [], set(), set(), 0,
+                                     [], [])
+            return control.drift_partial(info, ['a.c'], 'us/main',
+                                         'ci/master')
+
+    def test_partial(self):
+        """Test that a revert which splits a commit is reported"""
+        partial, whole = self._partial(['include/x.h'])
+        self.assertEqual(partial, {'a.c': [('c' * 40, 'Add a member',
+                                            ['include/x.h'])]})
+        self.assertEqual(whole, {})
+
+    def test_whole(self):
+        """Test that a commit the revert brings in entire is not partial"""
+        partial, whole = self._partial([])
+        self.assertEqual(partial, {})
+        self.assertEqual(whole, {'c' * 40: 'Add a member'})
+
+    def test_commit_msg_names_whole(self):
+        """Test that the commit message names commits brought in whole"""
+        info = control.DriftInfo('a' * 40, [], {}, [], set(), set(), 0, [],
+                                 [])
+        msg = control.drift_commit_msg('drivers/clk', ['a.c'], info,
+                                       {'c' * 40: 'Fix the thing'})
+        self.assertIn('never\narrived here', msg)
+        self.assertIn(' - ccccccccccc Fix the thing', msg)
+        self.assertNotIn('never', control.drift_commit_msg(
+            'drivers/clk', ['a.c'], info))
+
+    def test_decline_partial(self):
+        """Test that a split commit's file is left out, naming the pick"""
+        info = control.DriftInfo('a' * 40, [], {}, [], set(), set(), 0, [],
+                                 [])
+        args = argparse.Namespace(source='us/main', branch='ci/master')
+        split = {'a.c': [('c' * 40, 'Add a member', ['include/x.h'])]}
+        with mock.patch.object(control, 'drift_partial',
+                               return_value=(split, {})):
+            with terminal.capture() as (_, stderr):
+                paths, _ = control.drift_decline_partial(
+                    info, 'drivers/clk', ['a.c', 'b.c'], args)
+        self.assertEqual(paths, ['b.c'])
+        self.assertIn('run: pickman pick ccccccccccc', stderr.getvalue())
+
+
 class TestClaudeCli(unittest.TestCase):
     """Tests for finding and naming the Claude Code binary in use"""
 

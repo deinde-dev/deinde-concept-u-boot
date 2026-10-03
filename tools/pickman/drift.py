@@ -599,6 +599,102 @@ def survives_revert(hunks, name):
     return False
 
 
+def upstream_lines(hunk):
+    """Work out which upstream lines a hunk would put back
+
+    The diff runs from upstream to downstream, so a line the hunk removes is
+    one upstream has.  Reverting the hunk restores it, and blaming upstream
+    for it says which commit wrote it.
+
+    Args:
+        hunk (Hunk): Hunk to examine
+
+    Return:
+        list of int: Upstream line numbers of the lines the hunk removes
+    """
+    match = RE_HUNK_HEADER.match(hunk.lines[0])
+    if not match:
+        return []
+    lineno = int(match.group(1))
+    out = []
+    for line in hunk.lines[1:]:
+        if line.startswith('-'):
+            out.append(lineno)
+            lineno += 1
+        elif line.startswith('+') or line.startswith('\\'):
+            # An added line is downstream's alone, and '\ No newline at end
+            # of file' is a note about the line above
+            pass
+        else:
+            lineno += 1
+    return out
+
+
+def line_ranges(lines):
+    """Collapse line numbers into ranges, as 'git blame -L' takes them
+
+    Args:
+        lines (list of int): Line numbers, in any order
+
+    Return:
+        list of tuple: (first, last) for each run of consecutive lines
+    """
+    out = []
+    for num in sorted(set(lines)):
+        if out and num == out[-1][1] + 1:
+            out[-1] = (out[-1][0], num)
+        else:
+            out.append((num, num))
+    return out
+
+
+# Lines shorter than this, once stripped, say too little to be looked for
+SIGNIFICANT_LEN = 4
+
+
+def change_present(patch, text):
+    """Check whether a commit's change to a file is already in some text
+
+    A commit's change to one file is present if the lines it adds are there
+    and the lines it removes are gone.  Short lines - a brace, a blank, a
+    'break;' - turn up everywhere and say nothing, so only the longer ones
+    are counted.  This is a judgement rather than a proof, since a later
+    commit may have reworked the same lines: it answers 'did this arrive?',
+    not 'is this identical?'.
+
+    Args:
+        patch (str): The commit's diff for the file, as from 'git show'
+        text (str): The file's content in the tree being examined, or None if
+            the file is not there at all
+
+    Return:
+        bool: True if the change appears to be there
+    """
+    added = []
+    removed = []
+    for line in patch.splitlines():
+        if line.startswith(('+++', '---')):
+            continue
+        body = line[1:].strip()
+        if len(body) < SIGNIFICANT_LEN:
+            continue
+        if line.startswith('+'):
+            added.append(body)
+        elif line.startswith('-'):
+            removed.append(body)
+    if text is None:
+        # The file is absent, so whatever the commit added is missing too
+        return not added
+    have = {line.strip() for line in text.splitlines()}
+    if added:
+        found = sum(1 for line in added if line in have)
+        return found * 2 >= len(added)
+    if removed:
+        gone = sum(1 for line in removed if line not in have)
+        return gone * 2 >= len(removed)
+    return True
+
+
 def build_patch(fdiffs, verdicts, states=(DRIFT,)):
     """Build a patch which reverts the hunks in some states
 

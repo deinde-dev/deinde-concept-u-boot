@@ -801,6 +801,24 @@ bytes being reverted - one test reads the first 32 bytes of the README and
 asserts them, so restoring a single leading space there builds fine and fails
 two tests.  A check which passes says the check passed, nothing more.
 
+Drift is not always a mangled conflict resolution.  Sometimes an upstream
+commit never arrived at all, and the part of it in a file which otherwise
+arrived shows up as drift.  Reverting just that part can bring in code which
+uses a struct member or function from the rest of the commit.  So pickman
+blames upstream for the lines each revert puts back (and searches upstream
+for the commit which removed any lines it takes away), and where that commit
+never reached the downstream branch and its change to some other file is
+missing too, it declines the file and prints the commit to pick instead::
+
+    drivers/clk: declining 1 file(s) which would apply only part of an
+    upstream commit which never arrived:
+      drivers/clk/imx/clk-composite-8m.c: part of eeb2db1edcc clk: imx: ...
+        its change to 2 other file(s) is missing too, e.g. ...
+        run: pickman pick eeb2db1edcc
+
+A commit which the revert does bring in whole is named in the commit
+message instead, so a reviewer can see which upstream fixes are arriving.
+
 Some deltas are correct downstream work which provenance cannot explain,
 because no commit accounts for them.  Those belong in ``.pickman-diverge``
 with a reason saying why, so that nobody reverts them again later.
