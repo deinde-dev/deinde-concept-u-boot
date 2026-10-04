@@ -841,6 +841,18 @@ followed: a file a downstream commit touched under its old path counts as
 touched under its new one, and a hunk whose lines such a commit added is
 wanted rather than drift.
 
+A revert can also build perfectly and still lose something.  Where this tree
+has replaced a hook upstream calls from common code - with an event, say -
+reverting a board to upstream's version brings back a definition of the
+hook which nothing here calls, so whatever it did silently stops.  So a file
+whose revert would define a global function which upstream calls from another
+file, but nothing here calls, is declined::
+
+    board/nxp: declining 1 file(s) whose revert would add a function nothing
+    here calls:
+      board/nxp/lx2160a/lx2160a.c: board_fix_fdt(), which upstream calls from
+      common/board_f.c
+
 Some deltas are correct downstream work which provenance cannot explain,
 because no commit accounts for them.  Those belong in ``.pickman-diverge``
 with a reason saying why, so that nobody reverts them again later.

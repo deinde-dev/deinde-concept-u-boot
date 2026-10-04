@@ -486,6 +486,38 @@ def defined_names(text, path):
     return names
 
 
+def restored_functions(hunks):
+    """Find the global functions a revert of some hunks would define
+
+    The diff runs from upstream to downstream, so the lines a hunk removes
+    are upstream's, and a revert puts them back. A static function, or a
+    declaration ending in ';', is not counted: only a definition which
+    something elsewhere could call.
+
+    Args:
+        hunks (list of Hunk): Hunks which would be reverted
+
+    Return:
+        set of str: Names of the functions
+    """
+    names = set()
+    for hunk in hunks:
+        for line in hunk.lines[1:]:
+            if not line.startswith('-'):
+                continue
+            text = line[1:]
+            if (text.lstrip().startswith('static') or
+                    text.rstrip().endswith(';')):
+                continue
+            first = text.strip().split('(')[0].split()
+            if first and first[0] in STMT_KEYWORDS:
+                continue
+            match = RE_DEF_FUNC.match(text)
+            if match:
+                names.add(match.group(1))
+    return names
+
+
 def lines_from(hunk, lines):
     """Check whether a hunk's downstream lines come from a set of lines
 

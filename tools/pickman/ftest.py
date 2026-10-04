@@ -9285,7 +9285,7 @@ class TestDriftBoards(unittest.TestCase):
 
 
 class TestDriftRenamesAndHooks(unittest.TestCase):
-    """Tests for following renames"""
+    """Tests for following renames and spotting hooks nothing calls"""
 
     def tearDown(self):
         """Clean up test fixtures"""
@@ -9336,6 +9336,52 @@ class TestDriftRenamesAndHooks(unittest.TestCase):
         self.assertEqual(verdicts['new/a.c'][0].state, drift.WANTED)
         self.assertEqual(verdicts['new/a.c'][0].reason,
                          'downstream, as old/a.c')
+
+    def test_restored_functions(self):
+        """Test finding the global functions a revert would define"""
+        hunk = drift.Hunk('a.c', 1, 1, [], [
+            '@@ -1,5 +1 @@', '-int board_fix_fdt(void *blob)',
+            '-static int helper(void)', '-int decl(void);',
+            '-\treturn other(x);', '-\tif (check(x))', '+int kept(void)'],
+            'f')
+        self.assertEqual(drift.restored_functions([hunk]), {'board_fix_fdt'})
+
+    def test_callers(self):
+        """Test that only calls count, not comments, variables or definitions"""
+        command.TEST_RESULT = command.CommandResult(stdout=(
+            'up:common/board_f.c:783:\treturn board_fix_fdt(blob);\n'
+            'up:a.c:10:int board_fix_fdt(void *fdt)\n'
+            'up:b.c:3: * called by board_fix_fdt() early on\n'
+            'up:c.c:7:\tif (board_fix_fdt && x)\n'
+            'up:self.c:9:\tboard_fix_fdt(blob);\n'))
+        self.assertEqual(control.drift_callers('up', 'board_fix_fdt',
+                                               'self.c'),
+                         ['common/board_f.c'])
+
+    def test_dead_hooks(self):
+        """Test declining a revert which adds a hook nothing here calls"""
+        hunk = drift.Hunk('board/x.c', 1, 1, [],
+                          ['@@ -1 +1 @@', '-int board_fix_fdt(void *blob)',
+                           '+static int spy(void *ctx, struct event *ev)'],
+                          'f')
+        info = control.DriftInfo(
+            'u' * 40, [], {'board/x.c': [drift.Verdict(hunk, drift.DRIFT,
+                                                        None)]},
+            [], set(), set(), 0, [], [])
+
+        def callers(ref, name, path):  # pylint: disable=unused-argument
+            return ['common/board_f.c'] if ref == 'u' * 40 else []
+
+        with mock.patch.object(control, 'drift_callers', side_effect=callers):
+            self.assertEqual(
+                control.drift_dead_hooks(info, ['board/x.c'], 'ci/master'),
+                {'board/x.c': [('board_fix_fdt', 'common/board_f.c')]})
+        # Still called downstream, so nothing to decline
+        with mock.patch.object(control, 'drift_callers',
+                               return_value=['common/board_f.c']):
+            self.assertEqual(
+                control.drift_dead_hooks(info, ['board/x.c'], 'ci/master'),
+                {})
 
 
 class TestClaudeCli(unittest.TestCase):

@@ -1675,6 +1675,65 @@ def drift_load_bearing(info, paths, branch):
     return held
 
 
+def drift_callers(ref, name, path):
+    """Find the C files at a ref which call a function, other than one file
+
+    Args:
+        ref (str): Commit or branch to search
+        name (str): Function name
+        path (str): File to leave out, the one defining it
+
+    Return:
+        list of str: Files with a line calling the function
+    """
+    out = command.output('git', 'grep', '-n', '-w', name, ref, '--', '*.c',
+                         raise_on_error=False)
+    # Only a call counts: a variable or parameter of the same name, or a
+    # mention in a comment, says nothing about whether the hook is used
+    call = re.compile(rf'\b{re.escape(name)}\s*\(')
+    files = []
+    for line in out.splitlines():
+        parts = line.split(':', 3)
+        if len(parts) < 4 or parts[1] == path:
+            continue
+        text = parts[3].strip()
+        if text.startswith(('/*', '*', '//')) or not call.search(text):
+            continue
+        if name in drift.defined_names(parts[3], parts[1]):
+            continue
+        if parts[1] not in files:
+            files.append(parts[1])
+    return files
+
+
+def drift_dead_hooks(info, paths, branch):
+    """Find reverts which would add a function nothing here calls
+
+    Upstream may call a hook from common code which this tree has replaced,
+    e.g. by an event. Reverting a board to upstream's version then defines
+    the hook, which builds perfectly, but nothing calls it, so whatever it
+    did silently stops.
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files to be reverted
+        branch (str): Downstream branch
+
+    Return:
+        dict: Maps each path to decline to a list of (function, a file
+            upstream calls it from)
+    """
+    dead = {}
+    for path in paths:
+        hunks = [vdt.hunk for vdt in info.verdicts.get(path, [])
+                 if vdt.state == drift.DRIFT]
+        for name in sorted(drift.restored_functions(hunks)):
+            upstream = drift_callers(info.base, name, path)
+            if upstream and not drift_callers(branch, name, path):
+                dead.setdefault(path, []).append((name, upstream[0]))
+    return dead
+
+
 def drift_select(bad, info, patterns=None, unambiguous=False):
     """Narrow a list of drifted files down to those asked for
 
@@ -2547,6 +2606,19 @@ def do_drift_fix(args, dbs):
                     tout.warning(f'  ... and {len(held) - len(shown)} more '
                                  f'(showing {len(shown)} of {len(held)})')
                 paths = [path for path in paths if path not in held]
+                if not paths:
+                    tout.warning(f'{area}: nothing left to revert, skipping')
+                    continue
+            dead = {} if missing else drift_dead_hooks(info, paths,
+                                                       args.branch)
+            if dead:
+                tout.warning(f'{area}: declining {len(dead)} file(s) whose '
+                             'revert would add a function nothing here calls:')
+                for path, hooks in sorted(dead.items())[:DECLINE_SHOWN]:
+                    name, caller = hooks[0]
+                    tout.warning(f'  {path}: {name}(), which upstream calls '
+                                 f'from {caller}')
+                paths = [path for path in paths if path not in dead]
                 if not paths:
                     tout.warning(f'{area}: nothing left to revert, skipping')
                     continue
