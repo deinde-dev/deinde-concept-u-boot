@@ -833,6 +833,14 @@ missing too, it declines the file and prints the commit to pick instead::
 A commit which the revert does bring in whole is named in the commit
 message instead, so a reviewer can see which upstream fixes are arriving.
 
+When upstream renames a directory, the pick of that rename carries any
+downstream work on its files to the new paths, but the downstream commits
+only ever named the old ones, and blame credits the lines to the pick.  That
+work would then look like drift.  So renames since the trees diverged are
+followed: a file a downstream commit touched under its old path counts as
+touched under its new one, and a hunk whose lines such a commit added is
+wanted rather than drift.
+
 Some deltas are correct downstream work which provenance cannot explain,
 because no commit accounts for them.  Those belong in ``.pickman-diverge``
 with a reason saying why, so that nobody reverts them again later.

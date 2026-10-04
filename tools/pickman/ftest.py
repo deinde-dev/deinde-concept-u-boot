@@ -9284,6 +9284,60 @@ class TestDriftBoards(unittest.TestCase):
                              {'x': 'a.c:1: error: oops'})
 
 
+class TestDriftRenamesAndHooks(unittest.TestCase):
+    """Tests for following renames"""
+
+    def tearDown(self):
+        """Clean up test fixtures"""
+        command.TEST_RESULT = None
+
+    def test_renames(self):
+        """Test listing the renames in a range"""
+        command.TEST_RESULT = command.CommandResult(
+            stdout='R100\tboard/freescale/a.c\tboard/nxp/a.c\n'
+                   'M\tMakefile\nR087\tx.c\ty.c\n')
+        self.assertEqual(control.drift_renames('f..b'),
+                         [('board/freescale/a.c', 'board/nxp/a.c'),
+                          ('x.c', 'y.c')])
+
+    def test_follow_renames(self):
+        """Test carrying touched paths through renames, including chains"""
+        renames = [('old/a.c', 'mid/a.c'), ('mid/a.c', 'new/a.c'),
+                   ('other.c', 'moved.c')]
+        self.assertEqual(
+            control.drift_follow_renames({'old/a.c'}, renames),
+            {'mid/a.c': 'old/a.c', 'new/a.c': 'old/a.c'})
+
+    def test_lines_from(self):
+        """Test matching a hunk's downstream lines against a set"""
+        hunk = drift.Hunk('a.c', 1, 3, [1, 2], [
+            '@@ -1 +1,3 @@', '+\tEVENT_SPY_FULL(EVT_X, fn);',
+            '+\tvoid *blob = lookup();', '+}', ' ctx'], 'f')
+        self.assertTrue(drift.lines_from(
+            hunk, {'EVENT_SPY_FULL(EVT_X, fn);', 'void *blob = lookup();'}))
+        self.assertFalse(drift.lines_from(hunk, {'something else'}))
+
+        # Short lines say nothing about where the hunk came from
+        hunk = drift.Hunk('a.c', 1, 1, [1], ['@@ -1 +1 @@', '+}'], 'f')
+        self.assertFalse(drift.lines_from(hunk, {'}'}))
+
+    def test_credit_moved(self):
+        """Test that work added before a rename is credited downstream"""
+        hunk = drift.Hunk('new/a.c', 1, 1, [1],
+                          ['@@ -1 +1 @@', '-int hook(void *blob)',
+                           '+static int spy(void *ctx, struct event *ev)'],
+                          'f')
+        verdicts = {'new/a.c': [drift.Verdict(hunk, drift.DRIFT, None)]}
+        with mock.patch.object(
+                control, 'drift_lines_added',
+                return_value={'static int spy(void *ctx, struct event *ev)'}):
+            control.drift_credit_moved(verdicts, 'new/a.c', 'old/a.c', 'r',
+                                       {'c' * 40})
+        self.assertEqual(verdicts['new/a.c'][0].state, drift.WANTED)
+        self.assertEqual(verdicts['new/a.c'][0].reason,
+                         'downstream, as old/a.c')
+
+
 class TestClaudeCli(unittest.TestCase):
     """Tests for finding and naming the Claude Code binary in use"""
 

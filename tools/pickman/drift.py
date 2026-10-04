@@ -486,6 +486,25 @@ def defined_names(text, path):
     return names
 
 
+def lines_from(hunk, lines):
+    """Check whether a hunk's downstream lines come from a set of lines
+
+    Args:
+        hunk (Hunk): Hunk to examine
+        lines (set of str): Stripped lines, e.g. those some commits added
+
+    Return:
+        bool: True if most of the hunk's longer downstream lines are there
+    """
+    added = [line[1:].strip() for line in hunk.lines[1:]
+             if line.startswith('+')]
+    added = [line for line in added if len(line) >= SIGNIFICANT_LEN]
+    if not added:
+        return False
+    found = sum(1 for line in added if line in lines)
+    return found * 2 >= len(added)
+
+
 def removed_identifiers(hunks):
     """Find the distinctive names which reverting some hunks would remove
 

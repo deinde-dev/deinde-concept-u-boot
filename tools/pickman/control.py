@@ -1053,6 +1053,74 @@ def drift_downstream_commits(source, branch, sources=None):
     return hashes, paths, orphan
 
 
+def drift_renames(rng):
+    """List the files renamed in a range of commits, oldest first
+
+    Args:
+        rng (str): Commit range, e.g. 'fork..branch'
+
+    Return:
+        list of tuple: (old path, new path) for each rename
+    """
+    out = command.output('git', 'log', '--reverse', '--no-merges', '-M',
+                         '--name-status', '--diff-filter=R', '--format=',
+                         rng, raise_on_error=False)
+    renames = []
+    for line in out.splitlines():
+        parts = line.split('\t')
+        if len(parts) == 3 and parts[0].startswith('R'):
+            renames.append((parts[1], parts[2]))
+    return renames
+
+
+def drift_follow_renames(paths, renames):
+    """Carry the paths downstream commits touched through later renames
+
+    When upstream renames a directory, the pick of that rename carries any
+    downstream work on the files to their new paths, but the downstream
+    commits only ever named the old ones. Without following the rename,
+    that work looks like drift.
+
+    Args:
+        paths (set of str): Paths which downstream commits touched
+        renames (list of tuple): (old, new) pairs, oldest first
+
+    Return:
+        dict: Maps each new path reached this way to its original path
+    """
+    moved = {}
+    for old, new in renames:
+        if old in moved:
+            moved[new] = moved[old]
+        elif old in paths:
+            moved[new] = old
+    return moved
+
+
+def drift_lines_added(rng, path, down_hashes):
+    """Collect the lines downstream-original commits added to a file
+
+    Args:
+        rng (str): Commit range, e.g. 'fork..branch'
+        path (str): File, as the commits named it
+        down_hashes (set of str): Hashes of the downstream-original commits
+
+    Return:
+        set of str: The added lines, stripped
+    """
+    out = command.output('git', 'log', '--no-merges', '-p',
+                         '--format=commit %H', rng, '--', path,
+                         raise_on_error=False)
+    lines = set()
+    keep = False
+    for line in out.splitlines():
+        if line.startswith('commit '):
+            keep = line.split()[1] in down_hashes
+        elif keep and line.startswith('+') and not line.startswith('+++'):
+            lines.add(line[1:].strip())
+    return lines
+
+
 def drift_blame(branch, path, down_hashes):
     """Find which downstream lines of a file a downstream commit wrote
 
@@ -1074,7 +1142,8 @@ def drift_blame(branch, path, down_hashes):
     return blame
 
 
-def drift_collect(dbs, source, branch, deep=False, base=None):  # pylint: disable=too-many-locals
+# pylint: disable-next=too-many-locals,too-many-branches
+def drift_collect(dbs, source, branch, deep=False, base=None):
     """Compare the downstream tree with upstream and classify every delta
 
     Args:
@@ -1105,6 +1174,9 @@ def drift_collect(dbs, source, branch, deep=False, base=None):  # pylint: disabl
     tracked = [name for name, _ in dbs.source_get_all()] or [source]
     down_hashes, down_paths, orphans = drift_downstream_commits(
         source, branch, tracked)
+    rng = f'{gitutil.merge_base(branch, source)}..{branch}'
+    moved = drift_follow_renames(down_paths, drift_renames(rng))
+    down_paths = down_paths | set(moved)
 
     diff = gitutil.diff(base, branch)
     fdiffs = drift.parse_diff(diff)
@@ -1158,9 +1230,35 @@ def drift_collect(dbs, source, branch, deep=False, base=None):  # pylint: disabl
                 continue
             blame = drift_blame(branch, fdiff.path, down_hashes)
         verdicts[fdiff.path] = drift.classify(fdiff, accepts, blame)
+        if fdiff.path in moved:
+            drift_credit_moved(verdicts, fdiff.path, moved[fdiff.path], rng,
+                               down_hashes)
 
     return DriftInfo(base, fdiffs, verdicts, binary, orphans, down_paths,
                      skipped, deleted, subtree)
+
+
+def drift_credit_moved(verdicts, path, old, rng, down_hashes):
+    """Credit downstream work done before a rename
+
+    Blame credits the lines of a renamed file to the pick of the rename, so a
+    hunk whose lines a downstream commit added under the old path still reads
+    as drift. Mark those as wanted.
+
+    Args:
+        verdicts (dict): Maps path to its list of Verdict, updated here
+        path (str): File, at its new path
+        old (str): The path downstream commits knew it by
+        rng (str): Commit range, e.g. 'fork..branch'
+        down_hashes (set of str): Hashes of the downstream-original commits
+    """
+    if not any(vdt.state == drift.DRIFT for vdt in verdicts[path]):
+        return
+    added = drift_lines_added(rng, old, down_hashes)
+    verdicts[path] = [
+        drift.Verdict(vdt.hunk, drift.WANTED, f'downstream, as {old}')
+        if vdt.state == drift.DRIFT and drift.lines_from(vdt.hunk, added)
+        else vdt for vdt in verdicts[path]]
 
 
 def drift_absent_paths(info):
