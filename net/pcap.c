@@ -51,6 +51,12 @@ static struct pcap_header file_header = {
 
 int pcap_init(phys_addr_t paddr, unsigned long size)
 {
+	if (size < sizeof(file_header)) {
+		printf("PCAP buffer must hold at least %zu bytes\n",
+		       sizeof(file_header));
+		return -ENOSPC;
+	}
+
 	buf = map_physmem(paddr, size, 0);
 	if (!buf) {
 		printf("Failed mapping PCAP memory\n");
