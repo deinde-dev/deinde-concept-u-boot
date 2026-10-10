@@ -2225,6 +2225,7 @@ endif  # CMD_BOOTP
 
 config CMD_PCAP
 	bool "pcap capture"
+	select GETOPT
 	help
 	  Selecting this will allow capturing all Ethernet packets and store
 	  them in physical memory in a PCAP formated file,
