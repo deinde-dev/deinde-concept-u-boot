@@ -218,4 +218,4 @@ See also
 * :doc:`iod<iod>`, :doc:`iow<iow>` for reading and writing I/O space by hand
 * :doc:`md<md>` for displaying the trace buffer as raw memory
 * :doc:`pmc<pmc>` for the command which produces the accesses traced above
-* *pcap* for capturing network packets to a buffer in the same way
+* :doc:`pcap<pcap>` for capturing network packets to a buffer in the same way
