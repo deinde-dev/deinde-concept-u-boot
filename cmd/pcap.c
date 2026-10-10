@@ -58,7 +58,7 @@ U_BOOT_LONGHELP(pcap,
 	"pcap clear\t\t\tclear capture buffer\n"
 	"\n"
 	"With:\n"
-	"\t<addr>: user address to which pcap will be stored (hexedcimal)\n"
+	"\t<addr>: user address to which pcap will be stored (hexadecimal)\n"
 	"\t<max_size>: Maximum size of pcap file (decimal)\n"
 	"\n");
 
