@@ -10,6 +10,7 @@
 
 #define LOG_CATEGORY	LOGC_BOOT
 
+#include <abuf.h>
 #include <command.h>
 #include <fdt_simplefb.h>
 #include <fdt_support.h>
@@ -21,6 +22,7 @@
 #include <lmb.h>
 #include <log.h>
 #include <malloc.h>
+#include <of_live.h>
 #include <asm/global_data.h>
 #include <linux/libfdt.h>
 #include <mapmem.h>
@@ -612,6 +614,68 @@ __weak int arch_fixup_fdt(void *blob)
 	return 0;
 }
 
+/*
+ * Most devicetrees have only a few entries in the reserved-memory map, from
+ * /memreserve/ lines or added by U-Boot, so this is plenty
+ */
+#define FT_FIXUP_MAX_RSV	16
+
+/**
+ * image_ft_fixup_live() - Run the devicetree fixups when using a live tree
+ *
+ * Each spy for EVT_FT_FIXUP uses ofnode, which cannot access a flat tree while
+ * the control devicetree is live. Unflatten @blob into a live tree, run the
+ * fixups on that, then flatten it back into @blob. The reserved-memory map is
+ * not part of the live tree, so it is copied across separately.
+ *
+ * @blob: Devicetree to fix up, with fdt_totalsize() giving the space available
+ * @images: Images being booted
+ * Return: 0 if OK, -E2BIG if the reserved-memory map has more than
+ *	FT_FIXUP_MAX_RSV entries, -ENOSPC if the result does not fit in @blob,
+ *	other -ve on error
+ */
+static int image_ft_fixup_live(void *blob, struct bootm_headers *images)
+{
+	struct {
+		u64 addr;
+		u64 size;
+	} rsv[FT_FIXUP_MAX_RSV];
+	struct event_ft_fixup fixup;
+	struct device_node *root;
+	int size = fdt_totalsize(blob);
+	int count = fdt_num_mem_rsv(blob);
+	struct abuf buf;
+	int i, ret;
+
+	if (count < 0)
+		return log_msg_ret("rsv", -EINVAL);
+	if (count > ARRAY_SIZE(rsv))
+		return log_msg_ret("ifm", -E2BIG);
+	for (i = 0; i < count; i++)
+		fdt_get_mem_rsv(blob, i, &rsv[i].addr, &rsv[i].size);
+
+	ret = unflatten_device_tree(blob, &root);
+	if (ret)
+		return ret;
+	fixup.tree = oftree_from_np(root);
+	fixup.images = images;
+	ret = event_notify(EVT_FT_FIXUP, &fixup, sizeof(fixup));
+	if (!ret)
+		ret = oftree_to_fdt(fixup.tree, &buf);
+	oftree_dispose(fixup.tree);
+	if (ret)
+		return ret;
+
+	ret = fdt_open_into(abuf_data(&buf), blob, size);
+	abuf_uninit(&buf);
+	for (i = 0; !ret && i < count; i++)
+		ret = fdt_add_mem_rsv(blob, rsv[i].addr, rsv[i].size);
+	if (ret)
+		return -ENOSPC;
+
+	return 0;
+}
+
 int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 {
 	ulong *initrd_start = &images->initrd_start;
@@ -737,6 +801,14 @@ int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 				       ret);
 				goto err;
 			}
+		}
+	} else if (of_live_active() && IS_ENABLED(CONFIG_EVENT) &&
+		   IS_ENABLED(CONFIG_BOOTMETH_VBE)) {
+		/* only VBE has fixups which need this, so avoid the cost */
+		ret = image_ft_fixup_live(blob, images);
+		if (ret) {
+			printf("ERROR: fdt fixup event failed: %d\n", ret);
+			goto err;
 		}
 	}
 

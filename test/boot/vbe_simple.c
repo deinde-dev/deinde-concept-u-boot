@@ -133,3 +133,63 @@ static int vbe_simple_test_nvdata_size(struct unit_test_state *uts)
 	return 0;
 }
 BOOTSTD_TEST(vbe_simple_test_nvdata_size, UTF_DM | UTF_SCAN_FDT);
+
+/*
+ * Check that the fixups are applied when preparing a devicetree for the OS,
+ * including with a live tree, where the devicetree is unflattened to apply
+ * them, and that its reserved-memory map survives
+ */
+static int vbe_simple_test_setup_libfdt(struct unit_test_state *uts)
+{
+	struct bootm_headers images;
+	char fdt_buf[0x1000];
+	int node, i, found = 0;
+	u64 addr, size;
+
+	ut_assertok(fdt_create_empty_tree(fdt_buf, sizeof(fdt_buf)));
+	ut_assert(fdt_add_subnode(fdt_buf, 0, "chosen") > 0);
+	ut_assertok(fdt_add_mem_rsv(fdt_buf, 0x12340000, 0x5000));
+
+	memset(&images, '\0', sizeof(images));
+	ut_assertok(image_setup_libfdt(&images, fdt_buf, false));
+
+	node = fdt_path_offset(fdt_buf, "/chosen/fwupd/firmware0");
+	ut_assert(node > 0);
+	ut_asserteq_str(TEST_VERSION,
+			fdt_getprop(fdt_buf, node, "cur-version", NULL));
+
+	/* image_setup_libfdt() adds its own, so check ours is there once */
+	for (i = 0; i < fdt_num_mem_rsv(fdt_buf); i++) {
+		ut_assertok(fdt_get_mem_rsv(fdt_buf, i, &addr, &size));
+		if (addr == 0x12340000 && size == 0x5000)
+			found++;
+	}
+	ut_asserteq(1, found);
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_simple_test_setup_libfdt, UTF_DM | UTF_SCAN_FDT);
+
+/* Check that a reserved-memory map which is too large is reported */
+static int vbe_simple_test_setup_libfdt_rsv(struct unit_test_state *uts)
+{
+	struct bootm_headers images;
+	char fdt_buf[0x1000];
+	int i;
+
+	ut_assertok(fdt_create_empty_tree(fdt_buf, sizeof(fdt_buf)));
+	ut_assert(fdt_add_subnode(fdt_buf, 0, "chosen") > 0);
+	for (i = 0; i < 20; i++)
+		ut_assertok(fdt_add_mem_rsv(fdt_buf, 0x12340000 + i * 0x10000,
+					    0x1000));
+
+	memset(&images, '\0', sizeof(images));
+	ut_asserteq(-E2BIG, image_setup_libfdt(&images, fdt_buf, false));
+	ut_assert_nextline("ERROR: fdt fixup event failed: %d", -E2BIG);
+	ut_assert_nextline(" - must RESET the board to recover.");
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_simple_test_setup_libfdt_rsv, UTF_LIVE_TREE | UTF_CONSOLE);

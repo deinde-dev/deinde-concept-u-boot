@@ -115,7 +115,9 @@ def test_vbe_os_request(ubman):
     params['fit'] = fit
     cmd = base_script % params
 
-    with ubman.log.section('Kernel load'):
+    # The fwupd node holds the U-Boot version, which looks like a sign-on
+    with ubman.log.section('Kernel load'), \
+            ubman.disable_check('main_signon'):
         ubman.run_command_list(cmd.splitlines())
 
     ubman.run_ut('bootstd', 'vbe_test_fixup')
