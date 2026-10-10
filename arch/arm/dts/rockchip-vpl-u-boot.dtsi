@@ -3,6 +3,16 @@
  * Copyright (C) 2019 Jagan Teki <jagan@amarulasolutions.com>
  */
 
+/*
+ * VBE abrec firmware slots: each holds an SPL FIT followed by a U-Boot FIT.
+ * These are the offsets in the boot media, which match the binman offsets
+ * since the image skips the first 32KB of the media
+ */
+#define VBE_SLOT_A		CONFIG_SPL_PAD_TO
+#define VBE_SLOT_B		0x1000000
+#define VBE_SLOT_RECOVERY	0x1800000
+#define VBE_SLOT_SIZE		0x800000
+
 / {
 	bootstd {
 		bootph-verify;
@@ -15,25 +25,32 @@
 		 *
 		 * Offsets are aligned to the media block-size, typically 0x200
 		 *
-		 * The start of the VBE area is set at 8MB, adjusted for the
-		 * skip-at-start offset. Before that is a block containing the
-		 * version information and before that is the state. These could
-		 * be stored in a different storage device if available, but so
-		 * far VBE only supports MMC.
+		 * The VBE area starts 32KB below the A slot. It holds the state
+		 * followed by a block containing the version information. These
+		 * could be stored in a different storage device if available,
+		 * but so far VBE only supports MMC. VPL reads them from the SD
+		 * card (mmc1), the same media as the firmware.
 		 *
-		 * The total area size is 8MB which should be enough for a FIT
-		 * containing U-Boot and a number of devicetrees.
+		 * The slot properties tell an updater such as fwupd where the
+		 * firmware lives: it writes new firmware to the B slot, which
+		 * VPL tries, then copies it to A once it has booted
 		 */
 		firmware0 {
 			bootph-verify;
 			compatible = "fwupd,vbe-abrec";
-			storage = "mmc0";
-			area-start = <0x7f8000>;
-			area-size = <0x800000>;
-			state-offset = <(0x7f8000 - 0x400)>;
+			storage = "mmc1";
+			area-start = <(VBE_SLOT_A - 0x8000)>;
+			area-size = <VBE_SLOT_SIZE>;
+			state-offset = <0>;
 			state-size = <0x40>;
-			version-offset = <(0x7f8000 - 0x200)>;
-			version-size = <0x100>;
+			slot-a-offset = <VBE_SLOT_A>;
+			slot-b-offset = <VBE_SLOT_B>;
+			slot-recovery-offset = <VBE_SLOT_RECOVERY>;
+			slot-size = <VBE_SLOT_SIZE>;
+
+			/* the updater describes the firmware at the end of each slot */
+			slot-info-offset = <(VBE_SLOT_SIZE - 0x1000)>;
+			slot-info-size = <0x1000>;
 		};
 
 		/*
@@ -195,7 +212,7 @@
 # ifdef CONFIG_BOOTMETH_VBE_ABREC
 		vbe-a {
 			type = "section";
-			offset = <CONFIG_SPL_PAD_TO>;
+			offset = <VBE_SLOT_A>;
 			spl-a {
 				insert-template = <&spl_template>;
 				size = <0x100000>;
@@ -207,7 +224,7 @@
 		};
 		vbe-b {
 			type = "section";
-			offset = <0x1000000>;
+			offset = <VBE_SLOT_B>;
 			spl-b {
 				insert-template = <&spl_template>;
 				size = <0x100000>;
@@ -219,7 +236,7 @@
 		};
 		vbe-recovery {
 			type = "section";
-			offset = <0x1800000>;
+			offset = <VBE_SLOT_RECOVERY>;
 			spl-recovery {
 				insert-template = <&spl_template>;
 				size = <0x100000>;

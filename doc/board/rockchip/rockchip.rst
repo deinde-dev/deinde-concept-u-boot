@@ -551,6 +551,14 @@ Verified Boot for Embedded (VBE)
 VBE is supported on rk3399 at present, with SDRAM being set up in SPL. The full
 A/B/recovery flow is supported in U-Boot.
 
+Each 8MB slot (A, B and recovery) holds the SPL FIT followed by the U-Boot FIT.
+The last 4KB of each slot is kept for the slot info, a small devicetree which the
+updater (e.g. fwupd) writes along with the firmware. Its root node has the
+compatible string "fwupd,vbe-slot-info" and gives the version, size and
+checksums of the firmware, and U-Boot reports the version of the firmware which
+booted from it. The state which VPL uses to pick the firmware is just
+before slot A.
+
 To build this, use the rk3399-generic board, setting CONFIG_OF_LIST to the list
 of boards you want to support. All boards must use the same SDRAM type.
 
