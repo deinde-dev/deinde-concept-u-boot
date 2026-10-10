@@ -80,5 +80,8 @@ obj-$(CONFIG_BOOTMETH_VBE_SIMPLE_OS) += vbe_simple_os.o
 obj-$(CONFIG_BOOTMETH_ANDROID) += bootmeth_android.o
 
 obj-$(CONFIG_BOOTMETH_VBE_ABREC) += vbe_abrec.o vbe_common.o
+ifndef CONFIG_XPL_BUILD
+obj-$(CONFIG_BOOTMETH_VBE_ABREC) += vbe_abrec_fixup.o
+endif
 obj-$(CONFIG_BOOTMETH_VBE_ABREC_FW) += vbe_abrec_fw.o
 obj-$(CONFIG_BOOTMETH_VBE_ABREC_OS) += vbe_abrec_os.o

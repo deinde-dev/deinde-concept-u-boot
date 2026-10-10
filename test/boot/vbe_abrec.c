@@ -10,6 +10,8 @@
 #include <memalign.h>
 #include <mmc.h>
 #include <vbe.h>
+#include <version_string.h>
+#include <dm/ofnode.h>
 #include <test/ut.h>
 #include "bootstd_common.h"
 #include "../../boot/vbe_abrec.h"
@@ -107,3 +109,56 @@ static int vbe_abrec_test_nvdata(struct unit_test_state *uts)
 	return 0;
 }
 BOOTSTD_TEST(vbe_abrec_test_nvdata, UTF_DM | UTF_SCAN_FDT);
+
+/* Check the information provided to the OS */
+static int vbe_abrec_test_fixup(struct unit_test_state *uts)
+{
+	static const char compat[] = "vendor,board\0vendor,soc";
+	struct abrec_state state;
+	const char *str;
+	ofnode node;
+	oftree tree;
+	u32 vernum;
+
+	memset(&state, '\0', sizeof(state));
+	strlcpy(state.fw_version, TEST_VERSION, sizeof(state.fw_version));
+	state.fw_vernum = TEST_VERNUM;
+
+	ut_assertok(oftree_new(&tree));
+	ut_assertok(ofnode_add_subnode(oftree_root(tree), "firmware0", &node));
+	ut_assertok(abrec_fixup_node(node, &state, VBEP_B));
+
+	ut_asserteq_str(TEST_VERSION, ofnode_read_string(node, "cur-version"));
+	ut_assertok(ofnode_read_u32(node, "cur-vernum", &vernum));
+	ut_asserteq(TEST_VERNUM, vernum);
+	ut_asserteq_str(version_string,
+			ofnode_read_string(node, "bootloader-version"));
+	ut_asserteq_str("b", ofnode_read_string(node, "booted-slot"));
+
+	/* without a handoff from VPL the slot is not known */
+	ut_assertok(ofnode_add_subnode(oftree_root(tree), "firmware1", &node));
+	ut_assertok(abrec_fixup_node(node, &state, VBEP_COUNT));
+	ut_assertnull(ofnode_read_string(node, "booted-slot"));
+
+	/* an erased version block gives no version */
+	memset(state.fw_version, 0xff, sizeof(state.fw_version) - 1);
+	ut_assertok(ofnode_add_subnode(oftree_root(tree), "firmware2", &node));
+	ut_assertok(abrec_fixup_node(node, &state, VBEP_A));
+	ut_assertnull(ofnode_read_string(node, "cur-version"));
+	ut_asserteq_str("a", ofnode_read_string(node, "booted-slot"));
+
+	/* fwupd identifies the board from the compatible strings */
+	ut_assertok(ofnode_write_prop(oftree_root(tree), "compatible",
+				      compat, sizeof(compat), false));
+	ut_assertok(ofnode_add_subnode(oftree_root(tree), "fwupd", &node));
+	ut_assertok(abrec_add_compatible(tree, node));
+	ut_assertok(ofnode_read_string_index(node, "compatible", 0, &str));
+	ut_asserteq_str("vendor,board", str);
+	ut_assertok(ofnode_read_string_index(node, "compatible", 1, &str));
+	ut_asserteq_str("vendor,soc", str);
+
+	oftree_dispose(tree);
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_abrec_test_fixup, UTF_DM | UTF_SCAN_FDT);

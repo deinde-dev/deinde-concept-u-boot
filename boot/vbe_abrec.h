@@ -141,6 +141,33 @@ int abrec_write_nvdata(struct abrec_priv *priv, struct udevice *blk,
 enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp);
 
 /**
+ * abrec_fixup_node() - Add the current state to a node for the OS
+ *
+ * Writes 'cur-version' (if the version block holds a valid string),
+ * 'cur-vernum', 'bootloader-version' and, if @pick is valid, 'booted-slot'
+ * ("a", "b" or "recovery")
+ *
+ * @node: Node to update, typically /chosen/fwupd/firmware0
+ * @state: Current state
+ * @pick: Firmware which was booted, or VBEP_COUNT if not known
+ * Return: 0 if OK, -ve on error
+ */
+int abrec_fixup_node(ofnode node, const struct abrec_state *state,
+		     enum vbe_pick_t pick);
+
+/**
+ * abrec_add_compatible() - Give the fwupd node the board's compatible strings
+ *
+ * fwupd uses the 'compatible' property of /chosen/fwupd to identify the board,
+ * so copy it from the root node of @tree, unless @node already has one
+ *
+ * @tree: Tree being fixed up
+ * @node: /chosen/fwupd node in @tree
+ * Return: 0 if OK, -ve on error
+ */
+int abrec_add_compatible(oftree tree, ofnode node);
+
+/**
  * abrec_read_priv() - Read info from the devicetree
  *
  * @node: Node to read from
