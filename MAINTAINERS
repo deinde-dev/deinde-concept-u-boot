@@ -2066,6 +2066,7 @@ S:	Maintained
 F:	boot/vbe*
 F:	common/spl_reloc.c
 F:	include/vbe.h
+F:	test/boot/vbe_abrec.c
 
 VIDEO
 M:	Anatolij Gustschin <ag.dev.uboot@gmail.com>

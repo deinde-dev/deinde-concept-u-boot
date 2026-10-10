@@ -55,9 +55,62 @@ int abrec_read_nvdata(struct abrec_priv *priv, struct udevice *blk,
 	state->try_count = flags & VBEF_TRY_COUNT_MASK;
 	state->try_b = flags & VBEF_TRY_B;
 	state->recovery = flags & VBEF_RECOVERY;
+	state->try_result = (flags & VBEF_RESULT_MASK) >> VBEF_RESULT_SHIFT;
 	state->pick = (flags & VBEF_PICK_MASK) >> VBEF_PICK_SHIFT;
 
 	return 0;
+}
+
+int abrec_write_nvdata(struct abrec_priv *priv, struct udevice *blk,
+		       const struct abrec_state *state)
+{
+	struct vbe_nvdata nvd;
+	int ret;
+
+	memset(&nvd, '\0', sizeof(nvd));
+	nvd.fw_vernum = state->fw_vernum;
+	nvd.flags = (state->try_count & VBEF_TRY_COUNT_MASK) |
+		(state->try_b ? VBEF_TRY_B : 0) |
+		(state->recovery ? VBEF_RECOVERY : 0) |
+		(state->try_result << VBEF_RESULT_SHIFT & VBEF_RESULT_MASK) |
+		(state->pick << VBEF_PICK_SHIFT & VBEF_PICK_MASK);
+
+	ret = vbe_write_nvdata(blk, priv->area_start + priv->state_offset,
+			       priv->state_size, &nvd);
+	if (ret)
+		return log_msg_ret("wr", ret);
+
+	return 0;
+}
+
+enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp)
+{
+	struct abrec_state old = *state;
+	enum vbe_pick_t pick;
+
+	if (state->recovery) {
+		pick = VBEP_RECOVERY;
+	} else if (state->try_b && state->try_count) {
+		/* use up one of the tries; the OS marks B good if it boots */
+		pick = VBEP_B;
+		state->try_count--;
+		state->try_result = VBETR_TRYING;
+	} else if (state->try_b) {
+		/* B never got as far as the OS, so give up on it */
+		pick = VBEP_A;
+		state->try_b = false;
+		state->try_result = VBETR_BAD;
+	} else {
+		pick = VBEP_A;
+	}
+	state->pick = pick;
+
+	*changedp = old.try_count != state->try_count ||
+		old.try_b != state->try_b ||
+		old.try_result != state->try_result ||
+		old.pick != state->pick;
+
+	return pick;
 }
 
 int abrec_read_state(struct udevice *dev, struct abrec_state *state)

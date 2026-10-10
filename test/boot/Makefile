@@ -33,6 +33,7 @@ obj-$(CONFIG_BOOTMETH_VBE_SIMPLE) += vbe_simple.o vbe_read_fit.o
 endif
 endif
 obj-$(CONFIG_BOOTMETH_VBE) += vbe_fixup.o
+obj-$(CONFIG_BOOTMETH_VBE_ABREC) += vbe_abrec.o
 obj-$(CONFIG_BOOTMETH_VBE_ABREC_OS) += vbe_abrec_os.o
 
 obj-$(CONFIG_UPL) += upl.o

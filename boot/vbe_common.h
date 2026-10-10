@@ -142,6 +142,31 @@ int vbe_read_version(struct udevice *blk, ulong offset, char *version,
 int vbe_read_nvdata(struct udevice *blk, ulong offset, ulong size, u8 *buf);
 
 /**
+ * vbe_seal_nvdata() - Set the header and CRC of non-volatile data
+ *
+ * @nvd: Data to update
+ * @size: Size of the data in bytes, which must be a power of two no larger
+ *	than sizeof(struct vbe_nvdata)
+ */
+void vbe_seal_nvdata(struct vbe_nvdata *nvd, ulong size);
+
+/**
+ * vbe_write_nvdata() - Write non-volatile data to a block device
+ *
+ * Sets the header and CRC, then writes the data to the start of the block at
+ * @offset, leaving the rest of the block unchanged
+ *
+ * @blk: Device to write to
+ * @offset: Offset to write, in bytes, which must be block-aligned
+ * @size: Number of bytes of nvdata, a power of two
+ * @nvd: Data to write; the header and CRC are updated
+ * Return: 0 if OK, -E2BIG if @size is invalid, -EBADF if the offset is not
+ * block-aligned, -EIO if an I/O error occurred
+ */
+int vbe_write_nvdata(struct udevice *blk, ulong offset, ulong size,
+		     struct vbe_nvdata *nvd);
+
+/**
  * vbe_read_fit() - Read an image from a FIT
  *
  * This handles most of the VBE logic for reading from a FIT. It reads the FIT

@@ -113,6 +113,34 @@ int abrec_read_nvdata(struct abrec_priv *priv, struct udevice *blk,
 		      struct abrec_state *state);
 
 /**
+ * abrec_write_nvdata() - Write the state back to a block device
+ *
+ * Encodes the try count, flags, try result, pick and firmware version number
+ * into the nvdata, then writes it with a fresh header and CRC
+ *
+ * @priv: Information about the VBE area
+ * @blk: Device to write to
+ * @state: State to write
+ * Return: 0 if OK, -ve on error (see vbe_write_nvdata())
+ */
+int abrec_write_nvdata(struct abrec_priv *priv, struct udevice *blk,
+		       const struct abrec_state *state);
+
+/**
+ * abrec_choose() - Choose which firmware to boot
+ *
+ * Recovery is used if requested. Otherwise B is used while it has tries left,
+ * using up one try each time and marking the result as 'trying'. Once the
+ * tries run out without the OS marking B as good (by clearing @try_b), B is
+ * marked bad and A is used. Otherwise A is used.
+ *
+ * @state: State read from the media, updated with the new state
+ * @changedp: Returns true if @state changed and needs to be written back
+ * Return: Firmware to boot
+ */
+enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp);
+
+/**
  * abrec_read_priv() - Read info from the devicetree
  *
  * @node: Node to read from

@@ -90,13 +90,12 @@ int abrec_read_bootflow_fw(struct udevice *dev, struct bootflow *bflow)
 static int abrec_run_vpl(struct udevice *blk, struct spl_image_info *image,
 			 struct vbe_handoff *handoff)
 {
-	uint prev_result;
 	struct abrec_priv priv;
 	struct abrec_state state;
 	enum vbe_pick_t pick;
-	uint try_count;
 	ulong offset, size;
 	ulong ub_offset, ub_size;
+	bool changed;
 	ofnode node;
 	int ret;
 
@@ -112,29 +111,18 @@ static int abrec_run_vpl(struct udevice *blk, struct spl_image_info *image,
 	if (ret)
 		return log_msg_ret("sta", ret);
 
-	prev_result = state.try_result;
-	try_count = state.try_count;
+	pick = abrec_choose(&state, &changed);
 
-	if (state.recovery) {
-		pick = VBEP_RECOVERY;
-
-	/* if we are trying B but ran out of tries, use A */
-	} else if ((prev_result == VBETR_TRYING) && !try_count) {
-		pick = VBEP_A;
-		state.try_result = VBETR_BAD;
-
-	/* if requested, try B */
-	} else if (state.try_b) {
-		pick = VBEP_B;
-
-		/* decrement the try count if not already zero */
-		if (try_count)
-			try_count--;
-		state.try_result = VBETR_TRYING;
-	} else {
-		pick = VBEP_A;
+	/*
+	 * Record the try before booting it, so that a B which never reaches
+	 * the OS eventually runs out of tries. Carry on if this fails, since
+	 * the choice is still valid for this boot
+	 */
+	if (changed) {
+		ret = abrec_write_nvdata(&priv, blk, &state);
+		if (ret)
+			log_warning("VBE: Cannot write state (err=%d)\n", ret);
 	}
-	state.try_count = try_count;
 
 	switch (pick) {
 	case VBEP_A:

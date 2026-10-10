@@ -10,6 +10,7 @@
 #include <dm.h>
 #include <blk.h>
 #include <image.h>
+#include <linux/log2.h>
 #include <mapmem.h>
 #include <memalign.h>
 #include <spl.h>
@@ -105,6 +106,35 @@ int vbe_read_nvdata(struct udevice *blk, ulong offset, ulong size, u8 *buf)
 	crc = crc8(0, buf + 1, data_size - 1);
 	if (crc != nvd->crc8)
 		return log_msg_ret("crc", -EPERM);
+
+	return 0;
+}
+
+void vbe_seal_nvdata(struct vbe_nvdata *nvd, ulong size)
+{
+	nvd->hdr = NVD_HDR_VER_CUR << NVD_HDR_VER_SHIFT |
+		ilog2(size) << NVD_HDR_SIZE_SHIFT;
+	nvd->crc8 = crc8(0, (u8 *)nvd + 1, size - 1);
+}
+
+int vbe_write_nvdata(struct udevice *blk, ulong offset, ulong size,
+		     struct vbe_nvdata *nvd)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, buf, MMC_MAX_BLOCK_LEN);
+
+	if (size > sizeof(*nvd) || !is_power_of_2(size))
+		return log_msg_ret("siz", -E2BIG);
+	if (offset & (MMC_MAX_BLOCK_LEN - 1))
+		return log_msg_ret("off", -EBADF);
+	offset /= MMC_MAX_BLOCK_LEN;
+
+	/* keep whatever else is in the block */
+	if (blk_read(blk, offset, 1, buf) != 1)
+		return log_msg_ret("rd", -EIO);
+	vbe_seal_nvdata(nvd, size);
+	memcpy(buf, nvd, size);
+	if (blk_write(blk, offset, 1, buf) != 1)
+		return log_msg_ret("wr", -EIO);
 
 	return 0;
 }
