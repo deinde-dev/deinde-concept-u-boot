@@ -562,6 +562,10 @@ before slot A.
 To build this, use the rk3399-generic board, setting CONFIG_OF_LIST to the list
 of boards you want to support. All boards must use the same SDRAM type.
 
+Two such configurations are provided: rk3399-generic-ddr3 for DDR3 boards such
+as the Firefly-RK3399, and rockpro64-vbe-rk3399 for the RockPro64, which uses
+LPDDR4.
+
 VBE uses internal SRAM (IRAM) for the TPL, VPL and early SPL phases. The stack
 stop is near the top of this (0xff8eff00) with the 256-byte bloblist immediately
 following.
