@@ -101,3 +101,4 @@ See also
   what it claims for itself
 * :doc:`cpuid<cpuid>` for the raw CPUID registers on x86
 * :doc:`bdinfo<bdinfo>` for the rest of the board information
+* :doc:`ufetch<ufetch>` for the core count alongside the other board details

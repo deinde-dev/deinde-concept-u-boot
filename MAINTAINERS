@@ -1983,6 +1983,8 @@ UFETCH
 M:	Casey Connolly <casey.connolly@linaro.org>
 S:	Maintained
 F:	cmd/ufetch.c
+F:	doc/usage/cmd/ufetch.rst
+F:	test/cmd/ufetch.c
 
 UFS
 M:	Neil Armstrong <neil.armstrong@linaro.org>

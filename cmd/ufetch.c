@@ -15,6 +15,7 @@
 #include <command.h>
 #include <dm/ofnode.h>
 #include <env.h>
+#include <getopt.h>
 #include <rand.h>
 #include <vsprintf.h>
 #include <linux/delay.h>
@@ -88,8 +89,7 @@ enum output_lines {
  */
 
 
-static int do_ufetch(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+static int do_ufetch(struct getopt_state *gs)
 {
 	int num_lines = max((size_t)LAST_LINE + 1, ARRAY_SIZE(logo_lines));
 	const char *model, *compatible;
@@ -98,10 +98,17 @@ static int do_ufetch(struct cmd_tbl *cmdtp, int flag, int argc,
 	size_t size = 0;
 	ofnode np;
 	bool skip_ascii = false;
+	int opt;
 
-	if (argc > 1 && strcmp(argv[1], "-n") == 0) {
-		skip_ascii = true;
-		num_lines = LAST_LINE;
+	while ((opt = getopt(gs, "+n")) > 0) {
+		switch (opt) {
+		case 'n':
+			skip_ascii = true;
+			num_lines = LAST_LINE + 1;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
 	for (int line = 0; line < num_lines; line++) {
@@ -223,7 +230,7 @@ static int do_ufetch(struct cmd_tbl *cmdtp, int flag, int argc,
 				desc = dev_get_uclass_plat(dev);
 				size = desc->lba * desc->blksz;
 				printf("%4s %d: " RESET, blk_get_uclass_name(desc->uclass_id),
-					desc->lun);
+					desc->devnum);
 				if (size)
 					print_size(size, "");
 				else
@@ -242,8 +249,8 @@ static int do_ufetch(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-U_BOOT_CMD(ufetch, 2, 1, do_ufetch,
-	   "U-Boot fetch utility",
-	   "Print information about your device.\n"
-	   "    -n    Don't print the ASCII logo"
+U_BOOT_CMD_GETOPT(ufetch, 2, 1, do_ufetch,
+		  "U-Boot fetch utility",
+		  "Print information about your device.\n"
+		  "    -n    Don't print the ASCII logo"
 );

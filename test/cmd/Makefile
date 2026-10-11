@@ -132,6 +132,7 @@ obj-$(CONFIG_CMD_TIMER) += timer.o
 obj-$(CONFIG_CMD_TPM_V1) += tpm.o
 obj-$(CONFIG_CMD_TPM_TEST) += tpmtest.o
 obj-$(CONFIG_CMD_TKEY) += tkey.o
+obj-$(CONFIG_CMD_UFETCH) += ufetch.o
 ifdef CONFIG_CMD_USB
 obj-$(CONFIG_USB_STORAGE) += usbboot.o
 endif

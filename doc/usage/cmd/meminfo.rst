@@ -161,3 +161,9 @@ Return value
 ------------
 
 The return value $? is always 0 (true).
+
+See also
+--------
+
+* :doc:`ufetch<ufetch>` for the DRAM size alongside the other board details
+* :doc:`bdinfo<bdinfo>` for the addresses of the regions this command sizes
