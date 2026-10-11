@@ -166,3 +166,13 @@ static int cmd_test_ufetch_extra(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_ufetch_extra, UTF_CONSOLE);
+
+/* Check that an option the command does not have is refused */
+static int cmd_test_ufetch_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("ufetch -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ufetch_badopt, UTF_CONSOLE);

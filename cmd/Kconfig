@@ -257,6 +257,7 @@ config CMD_CPU
 
 config CMD_UFETCH
 	bool "U-Boot fetch"
+	select GETOPT
 	help
 	  Fetch utility for U-Boot (akin to neofetch). Prints information
 	  about U-Boot and the board it is running on in a pleasing format.

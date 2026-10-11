@@ -105,8 +105,8 @@ Return value
 ------------
 
 The return value $? is always 0 (true), since every field is optional and a
-missing one is simply left out. Giving more than one argument prints the usage
-message and sets $? to 1 (false).
+missing one is simply left out. An option other than -n, or more than one
+argument, prints the usage message and sets $? to 1 (false).
 
 Configuration
 -------------
