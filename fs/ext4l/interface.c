@@ -1045,7 +1045,12 @@ static int ext4l_write_file(struct dentry *dir_dentry, struct dentry *dentry,
 		if (ret < 0)
 			goto out_handle;
 
-		bh = ext4_getblk(handle, inode, block, 0);
+		/*
+		 * Read the block, since the write may cover only part of it
+		 * and the rest must survive. A block ext4_getblk() finds but
+		 * does not allocate holds no data until it is read.
+		 */
+		bh = ext4_bread(handle, inode, block, 0);
 
 		if (IS_ERR(bh)) {
 			ret = PTR_ERR(bh);
