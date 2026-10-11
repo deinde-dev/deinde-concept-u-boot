@@ -140,6 +140,7 @@ obj-$(CONFIG_CMD_BOOTP) += bootp.o
 obj-$(CONFIG_CMD_CDP) += cdp.o
 obj-$(CONFIG_CMD_DNS) += dns.o
 obj-$(CONFIG_CMD_LINK_LOCAL) += linklocal.o
+obj-$(CONFIG_CMD_PCAP) += pcap.o
 obj-$(CONFIG_CMD_RARP) += rarpboot.o
 obj-$(CONFIG_CMD_WGET) += wget.o
 endif

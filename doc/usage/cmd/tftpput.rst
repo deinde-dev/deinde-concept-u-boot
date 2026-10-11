@@ -86,4 +86,5 @@ See also
 * :doc:`bootp<bootp>` for obtaining the network settings before an upload
 * :doc:`tftpsrv<tftpsrv>` for receiving a file from a host
 * :doc:`wget<wget>` for downloading a file over HTTP
+* :doc:`pcap<pcap>` for producing a packet capture in memory to upload
 * *tftpboot* for downloading a file over TFTP

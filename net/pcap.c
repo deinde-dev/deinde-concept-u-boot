@@ -16,6 +16,8 @@ static bool initialized;
 static bool running;
 static bool buffer_full;
 static void *buf;
+/* address the buffer was asked for at, which is what is reported */
+static ulong base;
 static unsigned int max_size;
 static unsigned int pos;
 
@@ -49,6 +51,12 @@ static struct pcap_header file_header = {
 
 int pcap_init(phys_addr_t paddr, unsigned long size)
 {
+	if (size < sizeof(file_header)) {
+		printf("PCAP buffer must hold at least %zu bytes\n",
+		       sizeof(file_header));
+		return -ENOSPC;
+	}
+
 	buf = map_physmem(paddr, size, 0);
 	if (!buf) {
 		printf("Failed mapping PCAP memory\n");
@@ -56,9 +64,10 @@ int pcap_init(phys_addr_t paddr, unsigned long size)
 	}
 
 	printf("PCAP capture initialized: addr: 0x%lx max length: %lu\n",
-	       (unsigned long)buf, size);
+	       (ulong)paddr, size);
 
 	memcpy(buf, &file_header, sizeof(file_header));
+	base = paddr;
 	pos = sizeof(file_header);
 	max_size = size;
 	initialized = true;
@@ -141,8 +150,8 @@ int pcap_print_status(void)
 		return -ENODEV;
 	}
 	printf("PCAP status:\n");
-	printf("\tInitialized addr: 0x%lx\tmax length: %u\n",
-	       (unsigned long)buf, max_size);
+	printf("\tInitialized addr: 0x%lx\tmax length: %u\n", base,
+	       max_size);
 	printf("\tStatus: %s.\t file size: %u\n", running ? "Active" : "Idle",
 	       pos);
 	printf("\tIncoming packets: %lu Outgoing packets: %lu\n",
