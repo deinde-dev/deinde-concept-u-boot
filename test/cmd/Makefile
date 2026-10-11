@@ -51,6 +51,9 @@ obj-$(CONFIG_COREBOOT_SYSINFO) += coreboot.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_EDITENV) += editenv.o
 obj-$(CONFIG_CMD_ETHSW) += ethsw.o
+ifdef CONFIG_SANDBOX
+obj-$(CONFIG_CMD_EXT4_WRITE) += ext4write.o
+endif
 endif
 obj-$(CONFIG_CMD_FDT) += fdt.o
 ifdef CONFIG_CONSOLE_RECORD
