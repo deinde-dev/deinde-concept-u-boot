@@ -993,6 +993,10 @@ static int ext4l_write_file(struct dentry *dir_dentry, struct dentry *dentry,
 	if (dentry->d_inode) {
 		/* File exists - use the existing inode for overwrite */
 		inode = dentry->d_inode;
+
+		/* Refuse a directory, as ext4l_unlink() does */
+		if (S_ISDIR(inode->i_mode))
+			return -EISDIR;
 	} else {
 		/* File does not exist, create it */
 		/* Mode: 0644 (rw-r--r--) | S_IFREG */
