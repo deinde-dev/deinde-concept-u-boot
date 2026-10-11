@@ -174,3 +174,11 @@ The bdinfo command is available if CONFIG_CMD_BDI=y.
 The options to bdinfo are only available if CONFIG_GETOPT=y.
 
 The ``-e`` option is additionally only available if CONFIG_NET=y.
+
+See also
+--------
+
+* :doc:`ufetch<ufetch>` for a short summary of the same board, rather than
+  every field of it
+* :doc:`cpu<cpu>` for the CPUs in more detail
+* :doc:`meminfo<meminfo>` for what the memory is being used for

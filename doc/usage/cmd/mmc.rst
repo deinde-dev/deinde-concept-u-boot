@@ -299,3 +299,10 @@ write, erase
     CONFIG_MMC_WRITE
 bootbus, bootpart-resize, partconf, rst-function
     CONFIG_SUPPORT_EMMC_BOOT=y
+
+See also
+--------
+
+* :doc:`ufetch<ufetch>` for the size of each device, listed with the rest of
+  the board details
+* :doc:`part<part>` for the partitions on a device of any type
