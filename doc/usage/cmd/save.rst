@@ -58,6 +58,7 @@ See also
 --------
 
 * :doc:`fatwrite<fatwrite>` for the FAT-only form of this command
+* :doc:`ext4write<ext4write>` for the ext4-only form of this command
 * :doc:`load<load>` for reading the data back into memory
 * :doc:`mount<mount>` for making a filesystem available to the VFS
 * :doc:`pcap<pcap>` for producing a packet capture in memory to write out
