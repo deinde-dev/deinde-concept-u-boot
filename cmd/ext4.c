@@ -57,17 +57,16 @@ int do_ext4_ls(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 }
 
 #if defined(CONFIG_CMD_EXT4_WRITE)
-int do_ext4_write(struct cmd_tbl *cmdtp, int flag, int argc,
-		  char *const argv[])
+static int do_ext4_write(struct getopt_state *gs)
 {
-	return do_save(argc, argv, FS_TYPE_EXT);
+	return do_save(gs->argc, gs->argv, FS_TYPE_EXT);
 }
 
-U_BOOT_CMD(ext4write, 7, 1, do_ext4_write,
-	   "write a file into an ext4 filesystem",
-	   "<interface> <dev[:part]> <addr> <filename> <bytes> [<offset>]\n"
-	   "    - write 'bytes' bytes from the address 'addr' in RAM to file\n"
-	   "      'filename' on 'dev' on 'interface'");
+U_BOOT_CMD_NOOPTS(ext4write, 7, 1, do_ext4_write,
+		  "write a file into an ext4 filesystem",
+		  "<interface> <dev[:part]> <addr> <filename> <bytes> [<offset>]\n"
+		  "    - write 'bytes' bytes from the address 'addr' in RAM to file\n"
+		  "      'filename' on 'dev' on 'interface'");
 
 #endif
 

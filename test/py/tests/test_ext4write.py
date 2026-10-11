@@ -76,3 +76,7 @@ class TestExt4write:
     def test_ext4write_usage(self, ubman, ext4_image):
         """Check that ext4write insists on a byte count"""
         ubman.run_ut('cmd', 'cmd_test_ext4write_usage', fs_image=ext4_image)
+
+    def test_ext4write_badopt(self, ubman, ext4_image):
+        """Check that ext4write refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_ext4write_badopt', fs_image=ext4_image)

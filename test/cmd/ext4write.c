@@ -427,3 +427,28 @@ static int cmd_test_ext4write_usage_norun(struct unit_test_state *uts)
 }
 CMD_TEST_ARGS(cmd_test_ext4write_usage_norun, UTF_CONSOLE | UTF_MANUAL,
 	      { "fs_image", UT_ARG_STR });
+
+/* Test that ext4write refuses an option, since it has none */
+static int cmd_test_ext4write_badopt_norun(struct unit_test_state *uts)
+{
+	u8 *src;
+
+	ut_assertok(bind_image(uts));
+	src = fill_mem(SRC_ADDR, FILL_BYTE, FILE_SIZE);
+
+	ut_asserteq(1, run_commandf("ext4write -b host 0 %lx data.bin 10",
+				    (ulong)SRC_ADDR));
+	ut_assertok(check_usage(uts));
+
+	/* a filename which looks like an option is still a filename */
+	ut_assertok(run_commandf("ext4write host 0 %lx -b 10",
+				 (ulong)SRC_ADDR));
+	ut_assert_nextlinen("16 bytes written in ");
+	ut_assert_console_end();
+
+	unmap_sysmem(src);
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_ext4write_badopt_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
