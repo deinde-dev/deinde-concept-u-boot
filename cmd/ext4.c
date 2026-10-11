@@ -64,10 +64,10 @@ int do_ext4_write(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 U_BOOT_CMD(ext4write, 7, 1, do_ext4_write,
-	   "create a file in the root directory",
-	   "<interface> <dev[:part]> <addr> <absolute filename path>\n"
-	   "    [sizebytes] [file offset]\n"
-	   "    - create a file in / directory");
+	   "write a file into an ext4 filesystem",
+	   "<interface> <dev[:part]> <addr> <filename> <bytes> [<offset>]\n"
+	   "    - write 'bytes' bytes from the address 'addr' in RAM to file\n"
+	   "      'filename' on 'dev' on 'interface'");
 
 #endif
 
