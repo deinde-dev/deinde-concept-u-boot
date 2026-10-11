@@ -16,11 +16,6 @@
 #include <u-boot/crc.h>
 #include "vbe_common.h"
 
-binman_sym_declare(ulong, u_boot_vpl_nodtb, size);
-binman_sym_declare(ulong, u_boot_vpl_bss_pad, size);
-binman_sym_declare(ulong, u_boot_spl_nodtb, size);
-binman_sym_declare(ulong, u_boot_spl_bss_pad, size);
-
 int vbe_get_blk(const char *storage, struct udevice **blkp)
 {
 	struct udevice *blk;
@@ -363,22 +358,13 @@ int vbe_read_fit(struct udevice *blk, ulong area_offset, ulong area_size,
 #if IS_ENABLED(CONFIG_RELOC_LOADER)
 			image->fdt_buf = fdt_base_buf;
 
-			ulong xpl_size;
-			ulong xpl_pad;
-			ulong fdt_start;
-
-			if (xpl_phase() == PHASE_TPL) {
-				xpl_size = binman_sym(ulong, u_boot_vpl_nodtb, size);
-				xpl_pad = binman_sym(ulong, u_boot_vpl_bss_pad, size);
-			} else {
-				xpl_size = binman_sym(ulong, u_boot_spl_nodtb, size);
-				xpl_pad = binman_sym(ulong, u_boot_spl_bss_pad, size);
-			}
-			fdt_start = image->load_addr + xpl_size + xpl_pad;
-			log_debug("load_addr %lx xpl_size %lx copy-to %lx\n",
-				  image->load_addr, xpl_size + xpl_pad,
-				  fdt_start);
-			image->fdt_start = map_sysmem(fdt_start, fdt_size);
+			/*
+			 * The next phase expects its FDT just after its BSS.
+			 * Its size is only known once it is decompressed, and
+			 * may differ from the one built with this phase, e.g.
+			 * after an update, so let spl_reloc_jump() work it out
+			 */
+			image->fdt_start = NULL;
 #endif
 		}
 	}

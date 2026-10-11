@@ -151,9 +151,10 @@ __rcode int rcode_reloc_and_jump(struct spl_image_info *image)
 	if (*image->stack_prot != STACK_PROT_VALUE)
 		return -EFAULT;
 
-	/* copy in the FDT if needed */
+	/* copy in the FDT if needed, by default just after the image */
 	if (image->fdt_size)
-		memcpy(image->fdt_start, image->fdt_buf, image->fdt_size);
+		memcpy(image->fdt_start ?: (void *)dst + unc_len, image->fdt_buf,
+		       image->fdt_size);
 
 	crc = crc8(0, (u8 *)dst, unc_len);
 
