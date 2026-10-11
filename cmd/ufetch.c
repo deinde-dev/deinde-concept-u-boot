@@ -101,7 +101,7 @@ static int do_ufetch(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (argc > 1 && strcmp(argv[1], "-n") == 0) {
 		skip_ascii = true;
-		num_lines = LAST_LINE;
+		num_lines = LAST_LINE + 1;
 	}
 
 	for (int line = 0; line < num_lines; line++) {
