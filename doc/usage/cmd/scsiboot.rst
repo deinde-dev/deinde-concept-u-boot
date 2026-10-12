@@ -128,4 +128,5 @@ See also
 * :doc:`read<read>` for reading blocks from a partition without treating them
   as an image
 * :doc:`usbboot<usbboot>` for the same command on a USB storage device
+* :doc:`nboot<nboot>` for the same command on a raw NAND chip
 * *diskboot* for the same command on an IDE drive

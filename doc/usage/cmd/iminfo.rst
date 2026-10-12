@@ -128,4 +128,6 @@ See also
 * :doc:`load<load>` for reading an image into memory in the first place
 * :doc:`imxtract<imxtract>` for pulling a single component out of an image
 * :doc:`go<go>` for calling the entry point which this command prints
+* :doc:`nboot<nboot>` for loading an image from raw NAND, which prints the
+  same header as this command
 * *imls* for listing the images stored in flash

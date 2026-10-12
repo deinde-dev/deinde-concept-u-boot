@@ -155,3 +155,4 @@ See also
 * :doc:`mtd<mtd>` for the MTD stack command which supersedes this one
 * :doc:`nand<nand>` for NAND operations, which accept a partition name
   defined here
+* :doc:`nboot<nboot>` for booting an image from a partition defined here

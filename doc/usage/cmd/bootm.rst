@@ -415,6 +415,8 @@ See also
   from the command line rather than from an image header
 * :doc:`fastboot<fastboot>` for downloading an image from a host and booting
   it, which uses this command to start what it has downloaded
+* :doc:`nboot<nboot>` for loading an image from raw NAND and booting it,
+  which uses this command once the image is in memory
 
 .. sectionauthor:: Bartlomiej Sieka <tur@semihalf.com>
 .. sectionauthor:: Simon Glass <sjg@chromium.org>
