@@ -774,6 +774,21 @@ int jbd2__journal_restart(handle_t *handle, int nblocks, int revoke_records,
 	read_lock(&journal->j_state_lock);
 	need_to_start = !tid_geq(journal->j_commit_request, tid);
 	read_unlock(&journal->j_state_lock);
+#ifdef __UBOOT__
+	/*
+	 * U-Boot: there is no kjournald2 to commit the transaction which
+	 * jbd2_log_start_commit() asks for, so start_this_handle() would wait
+	 * for it for ever. Commit it here instead, as jbd2_journal_stop() does.
+	 * If that aborts the journal, start_this_handle() refuses to start a
+	 * new transaction, so the error reaches the caller.
+	 */
+	if (IS_ENABLED(CONFIG_EXT4_WRITE) &&
+	    journal->j_running_transaction &&
+	    atomic_read(&journal->j_running_transaction->t_updates) == 0) {
+		jbd2_journal_commit_transaction(journal);
+		need_to_start = 0;
+	}
+#endif
 	if (need_to_start)
 		jbd2_log_start_commit(journal, tid);
 	handle->h_total_credits = nblocks +
