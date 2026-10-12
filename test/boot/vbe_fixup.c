@@ -15,7 +15,7 @@
 /*
  * Basic test of reading nvdata and updating a fwupd node in the device tree
  * This test works when called from test_vbe.py and it must use the flat tree,
- * since device tree fix-ups do not yet support live tree.
+ * since it reads the working FDT, which is flat.
  */
 static int vbe_test_fixup_norun(struct unit_test_state *uts)
 {
