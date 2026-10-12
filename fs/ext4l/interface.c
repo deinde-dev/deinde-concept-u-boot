@@ -1111,22 +1111,27 @@ static int ext4l_write_file(struct dentry *dir_dentry, struct dentry *dentry,
 		pos += bytes_to_write;
 	}
 
-	/* Update inode size */
-	if (end > inode->i_size) {
-		i_size_write(inode, end);
+	ret = 0;
+
+out_handle:
+	/*
+	 * Update the inode size to cover what was written. Do this when an
+	 * error stops the write part-way too: the blocks before that point are
+	 * allocated and hold the data, and a size short of them leaves the
+	 * filesystem inconsistent
+	 */
+	if (pos > inode->i_size) {
+		i_size_write(inode, pos);
 		/*
 		 * Also update i_disksize in ext4_inode_info - this is what gets
 		 * written to disk via ext4_fill_raw_inode -> ext4_isize_set
 		 */
-		EXT4_I(inode)->i_disksize = end;
+		EXT4_I(inode)->i_disksize = pos;
 		/* Mark inode dirty to update on disk */
 		ext4_mark_inode_dirty(handle, inode);
 	}
+	*actwrite = pos - offset;
 
-	*actwrite = len;
-	ret = 0;
-
-out_handle:
 	/* Stop handle - this commits the transaction synchronously in U-Boot */
 	if (handle) {
 		int stop_ret = ext4_journal_stop(handle);
