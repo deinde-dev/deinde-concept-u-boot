@@ -52,5 +52,6 @@ See also
 --------
 
 * :doc:`fatmkdir<fatmkdir>` for the FAT-only form of this command
+* :doc:`ext4write<ext4write>` for writing a file into a directory this creates
 * :doc:`rm<rm>` for removing a file or an empty directory
 * :doc:`mount<mount>` for making a filesystem available to the VFS

@@ -3113,6 +3113,7 @@ config CMD_EXT4_WRITE
 	depends on CMD_EXT4 || FS_EXT4L
 	bool "ext4 write command support"
 	select EXT4_WRITE if !FS_EXT4L
+	select GETOPT
 	help
 	  Enables EXT4 FS write command
 

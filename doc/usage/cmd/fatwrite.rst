@@ -94,3 +94,4 @@ See also
 * :doc:`fatmkdir<fatmkdir>` for creating the directory to write into
 * :doc:`fatrm<fatrm>` for deleting the file again
 * :doc:`save<save>` for the same operation on any supported filesystem
+* :doc:`ext4write<ext4write>` for the same operation on an ext4 filesystem
