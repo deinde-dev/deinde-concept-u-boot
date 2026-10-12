@@ -39,6 +39,11 @@ static int vbe_test_fixup_norun(struct unit_test_state *uts)
 	data = ofnode_read_prop(node, "data", &size);
 	ut_asserteq(0x40, size);
 
+	node = ofnode_find_subnode(chosen, "seed");
+	ut_assert(ofnode_valid(node));
+	data = ofnode_read_prop(node, "data", &size);
+	ut_asserteq(0x20, size);
+
 	node = ofnode_find_subnode(chosen, "aslr2");
 	ut_assert(ofnode_valid(node));
 	data = ofnode_read_prop(node, "data", &size);

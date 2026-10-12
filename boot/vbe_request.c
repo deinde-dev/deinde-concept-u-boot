@@ -105,7 +105,10 @@ static struct vbe_req {
 	/* provide random data for EFI-runtime-services address */
 	{ "efi-runtime-rand", vbe_req_efi_runtime_rand },
 
-	/* generate random data bytes to see the OS's rand generator */
+	/* generate random data bytes to seed the OS's rand generator */
+	{ "random-seed", vbe_req_random_seed },
+
+	/* old name for random-seed */
 	{ "random-rand", vbe_req_random_seed },
 
 };

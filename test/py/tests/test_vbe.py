@@ -31,6 +31,10 @@ base_its = '''
                     vbe,size = <0x40>;
                     vbe,required;
                 };
+                seed {
+                    compatible = "vbe,random-seed";
+                    vbe,size = <0x20>;
+                };
                 aslr1 {
                     compatible = "vbe,aslr-move";
                     vbe,align = <0x100000>;
