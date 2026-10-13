@@ -212,8 +212,6 @@ typedef int boot_os_fn(int flag, struct bootm_info *bmi);
 extern boot_os_fn do_bootm_linux;
 extern boot_os_fn do_bootm_vxworks;
 
-int do_bootelf(struct cmd_tbl *cmdtp, int fglag, int argc, char *const argv[]);
-
 boot_os_fn *bootm_os_get_boot_func(int os);
 
 #if defined(CONFIG_FIT_SIGNATURE)

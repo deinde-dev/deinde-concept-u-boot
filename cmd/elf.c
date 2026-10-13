@@ -26,7 +26,8 @@
 #define BOOTLINE_BUF_LEN 128
 
 /* Interpreter command to boot an arbitrary ELF image from memory */
-int do_bootelf(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_bootelf(struct cmd_tbl *cmdtp, int flag, int argc,
+		      char *const argv[])
 {
 #if IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP)
 	struct bootm_headers img = {0};
