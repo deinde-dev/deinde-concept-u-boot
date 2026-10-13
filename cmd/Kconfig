@@ -2392,6 +2392,7 @@ config CMD_TFTPBOOT
 config CMD_TFTPSRV
 	bool "tftpsrv"
 	depends on CMD_TFTPBOOT
+	select GETOPT
 	help
 	  Act as a TFTP server and receive the first incoming file into
 	  memory. The command returns successfully after the transfer so

@@ -428,3 +428,23 @@ static int cmd_test_tftpsrv_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_tftpsrv_usage, UTF_CONSOLE);
+
+/* An option is refused rather than being taken as a file name */
+static int cmd_test_tftpsrv_badopt(struct unit_test_state *uts)
+{
+	struct tftpsrv_ctx ctx = { .uts = uts };
+	ulong load_addr = image_load_addr;
+
+	/* the client is attached, so a command which listens would transfer */
+	ut_assertok(tftpsrv_setup(uts, &ctx, true));
+	ut_asserteq(1, run_command("tftpsrv -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(0, ctx.requests);
+	ut_assertnull(env_get("filesize"));
+
+	ut_assertok(tftpsrv_restore(uts, load_addr));
+
+	return 0;
+}
+CMD_TEST(cmd_test_tftpsrv_badopt, UTF_CONSOLE);

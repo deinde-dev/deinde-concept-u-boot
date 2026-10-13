@@ -62,7 +62,7 @@ int net_lwip_dns_lookup(const char *name, const char *var);
 
 int do_dns(struct getopt_state *gs);
 int do_nfs(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
-int do_tftpsrv(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
+int do_tftpsrv(struct getopt_state *gs);
 int do_wget(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[]);
 
 #endif /* __NET_LWIP_H__ */
