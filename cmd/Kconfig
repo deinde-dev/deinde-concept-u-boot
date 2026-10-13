@@ -1944,6 +1944,7 @@ config CMD_UFS
 config CMD_USB
 	bool "usb"
 	depends on USB_HOST
+	select GETOPT
 	help
 	  USB support.
 
