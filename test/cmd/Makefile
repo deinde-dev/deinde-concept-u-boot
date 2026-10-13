@@ -83,7 +83,7 @@ obj-$(CONFIG_LOOPW) += loopw.o
 ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_MTD) += mtd.o
 obj-$(CONFIG_CMD_MTDPARTS) += chpart.o mtdparts.o
-obj-$(CONFIG_CMD_NAND) += nand.o
+obj-$(CONFIG_CMD_NAND) += nand.o nboot.o
 endif
 obj-$(CONFIG_CMD_MX_CYCLIC) += mdc.o mwc.o
 obj-$(CONFIG_CMD_RANDOM) += random.o

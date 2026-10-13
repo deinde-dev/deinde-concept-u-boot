@@ -1086,6 +1086,7 @@ static int nand_load_image(struct cmd_tbl *cmdtp, struct mtd_info *mtd,
 	int r;
 	char *s;
 	size_t cnt;
+	void *buf;
 #if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 	struct legacy_img_hdr *hdr;
 #endif
@@ -1103,20 +1104,22 @@ static int nand_load_image(struct cmd_tbl *cmdtp, struct mtd_info *mtd,
 
 	printf("\nLoading from %s, offset 0x%lx\n", mtd->name, offset);
 
+	/* the size is not known until the header is read, so map without it */
+	buf = map_sysmem(addr, 0);
 	cnt = mtd->writesize;
-	r = nand_read_skip_bad(mtd, offset, &cnt, NULL, mtd->size,
-			       (u_char *)addr);
+	r = nand_read_skip_bad(mtd, offset, &cnt, NULL, mtd->size, buf);
 	if (r) {
 		puts("** Read error\n");
 		bootstage_error(BOOTSTAGE_ID_NAND_HDR_READ);
+		unmap_sysmem(buf);
 		return 1;
 	}
 	bootstage_mark(BOOTSTAGE_ID_NAND_HDR_READ);
 
-	switch (genimg_get_format ((void *)addr)) {
+	switch (genimg_get_format(buf)) {
 #if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 	case IMAGE_FORMAT_LEGACY:
-		hdr = (struct legacy_img_hdr *)addr;
+		hdr = buf;
 
 		bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 		image_print_contents (hdr);
@@ -1126,7 +1129,7 @@ static int nand_load_image(struct cmd_tbl *cmdtp, struct mtd_info *mtd,
 #endif
 #if defined(CONFIG_FIT)
 	case IMAGE_FORMAT_FIT:
-		fit_hdr = (const void *)addr;
+		fit_hdr = buf;
 		puts ("Fit image detected...\n");
 
 		cnt = fit_get_size (fit_hdr);
@@ -1135,31 +1138,34 @@ static int nand_load_image(struct cmd_tbl *cmdtp, struct mtd_info *mtd,
 	default:
 		bootstage_error(BOOTSTAGE_ID_NAND_TYPE);
 		puts ("** Unknown image type\n");
+		unmap_sysmem(buf);
 		return 1;
 	}
 	bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 
-	r = nand_read_skip_bad(mtd, offset, &cnt, NULL, mtd->size,
-			       (u_char *)addr);
+	r = nand_read_skip_bad(mtd, offset, &cnt, NULL, mtd->size, buf);
 	if (r) {
 		puts("** Read error\n");
 		bootstage_error(BOOTSTAGE_ID_NAND_READ);
+		unmap_sysmem(buf);
 		return 1;
 	}
 	bootstage_mark(BOOTSTAGE_ID_NAND_READ);
 
 #if defined(CONFIG_FIT)
 	/* This cannot be done earlier, we need complete FIT image in RAM first */
-	if (genimg_get_format ((void *)addr) == IMAGE_FORMAT_FIT) {
+	if (genimg_get_format(buf) == IMAGE_FORMAT_FIT) {
 		if (fit_check_format(fit_hdr, IMAGE_SIZE_INVAL)) {
 			bootstage_error(BOOTSTAGE_ID_NAND_FIT_READ);
 			puts ("** Bad FIT image format\n");
+			unmap_sysmem(buf);
 			return 1;
 		}
 		bootstage_mark(BOOTSTAGE_ID_NAND_FIT_READ_OK);
 		fit_print_contents (fit_hdr);
 	}
 #endif
+	unmap_sysmem(buf);
 
 	/* Loading ok, update default load address */
 

@@ -333,4 +333,4 @@ See also
   name
 * :doc:`chpart<chpart>` for choosing which of those partitions is current
 * :doc:`sf<sf>` for SPI flash, which this command does not reach
-* *nboot* for booting an image held in raw NAND
+* :doc:`nboot<nboot>` for booting an image held in raw NAND

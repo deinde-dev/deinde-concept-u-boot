@@ -145,4 +145,5 @@ See also
 * :doc:`read<read>` for reading blocks from a partition without treating them
   as an image
 * :doc:`ums<ums>` for going the other way and exporting a device to a host
+* :doc:`nboot<nboot>` for the same command on a raw NAND chip
 * *diskboot* for the same command on an IDE drive
