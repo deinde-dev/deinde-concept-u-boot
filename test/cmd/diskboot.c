@@ -110,3 +110,13 @@ static int cmd_test_diskboot_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_diskboot_usage, UTF_CONSOLE);
+
+/* An option is refused rather than being read as a load address */
+static int cmd_test_diskboot_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("diskboot -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_diskboot_badopt, UTF_CONSOLE);
