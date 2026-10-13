@@ -594,6 +594,7 @@ config CMD_CEDIT_DUMP
 config CMD_ELF
 	bool "bootelf"
 	default y
+	select GETOPT
 	select LIB_ELF
 	help
 	  Boot an ELF image from memory.

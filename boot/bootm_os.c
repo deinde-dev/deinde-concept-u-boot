@@ -10,6 +10,7 @@
 #include <efi_loader.h>
 #include <elf.h>
 #include <env.h>
+#include <errno.h>
 #include <fdt_support.h>
 #include <image.h>
 #include <lmb.h>
@@ -360,8 +361,7 @@ int do_bootm_vxworks(int flag, struct bootm_info *bmi)
 static int do_bootm_qnxelf(int flag, struct bootm_info *bmi)
 {
 	struct bootm_headers *images = bmi->images;
-	char *local_args[2];
-	char str[16];
+	Bootelf_flags flags = {0};
 	int dcache;
 
 	if (flag != BOOTM_STATE_OS_GO)
@@ -374,9 +374,8 @@ static int do_bootm_qnxelf(int flag, struct bootm_info *bmi)
 	}
 #endif
 
-	sprintf(str, "%lx", images->ep); /* write entry-point into string */
-	local_args[0] = bmi->argv[0];
-	local_args[1] = str;	/* and provide it via the arguments */
+	if (env_get_autostart())
+		flags.autostart = 1;
 
 	/*
 	 * QNX images require the data cache is disabled.
@@ -385,7 +384,8 @@ static int do_bootm_qnxelf(int flag, struct bootm_info *bmi)
 	if (dcache)
 		dcache_disable();
 
-	do_bootelf(NULL, 0, 2, local_args);
+	if (bootelf(images->ep, flags, 0, NULL) && errno == ENOEXEC)
+		log_err("Invalid ELF image\n");
 
 	if (dcache)
 		dcache_enable();
