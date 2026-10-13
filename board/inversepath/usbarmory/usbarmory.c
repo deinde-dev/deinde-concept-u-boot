@@ -8,6 +8,7 @@
  */
 
 #include <config.h>
+#include <bootm.h>
 #include <command.h>
 #include <fs_cmd.h>
 #include <fs_legacy.h>
@@ -434,7 +435,8 @@ static char *ext2_argv[] = {
 
 static char *bootm_argv[] = {
 	"bootm",
-	USBARMORY_FIT_ADDR
+	USBARMORY_FIT_ADDR,
+	NULL
 };
 
 int board_run_command(const char *cmdline)
@@ -448,7 +450,7 @@ int board_run_command(const char *cmdline)
 	}
 
 	printf("%s %s\n", bootm_argv[0], bootm_argv[1]);
-	do_bootm(NULL, 0, 2, bootm_argv);
+	bootm_boot_args(1, bootm_argv + 1);
 
 	return 1;
 }
