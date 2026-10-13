@@ -63,7 +63,7 @@ struct bootm_headers images;		/* pointers to os/initrd/fdt images */
  */
 static struct legacy_img_hdr *image_get_kernel(ulong img_addr, int verify)
 {
-	struct legacy_img_hdr *hdr = (struct legacy_img_hdr *)img_addr;
+	struct legacy_img_hdr *hdr = map_sysmem(img_addr, 0);
 
 	if (!image_check_magic(hdr)) {
 		puts("Bad Magic Number\n");
@@ -163,14 +163,16 @@ static int boot_get_kernel(const char *addr_fit, ulong os_size_in,
 		switch (image_get_type(hdr)) {
 		case IH_TYPE_KERNEL:
 		case IH_TYPE_KERNEL_NOLOAD:
-			*os_data = image_get_data(hdr);
+			*os_data = img_addr + image_get_header_size();
 			*os_len = image_get_data_size(hdr);
 			break;
 		case IH_TYPE_MULTI:
+			/* this works from hdr, so gives a pointer, not an address */
 			image_multi_getimg(hdr, 0, os_data, os_len);
+			*os_data = map_to_sysmem((void *)*os_data);
 			break;
 		case IH_TYPE_STANDALONE:
-			*os_data = image_get_data(hdr);
+			*os_data = img_addr + image_get_header_size();
 			*os_len = image_get_data_size(hdr);
 			break;
 		default:
@@ -687,7 +689,7 @@ int bootm_find_images(ulong img_addr, const char *conf_ramdisk,
 				  images.ft_len, start, size))
 			return 1;
 
-		if (IS_ENABLED(CONFIG_CMD_FDT))
+		if (IS_ENABLED(CONFIG_CMD_FDT) && images.ft_addr)
 			set_working_fdt_addr(map_to_sysmem(images.ft_addr));
 	}
 

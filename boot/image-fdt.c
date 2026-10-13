@@ -167,7 +167,8 @@ static void boot_fdt_handle_mem_rsv_regions(const void *fdt_blob, bool free)
  */
 void boot_fdt_add_mem_rsv_regions(const void *fdt_blob)
 {
-	if (fdt_check_header(fdt_blob) != 0)
+	/* a kernel booted without a device tree has none to reserve */
+	if (!fdt_blob || fdt_check_header(fdt_blob) != 0)
 		return;
 
 	/* Remove old regions */
@@ -514,7 +515,7 @@ int boot_get_fdt(void *buf, const char *select, uint arch,
 		 * get second entry data start address and len.
 		 */
 		printf("## Flattened Device Tree from multi component Image at %08lX\n",
-		       (ulong)images->legacy_hdr_os);
+		       (ulong)map_to_sysmem(images->legacy_hdr_os));
 
 		image_multi_getimg(images->legacy_hdr_os, 2, &fdt_data,
 				   &fdt_len);

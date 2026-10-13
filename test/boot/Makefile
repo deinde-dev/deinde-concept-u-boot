@@ -19,7 +19,7 @@ obj-$(CONFIG_UT_BOOTCTL) += bootctl/
 endif
 
 ifdef CONFIG_SANDBOX
-obj-$(CONFIG_CMDLINE) += bootm.o
+obj-$(CONFIG_CMDLINE) += bootm.o bootm_legacy.o
 ifdef CONFIG_UT_DM
 obj-$(CONFIG_OF_LIBFDT) += image_fdt.o
 endif
