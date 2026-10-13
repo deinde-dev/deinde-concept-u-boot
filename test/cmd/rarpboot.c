@@ -192,10 +192,14 @@ static int cmd_test_rarpboot_bad(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_rarpboot_bad, UTF_CONSOLE);
 
-/* The command takes at most two arguments */
-static int cmd_test_rarpboot_usage(struct unit_test_state *uts)
+/**
+ * check_usage() - check the usage message the command prints
+ *
+ * @uts: test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_usage(struct unit_test_state *uts)
 {
-	ut_asserteq(1, run_command("rarpboot 1000 boot.img extra", 0));
 	ut_assert_nextline("rarpboot - boot image via network using RARP/TFTP protocol");
 	ut_assert_nextline_empty();
 	ut_assert_nextline("Usage:");
@@ -204,4 +208,31 @@ static int cmd_test_rarpboot_usage(struct unit_test_state *uts)
 
 	return 0;
 }
+
+/* The command takes at most two arguments */
+static int cmd_test_rarpboot_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("rarpboot 1000 boot.img extra", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
 CMD_TEST(cmd_test_rarpboot_usage, UTF_CONSOLE);
+
+/* An option is refused rather than being taken as a file name */
+static int cmd_test_rarpboot_badopt(struct unit_test_state *uts)
+{
+	struct rarp_ctx ctx = { .uts = uts };
+
+	/* the emulated server is attached, so a command which runs would reply */
+	ut_assertok(rarp_setup(uts, &ctx));
+	ut_asserteq(1, run_command("rarpboot -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(0, ctx.replies);
+
+	ut_assertok(rarp_restore(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_rarpboot_badopt, UTF_CONSOLE);

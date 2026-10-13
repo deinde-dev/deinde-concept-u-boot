@@ -9,6 +9,7 @@
  */
 #include <blk.h>
 #include <command.h>
+#include <getopt.h>
 #include <scsi.h>
 
 static int scsi_curr_dev; /* current device */
@@ -16,10 +17,9 @@ static int scsi_curr_dev; /* current device */
 /*
  * scsi boot command intepreter. Derived from diskboot
  */
-static int do_scsiboot(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_scsiboot(struct getopt_state *gs)
 {
-	return common_diskboot("scsi", argc, argv);
+	return common_diskboot("scsi", gs->argc, gs->argv);
 }
 
 /*
@@ -56,7 +56,7 @@ U_BOOT_CMD(
 	"scsi erase blk# cnt - erase `cnt' blocks starting at block `blk#'"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	scsiboot, 3, 1, do_scsiboot,
 	"boot from SCSI device",
 	"loadAddr dev:part"

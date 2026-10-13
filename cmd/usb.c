@@ -16,6 +16,7 @@
 #include <console.h>
 #include <dm.h>
 #include <dm/uclass-internal.h>
+#include <getopt.h>
 #include <memalign.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
@@ -553,10 +554,9 @@ static int usb_test(struct usb_device *dev, int port, char* arg)
  * usb boot command intepreter. Derived from diskboot
  */
 #ifdef CONFIG_USB_STORAGE
-static int do_usbboot(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_usbboot(struct getopt_state *gs)
 {
-	return common_diskboot("usb", argc, argv);
+	return common_diskboot("usb", gs->argc, gs->argv);
 }
 #endif /* CONFIG_USB_STORAGE */
 
@@ -717,7 +717,7 @@ U_BOOT_CMD(
 );
 
 #ifdef CONFIG_USB_STORAGE
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	usbboot,	3,	1,	do_usbboot,
 	"boot from USB device",
 	"loadAddr dev:part"

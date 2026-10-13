@@ -108,11 +108,14 @@ static int cmd_test_scsiboot_missing(struct unit_test_state *uts)
 CMD_TEST(cmd_test_scsiboot_missing, UTF_CONSOLE | UTF_DM | UTF_SCAN_PDATA |
 	 UTF_SCAN_FDT);
 
-/* Test the command lines which the command refuses */
-static int cmd_test_scsiboot_usage(struct unit_test_state *uts)
+/**
+ * check_usage() - Check the usage message the command prints
+ *
+ * @uts: Test state
+ * Return: 0 if OK, other value on error
+ */
+static int check_usage(struct unit_test_state *uts)
 {
-	/* the command takes two arguments at most */
-	ut_asserteq(1, run_command("scsiboot " SCSIBOOT_ADDR " 0:0 1", 0));
 	ut_assert_nextline("scsiboot - boot from SCSI device");
 	ut_assert_nextline_empty();
 	ut_assert_nextline("Usage:");
@@ -121,4 +124,24 @@ static int cmd_test_scsiboot_usage(struct unit_test_state *uts)
 
 	return 0;
 }
+
+/* Test the command lines which the command refuses */
+static int cmd_test_scsiboot_usage(struct unit_test_state *uts)
+{
+	/* the command takes two arguments at most */
+	ut_asserteq(1, run_command("scsiboot " SCSIBOOT_ADDR " 0:0 1", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
 CMD_TEST(cmd_test_scsiboot_usage, UTF_CONSOLE);
+
+/* An option is refused rather than being read as a load address */
+static int cmd_test_scsiboot_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("scsiboot -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_scsiboot_badopt, UTF_CONSOLE);

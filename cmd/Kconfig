@@ -1878,6 +1878,7 @@ config CMD_SCSI
 	bool "scsi - Access to SCSI devices"
 	depends on SCSI
 	default y
+	select GETOPT
 	help
 	  This provides a 'scsi' command which provides access to SCSI (Small
 	  Computer System Interface) devices. The command provides a way to
@@ -1943,6 +1944,7 @@ config CMD_UFS
 config CMD_USB
 	bool "usb"
 	depends on USB_HOST
+	select GETOPT
 	help
 	  USB support.
 
@@ -2085,6 +2087,7 @@ if NET_LEGACY
 config CMD_BOOTP
 	bool "bootp"
 	default y
+	select GETOPT
 	help
 	  bootp - boot image via network using BOOTP/TFTP protocol
 
@@ -2252,6 +2255,7 @@ config NET_TFTP_VARS
 
 config CMD_RARP
 	bool "rarpboot"
+	select GETOPT
 	help
 	  Boot image via network using RARP/TFTP protocol
 

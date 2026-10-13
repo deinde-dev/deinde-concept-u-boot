@@ -381,3 +381,15 @@ static int cmd_test_nboot_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_nboot_usage, UTF_CONSOLE);
+
+/* An option is refused rather than being read as a load address */
+static int cmd_test_nboot_badopt(struct unit_test_state *uts)
+{
+	ut_assertok(setup_nand(uts));
+
+	ut_asserteq(1, run_command("nboot -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_nboot_badopt, UTF_CONSOLE);
