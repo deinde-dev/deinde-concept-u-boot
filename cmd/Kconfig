@@ -1878,6 +1878,7 @@ config CMD_SCSI
 	bool "scsi - Access to SCSI devices"
 	depends on SCSI
 	default y
+	select GETOPT
 	help
 	  This provides a 'scsi' command which provides access to SCSI (Small
 	  Computer System Interface) devices. The command provides a way to
