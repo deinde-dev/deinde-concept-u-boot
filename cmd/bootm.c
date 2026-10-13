@@ -191,15 +191,15 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return ret ? CMD_RET_FAILURE : 0;
 }
 
-int bootm_maybe_autostart(struct cmd_tbl *cmdtp, const char *cmd)
+int bootm_maybe_autostart(void)
 {
 	if (env_get_autostart()) {
-		char *local_args[2];
-		local_args[0] = (char *)cmd;
-		local_args[1] = NULL;
+		/* an empty list, not NULL: some OS handlers read argv[0] */
+		char *const no_args[] = { NULL };
+
 		printf("Automatic boot of image at addr 0x%08lX ...\n",
 		       image_load_addr);
-		return do_bootm(cmdtp, 0, 1, local_args);
+		return bootm_boot_args(0, no_args) ? CMD_RET_FAILURE : 0;
 	}
 
 	return 0;

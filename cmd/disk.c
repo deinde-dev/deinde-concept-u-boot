@@ -137,5 +137,5 @@ int common_diskboot(struct cmd_tbl *cmdtp, const char *intf, int argc,
 	/* Loading ok, update default load address */
 	image_load_addr = addr;
 
-	return bootm_maybe_autostart(cmdtp, argv[0]);
+	return bootm_maybe_autostart();
 }

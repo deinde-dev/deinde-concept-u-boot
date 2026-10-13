@@ -1171,7 +1171,7 @@ static int nand_load_image(struct cmd_tbl *cmdtp, struct mtd_info *mtd,
 
 	image_load_addr = addr;
 
-	return bootm_maybe_autostart(cmdtp, cmd);
+	return bootm_maybe_autostart();
 }
 
 static int do_nandboot(struct cmd_tbl *cmdtp, int flag, int argc,

@@ -293,7 +293,7 @@ static int bootm_test_autostart(struct unit_test_state *uts)
 
 	/* with autostart unset, nothing happens */
 	ut_assertok(set_autostart(uts, NULL, &old));
-	ut_assertok(bootm_maybe_autostart(NULL, "test"));
+	ut_assertok(bootm_maybe_autostart());
 	ut_assert_console_end();
 
 	/*
@@ -304,7 +304,7 @@ static int bootm_test_autostart(struct unit_test_state *uts)
 	ut_assertnonnull(buf);
 	image_load_addr = map_to_sysmem(buf);
 	ut_assertok(env_set("autostart", "yes"));
-	ut_asserteq(CMD_RET_FAILURE, bootm_maybe_autostart(NULL, "test"));
+	ut_asserteq(CMD_RET_FAILURE, bootm_maybe_autostart());
 	ut_assert_nextline("Automatic boot of image at addr 0x%08lX ...",
 			   image_load_addr);
 	ut_assert_skip_to_line("Wrong Image Type for bootm command");

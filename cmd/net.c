@@ -422,7 +422,7 @@ static int netboot_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 
 	bootstage_mark(BOOTSTAGE_ID_NET_LOADED);
 
-	rcode = bootm_maybe_autostart(cmdtp, argv[0]);
+	rcode = bootm_maybe_autostart();
 
 	if (rcode == CMD_RET_SUCCESS)
 		bootstage_mark(BOOTSTAGE_ID_NET_DONE);
