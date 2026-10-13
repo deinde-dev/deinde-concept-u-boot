@@ -2,7 +2,7 @@
 
 # 'make clean' does not read the config, so it visits this directory only if
 # the line is outside the ifdef; EXAMPLES_STANDALONE depends on EXAMPLES anyway
-subdir-$(EXAMPLES_STANDALONE) += standalone
+subdir-$(CONFIG_EXAMPLES_STANDALONE) += standalone
 
 ifdef CONFIG_EXAMPLES
 
