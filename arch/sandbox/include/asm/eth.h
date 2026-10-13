@@ -72,6 +72,23 @@ typedef int sandbox_eth_tx_hand_f(struct udevice *dev, void *pkt,
 				   unsigned int len);
 
 /**
+ * A handler called when the device is polled with nothing queued
+ *
+ * The tx handler can only answer a packet U-Boot has sent, so it cannot start
+ * an exchange. This handler runs each time U-Boot looks for a packet and finds
+ * none, which lets a test play the client to a server U-Boot is running: queue
+ * a packet into @eth_sandbox_priv->recv_packet_buffer as
+ * sandbox_eth_recv_arp_req() does, and U-Boot receives it on this poll.
+ *
+ * It is called repeatedly while the device is idle, so a handler which should
+ * send one packet has to remember that it has done so.
+ *
+ * dev - device pointer
+ * Return: 0 if a packet was queued, -EAGAIN if not
+ */
+typedef int sandbox_eth_rx_hand_f(struct udevice *dev);
+
+/**
  * struct eth_sandbox_priv - memory for sandbox mock driver
  *
  * fake_host_hwaddr - MAC address of mocked machine
@@ -83,6 +100,7 @@ typedef int sandbox_eth_tx_hand_f(struct udevice *dev, void *pkt,
  * recv_packet_length - lengths of the packet returned as received
  * recv_packets - number of packets returned
  * tx_handler - function to generate responses to sent packets
+ * rx_handler - function to queue a packet when none is waiting, or NULL
  * priv - a pointer to some structure a test may want to keep track of
  */
 struct eth_sandbox_priv {
@@ -95,6 +113,7 @@ struct eth_sandbox_priv {
 	int recv_packet_length[PKTBUFSRX];
 	int recv_packets;
 	sandbox_eth_tx_hand_f *tx_handler;
+	sandbox_eth_rx_hand_f *rx_handler;
 	void *priv;
 };
 
@@ -104,6 +123,13 @@ struct eth_sandbox_priv {
  * handler - The func ptr to call on send. If NULL, set to default handler
  */
 void sandbox_eth_set_tx_handler(int index, sandbox_eth_tx_hand_f *handler);
+
+/*
+ * Set the handler called when no packet is waiting
+ *
+ * handler - The func ptr to call on an idle poll, or NULL for none
+ */
+void sandbox_eth_set_rx_handler(int index, sandbox_eth_rx_hand_f *handler);
 
 /*
  * Set priv ptr
