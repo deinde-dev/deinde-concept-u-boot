@@ -48,6 +48,11 @@
  */
 #define ELF_FUNC	"          do_bootelf"
 
+/* The two long lines of the usage message */
+#define LOAD_LINE \
+	"\t- load ELF image at [address] via program headers (-p)"
+#define FDT_LINE	"\t- setup FDT image at [fdt_addr_r] (-d)"
+
 /* Value which the stand-in image returns; set before each test */
 static ulong elf_result;
 
@@ -216,6 +221,36 @@ static int check_log(struct unit_test_state *uts, const char *msg)
 		ut_assert_nextline("%s() %s", ELF_FUNC, msg);
 	else
 		ut_assert_nextline("%s", msg);
+
+	return 0;
+}
+
+/**
+ * check_usage() - Check the usage message which the command prints
+ *
+ * The '-d' option appears in it only where CONFIG_CMD_ELF_FDT_SETUP is
+ * enabled, which is true of sandbox but of no other sandbox variant. Without
+ * it the help text ends in a newline, so there is a blank line after the last
+ * one.
+ *
+ * @uts: Test state
+ */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("bootelf - Boot from an ELF image in memory");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	if (IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP))
+		ut_assert_nextline("bootelf [-p|-s] [-d fdt_addr_r] [address]");
+	else
+		ut_assert_nextline("bootelf [-p|-s] [address]");
+	ut_assert_nextline("%s", LOAD_LINE);
+	ut_assert_nextline("\t  or via section headers (-s)");
+	if (IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP))
+		ut_assert_nextline("%s", FDT_LINE);
+	else
+		ut_assert_nextline_empty();	/* the text ends in a newline */
+	ut_assert_console_end();
 
 	return 0;
 }
@@ -514,18 +549,32 @@ static int cmd_test_bootelf_nofdt(struct unit_test_state *uts)
 	if (!IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP))
 		return -EAGAIN;
 
-	/*
-	 * The option needs an argument, which is missing here, so '-d' is left
-	 * on the command line and the address falls back to image_load_addr
-	 */
+	/* the option needs an argument, which is missing here */
 	ut_assertok(set_autostart(uts, NULL, &saved));
 	ut_asserteq(1, run_command("bootelf -d", 0));
-	ut_assert_nextline("## No elf image at address 0x%08lx",
-			   image_load_addr);
-	ut_assert_console_end();
+	ut_assertok(check_usage(uts));
 
 	ut_assertok(restore_autostart(uts, saved));
 
 	return 0;
 }
 CMD_TEST(cmd_test_bootelf_nofdt, UTF_CONSOLE);
+
+/* Test that the command refuses an option it does not have */
+static int cmd_test_bootelf_badopt(struct unit_test_state *uts)
+{
+	char *saved;
+
+	ut_assertok(set_autostart(uts, NULL, &saved));
+	ut_asserteq(1, run_command("bootelf -x 1000", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an option letter is a whole argument, so '-px' is not '-p' either */
+	ut_asserteq(1, run_command("bootelf -px 1000", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_assertok(restore_autostart(uts, saved));
+
+	return 0;
+}
+CMD_TEST(cmd_test_bootelf_badopt, UTF_CONSOLE);

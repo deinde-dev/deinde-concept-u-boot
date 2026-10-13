@@ -25,9 +25,14 @@
 
 #define BOOTLINE_BUF_LEN 128
 
+#if IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP)
+#define BOOTELF_OPTS	"+psd:"
+#else
+#define BOOTELF_OPTS	"+ps"
+#endif
+
 /* Interpreter command to boot an arbitrary ELF image from memory */
-static int do_bootelf(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_bootelf(struct getopt_state *gs)
 {
 #if IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP)
 	struct bootm_headers img = {0};
@@ -37,31 +42,30 @@ static int do_bootelf(struct cmd_tbl *cmdtp, int flag, int argc,
 	unsigned long rc; /* Return value from user code */
 	int rcode = CMD_RET_SUCCESS;
 	Bootelf_flags flags = {0};
+	int argc, opt;
+	char *const *argv;
 
-	/* Consume 'bootelf' */
-	argc--; argv++;
-
-	/* Check for [-p|-s] flag. */
-	if (argc >= 1 && (argv[0][0] == '-' && \
-				(argv[0][1] == 'p' || argv[0][1] == 's'))) {
-		if (argv[0][1] == 'p')
-			flags.phdr = 1;
-		log_debug("Using ELF header format %s\n",
-				flags.phdr ? "phdr" : "shdr");
-		/* Consume flag. */
-		argc--; argv++;
-	}
-
+	while ((opt = getopt(gs, BOOTELF_OPTS)) > 0) {
+		switch (opt) {
+		case 'p':
+		case 's':
+			flags.phdr = opt == 'p';
+			log_debug("Using ELF header format %s\n",
+				  flags.phdr ? "phdr" : "shdr");
+			break;
 #if IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP)
-	/* Check for [-d fdt_addr_r] option. */
-	if ((argc >= 2) && (argv[0][0] == '-') && (argv[0][1] == 'd')) {
-		if (strict_strtoul(argv[1], 16, &fdt_addr) != 0)
-			return CMD_RET_USAGE;
-		/* Consume option. */
-		argc -= 2;
-		argv += 2;
-	}
+		case 'd':
+			if (strict_strtoul(gs->arg, 16, &fdt_addr) != 0)
+				return CMD_RET_USAGE;
+			break;
 #endif
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	argc = gs->argc - gs->index;
+	argv = &gs->argv[gs->index];
 
 	/* Check for address. */
 	if (argc >= 1 && strict_strtoul(argv[0], 16, &addr) != -EINVAL) {
@@ -336,7 +340,7 @@ static int do_bootvx(struct getopt_state *gs)
 }
 #endif
 
-U_BOOT_CMD(
+U_BOOT_CMD_GETOPT(
 	bootelf, CONFIG_SYS_MAXARGS, 0, do_bootelf,
 	"Boot from an ELF image in memory",
 	"[-p|-s] "
