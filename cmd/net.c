@@ -26,13 +26,12 @@
 static int netboot_common(enum proto_t, int, char * const []);
 
 #ifdef CONFIG_CMD_BOOTP
-static int do_bootp(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_bootp(struct getopt_state *gs)
 {
-	return netboot_common(BOOTP, argc, argv);
+	return netboot_common(BOOTP, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	bootp,	3,	1,	do_bootp,
 	"boot image via network using BOOTP/TFTP protocol",
 	"[loadAddress] [[hostIPaddr:]bootfilename]"

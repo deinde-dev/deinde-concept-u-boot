@@ -2085,6 +2085,7 @@ if NET_LEGACY
 config CMD_BOOTP
 	bool "bootp"
 	default y
+	select GETOPT
 	help
 	  bootp - boot image via network using BOOTP/TFTP protocol
 
