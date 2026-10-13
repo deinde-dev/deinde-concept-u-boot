@@ -63,7 +63,7 @@ struct bootm_headers images;		/* pointers to os/initrd/fdt images */
  */
 static struct legacy_img_hdr *image_get_kernel(ulong img_addr, int verify)
 {
-	struct legacy_img_hdr *hdr = (struct legacy_img_hdr *)img_addr;
+	struct legacy_img_hdr *hdr = map_sysmem(img_addr, 0);
 
 	if (!image_check_magic(hdr)) {
 		puts("Bad Magic Number\n");
@@ -163,14 +163,14 @@ static int boot_get_kernel(const char *addr_fit, ulong os_size_in,
 		switch (image_get_type(hdr)) {
 		case IH_TYPE_KERNEL:
 		case IH_TYPE_KERNEL_NOLOAD:
-			*os_data = image_get_data(hdr);
+			*os_data = img_addr + image_get_header_size();
 			*os_len = image_get_data_size(hdr);
 			break;
 		case IH_TYPE_MULTI:
 			image_multi_getimg(hdr, 0, os_data, os_len);
 			break;
 		case IH_TYPE_STANDALONE:
-			*os_data = image_get_data(hdr);
+			*os_data = img_addr + image_get_header_size();
 			*os_len = image_get_data_size(hdr);
 			break;
 		default:
