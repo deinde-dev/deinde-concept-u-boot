@@ -71,12 +71,18 @@ int do_bootelf(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 #if IS_ENABLED(CONFIG_CMD_ELF_FDT_SETUP)
 	if (fdt_addr) {
+		void *fdt;
+		int ret;
+
 		log_debug("Setting up FDT at 0x%08lx ...\n", fdt_addr);
 		flush();
 
-		fdt_set_totalsize((void *)fdt_addr,
-				fdt_totalsize(fdt_addr) + CONFIG_SYS_FDT_PAD);
-		if (image_setup_libfdt(&img, (void *)fdt_addr, false))
+		/* the size comes from the header, so map without it */
+		fdt = map_sysmem(fdt_addr, 0);
+		fdt_set_totalsize(fdt, fdt_totalsize(fdt) + CONFIG_SYS_FDT_PAD);
+		ret = image_setup_libfdt(&img, fdt, false);
+		unmap_sysmem(fdt);
+		if (ret)
 			return 1;
 	}
 #endif
