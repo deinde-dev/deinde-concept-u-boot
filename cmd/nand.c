@@ -1174,9 +1174,10 @@ static int nand_load_image(struct mtd_info *mtd, ulong offset, ulong addr,
 	return bootm_maybe_autostart();
 }
 
-static int do_nandboot(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_nandboot(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	char *boot_device = NULL;
 	int idx;
 	ulong addr, offset = 0;
@@ -1256,7 +1257,6 @@ usage:
 	return nand_load_image(mtd, offset, addr, argv[0]);
 }
 
-U_BOOT_CMD(nboot, 4, 1, do_nandboot,
-	"boot from NAND device",
-	"[partition] | [[[loadAddr] dev] offset]"
-);
+U_BOOT_CMD_NOOPTS(nboot, 4, 1, do_nandboot,
+		  "boot from NAND device",
+		  "[partition] | [[[loadAddr] dev] offset]");
