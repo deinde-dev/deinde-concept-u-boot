@@ -7,6 +7,7 @@
 #include <env.h>
 #include <dm/device.h>
 #include <efi_loader.h>
+#include <getopt.h>
 #include <image.h>
 #include <linux/delay.h>
 #include <linux/kconfig.h>
@@ -387,8 +388,10 @@ out_remove_netif:
 	return ret;
 }
 
-int do_tftpsrv(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_tftpsrv(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret = CMD_RET_SUCCESS;
 	char *end;
 	ulong laddr;

@@ -82,13 +82,12 @@ U_BOOT_CMD(
 #endif
 
 #ifdef CONFIG_CMD_TFTPSRV
-static int do_tftpsrv(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_tftpsrv(struct getopt_state *gs)
 {
-	return netboot_common(TFTPSRV, argc, argv);
+	return netboot_common(TFTPSRV, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	tftpsrv,	2,	1,	do_tftpsrv,
 	"act as a TFTP server and receive the first file",
 	"[loadAddress]\n"

@@ -375,6 +375,29 @@ void sandbox_eth_set_tx_handler(int index, sandbox_eth_tx_hand_f *handler)
 }
 
 /*
+ * sandbox_eth_set_rx_handler()
+ *
+ * Set the handler called when U-Boot polls the device and nothing is queued,
+ * so that a test can send a packet U-Boot has not asked for
+ *
+ * index - interface to set the handler for
+ * handler - The func ptr to call on an idle poll. If NULL, no handler is called
+ */
+void sandbox_eth_set_rx_handler(int index, sandbox_eth_rx_hand_f *handler)
+{
+	struct udevice *dev;
+	struct eth_sandbox_priv *priv;
+	int ret;
+
+	ret = uclass_get_device(UCLASS_ETH, index, &dev);
+	if (ret)
+		return;
+
+	priv = dev_get_priv(dev);
+	priv->rx_handler = handler;
+}
+
+/*
  * Set priv ptr
  *
  * priv - priv void ptr to store in the device
@@ -429,6 +452,9 @@ static int sb_eth_recv(struct udevice *dev, int flags, uchar **packetp)
 		timer_test_add_offset(11000UL);
 		skip_timeout = false;
 	}
+
+	if (!priv->recv_packets && priv->rx_handler)
+		priv->rx_handler(dev);
 
 	if (priv->recv_packets) {
 		int lcl_recv_packet_length = priv->recv_packet_length[0];
@@ -499,6 +525,7 @@ static int sb_eth_of_to_plat(struct udevice *dev)
 	pdata->iobase = dev_read_addr(dev);
 	priv->disabled = false;
 	priv->tx_handler = sb_default_handler;
+	priv->rx_handler = NULL;
 
 	return 0;
 }

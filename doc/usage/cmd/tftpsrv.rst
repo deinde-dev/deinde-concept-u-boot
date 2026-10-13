@@ -64,6 +64,13 @@ On the host, send the file to the board while U-Boot is listening:
 
     $ curl --upload-file image.fit tftp://192.168.1.40/image.fit
 
+Return value
+------------
+
+The return value $? is set to 0 (true) if a file is received, and to 1
+(false) if the transfer is aborted by Ctrl-C or by the timeout, or if the
+arguments cannot be parsed.
+
 Configuration
 -------------
 
