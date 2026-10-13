@@ -6,7 +6,11 @@
  */
 
 #include <bootm.h>
+#include <command.h>
 #include <env.h>
+#include <image.h>
+#include <malloc.h>
+#include <mapmem.h>
 #include <asm/global_data.h>
 #include <test/test.h>
 #include <test/ut.h>
@@ -256,3 +260,61 @@ static int bootm_test_subst_both(struct unit_test_state *uts)
 	return 0;
 }
 BOOTM_TEST(bootm_test_subst_both, 0);
+
+/**
+ * set_autostart() - Set the autostart variable, returning its old value
+ *
+ * @uts: Test state
+ * @val: New value, or NULL to remove it
+ * @oldp: Returns a copy of the old value, or NULL if it was unset; the caller
+ *	frees it
+ * Return: 0 if OK, other value on error
+ */
+static int set_autostart(struct unit_test_state *uts, const char *val,
+			 char **oldp)
+{
+	const char *old = env_get("autostart");
+
+	*oldp = old ? strdup(old) : NULL;
+	ut_assertok(env_set("autostart", val));
+
+	return 0;
+}
+
+/* Test that autostart boots the image at the load address, only when asked */
+static int bootm_test_autostart(struct unit_test_state *uts)
+{
+	ulong old_addr = image_load_addr;
+	char *old;
+	void *buf;
+
+	if (!IS_ENABLED(CONFIG_CMD_BOOTM))
+		return -EAGAIN;
+
+	/* with autostart unset, nothing happens */
+	ut_assertok(set_autostart(uts, NULL, &old));
+	ut_assertok(bootm_maybe_autostart(NULL, "test"));
+	ut_assert_console_end();
+
+	/*
+	 * with it set, bootm is run on the image at the load address. This one
+	 * is all zeroes, so bootm turns it away, which shows that it was asked
+	 */
+	buf = calloc(1, BUF_SIZE);
+	ut_assertnonnull(buf);
+	image_load_addr = map_to_sysmem(buf);
+	ut_assertok(env_set("autostart", "yes"));
+	ut_asserteq(CMD_RET_FAILURE, bootm_maybe_autostart(NULL, "test"));
+	ut_assert_nextline("Automatic boot of image at addr 0x%08lX ...",
+			   image_load_addr);
+	ut_assert_skip_to_line("Wrong Image Type for bootm command");
+	console_record_reset();
+
+	ut_assertok(env_set("autostart", old));
+	image_load_addr = old_addr;
+	free(old);
+	free(buf);
+
+	return 0;
+}
+BOOTM_TEST(bootm_test_autostart, UTF_CONSOLE);
