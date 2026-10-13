@@ -515,7 +515,7 @@ int boot_get_fdt(void *buf, const char *select, uint arch,
 		 * get second entry data start address and len.
 		 */
 		printf("## Flattened Device Tree from multi component Image at %08lX\n",
-		       (ulong)images->legacy_hdr_os);
+		       (ulong)map_to_sysmem(images->legacy_hdr_os));
 
 		image_multi_getimg(images->legacy_hdr_os, 2, &fdt_data,
 				   &fdt_len);

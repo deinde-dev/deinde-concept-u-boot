@@ -502,13 +502,15 @@ int boot_get_ramdisk(char const *select, struct bootm_headers *images,
 		 */
 		bootstage_mark(BOOTSTAGE_ID_RAMDISK);
 		printf("## Loading init Ramdisk from multi component Legacy Image at %08lx ...\n",
-		       (ulong)images->legacy_hdr_os);
+		       (ulong)map_to_sysmem(images->legacy_hdr_os));
 
 		image_multi_getimg(images->legacy_hdr_os, 1, &rd_data, &rd_len);
 		if (!rd_data || !rd_len) {
 			ret = -ENOPKG;
 			goto err;
 		}
+		/* this works from the header, so gives a pointer */
+		rd_data = map_to_sysmem((void *)rd_data);
 	} else {
 		/* no initrd image */
 		log_debug("no ramdisk\n");

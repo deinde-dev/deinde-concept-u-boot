@@ -167,7 +167,9 @@ static int boot_get_kernel(const char *addr_fit, ulong os_size_in,
 			*os_len = image_get_data_size(hdr);
 			break;
 		case IH_TYPE_MULTI:
+			/* this works from hdr, so gives a pointer, not an address */
 			image_multi_getimg(hdr, 0, os_data, os_len);
+			*os_data = map_to_sysmem((void *)*os_data);
 			break;
 		case IH_TYPE_STANDALONE:
 			*os_data = img_addr + image_get_header_size();
