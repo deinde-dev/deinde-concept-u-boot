@@ -4,6 +4,7 @@
  * Corscience GmbH & Co. KG - Simon Schwarz <schwarz@corscience.de>
  */
 
+#include <bootm.h>
 #include <command.h>
 #include <cmd_spl.h>
 #include <env.h>
@@ -33,39 +34,38 @@ static const char **subcmd_list[] = {
 /* Calls bootm with the parameters given */
 static int call_bootm(int argc, char *const argv[], const char *subcommand[])
 {
-	char *bootm_argv[5];
+	/* a sub-command, up to three addresses and the NULL which ends them */
+	char *bootm_argv[5] = { NULL };
 
 	int i = 0;
 	int ret = 0;
 	int j;
 
 	/* create paramter array */
-	bootm_argv[0] = "do_bootm";
 	switch (argc) {
 	case 3:
-		bootm_argv[4] = argv[2]; /* fdt addr */
+		bootm_argv[3] = argv[2]; /* fdt addr */
 		fallthrough;
 	case 2:
-		bootm_argv[3] = argv[1]; /* initrd addr */
+		bootm_argv[2] = argv[1]; /* initrd addr */
 		fallthrough;
 	case 1:
-		bootm_argv[2] = argv[0]; /* kernel addr */
+		bootm_argv[1] = argv[0]; /* kernel addr */
 	}
 
 	/*
 	 * - do the work -
-	 * exec subcommands of do_bootm to init the images
+	 * exec subcommands of bootm to init the images
 	 * data structure
 	 */
 	while (subcommand[i] != NULL) {
-		bootm_argv[1] = (char *)subcommand[i];
-		debug("args %d: %s %s ", argc, bootm_argv[0], bootm_argv[1]);
+		bootm_argv[0] = (char *)subcommand[i];
+		debug("args %d: %s ", argc, bootm_argv[0]);
 		for (j = 0; j < argc; j++)
-			debug("%s ", bootm_argv[j + 2]);
+			debug("%s ", bootm_argv[j + 1]);
 		debug("\n");
 
-		ret = do_bootm(find_cmd("do_bootm"), 0, argc+2,
-			bootm_argv);
+		ret = bootm_boot_args(argc + 1, bootm_argv);
 		debug("Subcommand retcode: %d\n", ret);
 		i++;
 	}

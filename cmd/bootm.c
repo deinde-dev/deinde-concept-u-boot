@@ -71,8 +71,15 @@ static ulong bootm_get_addr(int argc, char *const argv[])
 }
 #endif
 
-static int do_bootm_subcommand(struct cmd_tbl *cmdtp, int flag, int argc,
-			       char *const argv[])
+/**
+ * bootm_subcommand() - Run one bootm sub-command, such as 'start' or 'go'
+ *
+ * @argc: Number of arguments, starting with the sub-command name
+ * @argv: Arguments
+ * Return: 0 if OK, -EINVAL if the sub-command is unknown or out of order,
+ *	-EIO if it fails
+ */
+static int bootm_subcommand(int argc, char *const argv[])
 {
 	struct bootm_info bmi;
 	int ret = 0;
@@ -95,13 +102,13 @@ static int do_bootm_subcommand(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 	} else {
 		/* Unrecognized command */
-		return CMD_RET_USAGE;
+		return -EINVAL;
 	}
 
 	if (((state & BOOTM_STATE_START) != BOOTM_STATE_START) &&
 	    images.state >= state) {
 		printf("Trying to execute a command out of order\n");
-		return CMD_RET_USAGE;
+		return -EINVAL;
 	}
 
 	bootm_init(&bmi);
@@ -126,20 +133,19 @@ static int do_bootm_subcommand(struct cmd_tbl *cmdtp, int flag, int argc,
 			    bootm_get_addr(argc, argv) + image_load_offset);
 #endif
 
-	return ret ? CMD_RET_FAILURE : 0;
+	return ret ? -EIO : 0;
 }
 
 /*******************************************************************/
 /* bootm - boot application image from image in memory */
 /*******************************************************************/
 
-int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int bootm_boot_args(int argc, char *const argv[])
 {
 	struct bootm_info bmi;
 	int ret;
 
 	/* determine if we have a sub command */
-	argc--; argv++;
 	if (argc > 0) {
 		char *endp;
 
@@ -153,7 +159,7 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		 * Right now we assume the first arg should never be '-'
 		 */
 		if ((*endp != 0) && (*endp != ':') && (*endp != '#'))
-			return do_bootm_subcommand(cmdtp, flag, argc, argv);
+			return bootm_subcommand(argc, argv);
 	}
 
 	bootm_init(&bmi);
@@ -171,18 +177,29 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	ret = bootm_run(&bmi);
 
+	return ret ? -EIO : 0;
+}
+
+int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+{
+	int ret;
+
+	ret = bootm_boot_args(argc - 1, argv + 1);
+	if (ret == -EINVAL)
+		return CMD_RET_USAGE;
+
 	return ret ? CMD_RET_FAILURE : 0;
 }
 
-int bootm_maybe_autostart(struct cmd_tbl *cmdtp, const char *cmd)
+int bootm_maybe_autostart(void)
 {
 	if (env_get_autostart()) {
-		char *local_args[2];
-		local_args[0] = (char *)cmd;
-		local_args[1] = NULL;
+		/* an empty list, not NULL: some OS handlers read argv[0] */
+		char *const no_args[] = { NULL };
+
 		printf("Automatic boot of image at addr 0x%08lX ...\n",
 		       image_load_addr);
-		return do_bootm(cmdtp, 0, 1, local_args);
+		return bootm_boot_args(0, no_args) ? CMD_RET_FAILURE : 0;
 	}
 
 	return 0;

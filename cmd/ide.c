@@ -65,7 +65,7 @@ int do_ide(struct getopt_state *gs)
 
 int do_diskboot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	return common_diskboot(cmdtp, "ide", argc, argv);
+	return common_diskboot("ide", argc, argv);
 }
 
 U_BOOT_CMD_NOOPTS(ide, 5, 1, do_ide,

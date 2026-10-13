@@ -254,9 +254,19 @@ int do_bootd(struct cmd_tbl *cmdtp, int flag, int argc,
 int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc,
 	     char *const argv[]);
 #ifdef CONFIG_CMD_BOOTM
-int bootm_maybe_autostart(struct cmd_tbl *cmdtp, const char *cmd);
+/**
+ * bootm_maybe_autostart() - Boot the image just loaded, if autostart is set
+ *
+ * A command which loads an image calls this afterwards, so that the image is
+ * booted straight away when the autostart variable is set, as bootm would boot
+ * it with no arguments: from image_load_addr.
+ *
+ * Return: 0 if autostart is not set, else 0 if the image returns, or
+ *	CMD_RET_FAILURE if the boot fails
+ */
+int bootm_maybe_autostart(void);
 #else
-static inline int bootm_maybe_autostart(struct cmd_tbl *cmdtp, const char *cmd)
+static inline int bootm_maybe_autostart(void)
 {
 	return 0;
 }
@@ -270,8 +280,7 @@ int do_booti(struct cmd_tbl *cmdtp, int flag, int argc,
 
 int do_zboot_parent(struct getopt_state *gs);
 
-int common_diskboot(struct cmd_tbl *cmdtp, const char *intf, int argc,
-		    char *const argv[]);
+int common_diskboot(const char *intf, int argc, char *const argv[]);
 
 int do_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 	     char *const argv[]);

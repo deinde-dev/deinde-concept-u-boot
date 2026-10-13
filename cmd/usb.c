@@ -556,7 +556,7 @@ static int usb_test(struct usb_device *dev, int port, char* arg)
 static int do_usbboot(struct cmd_tbl *cmdtp, int flag, int argc,
 		      char *const argv[])
 {
-	return common_diskboot(cmdtp, "usb", argc, argv);
+	return common_diskboot("usb", argc, argv);
 }
 #endif /* CONFIG_USB_STORAGE */
 

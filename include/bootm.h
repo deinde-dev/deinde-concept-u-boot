@@ -310,6 +310,22 @@ int boot_run(struct bootm_info *bmi, const char *cmd, int extra_states);
 int bootm_run(struct bootm_info *bmi);
 
 /**
+ * bootm_boot_args() - Boot an image, given the arguments of the bootm command
+ *
+ * This does what the bootm command does, for code which is not a command:
+ * the arguments are those which follow 'bootm' on the command line. That is
+ * either [addr [ramdisk [fdt]]], where a missing address means
+ * image_load_addr, or a sub-command such as 'start' or 'go' with its own
+ * arguments. It is provided by the bootm command, so needs CONFIG_CMD_BOOTM
+ *
+ * @argc: Number of arguments, which may be 0
+ * @argv: Arguments, without the command name; argv[argc] must be NULL
+ * Return: 0 if OK (when the image returns), -EINVAL if a sub-command is
+ *	unknown or used out of order, -EIO if the boot fails
+ */
+int bootm_boot_args(int argc, char *const argv[]);
+
+/**
  * bootz_run() - Run the entire bootz process
  *
  * This runs through the bootz process from start to finish, using the default

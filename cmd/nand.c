@@ -1080,8 +1080,8 @@ U_BOOT_CMD_NOOPTS(
 	"NAND sub-system", nand_help_text
 );
 
-static int nand_load_image(struct cmd_tbl *cmdtp, struct mtd_info *mtd,
-			   ulong offset, ulong addr, char *cmd)
+static int nand_load_image(struct mtd_info *mtd, ulong offset, ulong addr,
+			   char *cmd)
 {
 	int r;
 	char *s;
@@ -1171,7 +1171,7 @@ static int nand_load_image(struct cmd_tbl *cmdtp, struct mtd_info *mtd,
 
 	image_load_addr = addr;
 
-	return bootm_maybe_autostart(cmdtp, cmd);
+	return bootm_maybe_autostart();
 }
 
 static int do_nandboot(struct cmd_tbl *cmdtp, int flag, int argc,
@@ -1202,8 +1202,8 @@ static int do_nandboot(struct cmd_tbl *cmdtp, int flag, int argc,
 				addr = CONFIG_SYS_LOAD_ADDR;
 
 			mtd = get_nand_dev_by_index(dev->id->num);
-			return nand_load_image(cmdtp, mtd, part->offset,
-					       addr, argv[0]);
+			return nand_load_image(mtd, part->offset, addr,
+					       argv[0]);
 		}
 	}
 #endif
@@ -1253,7 +1253,7 @@ usage:
 	}
 	bootstage_mark(BOOTSTAGE_ID_NAND_AVAILABLE);
 
-	return nand_load_image(cmdtp, mtd, offset, addr, argv[0]);
+	return nand_load_image(mtd, offset, addr, argv[0]);
 }
 
 U_BOOT_CMD(nboot, 4, 1, do_nandboot,

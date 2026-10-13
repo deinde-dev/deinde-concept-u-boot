@@ -6,7 +6,11 @@
  */
 
 #include <bootm.h>
+#include <command.h>
 #include <env.h>
+#include <image.h>
+#include <malloc.h>
+#include <mapmem.h>
 #include <asm/global_data.h>
 #include <test/test.h>
 #include <test/ut.h>
@@ -256,3 +260,95 @@ static int bootm_test_subst_both(struct unit_test_state *uts)
 	return 0;
 }
 BOOTM_TEST(bootm_test_subst_both, 0);
+
+/**
+ * set_autostart() - Set the autostart variable, returning its old value
+ *
+ * @uts: Test state
+ * @val: New value, or NULL to remove it
+ * @oldp: Returns a copy of the old value, or NULL if it was unset; the caller
+ *	frees it
+ * Return: 0 if OK, other value on error
+ */
+static int set_autostart(struct unit_test_state *uts, const char *val,
+			 char **oldp)
+{
+	const char *old = env_get("autostart");
+
+	*oldp = old ? strdup(old) : NULL;
+	ut_assertok(env_set("autostart", val));
+
+	return 0;
+}
+
+/* Test that autostart boots the image at the load address, only when asked */
+static int bootm_test_autostart(struct unit_test_state *uts)
+{
+	ulong old_addr = image_load_addr;
+	char *old;
+	void *buf;
+
+	if (!IS_ENABLED(CONFIG_CMD_BOOTM))
+		return -EAGAIN;
+
+	/* with autostart unset, nothing happens */
+	ut_assertok(set_autostart(uts, NULL, &old));
+	ut_assertok(bootm_maybe_autostart());
+	ut_assert_console_end();
+
+	/*
+	 * with it set, bootm is run on the image at the load address. This one
+	 * is all zeroes, so bootm turns it away, which shows that it was asked
+	 */
+	buf = calloc(1, BUF_SIZE);
+	ut_assertnonnull(buf);
+	image_load_addr = map_to_sysmem(buf);
+	ut_assertok(env_set("autostart", "yes"));
+	ut_asserteq(CMD_RET_FAILURE, bootm_maybe_autostart());
+	ut_assert_nextline("Automatic boot of image at addr 0x%08lX ...",
+			   image_load_addr);
+	ut_assert_skip_to_line("Wrong Image Type for bootm command");
+	console_record_reset();
+
+	ut_assertok(env_set("autostart", old));
+	image_load_addr = old_addr;
+	free(old);
+	free(buf);
+
+	return 0;
+}
+BOOTM_TEST(bootm_test_autostart, UTF_CONSOLE);
+
+/* Test booting through bootm_boot_args(), as code which is not a command does */
+static int bootm_test_boot_args(struct unit_test_state *uts)
+{
+	char *const nosuch[] = { "nosuch", NULL };
+	char addr[20];
+	char *const image[] = { addr, NULL };
+	void *buf;
+
+	if (!IS_ENABLED(CONFIG_CMD_BOOTM))
+		return -EAGAIN;
+
+	/* an unknown sub-command is a usage error, and says nothing */
+	ut_asserteq(-EINVAL, bootm_boot_args(1, nosuch));
+	ut_assert_console_end();
+
+	/* an image bootm turns away is a failure to boot */
+	buf = calloc(1, BUF_SIZE);
+	ut_assertnonnull(buf);
+	snprintf(addr, sizeof(addr), "%lx", (ulong)map_to_sysmem(buf));
+	ut_asserteq(-EIO, bootm_boot_args(1, image));
+	ut_assert_skip_to_line("Wrong Image Type for bootm command");
+	console_record_reset();
+
+	/* the command turns the usage error into its usage message */
+	ut_asserteq(1, run_command("bootm nosuch", 0));
+	ut_assert_nextline("bootm - boot application image from memory");
+	console_record_reset();
+
+	free(buf);
+
+	return 0;
+}
+BOOTM_TEST(bootm_test_boot_args, UTF_CONSOLE);

@@ -11,6 +11,7 @@
  */
 
 #include <bcb.h>
+#include <bootm.h>
 #include <command.h>
 #include <env.h>
 #include <fastboot.h>
@@ -156,15 +157,13 @@ void fastboot_boot(void)
 		run_command(s, CMD_FLAG_ENV);
 	} else if (IS_ENABLED(CONFIG_CMD_BOOTM)) {
 		static char boot_addr_start[20];
-		static char *const bootm_args[] = {
-			"bootm", boot_addr_start, NULL
-		};
+		static char *const bootm_args[] = { boot_addr_start, NULL };
 
 		snprintf(boot_addr_start, sizeof(boot_addr_start) - 1,
 			 "0x%p", fastboot_buf_addr);
 		printf("Booting kernel at %s...\n\n\n", boot_addr_start);
 
-		do_bootm(NULL, 0, 2, bootm_args);
+		bootm_boot_args(1, bootm_args);
 
 		/*
 		 * This only happens if image is somehow faulty so we start
