@@ -9,10 +9,15 @@
 # every hunk in the file.  Run "pickman drift-accept" to add entries.
 
 .mailmap                                              0f16552b424e  Jens Wiklander's entries come from a44f46af0aa (picked as 5b56cd64d48), which upstream has after ec6bbbc2de2c; this goes away when the comparison point moves past it
+Kconfig                                               c0887917b21f  SKIP_EARLY_DM is the same option, only moved by the Kconfig restyle (d29900ff93e)
 README                                                3be307617f72  test/dm/fs.c asserts README's first 32 bytes; upstream's leading space before the SPDX tag breaks dm_test_fs_file and dm_test_vfs_symlink
 arch/arm/cpu/u-boot-spl.lds                           df101e958d56  555f90527cb keeps empty __rel_dyn_start/__rel_dyn_end markers, since armv7 start.S references them for CONFIG_POSITION_INDEPENDENT platforms such as qemu_arm_spl
 arch/arm/mach-imx/cmd_bmode.c                         cdd4d86de907  Downstream's <command.h> no longer pulls in <linux/string.h>, so the copy of 64307118499 (0825552d571) also adds it here; without it the file fails to build (strcmp() etc. undeclared)
 arch/arm/mach-imx/cmd_dek.c                           cdd4d86de907  Downstream's <command.h> no longer pulls in <linux/string.h>, so the copy of 64307118499 (0825552d571) also adds it here; without it the file fails to build (strcmp() etc. undeclared)
+arch/arm/mach-snapdragon/board.c                      2a645d1206fe  qcom_parse_memory() is renamed so it does not clash with the one in the downstream dram.c, and the built-in FDT returns early (22207ad157c)
+arch/arm/mach-snapdragon/board.c                      393968b5d106  qcom_parse_memory() is renamed so it does not clash with the one in the downstream dram.c, and the built-in FDT returns early (22207ad157c)
+arch/arm/mach-snapdragon/board.c                      ba6941ab4383  qcom_parse_memory() is renamed so it does not clash with the one in the downstream dram.c, and the built-in FDT returns early (22207ad157c)
+arch/arm/mach-snapdragon/board.c                      eb6a65192ef7  qcom_parse_memory() is renamed so it does not clash with the one in the downstream dram.c, and the built-in FDT returns early (22207ad157c)
 arch/arm/mach-socfpga/secure_vab.c                    c936c5bdce6a  The copy of 05e97d0ef83 (02ee47a1ec7) adds <string.h> for memcmp()/memcpy(), which this tree's headers no longer provide indirectly; the file fails to build without it
 arch/sandbox/include/asm/clk.h                        69acbc3f1ec9  Downstream test/cmd/clk.c needs the sandbox clk of_to_plat() from fe780310cfa, which upstream reverted in aff0f4d30ec
 board/cavium/thunderx/atf.c                           cdd4d86de907  Downstream's <command.h> no longer pulls in <linux/string.h>, so the copy of 64307118499 (0825552d571) also adds it here; without it the file fails to build (strcmp() etc. undeclared)
@@ -24,6 +29,12 @@ board/nxp/p1_p2_rdb_pc/p1_p2_rdb_pc.c                 5af7dc73137f  This tree re
 board/phytec/phycore_imx91_93/phycore-imx91-93.c      b2c9dc505170  This tree replaced the board_fix_fdt() hook with the EVT_FT_FIXUP_F event; upstream's board_fix_fdt() would never be called here
 board/phytec/phycore_imx91_93/phycore-imx91-93.c      bafad51188a6  This tree replaced the board_fix_fdt() hook with the EVT_FT_FIXUP_F event; upstream's board_fix_fdt() would never be called here
 board/phytec/phycore_imx91_93/phycore-imx91-93.c      cd645dac27c0  This tree replaced the board_fix_fdt() hook with the EVT_FT_FIXUP_F event; upstream's board_fix_fdt() would never be called here
+board/samsung/e850-96/fw.c                            413b85f30c21  fs_read() is fs_legacy_read() in <fs_legacy.h> here (8630e568b2d)
+board/samsung/e850-96/fw.c                            86ad924c6b57  fs_read() is fs_legacy_read() in <fs_legacy.h> here (8630e568b2d)
+boot/bootmeth_rauc.c                                  d19e823d95dc  fs_legacy.h and the read_file() signature with an address pointer and alignment (8630e568b2d, c545f0762b7)
+boot/bootmeth_rauc.c                                  d8b43e4d2902  fs_legacy.h and the read_file() signature with an address pointer and alignment (8630e568b2d, c545f0762b7)
+boot/pxe_utils.c                                      98692f343e10  bootmeth read_file() takes an address pointer and alignment here (c545f0762b7)
+boot/pxe_utils.c                                      f0cab7c23103  bootmeth read_file() takes an address pointer and alignment here (c545f0762b7)
 cmd/blob.c                                            cdd4d86de907  Downstream's <command.h> no longer pulls in <linux/string.h>, so the copy of 64307118499 (0825552d571) also adds it here; without it the file fails to build (strcmp() etc. undeclared)
 cmd/efi_common.c                                      ae35f1f9e5d1  efi_memmap_type_name(): renamed from upstream to avoid clashing with the global efi_mem_type_name() of d07934b67e2f
 cmd/efi_common.c                                      c784074111b3  efi_memmap_type_name(): call site of the rename above
@@ -42,3 +53,13 @@ scripts/Makefile.lib-u-boot                           f262c61d632b  Downstream .
 test/dm/clk.c                                         6d6cde373b96  Downstream test/cmd/clk.c needs the sandbox clk of_to_plat() from fe780310cfa, which upstream reverted in aff0f4d30ec
 test/hooks/bin/travis-ci/conf.qemu-m68k               679b8092a075  test/hooks is vendored here (upstream keeps it in the separate u-boot-test-hooks repo); these files come with the copy of the QEMU m68k CI jobs (9baf9779e20)
 test/hooks/py/travis-ci/u_boot_boardenv_qemu_m68k.py  fdc32455b58e  test/hooks is vendored here (upstream keeps it in the separate u-boot-test-hooks repo); these files come with the copy of the QEMU m68k CI jobs (9baf9779e20)
+tools/fit_image.c                                     a8956980ce13  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee); the fit_handle_file() comment adds a note on signing
+tools/fit_image.c                                     a922cb710169  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee); the fit_handle_file() comment adds a note on signing
+tools/fit_image.c                                     c5b70f76120e  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee); the fit_handle_file() comment adds a note on signing
+tools/fit_image.c                                     eeb2378ab8a5  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee); the fit_handle_file() comment adds a note on signing
+tools/fit_image.c                                     fa2ae9f10690  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee); the fit_handle_file() comment adds a note on signing
+tools/fit_image.c                                     fdf2ed36cbeb  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee); the fit_handle_file() comment adds a note on signing
+tools/image-host.c                                    1c6d761a226a  fit_get_name() has no len parameter here (cca21f0d2f5)
+tools/stm32image.c                                    5d87a7c5ae37  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee)
+tools/stm32image.c                                    7d58bb7c682f  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee)
+tools/stm32image.c                                    eb899a134b7b  struct image_tool_params is struct imgtool here, with the parameter named itl (8855e0de5c6, 1a9f81779ee)
