@@ -97,12 +97,12 @@ U_BOOT_CMD_NOOPTS(
 #endif
 
 #ifdef CONFIG_CMD_RARP
-int do_rarpb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_rarpb(struct getopt_state *gs)
 {
-	return netboot_common(RARP, argc, argv);
+	return netboot_common(RARP, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	rarpboot,	3,	1,	do_rarpb,
 	"boot image via network using RARP/TFTP protocol",
 	"[loadAddress] [[hostIPaddr:]bootfilename]"

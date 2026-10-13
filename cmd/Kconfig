@@ -2253,6 +2253,7 @@ config NET_TFTP_VARS
 
 config CMD_RARP
 	bool "rarpboot"
+	select GETOPT
 	help
 	  Boot image via network using RARP/TFTP protocol
 
