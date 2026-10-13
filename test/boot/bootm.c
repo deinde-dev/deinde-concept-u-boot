@@ -318,3 +318,37 @@ static int bootm_test_autostart(struct unit_test_state *uts)
 	return 0;
 }
 BOOTM_TEST(bootm_test_autostart, UTF_CONSOLE);
+
+/* Test booting through bootm_boot_args(), as code which is not a command does */
+static int bootm_test_boot_args(struct unit_test_state *uts)
+{
+	char *const nosuch[] = { "nosuch", NULL };
+	char addr[20];
+	char *const image[] = { addr, NULL };
+	void *buf;
+
+	if (!IS_ENABLED(CONFIG_CMD_BOOTM))
+		return -EAGAIN;
+
+	/* an unknown sub-command is a usage error, and says nothing */
+	ut_asserteq(-EINVAL, bootm_boot_args(1, nosuch));
+	ut_assert_console_end();
+
+	/* an image bootm turns away is a failure to boot */
+	buf = calloc(1, BUF_SIZE);
+	ut_assertnonnull(buf);
+	snprintf(addr, sizeof(addr), "%lx", (ulong)map_to_sysmem(buf));
+	ut_asserteq(-EIO, bootm_boot_args(1, image));
+	ut_assert_skip_to_line("Wrong Image Type for bootm command");
+	console_record_reset();
+
+	/* the command turns the usage error into its usage message */
+	ut_asserteq(1, run_command("bootm nosuch", 0));
+	ut_assert_nextline("bootm - boot application image from memory");
+	console_record_reset();
+
+	free(buf);
+
+	return 0;
+}
+BOOTM_TEST(bootm_test_boot_args, UTF_CONSOLE);
