@@ -23,13 +23,13 @@
 #include <net/sntp.h>
 #include <net/ncsi.h>
 
-static int netboot_common(enum proto_t, struct cmd_tbl *, int, char * const []);
+static int netboot_common(enum proto_t, int, char * const []);
 
 #ifdef CONFIG_CMD_BOOTP
 static int do_bootp(struct cmd_tbl *cmdtp, int flag, int argc,
 		    char *const argv[])
 {
-	return netboot_common(BOOTP, cmdtp, argc, argv);
+	return netboot_common(BOOTP, argc, argv);
 }
 
 U_BOOT_CMD(
@@ -45,7 +45,7 @@ int do_tftpb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	int ret;
 
 	bootstage_mark_name(BOOTSTAGE_KERNELREAD_START, "tftp_start");
-	ret = netboot_common(TFTPGET, cmdtp, argc, argv);
+	ret = netboot_common(TFTPGET, argc, argv);
 	bootstage_mark_name(BOOTSTAGE_KERNELREAD_STOP, "tftp_done");
 	return ret;
 }
@@ -71,7 +71,7 @@ U_BOOT_CMD(
 static int do_tftpput(struct cmd_tbl *cmdtp, int flag, int argc,
 		      char *const argv[])
 {
-	return netboot_common(TFTPPUT, cmdtp, argc, argv);
+	return netboot_common(TFTPPUT, argc, argv);
 }
 
 U_BOOT_CMD(
@@ -85,7 +85,7 @@ U_BOOT_CMD(
 static int do_tftpsrv(struct cmd_tbl *cmdtp, int flag, int argc,
 		      char *const argv[])
 {
-	return netboot_common(TFTPSRV, cmdtp, argc, argv);
+	return netboot_common(TFTPSRV, argc, argv);
 }
 
 U_BOOT_CMD(
@@ -101,7 +101,7 @@ U_BOOT_CMD(
 #ifdef CONFIG_CMD_RARP
 int do_rarpb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	return netboot_common(RARP, cmdtp, argc, argv);
+	return netboot_common(RARP, argc, argv);
 }
 
 U_BOOT_CMD(
@@ -125,7 +125,7 @@ static int do_dhcp6(struct cmd_tbl *cmdtp, int flag, int argc,
 	dhcp_argc = argc + 1;
 	dhcp_argv[dhcp_argc - 1] =  USE_IP6_CMD_PARAM;
 
-	return netboot_common(DHCP6, cmdtp, dhcp_argc, dhcp_argv);
+	return netboot_common(DHCP6, dhcp_argc, dhcp_argv);
 }
 
 U_BOOT_CMD(dhcp6,	3,	1,	do_dhcp6,
@@ -138,7 +138,7 @@ U_BOOT_CMD(dhcp6,	3,	1,	do_dhcp6,
 int do_dhcp(struct cmd_tbl *cmdtp, int flag, int argc,
 	    char *const argv[])
 {
-	return netboot_common(DHCP, cmdtp, argc, argv);
+	return netboot_common(DHCP, argc, argv);
 }
 
 U_BOOT_CMD(
@@ -152,7 +152,7 @@ U_BOOT_CMD(
 static int do_nfs(struct cmd_tbl *cmdtp, int flag, int argc,
 		  char *const argv[])
 {
-	return netboot_common(NFS, cmdtp, argc, argv);
+	return netboot_common(NFS, argc, argv);
 }
 
 U_BOOT_CMD(
@@ -167,7 +167,7 @@ static int do_wget(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[
 {
 	wget_info = &default_wget_info;
 
-	return netboot_common(WGET, cmdtp, argc, argv);
+	return netboot_common(WGET, argc, argv);
 }
 
 U_BOOT_CMD(
@@ -351,8 +351,7 @@ static int parse_args(enum proto_t proto, int argc, char *const argv[],
 	return 0;
 }
 
-static int netboot_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
-			  char *const argv[])
+static int netboot_common(enum proto_t proto, int argc, char *const argv[])
 {
 	ulong addr, save_size;
 	bool fname_explicit;
