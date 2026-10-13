@@ -11,8 +11,7 @@
 #include <mapmem.h>
 #include <part.h>
 
-int common_diskboot(struct cmd_tbl *cmdtp, const char *intf, int argc,
-		    char *const argv[])
+int common_diskboot(const char *intf, int argc, char *const argv[])
 {
 	__maybe_unused int dev;
 	int part;

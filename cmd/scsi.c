@@ -19,7 +19,7 @@ static int scsi_curr_dev; /* current device */
 static int do_scsiboot(struct cmd_tbl *cmdtp, int flag, int argc,
 		       char *const argv[])
 {
-	return common_diskboot(cmdtp, "scsi", argc, argv);
+	return common_diskboot("scsi", argc, argv);
 }
 
 /*

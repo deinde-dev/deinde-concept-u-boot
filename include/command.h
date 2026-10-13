@@ -280,8 +280,7 @@ int do_booti(struct cmd_tbl *cmdtp, int flag, int argc,
 
 int do_zboot_parent(struct getopt_state *gs);
 
-int common_diskboot(struct cmd_tbl *cmdtp, const char *intf, int argc,
-		    char *const argv[]);
+int common_diskboot(const char *intf, int argc, char *const argv[]);
 
 int do_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 	     char *const argv[]);
