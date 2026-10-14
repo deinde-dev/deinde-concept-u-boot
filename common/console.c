@@ -1238,6 +1238,10 @@ int console_clear(void)
 	 * displays
 	 */
 	printf(CSI "2J" CSI "1;1H");
+
+	/* the page is empty however the display was cleared */
+	pager_reset(gd_pager());
+
 	if (IS_ENABLED(CONFIG_VIDEO_ANSI))
 		return 0;
 
@@ -1252,7 +1256,6 @@ int console_clear(void)
 		if (ret)
 			return ret;
 	}
-	pager_reset(gd_pager());
 
 	return 0;
 }
