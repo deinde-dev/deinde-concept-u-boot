@@ -17,8 +17,10 @@
 #include <log.h>
 #include <malloc.h>
 #include <spl.h>
+#include <stdio_dev.h>
 #include <video.h>
 #include <video_console.h>
+#include <dm/uclass-internal.h>
 #include "vidconsole_internal.h"
 #include <video_font.h>		/* Bitmap font for code page 437 */
 #include <linux/ctype.h>
@@ -958,6 +960,34 @@ static int vidconsole_post_probe(struct udevice *dev)
 	sdev->priv = dev;
 
 	return stdio_register(sdev);
+}
+
+void vidconsole_remove_for_test(void)
+{
+	struct list_head *list = stdio_get_list();
+	struct list_head *pos, *next;
+	struct uclass *uc;
+
+	uc = uclass_find(UCLASS_VIDEO_CONSOLE);
+	list_for_each_safe(pos, next, list) {
+		struct stdio_dev *sdev;
+		struct udevice *dev;
+		bool found = false;
+
+		sdev = list_entry(pos, struct stdio_dev, list);
+		if (!(sdev->flags & DEV_FLAGS_DM) ||
+		    strncmp(sdev->name, "vidconsole", 10))
+			continue;
+
+		if (uc) {
+			uclass_foreach_dev(dev, uc) {
+				if (dev == sdev->priv)
+					found = true;
+			}
+		}
+		if (!found)
+			stdio_deregister_dev(sdev, true);
+	}
 }
 
 static int vidconsole_pre_remove(struct udevice *dev)

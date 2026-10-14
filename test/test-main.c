@@ -22,6 +22,7 @@
 #include <pager.h>
 #include <spl.h>
 #include <usb.h>
+#include <video_console.h>
 #include <dm/ofnode.h>
 #include <dm/root.h>
 #include <dm/test.h>
@@ -679,6 +680,14 @@ static int test_post_run(struct unit_test_state *uts, struct unit_test *test)
 	ut_unsilence_console(uts);
 	if (test->flags & UTF_DM)
 		ut_assertok(dm_test_post_run(uts));
+
+	/*
+	 * Drop the stdio record of any video console which the test probed in
+	 * its own driver-model state. That state is gone now, so the record
+	 * points at a device which no longer exists and anything reading it,
+	 * such as the coninfo command, crashes.
+	 */
+	vidconsole_remove_for_test();
 
 	/*
 	 * Drop the EFI state once the devices are gone, since removing a

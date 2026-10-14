@@ -45,9 +45,13 @@ obj-$(CONFIG_CMD_CLK) += clk.o
 ifdef CONFIG_BLKMAP
 obj-$(CONFIG_CMD_CLONE) += clone.o
 endif
+obj-$(CONFIG_CMD_CLS) += cls.o
 obj-$(CONFIG_CMD_DEMO) += demo.o
 endif
 obj-$(CONFIG_CMD_CONFIG) += config.o
+ifdef CONFIG_CONSOLE_RECORD
+obj-$(CONFIG_CMD_CONSOLE) += coninfo.o
+endif
 obj-$(CONFIG_COREBOOT_SYSINFO) += coreboot.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_EDITENV) += editenv.o
