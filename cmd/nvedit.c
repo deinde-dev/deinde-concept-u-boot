@@ -257,6 +257,8 @@ static int do_env_ask(struct cmd_tbl *cmdtp, int flag, int argc, char *const arg
 
 	/* prompt for input */
 	len = cli_readline(message);
+	if (len < 0)
+		return 1;
 
 	if (size < len)
 		console_buffer[size] = '\0';
