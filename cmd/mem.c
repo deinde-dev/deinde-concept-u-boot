@@ -1112,7 +1112,7 @@ static int do_mem_mtest(struct getopt_state *gs)
 		if (strict_strtoul(argv[4], 16, &iteration_limit) < 0)
 			return CMD_RET_USAGE;
 
-	if (end < start) {
+	if (end <= start) {
 		printf("Refusing to do empty test\n");
 		return CMD_RET_FAILURE;
 	}
