@@ -9,8 +9,7 @@
 #include <console.h>
 #include <dm.h>
 
-static int do_video_clear(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_video_clear(struct getopt_state *gs)
 {
 	if (console_clear())
 		return CMD_RET_FAILURE;
@@ -18,4 +17,4 @@ static int do_video_clear(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(cls,	1, 0, do_video_clear, "clear screen", "");
+U_BOOT_CMD_NOOPTS(cls, 1, 0, do_video_clear, "clear screen", "");
