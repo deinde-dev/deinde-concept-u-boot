@@ -508,13 +508,12 @@ static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif
 
-static int do_mem_base(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_mem_base(struct getopt_state *gs)
 {
-	if (argc > 1) {
+	if (gs->argc > 1) {
 		/* Set new base address.
 		*/
-		base_address = hextoul(argv[1], NULL);
+		base_address = hextoul(gs->argv[1], NULL);
 	}
 	/* Print the current base address.
 	*/
@@ -1384,7 +1383,7 @@ U_BOOT_CMD(
 
 #endif
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	base,	2,	1,	do_mem_base,
 	"print or set address offset",
 	"\n    - print address offset for memory commands\n"

@@ -75,11 +75,9 @@ static int cmd_test_base_offset(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_base_offset, UTF_CONSOLE);
 
-/* Test 'base' with a bad command line */
-static int cmd_test_base_usage(struct unit_test_state *uts)
+/* Check the usage message the command prints when it refuses a command line */
+static int check_usage(struct unit_test_state *uts)
 {
-	/* the command takes at most one argument */
-	ut_asserteq(CMD_RET_FAILURE, run_command("base 1 2", 0));
 	ut_assert_nextline("base - print or set address offset");
 	ut_assert_nextline_empty();
 	ut_assert_nextline("Usage:");
@@ -87,6 +85,25 @@ static int cmd_test_base_usage(struct unit_test_state *uts)
 	ut_assert_nextline("    - print address offset for memory commands");
 	ut_assert_nextline("base off");
 	ut_assert_nextline("    - set address offset for memory commands to 'off'");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test 'base' with a bad command line */
+static int cmd_test_base_usage(struct unit_test_state *uts)
+{
+	/* the command takes at most one argument */
+	ut_asserteq(CMD_RET_FAILURE, run_command("base 1 2", 0));
+	ut_assertok(check_usage(uts));
+
+	/* the command has no options, so one is refused rather than read */
+	ut_asserteq(CMD_RET_FAILURE, run_command("base -1", 0));
+	ut_assertok(check_usage(uts));
+
+	/* the offset is untouched by either */
+	ut_assertok(run_command("base", 0));
+	ut_assert_nextline("Base Address: 0x00000000");
 	ut_assert_console_end();
 
 	return 0;
