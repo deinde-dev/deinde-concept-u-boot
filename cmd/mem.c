@@ -1067,9 +1067,10 @@ static ulong mem_test_quick(vu_long *buf, ulong start_addr, ulong end_addr,
  * configured using CONFIG_SYS_ALT_MEMTEST. The complete test loops until
  * interrupted by ctrl-c or by a failure of one of the sub-tests.
  */
-static int do_mem_mtest(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_mem_mtest(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	ulong start, end;
 	vu_long scratch_space;
 	vu_long *buf, *dummy = &scratch_space;
@@ -1405,7 +1406,7 @@ U_BOOT_CMD_NOOPTS(
 #endif /* CONFIG_LOOPW */
 
 #ifdef CONFIG_CMD_MEMTEST
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mtest,	5,	1,	do_mem_mtest,
 	"simple RAM read/write test",
 	"[start [end [pattern [iterations]]]]"

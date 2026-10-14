@@ -1106,6 +1106,7 @@ config CMD_RANDOM
 config CMD_MEMTEST
 	bool "memtest"
 	depends on CMD_MEMORY
+	select GETOPT
 	help
 	  Simple RAM read/write test.
 
