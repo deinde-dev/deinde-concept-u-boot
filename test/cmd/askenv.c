@@ -120,6 +120,16 @@ static int cmd_test_askenv_usage(struct unit_test_state *uts)
 	ut_assert_nextlinen("    - get environment variable 'name' from stdin");
 	ut_assert_console_end();
 
+	/* the command has no options, so one is refused without prompting */
+	ut_asserteq(1, run_command("askenv -x t_ask6", 0));
+	ut_assert_nextline("askenv - get environment variables from stdin");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("askenv name [message] [size]");
+	ut_assert_nextlinen("    - get environment variable 'name' from stdin");
+	ut_assert_console_end();
+	ut_assertnull(env_get("t_ask6"));
+
 	return 0;
 }
 CMD_TEST(cmd_test_askenv_usage, UTF_CONSOLE);

@@ -765,6 +765,7 @@ menu "Environment commands"
 
 config CMD_ASKENV
 	bool "ask for env variable"
+	select GETOPT
 	help
 	  Ask for environment variable
 
