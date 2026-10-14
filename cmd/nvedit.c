@@ -197,9 +197,11 @@ static int do_env_set(struct cmd_tbl *cmdtp, int flag, int argc,
  * Prompt for environment variable
  */
 #if defined(CONFIG_CMD_ASKENV)
-static int do_env_ask(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_env_ask(struct getopt_state *gs)
 {
 	char message[CONFIG_SYS_CBSIZE];
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int i, len, pos, size;
 	char *local_args[4];
 	char *endptr;
@@ -257,6 +259,8 @@ static int do_env_ask(struct cmd_tbl *cmdtp, int flag, int argc, char *const arg
 
 	/* prompt for input */
 	len = cli_readline(message);
+	if (len < 0)
+		return 1;
 
 	if (size < len)
 		console_buffer[size] = '\0';
@@ -268,7 +272,7 @@ static int do_env_ask(struct cmd_tbl *cmdtp, int flag, int argc, char *const arg
 	}
 
 	/* Continue calling setenv code */
-	return env_do_env_set(flag, len, local_args, H_INTERACTIVE);
+	return env_do_env_set(gs->cmd_flag, len, local_args, H_INTERACTIVE);
 }
 #endif
 
@@ -1084,7 +1088,8 @@ static int do_env_exists(struct cmd_tbl *cmdtp, int flag, int argc,
  */
 static struct cmd_tbl cmd_env_sub[] = {
 #if defined(CONFIG_CMD_ASKENV)
-	U_BOOT_CMD_MKENT(ask, CONFIG_SYS_MAXARGS, 1, do_env_ask, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(ask, CONFIG_SYS_MAXARGS, 1, do_env_ask, "",
+				""),
 #endif
 	U_BOOT_CMD_MKENT(default, 1, 0, do_env_default, "", ""),
 	U_BOOT_CMD_MKENT(delete, CONFIG_SYS_MAXARGS, 0, do_env_delete, "", ""),
@@ -1311,7 +1316,7 @@ U_BOOT_CMD_COMPLETE(
 
 #if defined(CONFIG_CMD_ASKENV)
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	askenv,	CONFIG_SYS_MAXARGS,	1,	do_env_ask,
 	"get environment variables from stdin",
 	"name [message] [size]\n"
