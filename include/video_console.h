@@ -835,4 +835,20 @@ void vidconsole_set_bitmap_font(struct udevice *dev, struct vidconsole_ctx *ctx,
  */
 void vidconsole_idle(struct udevice *dev);
 
+/**
+ * vidconsole_remove_for_test() - Drop stdio records for departed devices
+ *
+ * This can only be called from test_post_run(). A UTF_DM test has a
+ * driver-model state of its own, so a video console probed in that state
+ * registers an stdio device whose private pointer refers to it. The state is
+ * freed when the test finishes, which leaves the record behind pointing at a
+ * device which no longer exists; coninfo reads it to report the uclass name
+ * and crashes. This drops any record whose device is gone.
+ */
+#if IS_ENABLED(CONFIG_VIDEO)
+void vidconsole_remove_for_test(void);
+#else
+static inline void vidconsole_remove_for_test(void) { }
+#endif
+
 #endif
