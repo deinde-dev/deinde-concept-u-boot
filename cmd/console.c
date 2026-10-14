@@ -19,8 +19,7 @@
 #define USE_NL "\n"
 #endif
 
-static int do_coninfo(struct cmd_tbl *cmd, int flag, int argc,
-		      char *const argv[])
+static int do_coninfo(struct getopt_state *gs)
 {
 	int l;
 	struct list_head *list = stdio_get_list();
@@ -70,7 +69,7 @@ static int do_coninfo(struct cmd_tbl *cmd, int flag, int argc,
 
 /***************************************************/
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	coninfo,	3,	1,	do_coninfo,
 	"print console devices and information",
 	""

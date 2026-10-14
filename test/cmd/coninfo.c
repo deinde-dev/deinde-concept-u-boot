@@ -128,3 +128,17 @@ static int cmd_test_coninfo_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_coninfo_usage, UTF_CONSOLE);
+
+/* Test 'coninfo' with an option, which it does not take */
+static int cmd_test_coninfo_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("coninfo -x", 0));
+	ut_assert_nextline("coninfo - print console devices and information");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextlinen("coninfo");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_coninfo_badopt, UTF_CONSOLE);
