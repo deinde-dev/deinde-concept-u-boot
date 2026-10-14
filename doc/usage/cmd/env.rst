@@ -59,13 +59,13 @@ The *env ask* command asks for the new value of an environment variable
 
     message
         message to be displayed while the command waits for the value to be
-        entered from stdin. If no message is specified, a default message
-        "Please enter name:" will be displayed.
+        entered from stdin. If no message is specified, the prompt is
+        ``Please enter 'name':`` followed by a space.
 
     size
         maximum number of characters that will be stored in the environment
         variable name. This is in decimal number format (unlike in
-        other commands where size values are hexa-decimal). The default
+        other commands where size values are hexadecimal). The default
         value of size is 1023 (CONFIG_SYS_CBSIZE - 1).
 
 Callbacks
