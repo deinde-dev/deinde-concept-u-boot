@@ -1100,7 +1100,7 @@ static int do_mem_mtest(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (end < start) {
 		printf("Refusing to do empty test\n");
-		return -1;
+		return CMD_RET_FAILURE;
 	}
 
 	printf("Testing %08lx ... %08lx:\n", start, end);
