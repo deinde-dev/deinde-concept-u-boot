@@ -146,4 +146,4 @@ See also
   as an image
 * :doc:`ums<ums>` for going the other way and exporting a device to a host
 * :doc:`nboot<nboot>` for the same command on a raw NAND chip
-* *diskboot* for the same command on an IDE drive
+* :doc:`diskboot<diskboot>` for the same command on an IDE drive

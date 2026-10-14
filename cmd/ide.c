@@ -63,9 +63,9 @@ int do_ide(struct getopt_state *gs)
 	return blk_common_cmd(argc, argv, UCLASS_IDE, &curr_device);
 }
 
-int do_diskboot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_diskboot(struct getopt_state *gs)
 {
-	return common_diskboot("ide", argc, argv);
+	return common_diskboot("ide", gs->argc, gs->argv);
 }
 
 U_BOOT_CMD_NOOPTS(ide, 5, 1, do_ide,
@@ -79,5 +79,5 @@ U_BOOT_CMD_NOOPTS(ide, 5, 1, do_ide,
 		  " blocks starting at block `blk#'\n"
 		  "    to/from memory address `addr'");
 
-U_BOOT_CMD(diskboot, 3, 1, do_diskboot,
-	   "boot from IDE device", "loadAddr dev:part");
+U_BOOT_CMD_NOOPTS(diskboot, 3, 1, do_diskboot,
+		  "boot from IDE device", "loadAddr dev:part");
