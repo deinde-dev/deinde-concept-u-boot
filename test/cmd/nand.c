@@ -10,6 +10,8 @@
 #include <mapmem.h>
 #include <test/cmd.h>
 #include <test/ut.h>
+#include <vsprintf.h>
+#include <linux/bitops.h>
 #include <linux/ctype.h>
 
 /* Geometry of nand0, the smaller of the two emulated sandbox chips */
@@ -17,6 +19,13 @@
 #define NAND0_ERASE	0x2000
 #define NAND0_PAGE	0x200
 #define NAND0_OOB	16
+
+/*
+ * The sandbox chip flips this many bits in each ECC step it reads, so that ECC
+ * has something to correct (sandbox,err-count in test.dts), and a page of
+ * nand0 is a single step
+ */
+#define NAND0_FLIPS	1
 
 /* Block of nand1 which cmd_test_nand_bad() marks bad */
 #define NAND1_BAD	0x180000
@@ -40,6 +49,49 @@ static int setup_nand(struct unit_test_state *uts)
 	ut_assertok(env_set("mtdparts", NULL));
 	ut_assertok(run_command("nand device 0", 0));
 	console_record_reset();
+
+	return 0;
+}
+
+/**
+ * check_oob_dump() - Check the hex dump of the spare area of a page
+ *
+ * The tests write pages of identical bytes, whose software ECC bytes are all
+ * 0xff, as is the rest of the spare area. But the sandbox chip flips bits in
+ * what it reads, NAND0_FLIPS of them in each page. ECC puts the data right,
+ * but the spare area is dumped as it was read, so a flipped bit can land
+ * there. Allow up to NAND0_FLIPS bytes which each have one bit clear.
+ *
+ * @uts: Test state
+ * @len: Number of bytes dumped, which must be a multiple of @perline
+ * @perline: Number of bytes on each line
+ * Return: 0 if OK, other value on error
+ */
+static int check_oob_dump(struct unit_test_state *uts, uint len, uint perline)
+{
+	char line[128], prefix[12];
+	uint i, j, flips = 0;
+	char *p;
+
+	for (i = 0; i < len; i += perline) {
+		ut_assert(console_record_readline(line, sizeof(line)) >= 0);
+		snprintf(prefix, sizeof(prefix), "%08x:", i);
+		ut_asserteq_strn(prefix, line);
+		p = line + strlen(prefix);
+		for (j = 0; j < perline; j++) {
+			uint val;
+
+			while (*p == ' ')
+				p++;
+			val = simple_strtoul(p, &p, 16);
+
+			if (val != 0xff) {
+				ut_asserteq(1, generic_hweight8(val ^ 0xff));
+				flips++;
+			}
+		}
+	}
+	ut_assert(flips <= NAND0_FLIPS);
 
 	return 0;
 }
@@ -278,7 +330,7 @@ static int cmd_test_nand_dump(struct unit_test_state *uts)
 	ut_assertok(check_dump(uts, 0, NAND0_PAGE, 16, 0x5a));
 	ut_assert_nextline_empty();
 	ut_assert_nextline("OOB:");
-	ut_assertok(check_dump(uts, 0, NAND0_OOB, 8, 0xff));
+	ut_assertok(check_oob_dump(uts, NAND0_OOB, 8));
 	ut_assert_console_end();
 
 	/* The spare area on its own leaves the data out */
@@ -287,7 +339,7 @@ static int cmd_test_nand_dump(struct unit_test_state *uts)
 	ut_assert_nextline("Page at offset 00000000 dump:");
 	ut_assert_nextline_empty();
 	ut_assert_nextline("OOB:");
-	ut_assertok(check_dump(uts, 0, NAND0_OOB, 8, 0xff));
+	ut_assertok(check_oob_dump(uts, NAND0_OOB, 8));
 	ut_assert_console_end();
 
 	/* A page past the end of the chip cannot be read */
