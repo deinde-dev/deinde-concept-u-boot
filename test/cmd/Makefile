@@ -24,6 +24,7 @@ obj-$(CONFIG_CMD_ADDRMAP) += addrmap.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_2048) += 2048.o
 obj-$(CONFIG_CMD_ACPI) += acpi.o
+obj-$(CONFIG_CMD_ASKENV) += askenv.o
 obj-$(CONFIG_CMD_AXI) += axi.o
 endif
 obj-$(CONFIG_CMD_BACKTRACE) += backtrace.o
