@@ -13,6 +13,7 @@
 
 #include <config.h>
 #include <command.h>
+#include <compiler.h>
 #include <env.h>
 #include <mapmem.h>
 #include <vsprintf.h>
@@ -73,11 +74,10 @@ static long evalexp(char *s, int w)
 		case 4:
 			l = (long)(*(u32 *)buf);
 			break;
-#ifdef CONFIG_PHYS_64BIT
 		case 8:
-			l = (long)(*(unsigned long *)buf);
+			if (MEM_SUPPORT_64BIT_DATA)
+				l = (long)(*(unsigned long *)buf);
 			break;
-#endif
 		}
 		unmap_physmem(buf, w);
 		return l;
@@ -201,7 +201,7 @@ static int do_itest(struct cmd_tbl *cmdtp, int flag, int argc,
 	case 1:
 	case 2:
 	case 4:
-#ifdef CONFIG_PHYS_64BIT
+#if MEM_SUPPORT_64BIT_DATA
 	case 8:
 #endif
 		value = binary_test (argv[2], argv[1], argv[3], w);
@@ -222,7 +222,7 @@ static int do_itest(struct cmd_tbl *cmdtp, int flag, int argc,
 U_BOOT_CMD(
 	itest, 4, 0, do_itest,
 	"return true/false on integer compare",
-#ifdef CONFIG_PHYS_64BIT
+#if MEM_SUPPORT_64BIT_DATA
 	"[.b, .w, .l, .q, .s] [*]value1 <op> [*]value2"
 #else
 	"[.b, .w, .l, .s] [*]value1 <op> [*]value2"
