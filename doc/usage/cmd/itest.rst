@@ -28,13 +28,19 @@ postfix meaning
 .b      1 byte integer
 .w      2 byte integer
 .l      4 byte integer
-.q      8 byte integer (only available if CONFIG_PHYS_64BIT=y)
+.q      8 byte integer (only available on a 64-bit build)
 .s      string
 ======= ======================================================
+
+A postfix which is not in the table is reported with 'Invalid data width
+specifier' and the comparison is not made.
 
 value1, value2
     values to compare. Numeric values are hexadecimal. If '*' is prefixed a
     hexadecimal address is passed, which points to the value to be compared.
+    With the .s postfix a value of the form ${name} is the value of
+    environment variable *name*, or an empty string if it is not set.
+    Anything else after a '$' is reported with 'Invalid variable reference'.
 
 op
     operator, see table
@@ -56,6 +62,9 @@ op
     -gt      greater than
     >        greater than
     ======== ======================
+
+    An operator which is not in the table is reported with
+    'Unknown operator' and the comparison is not made.
 
 Examples
 --------
@@ -95,12 +104,27 @@ A value prefixed by '*' is a pointer to the value in memory.
 
 ::
 
-    => mm 0x4000
-    00004000: 00000004 ?
-    00004004: 00000003 ? =>
+    => mw.l 0x4000 4 1
+    => mw.l 0x4004 3 1
+    => md.l 0x4000 2
+    00004000: 00000004 00000003                    ........
     => if itest *0x4000 == 4; then echo true; else echo false; fi
     true
     => if itest *0x4004 == 3; then echo true; else echo false; fi
+    true
+
+With the .s postfix the address holds the string to compare, terminated by a
+zero byte.
+
+A value of the form ${name} is the value of an environment variable. It must
+be quoted, so that the shell does not expand it before the command sees it:
+
+::
+
+    => setenv target sandbox
+    => if itest.s '${target}' == sandbox; then echo true; else echo false; fi
+    true
+    => if itest.s '${nosuch}' == ''; then echo true; else echo false; fi
     true
 
 Configuration
@@ -112,4 +136,15 @@ Return value
 ------------
 
 The return value $? is 0 (true) if the condition is true and 1 (false)
-otherwise.
+otherwise. It is also 1 if the comparison cannot be made at all, for
+instance because the operator or the postfix is not a known one.
+
+See also
+--------
+
+* :doc:`if<if>` for acting on the result
+* :doc:`test<test>` for the shell built-in, which also compares strings and
+  checks whether a file exists
+* :doc:`cmp<cmp>` for comparing two regions of memory rather than two values
+* :doc:`setexpr<setexpr>` for computing with values rather than comparing them
+* :doc:`md<md>` for looking at the memory a '*' prefix reads
