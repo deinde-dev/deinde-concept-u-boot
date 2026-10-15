@@ -508,13 +508,12 @@ static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif
 
-static int do_mem_base(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_mem_base(struct getopt_state *gs)
 {
-	if (argc > 1) {
+	if (gs->argc > 1) {
 		/* Set new base address.
 		*/
-		base_address = hextoul(argv[1], NULL);
+		base_address = hextoul(gs->argv[1], NULL);
 	}
 	/* Print the current base address.
 	*/
@@ -1068,9 +1067,10 @@ static ulong mem_test_quick(vu_long *buf, ulong start_addr, ulong end_addr,
  * configured using CONFIG_SYS_ALT_MEMTEST. The complete test loops until
  * interrupted by ctrl-c or by a failure of one of the sub-tests.
  */
-static int do_mem_mtest(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_mem_mtest(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	ulong start, end;
 	vu_long scratch_space;
 	vu_long *buf, *dummy = &scratch_space;
@@ -1101,7 +1101,7 @@ static int do_mem_mtest(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (end < start) {
 		printf("Refusing to do empty test\n");
-		return -1;
+		return CMD_RET_FAILURE;
 	}
 
 	printf("Testing %08lx ... %08lx:\n", start, end);
@@ -1384,7 +1384,7 @@ U_BOOT_CMD(
 
 #endif
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	base,	2,	1,	do_mem_base,
 	"print or set address offset",
 	"\n    - print address offset for memory commands\n"
@@ -1406,7 +1406,7 @@ U_BOOT_CMD_NOOPTS(
 #endif /* CONFIG_LOOPW */
 
 #ifdef CONFIG_CMD_MEMTEST
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mtest,	5,	1,	do_mem_mtest,
 	"simple RAM read/write test",
 	"[start [end [pattern [iterations]]]]"

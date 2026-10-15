@@ -79,3 +79,10 @@ Configuration
 The cp command is available if CONFIG_CMD_MEMORY=y. Support for 64 bit words
 (cp.q) is only available on 64-bit targets. Copying to flash depends on
 CONFIG_MTD_NOR_FLASH=y.
+
+See also
+--------
+
+* :doc:`cmp<cmp>` for checking that the copy matches the source
+* :doc:`md<md>` for looking at either region
+* :doc:`base<base>` for the offset cp adds to both addresses
