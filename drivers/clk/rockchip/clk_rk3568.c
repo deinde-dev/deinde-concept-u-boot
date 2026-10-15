@@ -486,14 +486,19 @@ static int rk3568_pmuclk_ofdata_to_platdata(struct udevice *dev)
 
 static int rk3568_pmuclk_bind(struct udevice *dev)
 {
-#if IS_ENABLED(CONFIG_RESET_ROCKCHIP)
-	int ret = 0;
+	int ret;
+
+	/* Ensure clocks are initialized after bind in SPL build */
+	if (IS_ENABLED(CONFIG_SPL_BUILD))
+		dev_or_flags(dev, DM_FLAG_PROBE_AFTER_BIND);
+
+	if (!IS_ENABLED(CONFIG_RESET_ROCKCHIP))
+		return 0;
 
 	ret = offsetof(struct rk3568_pmucru, pmu_softrst_con[0]);
 	ret = rockchip_reset_bind(dev, ret, 1);
 	if (ret)
 		debug("Warning: pmucru software reset driver bind failed\n");
-#endif
 
 	return 0;
 }
@@ -2926,6 +2931,10 @@ static int rk3568_clk_ofdata_to_platdata(struct udevice *dev)
 static int rk3568_clk_bind(struct udevice *dev)
 {
 	int ret;
+
+	/* Ensure clocks are initialized after bind in SPL build */
+	if (IS_ENABLED(CONFIG_SPL_BUILD))
+		dev_or_flags(dev, DM_FLAG_PROBE_AFTER_BIND);
 
 	/* The reset driver does not have a device node, so bind it here */
 	ret = rockchip_sysreset_bind(dev,
