@@ -93,7 +93,8 @@ static char * evalstr(char *s)
 {
 	/* if the parameter starts with a * then assume a string pointer else its a literal */
 	if (s[0] == '*') {
-		return (char *)hextoul(&s[1], NULL);
+		/* the address is a U-Boot one, so it needs mapping */
+		return map_sysmem(hextoul(&s[1], NULL), 0);
 	} else if (s[0] == '$') {
 		char *val;
 		int i = 2;
