@@ -15,6 +15,7 @@
 #include <command.h>
 #include <compiler.h>
 #include <env.h>
+#include <getopt.h>
 #include <mapmem.h>
 #include <vsprintf.h>
 
@@ -184,9 +185,10 @@ static int binary_test(char *op, char *arg1, char *arg2, int w)
 }
 
 /* command line interface to the shell test */
-static int do_itest(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_itest(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int	value, w;
 
 	/* Validate arguments */
@@ -219,7 +221,7 @@ static int do_itest(struct cmd_tbl *cmdtp, int flag, int argc,
 	return !value;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	itest, 4, 0, do_itest,
 	"return true/false on integer compare",
 #if MEM_SUPPORT_64BIT_DATA

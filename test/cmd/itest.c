@@ -198,6 +198,10 @@ static int cmd_test_itest_usage(struct unit_test_state *uts)
 	ut_asserteq(CMD_RET_FAILURE, run_command("itest 1 == 1 2", 0));
 	ut_assertok(check_usage(uts));
 
+	/* the command has no options, so one is refused rather than read */
+	ut_asserteq(CMD_RET_FAILURE, run_command("itest -1 < 4", 0));
+	ut_assertok(check_usage(uts));
+
 	/* an operator which is not in the table is reported */
 	ut_asserteq(CMD_RET_FAILURE, run_command("itest 1 lt 2", 0));
 	ut_assert_nextline("Unknown operator 'lt'");

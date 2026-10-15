@@ -2046,6 +2046,7 @@ config CMD_ECHO
 config CMD_ITEST
 	bool "itest"
 	default y
+	select GETOPT
 	help
 	  Return true/false on integer compare.
 
