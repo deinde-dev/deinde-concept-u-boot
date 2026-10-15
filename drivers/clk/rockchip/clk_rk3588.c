@@ -2007,6 +2007,10 @@ static int rk3588_clk_bind(struct udevice *dev)
 {
 	int ret;
 
+	/* Ensure clocks are initialized after bind in SPL build */
+	if (IS_ENABLED(CONFIG_SPL_BUILD))
+		dev_or_flags(dev, DM_FLAG_PROBE_AFTER_BIND);
+
 	/* The reset driver does not have a device node, so bind it here */
 	ret = rockchip_sysreset_bind(dev,
 				     offsetof(struct rk3588_cru, glb_srst_fst),
@@ -2129,6 +2133,15 @@ static int rk3588_scru_clk_probe(struct udevice *dev)
 	return 0;
 }
 
+static int rk3588_scru_clk_bind(struct udevice *dev)
+{
+	/* Ensure clocks are initialized after bind in SPL build */
+	if (IS_ENABLED(CONFIG_SPL_BUILD))
+		dev_or_flags(dev, DM_FLAG_PROBE_AFTER_BIND);
+
+	return 0;
+}
+
 static const struct clk_ops rk3588_scru_clk_ops = {
 	.get_rate = rk3588_scru_clk_get_rate,
 	.set_rate = rk3588_scru_clk_set_rate,
@@ -2138,6 +2151,7 @@ U_BOOT_DRIVER(rockchip_rk3588_scru) = {
 	.name	= "rockchip_rk3588_scru",
 	.id	= UCLASS_CLK,
 	.ops	= &rk3588_scru_clk_ops,
+	.bind	= rk3588_scru_clk_bind,
 	.probe	= rk3588_scru_clk_probe,
 };
 
