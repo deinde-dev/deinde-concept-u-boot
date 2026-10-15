@@ -95,6 +95,7 @@ static char * evalstr(char *s)
 	if (s[0] == '*') {
 		return (char *)hextoul(&s[1], NULL);
 	} else if (s[0] == '$') {
+		char *val;
 		int i = 2;
 
 		if (s[1] != '{')
@@ -106,7 +107,10 @@ static char * evalstr(char *s)
 			i++;
 		}
 		s[i] = 0;
-		return  env_get((const char *)&s[2]);
+		val = env_get((const char *)&s[2]);
+
+		/* an unset variable is empty, as the shell expands one */
+		return val ? val : "";
 	} else {
 		return s;
 	}
@@ -119,6 +123,10 @@ static int stringcomp(char *s, char *t, int op)
 
 	l = evalstr(s);
 	r = evalstr(t);
+	if (!l || !r) {
+		puts("Invalid variable reference\n");
+		return 0;
+	}
 
 	p = strcmp(l, r);
 	switch (op) {
