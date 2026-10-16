@@ -262,6 +262,37 @@ static int lib_test_membuf_init(struct unit_test_state *uts)
 }
 LIB_TEST(lib_test_membuf_init, 0);
 
+/* test membuf_readline() with lines which only just fit, or do not */
+static int lib_test_membuf_readline_fit(struct unit_test_state *uts)
+{
+	char buf[] = "abc\nabcd\nxy\n";
+	struct membuf mb;
+	char out[4];
+
+	membuf_init_with_data(&mb, buf, strlen(buf));
+
+	/* three characters and the terminator fill the buffer exactly */
+	ut_asserteq(4, membuf_readline(&mb, out, sizeof(out), 0, true));
+	ut_asserteq_str("abc", out);
+
+	/* four characters do not fit, so nothing is read */
+	ut_asserteq(0, membuf_readline(&mb, out, sizeof(out), 0, true));
+	ut_asserteq_str("", out);
+
+	/* without must_fit, the line is split */
+	ut_asserteq(3, membuf_readline(&mb, out, sizeof(out), 0, false));
+	ut_asserteq_str("abc", out);
+	ut_asserteq(2, membuf_readline(&mb, out, sizeof(out), 0, false));
+	ut_asserteq_str("d", out);
+
+	ut_asserteq(3, membuf_readline(&mb, out, sizeof(out), 0, true));
+	ut_asserteq_str("xy", out);
+	ut_asserteq(0, membuf_readline(&mb, out, sizeof(out), 0, true));
+
+	return 0;
+}
+LIB_TEST(lib_test_membuf_readline_fit, 0);
+
 /* test membuf_printf() */
 static int lib_test_membuf_printf(struct unit_test_state *uts)
 {
