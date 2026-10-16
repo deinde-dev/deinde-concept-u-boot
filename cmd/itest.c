@@ -13,7 +13,9 @@
 
 #include <config.h>
 #include <command.h>
+#include <compiler.h>
 #include <env.h>
+#include <getopt.h>
 #include <mapmem.h>
 #include <vsprintf.h>
 
@@ -73,11 +75,10 @@ static long evalexp(char *s, int w)
 		case 4:
 			l = (long)(*(u32 *)buf);
 			break;
-#ifdef CONFIG_PHYS_64BIT
 		case 8:
-			l = (long)(*(unsigned long *)buf);
+			if (MEM_SUPPORT_64BIT_DATA)
+				l = (long)(*(unsigned long *)buf);
 			break;
-#endif
 		}
 		unmap_physmem(buf, w);
 		return l;
@@ -93,8 +94,10 @@ static char * evalstr(char *s)
 {
 	/* if the parameter starts with a * then assume a string pointer else its a literal */
 	if (s[0] == '*') {
-		return (char *)hextoul(&s[1], NULL);
+		/* the address is a U-Boot one, so it needs mapping */
+		return map_sysmem(hextoul(&s[1], NULL), 0);
 	} else if (s[0] == '$') {
+		char *val;
 		int i = 2;
 
 		if (s[1] != '{')
@@ -106,7 +109,10 @@ static char * evalstr(char *s)
 			i++;
 		}
 		s[i] = 0;
-		return  env_get((const char *)&s[2]);
+		val = env_get((const char *)&s[2]);
+
+		/* an unset variable is empty, as the shell expands one */
+		return val ? val : "";
 	} else {
 		return s;
 	}
@@ -119,6 +125,10 @@ static int stringcomp(char *s, char *t, int op)
 
 	l = evalstr(s);
 	r = evalstr(t);
+	if (!l || !r) {
+		puts("Invalid variable reference\n");
+		return 0;
+	}
 
 	p = strcmp(l, r);
 	switch (op) {
@@ -175,9 +185,10 @@ static int binary_test(char *op, char *arg1, char *arg2, int w)
 }
 
 /* command line interface to the shell test */
-static int do_itest(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_itest(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int	value, w;
 
 	/* Validate arguments */
@@ -192,7 +203,7 @@ static int do_itest(struct cmd_tbl *cmdtp, int flag, int argc,
 	case 1:
 	case 2:
 	case 4:
-#ifdef CONFIG_PHYS_64BIT
+#if MEM_SUPPORT_64BIT_DATA
 	case 8:
 #endif
 		value = binary_test (argv[2], argv[1], argv[3], w);
@@ -210,10 +221,10 @@ static int do_itest(struct cmd_tbl *cmdtp, int flag, int argc,
 	return !value;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	itest, 4, 0, do_itest,
 	"return true/false on integer compare",
-#ifdef CONFIG_PHYS_64BIT
+#if MEM_SUPPORT_64BIT_DATA
 	"[.b, .w, .l, .q, .s] [*]value1 <op> [*]value2"
 #else
 	"[.b, .w, .l, .s] [*]value1 <op> [*]value2"

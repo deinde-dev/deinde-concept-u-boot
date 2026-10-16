@@ -127,6 +127,7 @@ ifdef CONFIG_CMD_PCI
 obj-$(CONFIG_CMD_IO) += io.o
 endif
 obj-$(CONFIG_CMD_IOTRACE) += iotrace.o
+obj-$(CONFIG_CMD_ITEST) += itest.o
 obj-$(CONFIG_CMD_MBR) += mbr.o
 obj-$(CONFIG_CMD_MOUSE) += mouse.o
 obj-$(CONFIG_CMD_PINMUX) += pinmux.o
