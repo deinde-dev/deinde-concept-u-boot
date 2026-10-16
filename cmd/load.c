@@ -13,6 +13,7 @@
 #include <efi_loader.h>
 #include <env.h>
 #include <exports.h>
+#include <getopt.h>
 #ifdef CONFIG_MTD_NOR_FLASH
 #include <flash.h>
 #endif
@@ -47,9 +48,10 @@ static int do_echo = 1;
 /* -------------------------------------------------------------------- */
 
 #if defined(CONFIG_CMD_LOADS)
-static int do_load_serial(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_load_serial(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	long offset = 0;
 	ulong addr;
 	int i;
@@ -1111,7 +1113,7 @@ static int do_load_memory_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 #if defined(CONFIG_CMD_LOADS)
 
 #ifdef	CONFIG_SYS_LOADS_BAUD_CHANGE
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	loads, 3, 0,	do_load_serial,
 	"load S-Record file over serial line",
 	"[ off ] [ baud ]\n"
@@ -1120,7 +1122,7 @@ U_BOOT_CMD(
 );
 
 #else	/* ! CONFIG_SYS_LOADS_BAUD_CHANGE */
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	loads, 2, 0,	do_load_serial,
 	"load S-Record file over serial line",
 	"[ off ]\n"

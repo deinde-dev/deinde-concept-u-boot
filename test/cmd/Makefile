@@ -76,6 +76,9 @@ obj-$(CONFIG_CMD_IMI) += iminfo.o
 endif
 obj-$(CONFIG_CMD_LICENSE) += license.o
 obj-$(CONFIG_CMD_LOADM) += loadm.o
+ifdef CONFIG_CONSOLE_RECORD
+obj-$(CONFIG_CMD_LOADS) += loads.o
+endif
 obj-$(CONFIG_CMD_MALLOC) += malloc.o
 ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_MEMINFO) += meminfo.o
