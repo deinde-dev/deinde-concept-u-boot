@@ -247,10 +247,6 @@ int cmd_process_error(struct cmd_tbl *cmdtp, int err);
 int cmd_get_data_size(const char *arg, int default_size);
 #endif
 
-#ifdef CONFIG_CMD_BOOTD
-int do_bootd(struct cmd_tbl *cmdtp, int flag, int argc,
-	     char *const argv[]);
-#endif
 int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc,
 	     char *const argv[]);
 #ifdef CONFIG_CMD_BOOTM
