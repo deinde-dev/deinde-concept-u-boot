@@ -19,12 +19,24 @@ Description
 The loads command is used to transfer a file to the device via the serial line
 using the Motorola S-record file format.
 
+Records are read until an end record arrives, which gives the start address of
+the downloaded image. That address is reported and becomes the default load
+address used by commands such as *bootm*; the offset is not added to it. The
+number of transferred bytes is saved in environment variable filesize.
+
+A record which is not a valid S-record, or whose checksum does not match, ends
+the download and leaves whatever has been written to memory in place.
+
 offset
     offset added to the addresses in the S-record file
 
 baud
     baud rate to use for download. This parameter is only available if
     CONFIG_SYS_LOADS_BAUD_CHANGE=y
+
+If environment variable loads_echo is set to 1, every character received is
+echoed back to the console, which some terminal emulations need. Otherwise a
+dot is printed for every hundred lines received.
 
 Example
 -------
@@ -91,4 +103,21 @@ Configuration
 -------------
 
 The command is only available if CONFIG_CMD_LOADS=y. The parameter to set the
-baud rate is only available if CONFIG_SYS_LOADS_BAUD_CHANGE=y
+baud rate is only available if CONFIG_SYS_LOADS_BAUD_CHANGE=y.
+CONFIG_LOADS_ECHO=y sets the initial value of the loads_echo environment
+variable to 1.
+
+Return value
+------------
+
+The return value $? is 0 (true) if an end record arrives. It is 1 (false) if
+the download is aborted, which happens on a record the decoder cannot read.
+
+See also
+--------
+
+* :doc:`saves<saves>` for sending memory the other way in the same format
+* :doc:`loadb<loadb>`, :doc:`loadx<loadx>` and :doc:`loady<loady>` for
+  transferring a binary file over the serial line
+* :doc:`loadm<loadm>` for copying an image which is already in memory
+* :doc:`source<source>` for running a script once it has been loaded
