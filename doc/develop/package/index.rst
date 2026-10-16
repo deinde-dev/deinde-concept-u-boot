@@ -13,7 +13,7 @@ dealing with device boundaries, such as the read-only/read-write separation in
 SPI flash.
 
 Binman is maintained as a separate project, at
-https://github.com/nxtboot/binman, and is installed as the binary-manager
+https://github.com/deinde-dev/binman, and is installed as the binary-manager
 package::
 
     pip install binary-manager
