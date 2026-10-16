@@ -5,7 +5,13 @@ if [ -z "$1" ]; then
 	exit 1
 fi
 
-TOOLS_DIR=$(dirname $0)
+# binman is provided by the binary-manager package; set BINMAN to use
+# another copy
+BINMAN=${BINMAN:-binman}
+if ! command -v "$BINMAN" >/dev/null; then
+	echo "Cannot find binman: pip install binary-manager, or set BINMAN"
+	exit 1
+fi
 
 TEMP_X509=$(mktemp XXXXXXXX.temp)
 
@@ -41,10 +47,10 @@ CERT_X509=$(mktemp XXXXXXXX.crt)
 
 openssl req -new -x509 -key $1 -nodes -outform DER -out $CERT_X509 -config $TEMP_X509 -sha512
 cat $CERT_X509 tispl.bin > tispl.bin_signed
-$TOOLS_DIR/binman/binman replace -i flash-pg1.bin -f tispl.bin_signed fit@180000
-$TOOLS_DIR/binman/binman replace -i flash-pg2.bin -f tispl.bin_signed fit@180000
+"$BINMAN" replace -i flash-pg1.bin -f tispl.bin_signed fit@180000
+"$BINMAN" replace -i flash-pg2.bin -f tispl.bin_signed fit@180000
 
 rm $TEMP_X509 $CERT_X509
 
-$TOOLS_DIR/binman/binman sign -i flash-pg1.bin -k $1 -a sha256,rsa4096 fit@380000
-$TOOLS_DIR/binman/binman sign -i flash-pg2.bin -k $1 -a sha256,rsa4096 fit@380000
+"$BINMAN" sign -i flash-pg1.bin -k $1 -a sha256,rsa4096 fit@380000
+"$BINMAN" sign -i flash-pg2.bin -k $1 -a sha256,rsa4096 fit@380000
