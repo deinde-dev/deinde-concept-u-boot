@@ -334,7 +334,10 @@ int membuf_readline(struct membuf *mb, char *str, int maxlen, int minch,
 	char *orig = str;
 
 	end = mb->head < mb->tail || is_full(mb) ? mb->end : mb->head;
-	for (len = 0, s = mb->tail; s < end && len < maxlen - 1; str++) {
+	for (len = 0, s = mb->tail; s < end && len < maxlen; str++) {
+		/* the last byte must hold the terminator */
+		if (len == maxlen - 1 && *s != '\n' && *s >= minch)
+			break;
 		*str = *s++;
 		len++;
 		if (*str == '\n' || *str < minch) {

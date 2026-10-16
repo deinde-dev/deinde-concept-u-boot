@@ -193,13 +193,13 @@ int membuf_free(struct membuf *mb);
 /**
  * membuf_readline() - read a line of text from a membuff
  *
- * Reads a line of text of up to 'maxlen' characters from a membuff and puts
- * it in @str. Any character less than @minch is assumed to be the end of
- * line character
+ * Reads a line of text of up to @maxlen - 1 characters from a membuff and puts
+ * it in @str, replacing the end-of-line character with a nul terminator. Any
+ * character less than @minch is assumed to be the end-of-line character
  *
  * @mb: membuff to adjust
  * @str: Place to put the line
- * @maxlen: Maximum line length (excluding terminator)
+ * @maxlen: Size of @str in bytes, including the nul terminator
  * @minch: Minimum ASCII character to permit as part of the line (e.g. ' ')
  * @must_fit: If true then str is empty if line doesn't fit
  * Return: number of bytes read (including terminator) if a line has been
