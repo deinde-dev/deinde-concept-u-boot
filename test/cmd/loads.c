@@ -170,6 +170,24 @@ static int cmd_test_loads_echo(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_loads_echo, UTF_CONSOLE);
 
+/* Test that an option is refused rather than taken as an offset */
+static int cmd_test_loads_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("loads -x", 0));
+	ut_assert_nextline("loads - load S-Record file over serial line");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	if (IS_ENABLED(CONFIG_SYS_LOADS_BAUD_CHANGE))
+		ut_assert_nextline("loads [ off ] [ baud ]");
+	else
+		ut_assert_nextline("loads [ off ]");
+	ut_assert_nextlinen("    - load S-Record file over serial line");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_loads_usage, UTF_CONSOLE);
+
 /* Test that a bad checksum aborts the download */
 static int cmd_test_loads_bad(struct unit_test_state *uts)
 {
