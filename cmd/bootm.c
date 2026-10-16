@@ -255,9 +255,15 @@ U_BOOT_CMD(
 /* bootd - boot default image */
 /*******************************************************************/
 #if defined(CONFIG_CMD_BOOTD)
-int do_bootd(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_bootd(struct cmd_tbl *cmdtp, int flag, int argc,
+		    char *const argv[])
 {
-	return run_command(env_get("bootcmd"), flag);
+	if (flag & CMD_FLAG_BOOTD) {
+		puts("'bootd' recursion detected\n");
+		return CMD_RET_FAILURE;
+	}
+
+	return run_command(env_get("bootcmd"), flag | CMD_FLAG_BOOTD);
 }
 
 U_BOOT_CMD(
