@@ -568,7 +568,7 @@ int do_sntp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 U_BOOT_CMD(
 	sntp,	2,	1,	do_sntp,
 	"synchronize RTC via network",
-	"[NTP server IP]\n"
+	"[NTP server IP]"
 );
 #endif
 
