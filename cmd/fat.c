@@ -8,6 +8,7 @@
  * Boot support
  */
 #include <command.h>
+#include <getopt.h>
 #include <mapmem.h>
 #include <fat.h>
 #include <fs_cmd.h>
@@ -27,12 +28,12 @@ U_BOOT_CMD(
 	"      and determine its size."
 );
 
-int do_fat_fsload(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_fat_fsload(struct getopt_state *gs)
 {
-	return do_load(argc, argv, FS_TYPE_FAT);
+	return do_load(gs->argc, gs->argv, FS_TYPE_FAT);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fatload,	7,	0,	do_fat_fsload,
 	"load binary file from a dos filesystem",
 	"<interface> [<dev[:part]> [<addr> [<filename> [bytes [pos]]]]]\n"
@@ -43,8 +44,8 @@ U_BOOT_CMD(
 	"      'bytes' gives the size to load. If 'bytes' is 0 or omitted,\n"
 	"      the load stops on end of file.\n"
 	"      If either 'pos' or 'bytes' are not aligned to\n"
-	"      ARCH_DMA_MINALIGN then a misaligned buffer warning will\n"
-	"      be printed and performance will suffer for the load."
+	"      ARCH_DMA_MINALIGN then the data is copied through\n"
+	"      an aligned buffer and performance will suffer."
 );
 
 static int do_fat_ls(struct cmd_tbl *cmdtp, int flag, int argc,

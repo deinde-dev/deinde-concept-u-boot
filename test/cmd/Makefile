@@ -61,6 +61,11 @@ ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_EXT4_WRITE) += ext4write.o
 endif
 endif
+ifdef CONFIG_CONSOLE_RECORD
+ifdef CONFIG_SANDBOX
+obj-$(CONFIG_CMD_FAT) += fatload.o
+endif
+endif
 obj-$(CONFIG_CMD_FDT) += fdt.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_GETTIME) += gettime.o
