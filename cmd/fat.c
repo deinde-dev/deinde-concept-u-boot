@@ -43,8 +43,8 @@ U_BOOT_CMD(
 	"      'bytes' gives the size to load. If 'bytes' is 0 or omitted,\n"
 	"      the load stops on end of file.\n"
 	"      If either 'pos' or 'bytes' are not aligned to\n"
-	"      ARCH_DMA_MINALIGN then a misaligned buffer warning will\n"
-	"      be printed and performance will suffer for the load."
+	"      ARCH_DMA_MINALIGN then the data is copied through\n"
+	"      an aligned buffer and performance will suffer."
 );
 
 static int do_fat_ls(struct cmd_tbl *cmdtp, int flag, int argc,

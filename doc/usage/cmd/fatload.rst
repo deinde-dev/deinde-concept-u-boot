@@ -47,9 +47,10 @@ pos
 addr, bytes, pos are hexadecimal numbers.
 
 If either 'pos' or 'bytes' are not aligned according to the minimum alignment
-requirement for DMA transfer (ARCH_DMA_MINALIGN) additional buffering will be
-used, a misaligned buffer warning will be printed, and performance will suffer
-for the load.
+requirement for DMA transfer (ARCH_DMA_MINALIGN) the data is copied through an
+aligned buffer, a sector at a time, so performance will suffer for the load.
+Nothing is printed when this happens, since the message which notes it is a
+debug one.
 
 Example
 -------
