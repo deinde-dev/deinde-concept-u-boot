@@ -5,12 +5,13 @@
 #include <console.h>
 #include <dm/device.h>
 #include <env.h>
+#include <getopt.h>
 #include <lwip/apps/sntp.h>
 #include <lwip/timeouts.h>
 #include <net.h>
 
-U_BOOT_CMD(sntp, 2, 1, do_sntp, "synchronize RTC via network",
-	   "[NTPServerNameOrIp]");
+U_BOOT_CMD_NOOPTS(sntp, 2, 1, do_sntp, "synchronize RTC via network",
+		  "[NTPServerNameOrIp]");
 
 #define SNTP_TIMEOUT 10000
 
@@ -97,15 +98,15 @@ static int sntp_loop(struct udevice *udev, ip_addr_t *srvip)
 	return -1;
 }
 
-int do_sntp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_sntp(struct getopt_state *gs)
 {
 	ip_addr_t *srvip;
 	char *server;
 	ip_addr_t ipaddr;
 	int ret = CMD_RET_FAILURE;
 
-	switch (argc) {
-	case 1:
+	server = getopt_pop(gs);
+	if (!server) {
 		srvip = NULL;
 		server = env_get("ntpserverip");
 		if (server) {
@@ -115,14 +116,10 @@ int do_sntp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			}
 			srvip = &ipaddr;
 		}
-		break;
-	case 2:
-		if (net_lwip_dns_resolve(argv[1], &ipaddr))
+	} else {
+		if (net_lwip_dns_resolve(server, &ipaddr))
 			return CMD_RET_FAILURE;
 		srvip = &ipaddr;
-		break;
-	default:
-		return CMD_RET_USAGE;
 	}
 
 	if (net_lwip_eth_start() < 0)

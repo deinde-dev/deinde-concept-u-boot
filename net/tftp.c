@@ -210,9 +210,12 @@ static int load_block(unsigned block, uchar *dst, unsigned len)
 	ulong offset = block * tftp_block_size + tftp_block_wrap_offset -
 		       tftp_block_size;
 	ulong tosend = len;
+	void *ptr;
 
 	tosend = min(net_boot_file_size - offset, tosend);
-	(void)memcpy(dst, (void *)(image_save_addr + offset), tosend);
+	ptr = map_sysmem(image_save_addr + offset, tosend);
+	memcpy(dst, ptr, tosend);
+	unmap_sysmem(ptr);
 	debug("%s: block=%u, offset=%lu, len=%u, tosend=%lu\n", __func__,
 	      block, offset, len, tosend);
 	return tosend;
@@ -971,6 +974,9 @@ void tftp_start_server(void)
 	tftp_our_port = WELL_KNOWN_PORT;
 	tftp_windowsize = 1;
 	tftp_next_ack = tftp_windowsize;
+#ifdef CMD_TFTPPUT
+	tftp_put_active = 0;
+#endif
 
 #ifdef CONFIG_TFTP_TSIZE
 	tftp_tsize = 0;

@@ -33,9 +33,10 @@ hostIPaddr
     variable *serverip*
 
 filename
-    path of the file to be written. If not provided, the client's IP address is
-    used to construct a default file name, e.g. C0.A8.00.28.img for IP address
-    192.168.0.40.
+    path of the file to be written, defaults to the value of environment
+    variable *bootfile*. With neither, the client's IP address is used to
+    construct a default file name, e.g. C0A80028.img for IP address
+    192.168.0.40, and the name is reported as it is made up.
 
 Example
 -------
@@ -75,10 +76,26 @@ CONFIG_TFTP_BLOCKSIZE defines the size of the TFTP blocks sent. It defaults
 to 1468 matching an ethernet MTU of 1500.
 
 CONFIG_TFTP_WINDOWSIZE can be used to set the TFTP window size of transmits
-after which an ACK response is required. The window size defaults to 1.
+after which an ACK response is required. The window size defaults to 1. It has
+no effect on an upload, since the option is offered to the server only when
+reading a file.
 
 If CONFIG_TFTP_TSIZE=y, the progress bar is limited to 50 '#' characters.
 Otherwise an '#' is written per UDP package which may decrease performance.
+
+Return value
+------------
+
+The return value $? is set to 0 (true) if the whole file reached the server
+and it acknowledged the last block.
+
+If an error occurs, the return value $? is set to 1 (false). A server which
+does not answer, one which refuses the transfer, and Ctrl-C during the
+transfer are all errors.
+
+A command line without both an address and a size, or with an address or size
+which is not a hexadecimal number, shows the usage message instead; the latter
+reports 'Invalid address/size' first.
 
 See also
 --------

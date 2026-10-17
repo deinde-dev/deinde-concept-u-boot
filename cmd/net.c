@@ -67,13 +67,12 @@ U_BOOT_CMD(
 #endif
 
 #ifdef CONFIG_CMD_TFTPPUT
-static int do_tftpput(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_tftpput(struct getopt_state *gs)
 {
-	return netboot_common(TFTPPUT, argc, argv);
+	return netboot_common(TFTPPUT, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	tftpput,	4,	1,	do_tftpput,
 	"TFTP put command, for uploading files to a server",
 	"Address Size [[hostIPaddr:]filename]"
@@ -532,18 +531,20 @@ static struct udp_ops sntp_ops = {
 	.data = NULL,
 };
 
-int do_sntp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_sntp(struct getopt_state *gs)
 {
+	const char *server;
 	char *toff;
 
-	if (argc < 2) {
+	server = getopt_pop(gs);
+	if (!server) {
 		net_ntp_server = string_to_ip(env_get("ntpserverip"));
 		if (net_ntp_server.s_addr == 0) {
 			printf("ntpserverip not set\n");
 			return CMD_RET_FAILURE;
 		}
 	} else {
-		net_ntp_server = string_to_ip(argv[1]);
+		net_ntp_server = string_to_ip(server);
 		if (net_ntp_server.s_addr == 0) {
 			printf("Bad NTP server IP address\n");
 			return CMD_RET_FAILURE;
@@ -565,10 +566,10 @@ int do_sntp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	sntp,	2,	1,	do_sntp,
 	"synchronize RTC via network",
-	"[NTP server IP]\n"
+	"[NTP server IP]"
 );
 #endif
 

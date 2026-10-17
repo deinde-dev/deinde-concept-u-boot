@@ -2248,6 +2248,7 @@ config CMD_PCAP
 config CMD_TFTPPUT
 	bool "tftp put"
 	depends on CMD_TFTPBOOT
+	select GETOPT
 	help
 	  TFTP put command, for uploading files to a server
 
@@ -2390,6 +2391,7 @@ config CMD_PING
 
 config CMD_SNTP
 	bool "sntp"
+	select GETOPT
 	select PROT_UDP if NET_LEGACY
 	select PROT_UDP_LWIP if NET_LWIP
 	help

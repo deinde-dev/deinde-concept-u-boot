@@ -127,4 +127,6 @@ See also
 * :doc:`cdp<cdp>` for obtaining the VLAN settings of the port before asking for
   an address
 * :doc:`rarpboot<rarpboot>` for obtaining the address of the board over RARP
+* :doc:`sntp<sntp>` for setting the clock from the time server the settings
+  name
 * *tftpboot* for downloading a file over TFTP by hand
