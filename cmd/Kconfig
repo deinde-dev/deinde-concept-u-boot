@@ -2537,6 +2537,7 @@ config CMD_BLOCK_CACHE
 	bool "blkcache - control and stats for block cache"
 	depends on BLOCK_CACHE
 	default y if BLOCK_CACHE
+	select GETOPT
 	help
 	  Enable the blkcache command, which can be used to control the
 	  operation of the cache functions.

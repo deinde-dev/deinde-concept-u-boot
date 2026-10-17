@@ -6,12 +6,12 @@
  */
 #include <command.h>
 #include <config.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <part.h>
 #include <vsprintf.h>
 
-static int blkc_show(struct cmd_tbl *cmdtp, int flag,
-		     int argc, char *const argv[])
+static int blkc_show(struct getopt_state *gs)
 {
 	struct block_cache_stats stats;
 	blkcache_stats(&stats);
@@ -26,15 +26,14 @@ static int blkc_show(struct cmd_tbl *cmdtp, int flag,
 	return 0;
 }
 
-static int blkc_configure(struct cmd_tbl *cmdtp, int flag,
-			  int argc, char *const argv[])
+static int blkc_configure(struct getopt_state *gs)
 {
 	unsigned blocks_per_entry, max_entries;
-	if (argc != 3)
+	if (gs->argc != 3)
 		return CMD_RET_USAGE;
 
-	blocks_per_entry = simple_strtoul(argv[1], 0, 0);
-	max_entries = simple_strtoul(argv[2], 0, 0);
+	blocks_per_entry = simple_strtoul(getopt_pop(gs), 0, 0);
+	max_entries = simple_strtoul(getopt_pop(gs), 0, 0);
 	blkcache_configure(blocks_per_entry, max_entries);
 	printf("changed to max of %u entries of %u blocks each\n",
 	       max_entries, blocks_per_entry);
@@ -42,13 +41,14 @@ static int blkc_configure(struct cmd_tbl *cmdtp, int flag,
 }
 
 static struct cmd_tbl cmd_blkc_sub[] = {
-	U_BOOT_CMD_MKENT(show, 0, 0, blkc_show, "", ""),
-	U_BOOT_CMD_MKENT(configure, 3, 0, blkc_configure, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(show, 0, 0, blkc_show, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(configure, 3, 0, blkc_configure, "", ""),
 };
 
-static int do_blkcache(struct cmd_tbl *cmdtp, int flag,
-		       int argc, char *const argv[])
+static int do_blkcache(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct cmd_tbl *c;
 
 	if (argc < 2)
@@ -63,10 +63,10 @@ static int do_blkcache(struct cmd_tbl *cmdtp, int flag,
 	if (!c)
 		return CMD_RET_USAGE;
 
-	return cmd_invoke(c, flag, argc, argv);
+	return cmd_invoke(c, gs->cmd_flag, argc, argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	blkcache, 4, 0, do_blkcache,
 	"block cache diagnostics and control",
 	"show - show and reset statistics\n"
