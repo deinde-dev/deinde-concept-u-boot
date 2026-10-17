@@ -74,3 +74,7 @@ class TestFatload:
     def test_fatload_usage(self, ubman, fat_image):
         """Check that fatload shows its usage message when it cannot go on"""
         ubman.run_ut('cmd', 'cmd_test_fatload_usage', fs_image=fat_image)
+
+    def test_fatload_badopt(self, ubman, fat_image):
+        """Check that fatload refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_fatload_badopt', fs_image=fat_image)

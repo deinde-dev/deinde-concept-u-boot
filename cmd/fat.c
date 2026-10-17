@@ -8,6 +8,7 @@
  * Boot support
  */
 #include <command.h>
+#include <getopt.h>
 #include <mapmem.h>
 #include <fat.h>
 #include <fs_cmd.h>
@@ -27,12 +28,12 @@ U_BOOT_CMD(
 	"      and determine its size."
 );
 
-int do_fat_fsload(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_fat_fsload(struct getopt_state *gs)
 {
-	return do_load(argc, argv, FS_TYPE_FAT);
+	return do_load(gs->argc, gs->argv, FS_TYPE_FAT);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fatload,	7,	0,	do_fat_fsload,
 	"load binary file from a dos filesystem",
 	"<interface> [<dev[:part]> [<addr> [<filename> [bytes [pos]]]]]\n"

@@ -339,3 +339,23 @@ static int cmd_test_fatload_usage_norun(struct unit_test_state *uts)
 }
 CMD_TEST_ARGS(cmd_test_fatload_usage_norun, UTF_CONSOLE | UTF_MANUAL,
 	      { "fs_image", UT_ARG_STR });
+
+/* Test that fatload refuses an option, since it has none */
+static int cmd_test_fatload_badopt_norun(struct unit_test_state *uts)
+{
+	ut_assertok(bind_image(uts));
+
+	ut_asserteq(1, run_commandf("fatload -b host 0 %lx hello.txt",
+				    (ulong)LOAD_ADDR));
+	ut_assertok(check_usage(uts));
+
+	/* a filename which looks like an option is still a filename */
+	ut_asserteq(1, run_commandf("fatload host 0 %lx -b",
+				    (ulong)LOAD_ADDR));
+	ut_assertok(check_log(uts, "Failed to load '-b'"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_fatload_badopt_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
