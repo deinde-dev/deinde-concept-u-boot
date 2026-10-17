@@ -20,7 +20,9 @@ The booti command is used to boot a Linux kernel in flat or compressed
 'Image' format. Which compressed formats are supported is configurable.
 
 addr
-    address of kernel image, defaults to CONFIG_SYS_LOAD_ADDR.
+    address of kernel image, defaults to the current default load address.
+    That starts out as CONFIG_SYS_LOAD_ADDR and follows the loadaddr
+    environment variable wherever it is set.
 
 initrd
     address of the initial RAM disk. Use '-' to boot a kernel with a device
@@ -122,7 +124,8 @@ Here is the boot log for the compressed kernel:
 Configuration
 -------------
 
-The booti command is only available if CONFIG_CMD_BOOTI=y.
+The booti command is only available if CONFIG_CMD_BOOTI=y, which needs an
+architecture that knows the Image format: arm64, RISC-V or sandbox.
 
 Which compression types are supported depends on:
 
@@ -139,3 +142,13 @@ Return value
 Normally this command does not return. If an error occurs, the return value $?
 is set to 1 (false). If the operating system returns to U-Boot, the system is
 reset.
+
+See also
+--------
+
+* :doc:`bootz<bootz>` for booting a Linux kernel in the older zImage format
+* :doc:`bootm<bootm>` for booting a kernel wrapped in a FIT or legacy image,
+  which carries its own load address and compression type
+* :doc:`bootefi<bootefi>` for booting a kernel through the UEFI sub-system
+* :doc:`load<load>` for reading the Image, the device tree and the initial RAM
+  disk into memory in the first place

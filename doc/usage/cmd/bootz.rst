@@ -19,8 +19,9 @@ Description
 The bootz command is used to boot a Linux kernel in 'zImage' format.
 
 addr
-    address of kernel image, defaults to the value of the environment
-    variable $loadaddr.
+    address of kernel image, defaults to the current default load address.
+    That starts out as CONFIG_SYS_LOAD_ADDR and follows the loadaddr
+    environment variable wherever it is set.
 
 initrd
     address of the initial RAM disk. Use '-' to boot a kernel with a device
@@ -32,6 +33,14 @@ size
 
 fdt
     address of the device tree.
+
+The zImage format is defined by the architecture, so the command works only
+where U-Boot has a bootz_setup() for it. A platform which has none reports::
+
+    Your platform's zImage format isn't supported yet!
+
+and one whose implementation does not recognise the header says so in its own
+words; sandbox, for instance, prints ``Unrecognized zImage``.
 
 Example
 -------
@@ -67,3 +76,13 @@ Return value
 Normally this command does not return. If an error occurs, the return value $?
 is set to 1 (false). If the operating system returns to U-Boot, the system is
 reset.
+
+See also
+--------
+
+* :doc:`booti<booti>` for booting a Linux kernel in the newer Image format
+* :doc:`bootm<bootm>` for booting a kernel wrapped in a FIT or legacy image,
+  which carries its own load address and compression type
+* :doc:`bootefi<bootefi>` for booting a kernel through the UEFI sub-system
+* :doc:`load<load>` for reading the zImage, the device tree and the initial
+  RAM disk into memory in the first place
