@@ -483,6 +483,7 @@ config CMD_BOOTI
 	depends on ARM64 || RISCV || SANDBOX
 	depends on LMB
 	default y
+	select GETOPT
 	select LIB_BOOTI
 	select LIB_BOOTM
 	help

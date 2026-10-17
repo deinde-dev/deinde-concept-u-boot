@@ -88,6 +88,26 @@ static int cmd_test_booti_base(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_booti_base, UTF_CONSOLE);
 
+/* Test that the command refuses an option rather than taking it as an address */
+static int cmd_test_booti_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("booti -x", 0));
+	ut_assert_nextline("booti - boot Linux kernel 'Image' format from memory");
+	ut_assert_nextline_empty();
+
+	/* the rest of the message is there only where the long help is */
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP)) {
+		ut_assert_nextline("Usage:");
+		ut_assert_nextline("booti [addr [initrd[:size]] [fdt]]");
+	}
+
+	/* the remaining lines of the help text depend on the configuration */
+	console_record_reset();
+
+	return 0;
+}
+CMD_TEST(cmd_test_booti_usage, UTF_CONSOLE);
+
 /* Test what the command must be told before it can decompress an Image */
 static int cmd_test_booti_comp(struct unit_test_state *uts)
 {

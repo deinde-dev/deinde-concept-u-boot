@@ -7,6 +7,7 @@
 #include <bootm.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <image.h>
 #include <irq_func.h>
 #include <lmb.h>
@@ -157,8 +158,10 @@ static int booti_start(struct bootm_info *bmi)
 	return 0;
 }
 
-int do_booti(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_booti(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct bootm_info bmi;
 	int states;
 	int ret;
@@ -222,7 +225,7 @@ U_BOOT_LONGHELP(booti,
 #endif
 	);
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	booti,	CONFIG_SYS_MAXARGS,	1,	do_booti,
 	"boot Linux kernel 'Image' format from memory", booti_help_text
 );

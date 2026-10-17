@@ -271,8 +271,7 @@ static inline int bootm_maybe_autostart(void)
 int do_bootz(struct cmd_tbl *cmdtp, int flag, int argc,
 	     char *const argv[]);
 
-int do_booti(struct cmd_tbl *cmdtp, int flag, int argc,
-	     char *const argv[]);
+int do_booti(struct getopt_state *gs);
 
 int do_zboot_parent(struct getopt_state *gs);
 
