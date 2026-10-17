@@ -67,13 +67,12 @@ U_BOOT_CMD(
 #endif
 
 #ifdef CONFIG_CMD_TFTPPUT
-static int do_tftpput(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_tftpput(struct getopt_state *gs)
 {
-	return netboot_common(TFTPPUT, argc, argv);
+	return netboot_common(TFTPPUT, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	tftpput,	4,	1,	do_tftpput,
 	"TFTP put command, for uploading files to a server",
 	"Address Size [[hostIPaddr:]filename]"

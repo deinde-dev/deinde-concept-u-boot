@@ -448,3 +448,21 @@ static int cmd_test_tftpput_badnum(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_tftpput_badnum, UTF_CONSOLE);
+
+/* An option is refused rather than being taken as an address */
+static int cmd_test_tftpput_badopt(struct unit_test_state *uts)
+{
+	struct tftpput_ctx ctx = { .uts = uts };
+
+	/* the server is attached, so a command which sent a file would work */
+	ut_assertok(tftpput_setup(uts, &ctx, true));
+
+	ut_asserteq(1, run_commandf("tftpput -x %x", TFTPPUT_SIZE));
+	ut_assertok(check_usage(uts));
+	ut_asserteq(0, ctx.requests);
+
+	ut_assertok(tftpput_restore(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_tftpput_badopt, UTF_CONSOLE);
