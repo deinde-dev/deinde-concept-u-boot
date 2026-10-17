@@ -974,6 +974,9 @@ void tftp_start_server(void)
 	tftp_our_port = WELL_KNOWN_PORT;
 	tftp_windowsize = 1;
 	tftp_next_ack = tftp_windowsize;
+#ifdef CMD_TFTPPUT
+	tftp_put_active = 0;
+#endif
 
 #ifdef CONFIG_TFTP_TSIZE
 	tftp_tsize = 0;
