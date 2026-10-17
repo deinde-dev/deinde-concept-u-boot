@@ -412,6 +412,8 @@ See also
 * :doc:`iminfo<iminfo>` for checking an image before booting it
 * :doc:`booti<booti>` for booting a bare Linux Image, which has no header to
   say where it should go or how it is compressed
+* :doc:`bootz<bootz>` for booting the older zImage, whose header the
+  architecture decodes for itself
 * :doc:`go<go>` for starting an application which returns to U-Boot
 * :doc:`bootvx<bootvx>` for booting VxWorks, which takes its load address
   from the command line rather than from an image header
