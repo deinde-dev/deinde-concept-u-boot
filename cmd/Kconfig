@@ -2390,6 +2390,7 @@ config CMD_PING
 
 config CMD_SNTP
 	bool "sntp"
+	select GETOPT
 	select PROT_UDP if NET_LEGACY
 	select PROT_UDP_LWIP if NET_LWIP
 	help
