@@ -472,6 +472,7 @@ config CMD_BOOTSTD
 config CMD_BOOTZ
 	bool "bootz"
 	depends on LMB
+	select GETOPT
 	select LIB_BOOTZ
 	select LIB_BOOTM
 	help

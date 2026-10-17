@@ -6,6 +6,7 @@
 
 #include <bootm.h>
 #include <command.h>
+#include <getopt.h>
 #include <image.h>
 #include <irq_func.h>
 #include <lmb.h>
@@ -20,8 +21,10 @@ int __weak bootz_setup(ulong image, ulong *start, ulong *end)
 	return -1;
 }
 
-int do_bootz(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_bootz(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct bootm_info bmi;
 	int ret;
 
@@ -59,7 +62,7 @@ U_BOOT_LONGHELP(bootz,
 #endif
 	);
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	bootz,	CONFIG_SYS_MAXARGS,	1,	do_bootz,
 	"boot Linux zImage image from memory", bootz_help_text
 );

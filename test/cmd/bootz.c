@@ -109,6 +109,26 @@ static int cmd_test_bootz_x86(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_bootz_x86, BOOT_FLAGS);
 
+/* Test that the command refuses an option rather than taking it as an address */
+static int cmd_test_bootz_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("bootz -x", 0));
+	ut_assert_nextline("bootz - boot Linux zImage image from memory");
+	ut_assert_nextline_empty();
+
+	/* the rest of the message is there only where the long help is */
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP)) {
+		ut_assert_nextline("Usage:");
+		ut_assert_nextline("bootz [addr [initrd[:size]] [fdt]]");
+	}
+
+	/* the remaining lines of the help text depend on the configuration */
+	console_record_reset();
+
+	return 0;
+}
+CMD_TEST(cmd_test_bootz_usage, UTF_CONSOLE);
+
 /* Test that the command refuses data which is not a zImage */
 static int cmd_test_bootz_bad(struct unit_test_state *uts)
 {
