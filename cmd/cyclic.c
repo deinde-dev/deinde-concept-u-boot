@@ -66,13 +66,14 @@ static int do_cyclic_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct cyclic_info *cyclic;
 	struct hlist_node *tmp;
 	u64 cnt, freq;
+	u32 rem;
 
 	hlist_for_each_entry_safe(cyclic, tmp, &gd->cyclic_list, list) {
 		cnt = cyclic->run_cnt * 1000000ULL * 100ULL;
 		freq = lldiv(cnt, timer_get_us() - cyclic->start_time_us);
-		printf("function: %s, cpu-time: %lld us, frequency: %lld.%02d times/s\n",
-		       cyclic->name, cyclic->cpu_time_us,
-		       lldiv(freq, 100), do_div(freq, 100));
+		rem = do_div(freq, 100);
+		printf("function: %s, cpu-time: %lld us, frequency: %lld.%02u times/s\n",
+		       cyclic->name, cyclic->cpu_time_us, freq, rem);
 	}
 
 	return 0;
