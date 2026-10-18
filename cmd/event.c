@@ -8,9 +8,9 @@
 
 #include <command.h>
 #include <event.h>
+#include <getopt.h>
 
-static int do_event_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_event_list(struct getopt_state *gs)
 {
 	event_show_spy_list();
 
@@ -21,4 +21,4 @@ U_BOOT_LONGHELP(event,
 	"list - list event spies");
 
 U_BOOT_CMD_WITH_SUBCMDS(event, "Events", event_help_text,
-	U_BOOT_SUBCMD_MKENT(list, 1, 1, do_event_list));
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_event_list, "", ""));

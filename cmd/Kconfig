@@ -3318,6 +3318,7 @@ config CMD_CBCMOS
 config CMD_CYCLIC
 	bool "cyclic - Show information about cyclic functions"
 	depends on CYCLIC
+	select GETOPT
 	default y
 	help
 	  This enables the 'cyclic' command which provides information about
@@ -3342,6 +3343,7 @@ config CMD_DIAG
 config CMD_EVENT
 	bool "event - Show information about events"
 	depends on EVENT
+	select GETOPT
 	default y if EVENT_DEBUG
 	help
 	  This enables the 'event' command which provides information about
