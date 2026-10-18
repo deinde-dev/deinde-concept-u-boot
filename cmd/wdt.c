@@ -31,14 +31,16 @@ static int do_wdt_list(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_wdt_dev(struct cmd_tbl *cmdtp, int flag, int argc,
 		      char *const argv[])
 {
+	struct udevice *dev;
 	int ret;
 
 	if (argc > 1) {
-		ret = uclass_get_device_by_name(UCLASS_WDT, argv[1], &currdev);
+		ret = uclass_get_device_by_name(UCLASS_WDT, argv[1], &dev);
 		if (ret) {
 			printf("Can't get the watchdog timer: %s\n", argv[1]);
 			return CMD_RET_FAILURE;
 		}
+		currdev = dev;
 	} else {
 		if (!currdev) {
 			printf("No watchdog timer device set!\n");
