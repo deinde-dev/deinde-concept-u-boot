@@ -2625,6 +2625,7 @@ config CMD_LED
 	bool "led"
 	depends on LED
 	default y if LED
+	select GETOPT
 	help
 	  Enable the 'led' command which allows for control of LEDs supported
 	  by the board. The LEDs can be listed with 'led list' and controlled
