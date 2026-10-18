@@ -166,6 +166,7 @@ obj-$(CONFIG_CMD_UFETCH) += ufetch.o
 ifdef CONFIG_CMD_USB
 obj-$(CONFIG_USB_STORAGE) += usbboot.o
 endif
+obj-$(CONFIG_CMD_WDT) += wdt.o
 ifdef CONFIG_NET_LEGACY
 obj-$(CONFIG_CMD_BOOTP) += bootp.o
 obj-$(CONFIG_CMD_CDP) += cdp.o
