@@ -19,7 +19,7 @@ Synopsis
 Description
 -----------
 
-The *cpu* command prints information about the CPUs, and release a CPU core
+The *cpu* command prints information about the CPUs, and releases a CPU core
 to a given address to run applications.
 
 
@@ -27,19 +27,26 @@ cpu list
 ~~~~~~~~
 
 The 'list' subcommand lists and prints brief information of all the CPU cores,
-the CPU information is provided by vendors' CPU driver.
+the CPU information is provided by vendors' CPU driver. The first column is the
+sequence number of the core, which is what the 'release' subcommand takes.
+Where the driver offers no description, '<no description>' is shown in its
+place.
 
 cpu detail
 ~~~~~~~~~~
 
 The 'detail' subcommand prints more details about the CPU cores, including
-CPU ID, core frequency and feature list.
+CPU ID, core frequency and feature list. A microcode version and a device ID
+follow where the driver claims those features. The ID is the platform CPU ID
+the driver reports, which is not the sequence number in the first column.
+Where the driver offers no detail at all, '(no detail available)' is shown in
+place of the extra line.
 
 cpu release
 ~~~~~~~~~~~
 
 The 'release' subcommand is used to release a CPU core to run a baremetal or
-RTOS applications.
+RTOS application.
 The parameter <core ID> is the sequence number of the CPU core to release.
 The parameter <addr> is the address to run of the specified core after release.
 
@@ -50,7 +57,7 @@ Examples
 cpu list
 ~~~~~~~~
 
-This example lists all the CPU cores On i.MX8M Plus EVK:
+This example lists all the CPU cores on i.MX8M Plus EVK:
 ::
 
     u-boot=> cpu list
@@ -62,7 +69,7 @@ This example lists all the CPU cores On i.MX8M Plus EVK:
 cpu detail
 ~~~~~~~~~~
 
-This example prints the details of the CPU cores On i.MX8M Plus EVK:
+This example prints the details of the CPU cores on i.MX8M Plus EVK:
 ::
 
     u-boot=> cpu detail
@@ -78,7 +85,7 @@ This example prints the details of the CPU cores On i.MX8M Plus EVK:
 cpu release
 ~~~~~~~~~~~
 
-This example shows release the LAST CPU core to run a RTOS application, on
+This example shows releasing the last CPU core to run an RTOS application, on
 i.MX8M Plus EVK:
 ::
 
@@ -88,6 +95,16 @@ i.MX8M Plus EVK:
      u-boot=> cpu release 3 c0000000
      Released CPU core (mpidr: 0x3) to address 0xc0000000
 
+
+Return value
+------------
+
+The return value $? is set to 0 (true) if the command succeeds. It is set to 1
+(false) if the core 'release' names does not exist, or the CPU driver refuses
+to release it; nothing is printed in the first case, so $? is the only sign of
+it. It is also set to 1 if no sub-command is given, if the sub-command is not
+one the command knows, or if a sub-command is given the wrong number of
+arguments, with the usage message shown in each of those cases.
 
 Configuration
 -------------

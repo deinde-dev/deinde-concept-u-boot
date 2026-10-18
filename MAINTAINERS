@@ -996,7 +996,8 @@ M:	Simon Glass <sjg@chromium.org>
 M:	Hou Zhiqiang <Zhiqiang.Hou@nxp.com>
 S:	Maintained
 F:	cmd/cpu.c
-F:	doc/usage/cpu.rst
+F:	doc/usage/cmd/cpu.rst
+F:	test/cmd/cpu.c
 
 CYCLIC
 M:	Stefan Roese <stefan.roese@mailbox.org>

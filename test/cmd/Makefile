@@ -130,6 +130,7 @@ obj-$(CONFIG_CMD_AES) += aes.o
 obj-$(CONFIG_CMD_BOOTCTL) += bootctl.o
 obj-$(CONFIG_CMD_BOOTI) += booti.o
 obj-$(CONFIG_CMD_BOOTZ) += bootz.o
+obj-$(CONFIG_CMD_CPU) += cpu.o
 obj-$(CONFIG_CMD_ELF) += bootelf.o
 obj-$(CONFIG_CMD_ELF_BOOTVX) += bootvx.o
 obj-$(CONFIG_CMD_DATE) += date.o
