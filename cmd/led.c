@@ -18,7 +18,13 @@ static const char *const state_label[] = {
 	[LEDST_BLINK]	= "blink",
 };
 
-enum led_state_t get_led_cmd(char *var)
+/**
+ * get_led_cmd() - Look up a state by name, allowing an abbreviation
+ *
+ * @var: Name to look up, which may be any leading part of a state name
+ * Return: state matching @var, or -1 if none does
+ */
+int get_led_cmd(char *var)
 {
 	int i;
 
@@ -70,10 +76,10 @@ static int list_leds(void)
 
 int do_led(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	enum led_state_t cmd;
 	const char *led_label;
 	struct udevice *dev;
 	int freq_ms = 0;
+	int cmd;
 	int ret;
 
 	/* Validate arguments */
@@ -84,6 +90,8 @@ int do_led(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		return list_leds();
 
 	cmd = argc > 2 ? get_led_cmd(argv[2]) : LEDST_COUNT;
+	if (cmd < 0)
+		return CMD_RET_USAGE;
 	if (cmd == LEDST_BLINK) {
 		if (argc < 4)
 			return CMD_RET_USAGE;
