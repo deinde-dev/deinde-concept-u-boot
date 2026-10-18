@@ -6,6 +6,7 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <led.h>
 #include <dm/uclass-internal.h>
 
@@ -74,8 +75,10 @@ static int list_leds(void)
 	return 0;
 }
 
-int do_led(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_led(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *led_label;
 	struct udevice *dev;
 	int freq_ms = 0;
@@ -126,7 +129,7 @@ int do_led(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	led, 4, 1, do_led,
 	"manage LEDs",
 	"<led_label> on|off|toggle\tChange LED state\n"

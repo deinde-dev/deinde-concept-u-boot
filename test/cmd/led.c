@@ -198,6 +198,13 @@ static int cmd_test_led_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("led " RED " blink", 0));
 	ut_assertok(check_usage(uts));
 
+	/*
+	 * The command takes no options, so one is refused before it runs,
+	 * rather than being looked up as a label
+	 */
+	ut_asserteq(1, run_command("led -x", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_led_usage, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
