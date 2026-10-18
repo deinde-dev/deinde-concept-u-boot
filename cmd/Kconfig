@@ -250,6 +250,7 @@ config CMD_CONSOLE_EXTRA
 config CMD_CPU
 	bool "cpu"
 	depends on CPU
+	select GETOPT
 	help
 	  Print information about available CPUs. This normally shows the
 	  number of CPUs, type (e.g. manufacturer, architecture, product or

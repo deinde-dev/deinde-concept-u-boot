@@ -141,6 +141,13 @@ static int cmd_test_cpu_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("cpu list extra", 0));
 	ut_assertok(check_usage(uts));
 
+	/*
+	 * An option is refused before the sub-command runs, so a core ID
+	 * beginning with '-' shows the usage message rather than reading as 0
+	 */
+	ut_asserteq(1, run_command("cpu release -1 1000", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_cpu_usage, UTF_CONSOLE);

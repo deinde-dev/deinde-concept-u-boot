@@ -11,6 +11,7 @@
 #include <display_options.h>
 #include <dm.h>
 #include <errno.h>
+#include <getopt.h>
 
 static const char *cpu_feature_name[CPU_FEAT_COUNT] = {
 	"L1 cache",
@@ -78,8 +79,7 @@ static int print_cpu_list(bool detail)
 	return 0;
 }
 
-static int do_cpu_list(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_cpu_list(struct getopt_state *gs)
 {
 	if (print_cpu_list(false))
 		return CMD_RET_FAILURE;
@@ -87,8 +87,7 @@ static int do_cpu_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cpu_detail(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_cpu_detail(struct getopt_state *gs)
 {
 	if (print_cpu_list(true))
 		return CMD_RET_FAILURE;
@@ -96,9 +95,10 @@ static int do_cpu_detail(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cpu_release(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_cpu_release(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	unsigned long cpu_id;
 	unsigned long long boot_addr;
@@ -126,6 +126,6 @@ U_BOOT_LONGHELP(cpu,
 	"            <core ID>: the sequence number in list subcommand outputs");
 
 U_BOOT_CMD_WITH_SUBCMDS(cpu, "display information about CPUs", cpu_help_text,
-	U_BOOT_SUBCMD_MKENT(list, 1, 1, do_cpu_list),
-	U_BOOT_SUBCMD_MKENT(detail, 1, 0, do_cpu_detail),
-	U_BOOT_SUBCMD_MKENT(release, 3, 0, do_cpu_release));
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_cpu_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(detail, 1, 0, do_cpu_detail, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(release, 3, 0, do_cpu_release, "", ""));
