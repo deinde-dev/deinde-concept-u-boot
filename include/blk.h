@@ -109,6 +109,10 @@ struct blk_desc {
 #define PAD_TO_BLOCKSIZE(size, blk_desc) \
 	(PAD_SIZE(size, blk_desc->blksz))
 
+/* Limits the block cache starts out with */
+#define BLKCACHE_DEF_BLOCKS	8	/* maximum blocks per entry */
+#define BLKCACHE_DEF_ENTRIES	32	/* maximum entries in the cache */
+
 #if IS_ENABLED(CONFIG_BLOCK_CACHE)
 /**
  * blkcache_read() - attempt to read a set of blocks from cache
@@ -180,6 +184,14 @@ void blkcache_stats(struct block_cache_stats *stats);
 /** blkcache_free() - free all memory allocated to the block cache */
 void blkcache_free(void);
 
+/**
+ * blkcache_reset() - put the block cache back in its starting state
+ *
+ * This drops every entry, zeroes the hit and miss counts and restores the
+ * limits the cache starts out with, so that tests can rely on a known state.
+ */
+void blkcache_reset(void);
+
 #else
 
 static inline int blkcache_read(int iftype, int dev,
@@ -196,6 +208,8 @@ static inline void blkcache_fill(int iftype, int dev,
 static inline void blkcache_invalidate(int iftype, int dev) {}
 
 static inline void blkcache_free(void) {}
+
+static inline void blkcache_reset(void) {}
 
 #endif
 

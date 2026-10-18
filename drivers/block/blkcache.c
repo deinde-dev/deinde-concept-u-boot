@@ -25,8 +25,8 @@ struct block_cache_node {
 static LIST_HEAD(block_cache);
 
 static struct block_cache_stats _stats = {
-	.max_blocks_per_entry = 8,
-	.max_entries = 32
+	.max_blocks_per_entry = BLKCACHE_DEF_BLOCKS,
+	.max_entries = BLKCACHE_DEF_ENTRIES,
 };
 
 static struct block_cache_node *cache_find(int iftype, int devnum,
@@ -167,4 +167,11 @@ void blkcache_stats(struct block_cache_stats *stats)
 void blkcache_free(void)
 {
 	blkcache_invalidate(-1, 0);
+}
+
+void blkcache_reset(void)
+{
+	/* configure drops the entries only if a limit changes */
+	blkcache_invalidate(-1, 0);
+	blkcache_configure(BLKCACHE_DEF_BLOCKS, BLKCACHE_DEF_ENTRIES);
 }

@@ -605,6 +605,13 @@ static int test_pre_run(struct unit_test_state *uts, struct unit_test *test)
 
 	ut_set_skip_delays(uts, false);
 
+	/*
+	 * Start with an empty block cache and its default limits, whatever
+	 * earlier tests or commands did to it. Do this before noting the
+	 * malloc() state, since it frees the entries
+	 */
+	blkcache_reset();
+
 	uts->start = mallinfo();
 
 	if (test->flags & UTF_SCAN_PDATA)
