@@ -7,12 +7,12 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <wdt.h>
 
 static struct udevice *currdev;
 
-static int do_wdt_list(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_wdt_list(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	struct uclass *uc;
@@ -28,9 +28,10 @@ static int do_wdt_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_wdt_dev(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_wdt_dev(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	int ret;
 
@@ -61,9 +62,10 @@ static int check_currdev(void)
 	return 0;
 }
 
-static int do_wdt_start(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_wdt_start(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret;
 	u64 timeout;
 	ulong flags = 0;
@@ -91,8 +93,7 @@ static int do_wdt_start(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_wdt_stop(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_wdt_stop(struct getopt_state *gs)
 {
 	int ret;
 
@@ -112,8 +113,7 @@ static int do_wdt_stop(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_wdt_reset(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_wdt_reset(struct getopt_state *gs)
 {
 	int ret;
 
@@ -133,9 +133,10 @@ static int do_wdt_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_wdt_expire(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_wdt_expire(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret;
 	ulong flags = 0;
 
@@ -167,9 +168,9 @@ U_BOOT_LONGHELP(wdt,
 	"wdt expire [flags] - expire watchdog timer immediately\n");
 
 U_BOOT_CMD_WITH_SUBCMDS(wdt, "Watchdog sub-system", wdt_help_text,
-	U_BOOT_SUBCMD_MKENT(list, 1, 1, do_wdt_list),
-	U_BOOT_SUBCMD_MKENT(dev, 2, 1, do_wdt_dev),
-	U_BOOT_SUBCMD_MKENT(start, 3, 1, do_wdt_start),
-	U_BOOT_SUBCMD_MKENT(stop, 1, 1, do_wdt_stop),
-	U_BOOT_SUBCMD_MKENT(reset, 1, 1, do_wdt_reset),
-	U_BOOT_SUBCMD_MKENT(expire, 2, 1, do_wdt_expire));
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_wdt_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dev, 2, 1, do_wdt_dev, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(start, 3, 1, do_wdt_start, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(stop, 1, 1, do_wdt_stop, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(reset, 1, 1, do_wdt_reset, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(expire, 2, 1, do_wdt_expire, "", ""));

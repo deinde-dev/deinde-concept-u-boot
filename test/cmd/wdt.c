@@ -202,6 +202,23 @@ static int cmd_test_wdt_missing(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_wdt_missing, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
+/* Test that a sub-command refuses an option */
+static int cmd_test_wdt_opt(struct unit_test_state *uts)
+{
+	/*
+	 * No sub-command takes an option, so one is refused before the
+	 * handler runs, rather than being read as a device name
+	 */
+	ut_asserteq(1, run_command("wdt dev -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("wdt list -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_wdt_opt, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
+
 /* Test the arguments the command refuses */
 static int cmd_test_wdt_usage(struct unit_test_state *uts)
 {
