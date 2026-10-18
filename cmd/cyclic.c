@@ -11,6 +11,7 @@
 #include <command.h>
 #include <cyclic.h>
 #include <div64.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <time.h>
 #include <vsprintf.h>
@@ -33,9 +34,10 @@ static void cyclic_demo(struct cyclic_info *c)
 	udelay(info->delay_us);
 }
 
-static int do_cyclic_demo(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_cyclic_demo(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct cyclic_demo_info *info;
 	uint time_ms;
 
@@ -60,8 +62,7 @@ static int do_cyclic_demo(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cyclic_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_cyclic_list(struct getopt_state *gs)
 {
 	struct cyclic_info *cyclic;
 	struct hlist_node *tmp;
@@ -84,5 +85,5 @@ U_BOOT_LONGHELP(cyclic,
 	"cyclic list - list cyclic functions\n");
 
 U_BOOT_CMD_WITH_SUBCMDS(cyclic, "Cyclic", cyclic_help_text,
-	U_BOOT_SUBCMD_MKENT(demo, 3, 1, do_cyclic_demo),
-	U_BOOT_SUBCMD_MKENT(list, 1, 1, do_cyclic_list));
+	U_BOOT_CMD_MKENT_NOOPTS(demo, 3, 1, do_cyclic_demo, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_cyclic_list, "", ""));
