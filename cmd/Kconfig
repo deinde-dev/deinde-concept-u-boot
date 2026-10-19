@@ -2014,6 +2014,7 @@ config CMD_VIRTIO
 config CMD_WDT
 	bool "wdt"
 	depends on WDT
+	select GETOPT
 	help
 	  This provides commands to control the watchdog timer devices.
 
