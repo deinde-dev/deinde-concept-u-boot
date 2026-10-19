@@ -242,6 +242,16 @@ static int cmd_test_rproc_usage(struct unit_test_state *uts)
 	ut_assert_nextline_empty();
 	ut_assert_console_end();
 
+	/*
+	 * An ID which starts with '-' is an option, which the command refuses
+	 * before the sub-command runs. dectoul() has no sign handling, so
+	 * otherwise this would ask about processor 0
+	 */
+	ut_asserteq(1, run_command("rproc is_running -1", 0));
+	ut_assert_skip_to_line(RPROC_USAGE_LAST);
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
 	return 0;
 }
 CMD_TEST(cmd_test_rproc_usage, RPROC_TEST_FLAGS);

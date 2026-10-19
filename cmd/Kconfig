@@ -1866,6 +1866,7 @@ config CMD_REMOTEPROC
 	bool "remoteproc"
 	depends on REMOTEPROC
 	default y if ARCH_K3
+	select GETOPT
 	help
 	  Support for Remote Processor control
 
