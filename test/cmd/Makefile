@@ -152,6 +152,9 @@ obj-$(CONFIG_CMD_PINMUX) += pinmux.o
 obj-$(CONFIG_CMD_PMC) += pmc.o
 obj-$(CONFIG_CMD_PWM) += pwm.o
 obj-$(CONFIG_CMD_READ) += rw.o
+ifdef CONFIG_REMOTEPROC_SANDBOX
+obj-$(CONFIG_CMD_REMOTEPROC) += rproc.o
+endif
 obj-y += sb.o
 obj-$(CONFIG_CMD_SCSI) += scsiboot.o
 obj-$(CONFIG_CMD_SETEXPR) += setexpr.o
