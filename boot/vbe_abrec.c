@@ -41,8 +41,9 @@ int abrec_read_priv(ofnode node, struct abrec_priv *priv)
 	if (xpl_phase() >= PHASE_BOARD_F) {
 		ofnode_read_u32(node, "slot-a-offset", &priv->slot_a);
 		ofnode_read_u32(node, "slot-b-offset", &priv->slot_b);
-		ofnode_read_u32(node, "slot-recovery-offset",
-				&priv->slot_recovery);
+		priv->has_recovery = !ofnode_read_u32(node,
+						      "slot-recovery-offset",
+						      &priv->slot_recovery);
 		ofnode_read_u32(node, "slot-info-offset",
 				&priv->slot_info_offset);
 		ofnode_read_u32(node, "slot-info-size", &priv->slot_info_size);
@@ -104,12 +105,15 @@ int abrec_write_nvdata(struct abrec_priv *priv, struct udevice *blk,
 	return 0;
 }
 
-enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp)
+enum vbe_pick_t abrec_choose(struct abrec_state *state, bool has_recovery,
+			     bool *changedp)
 {
 	struct abrec_state old = *state;
 	enum vbe_pick_t pick;
 
-	if (state->recovery) {
+	if (state->recovery && !has_recovery)
+		log_warning("VBE: Recovery requested but there is none\n");
+	if (state->recovery && has_recovery) {
 		pick = VBEP_RECOVERY;
 	} else if (state->try_b && state->try_count) {
 		/* use up one of the tries; the OS marks B good if it boots */
@@ -135,7 +139,8 @@ enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp)
 }
 
 enum vbe_pick_t abrec_fallback(struct abrec_state *state,
-			       enum vbe_pick_t failed, bool *changedp)
+			       enum vbe_pick_t failed, bool has_recovery,
+			       bool *changedp)
 {
 	enum vbe_pick_t pick;
 
@@ -147,6 +152,8 @@ enum vbe_pick_t abrec_fallback(struct abrec_state *state,
 		pick = VBEP_A;
 		break;
 	case VBEP_A:
+		if (!has_recovery)
+			return VBEP_COUNT;
 		pick = VBEP_RECOVERY;
 		break;
 	default:
@@ -236,7 +243,8 @@ int abrec_read_state(struct udevice *dev, struct abrec_state *state)
 			slot = priv->slot_b;
 			break;
 		case VBEP_RECOVERY:
-			slot = priv->slot_recovery;
+			slot = priv->has_recovery ? priv->slot_recovery :
+				priv->slot_a;
 			break;
 		default:
 			slot = priv->slot_a;
@@ -287,6 +295,8 @@ int vbe_abrec_set_recovery(struct udevice *dev, bool recovery)
 	int ret;
 
 	if (dev->driver != DM_DRIVER_GET(vbe_abrec))
+		return -ENOSYS;
+	if (recovery && !priv->has_recovery)
 		return -ENOSYS;
 	ret = vbe_get_blk(priv->storage, &blk);
 	if (ret)

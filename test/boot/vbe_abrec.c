@@ -26,40 +26,45 @@ static int vbe_abrec_test_choose(struct unit_test_state *uts)
 
 	/* nothing requested, so boot A and leave the state alone */
 	memset(&state, '\0', sizeof(state));
-	ut_asserteq(VBEP_A, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_A, abrec_choose(&state, true, &changed));
 	ut_assert(!changed);
 
 	/* an update asks to try B three times */
 	state.try_b = true;
 	state.try_count = 3;
-	ut_asserteq(VBEP_B, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_B, abrec_choose(&state, true, &changed));
 	ut_assert(changed);
 	ut_asserteq(2, state.try_count);
 	ut_asserteq(VBETR_TRYING, state.try_result);
 	ut_asserteq(VBEP_B, state.pick);
 
 	/* B fails to reach the OS twice more, using up the tries */
-	ut_asserteq(VBEP_B, abrec_choose(&state, &changed));
-	ut_asserteq(VBEP_B, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_B, abrec_choose(&state, true, &changed));
+	ut_asserteq(VBEP_B, abrec_choose(&state, true, &changed));
 	ut_asserteq(0, state.try_count);
 
 	/* so it is marked bad and A is used */
-	ut_asserteq(VBEP_A, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_A, abrec_choose(&state, true, &changed));
 	ut_assert(changed);
 	ut_assert(!state.try_b);
 	ut_asserteq(VBETR_BAD, state.try_result);
 	ut_asserteq(VBEP_A, state.pick);
 
 	/* after that, A is used without any change */
-	ut_asserteq(VBEP_A, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_A, abrec_choose(&state, true, &changed));
 	ut_assert(!changed);
 
 	/* recovery overrides everything */
 	state.recovery = true;
 	state.try_b = true;
 	state.try_count = 1;
-	ut_asserteq(VBEP_RECOVERY, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_RECOVERY, abrec_choose(&state, true, &changed));
 	ut_asserteq(1, state.try_count);
+
+	/* a board with only A and B carries on as if recovery were not asked */
+	ut_asserteq(VBEP_B, abrec_choose(&state, false, &changed));
+	ut_asserteq(0, state.try_count);
+	ut_asserteq(VBEP_B, state.pick);
 
 	return 0;
 }
@@ -75,9 +80,9 @@ static int vbe_abrec_test_fallback(struct unit_test_state *uts)
 	memset(&state, '\0', sizeof(state));
 	state.try_b = true;
 	state.try_count = 3;
-	ut_asserteq(VBEP_B, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_B, abrec_choose(&state, true, &changed));
 	changed = false;
-	ut_asserteq(VBEP_A, abrec_fallback(&state, VBEP_B, &changed));
+	ut_asserteq(VBEP_A, abrec_fallback(&state, VBEP_B, true, &changed));
 	ut_assert(changed);
 	ut_assert(!state.try_b);
 	ut_asserteq(0, state.try_count);
@@ -86,17 +91,22 @@ static int vbe_abrec_test_fallback(struct unit_test_state *uts)
 
 	/* if A cannot be loaded either, recovery is used */
 	changed = false;
-	ut_asserteq(VBEP_RECOVERY, abrec_fallback(&state, VBEP_A, &changed));
+	ut_asserteq(VBEP_RECOVERY, abrec_fallback(&state, VBEP_A, true, &changed));
 	ut_assert(changed);
 	ut_asserteq(VBEP_RECOVERY, state.pick);
 	ut_asserteq(VBETR_BAD, state.try_result);
 
 	/* there is nothing after recovery */
 	changed = false;
-	ut_asserteq(VBEP_COUNT, abrec_fallback(&state, VBEP_RECOVERY,
+	ut_asserteq(VBEP_COUNT, abrec_fallback(&state, VBEP_RECOVERY, true,
 					       &changed));
 	ut_assert(!changed);
 	ut_asserteq(VBEP_RECOVERY, state.pick);
+
+	/* with only A and B, there is nothing to try once A cannot be loaded */
+	changed = false;
+	ut_asserteq(VBEP_COUNT, abrec_fallback(&state, VBEP_A, false, &changed));
+	ut_assert(!changed);
 
 	return 0;
 }
@@ -185,13 +195,18 @@ static int bind_abrec(struct unit_test_state *uts, struct udevice **devp,
 static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
 {
 	ALLOC_CACHE_ALIGN_BUFFER(u8, orig, MMC_MAX_BLOCK_LEN);
-	struct udevice *dev, *blk;
+	struct udevice *dev, *dev_ab, *blk;
 	struct abrec_state state;
 	struct abrec_priv *priv;
 	bool changed;
 
-	ut_assertok(bind_abrec(uts, &dev, &blk));
+	/* firmware0 has no slot-recovery-offset, so it only has A and B */
+	ut_assertok(bind_abrec(uts, &dev_ab, &blk));
+	ut_assertok(bind_abrec_node(uts, "/bootstd/firmware2", "abrec2", &dev,
+				    &blk));
 	priv = dev_get_priv(dev);
+	ut_assert(priv->has_recovery);
+	ut_assert(!((struct abrec_priv *)dev_get_priv(dev_ab))->has_recovery);
 
 	/* other tests use this block, so put it back afterwards */
 	ut_asserteq(1, blk_read(blk, NVDATA_START_BLK, 1, orig));
@@ -202,8 +217,15 @@ static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
 	ut_assert_nextline("VBE bootmeth 'firmware0' has no recovery firmware");
 	ut_assert_console_end();
 
-	/* with nothing selected, the first one with recovery firmware is used */
-	ut_assertok(run_command("vbe select", 0));
+	/* nor does an abrec bootmeth which only has A and B */
+	ut_assertok(run_command("vbe select abrec", 0));
+	ut_assertok(run_command("vbe recovery", 0));
+	ut_assert_nextline("Recovery: off");
+	ut_asserteq(1, run_command("vbe recovery on", 0));
+	ut_assert_nextline("VBE bootmeth 'abrec' has no recovery firmware");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("vbe select abrec2", 0));
 	ut_assertok(run_command("vbe recovery", 0));
 	ut_assert_nextline("Recovery: off");
 	ut_assert_console_end();
@@ -218,7 +240,7 @@ static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
 	ut_assert(!state.try_b);
 
 	/* and it is what VPL picks */
-	ut_asserteq(VBEP_RECOVERY, abrec_choose(&state, &changed));
+	ut_asserteq(VBEP_RECOVERY, abrec_choose(&state, true, &changed));
 
 	ut_assertok(run_command("vbe recovery off", 0));
 	ut_assert_nextline("Recovery: off");

@@ -29,19 +29,19 @@
 
 binman_sym_declare(ulong, spl_a, image_pos);
 binman_sym_declare(ulong, spl_b, image_pos);
-binman_sym_declare(ulong, spl_recovery, image_pos);
+binman_sym_declare_optional(ulong, spl_recovery, image_pos);
 
 binman_sym_declare(ulong, spl_a, size);
 binman_sym_declare(ulong, spl_b, size);
-binman_sym_declare(ulong, spl_recovery, size);
+binman_sym_declare_optional(ulong, spl_recovery, size);
 
 binman_sym_declare(ulong, u_boot_a, image_pos);
 binman_sym_declare(ulong, u_boot_b, image_pos);
-binman_sym_declare(ulong, u_boot_recovery, image_pos);
+binman_sym_declare_optional(ulong, u_boot_recovery, image_pos);
 
 binman_sym_declare(ulong, u_boot_a, size);
 binman_sym_declare(ulong, u_boot_b, size);
-binman_sym_declare(ulong, u_boot_recovery, size);
+binman_sym_declare_optional(ulong, u_boot_recovery, size);
 
 binman_sym_declare(ulong, vpl, image_pos);
 binman_sym_declare(ulong, vpl, size);
@@ -130,7 +130,7 @@ static int abrec_run_vpl(struct udevice *blk, struct spl_image_info *image,
 	enum vbe_pick_t pick;
 	ulong offset, size;
 	ulong ub_offset, ub_size;
-	bool changed;
+	bool changed, has_recovery;
 	ofnode node;
 	int ret;
 
@@ -146,7 +146,11 @@ static int abrec_run_vpl(struct udevice *blk, struct spl_image_info *image,
 	if (ret)
 		return log_msg_ret("sta", ret);
 
-	pick = abrec_choose(&state, &changed);
+	/* a board may just have A and B, with no recovery firmware */
+	has_recovery = binman_sym(ulong, spl_recovery, size) !=
+		BINMAN_SYM_MISSING &&
+		binman_sym(ulong, spl_recovery, size);
+	pick = abrec_choose(&state, has_recovery, &changed);
 
 	/*
 	 * Record the try before booting it, so that a B which never reaches
@@ -172,7 +176,7 @@ static int abrec_run_vpl(struct udevice *blk, struct spl_image_info *image,
 			break;
 		log_err("VBE: Cannot load firmware %s (err=%d)\n",
 			pick_names[pick], ret);
-		pick = abrec_fallback(&state, pick, &changed);
+		pick = abrec_fallback(&state, pick, has_recovery, &changed);
 		if (pick == VBEP_COUNT)
 			return log_msg_ret("vbe", ret);
 	}

@@ -40,6 +40,7 @@ struct udevice;
  * @slot_recovery: Offset of the recovery firmware (U-Boot proper only)
  * @slot_info_offset: Offset of the slot info within each slot
  * @slot_info_size: Size of the slot info, or 0 if there is none
+ * @has_recovery: true if there is recovery firmware (U-Boot proper only)
  * @storage: Storage device to use, in the form <uclass><devnum>, e.g. "mmc1"
  * @oem_devicetree: true if we should read an OEM devicetree
  * @ctx: PXE context for extlinux boot/read_all
@@ -57,6 +58,7 @@ struct abrec_priv {
 	u32 slot_recovery;
 	u32 slot_info_offset;
 	u32 slot_info_size;
+	bool has_recovery;
 	const char *storage;
 	bool oem_devicetree;
 	struct pxe_context ctx;
@@ -140,16 +142,18 @@ int abrec_write_nvdata(struct abrec_priv *priv, struct udevice *blk,
 /**
  * abrec_choose() - Choose which firmware to boot
  *
- * Recovery is used if requested. Otherwise B is used while it has tries left,
- * using up one try each time and marking the result as 'trying'. Once the
- * tries run out without the OS marking B as good (by clearing @try_b), B is
- * marked bad and A is used. Otherwise A is used.
+ * Recovery is used if requested and there is recovery firmware. Otherwise B is
+ * used while it has tries left, using up one try each time and marking the
+ * result as 'trying'. Once the tries run out without the OS marking B as good
+ * (by clearing @try_b), B is marked bad and A is used. Otherwise A is used.
  *
  * @state: State read from the media, updated with the new state
+ * @has_recovery: true if there is recovery firmware
  * @changedp: Returns true if @state changed and needs to be written back
  * Return: Firmware to boot
  */
-enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp);
+enum vbe_pick_t abrec_choose(struct abrec_state *state, bool has_recovery,
+			     bool *changedp);
 
 /**
  * abrec_get_pick() - Find out which firmware VPL chose for this boot
@@ -163,16 +167,18 @@ enum vbe_pick_t abrec_get_pick(void);
  *
  * A B which cannot be loaded is marked bad straight away, rather than using up
  * its tries, and A is used instead. An A which cannot be loaded falls back to
- * recovery. There is nothing to fall back to from recovery.
+ * recovery, if there is any. There is nothing to fall back to from recovery.
  *
  * @state: Current state, updated with the new state
  * @failed: Firmware which could not be loaded
+ * @has_recovery: true if there is recovery firmware
  * @changedp: Set to true if @state changed and needs to be written back; left
  *	alone otherwise
  * Return: Firmware to try next, or VBEP_COUNT if there is none
  */
 enum vbe_pick_t abrec_fallback(struct abrec_state *state,
-			       enum vbe_pick_t failed, bool *changedp);
+			       enum vbe_pick_t failed, bool has_recovery,
+			       bool *changedp);
 
 /**
  * abrec_fixup_node() - Add the current state to a node for the OS

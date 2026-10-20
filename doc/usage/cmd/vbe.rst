@@ -69,8 +69,8 @@ vbe recovery
 ~~~~~~~~~~~~
 
 Shows whether the next boot uses the recovery firmware, or changes it. This is
-only supported by the VBE A/B/recovery method (`fwupd,vbe-abrec`), which keeps
-A, B and recovery copies of the firmware.
+only supported by the VBE A/B/recovery method (`fwupd,vbe-abrec`), which keeps A
+and B copies of the firmware, and optionally a recovery copy.
 
 on
     Request the recovery firmware. VPL then boots it every time, until the
@@ -80,11 +80,15 @@ off
     Stop requesting the recovery firmware, so that VPL goes back to booting A,
     or B while an update is being tried.
 
-The selected VBE bootmeth is used. If none is selected, the first one with
-recovery firmware is used.
+The selected VBE bootmeth is used. If none is selected, the first A/B/recovery
+bootmeth is used.
+
+Recovery firmware is optional: a board which keeps only A and B has no
+`slot-recovery-offset` property, and `vbe recovery on` fails with a message
+saying there is no recovery firmware.
 
 Note that VPL also falls back to the recovery firmware by itself, if neither A
-nor B can be loaded.
+nor B can be loaded and there is recovery firmware.
 
 Example
 -------
