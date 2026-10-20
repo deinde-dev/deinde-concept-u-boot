@@ -102,3 +102,5 @@ See also
 * :doc:`ext2load<ext2load>` for the same operation on an ext filesystem
 * :doc:`ext4load<ext4load>` for that operation under its ext4 name
 * :doc:`load<load>` for the same operation on any supported filesystem
+* :doc:`rproc<rproc>` for handing an image which has been read in to a remote
+  processor
