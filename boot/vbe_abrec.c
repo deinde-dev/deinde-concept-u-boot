@@ -113,6 +113,30 @@ enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp)
 	return pick;
 }
 
+enum vbe_pick_t abrec_fallback(struct abrec_state *state,
+			       enum vbe_pick_t failed, bool *changedp)
+{
+	enum vbe_pick_t pick;
+
+	switch (failed) {
+	case VBEP_B:
+		state->try_b = false;
+		state->try_count = 0;
+		state->try_result = VBETR_BAD;
+		pick = VBEP_A;
+		break;
+	case VBEP_A:
+		pick = VBEP_RECOVERY;
+		break;
+	default:
+		return VBEP_COUNT;
+	}
+	state->pick = pick;
+	*changedp = true;
+
+	return pick;
+}
+
 int abrec_read_state(struct udevice *dev, struct abrec_state *state)
 {
 	struct abrec_priv *priv = dev_get_priv(dev);

@@ -141,6 +141,22 @@ int abrec_write_nvdata(struct abrec_priv *priv, struct udevice *blk,
 enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp);
 
 /**
+ * abrec_fallback() - Choose the firmware to use when the pick cannot be loaded
+ *
+ * A B which cannot be loaded is marked bad straight away, rather than using up
+ * its tries, and A is used instead. An A which cannot be loaded falls back to
+ * recovery. There is nothing to fall back to from recovery.
+ *
+ * @state: Current state, updated with the new state
+ * @failed: Firmware which could not be loaded
+ * @changedp: Set to true if @state changed and needs to be written back; left
+ *	alone otherwise
+ * Return: Firmware to try next, or VBEP_COUNT if there is none
+ */
+enum vbe_pick_t abrec_fallback(struct abrec_state *state,
+			       enum vbe_pick_t failed, bool *changedp);
+
+/**
  * abrec_fixup_node() - Add the current state to a node for the OS
  *
  * Writes 'cur-version' (if the version block holds a valid string),

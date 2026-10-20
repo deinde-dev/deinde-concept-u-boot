@@ -63,6 +63,43 @@ static int vbe_abrec_test_choose(struct unit_test_state *uts)
 }
 BOOTSTD_TEST(vbe_abrec_test_choose, 0);
 
+/* Check what is used when the chosen firmware cannot be loaded */
+static int vbe_abrec_test_fallback(struct unit_test_state *uts)
+{
+	struct abrec_state state;
+	bool changed;
+
+	/* a B which cannot be loaded is marked bad at once, without its tries */
+	memset(&state, '\0', sizeof(state));
+	state.try_b = true;
+	state.try_count = 3;
+	ut_asserteq(VBEP_B, abrec_choose(&state, &changed));
+	changed = false;
+	ut_asserteq(VBEP_A, abrec_fallback(&state, VBEP_B, &changed));
+	ut_assert(changed);
+	ut_assert(!state.try_b);
+	ut_asserteq(0, state.try_count);
+	ut_asserteq(VBETR_BAD, state.try_result);
+	ut_asserteq(VBEP_A, state.pick);
+
+	/* if A cannot be loaded either, recovery is used */
+	changed = false;
+	ut_asserteq(VBEP_RECOVERY, abrec_fallback(&state, VBEP_A, &changed));
+	ut_assert(changed);
+	ut_asserteq(VBEP_RECOVERY, state.pick);
+	ut_asserteq(VBETR_BAD, state.try_result);
+
+	/* there is nothing after recovery */
+	changed = false;
+	ut_asserteq(VBEP_COUNT, abrec_fallback(&state, VBEP_RECOVERY,
+					       &changed));
+	ut_assert(!changed);
+	ut_asserteq(VBEP_RECOVERY, state.pick);
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_abrec_test_fallback, 0);
+
 /* Check writing the state and reading it back */
 static int vbe_abrec_test_nvdata(struct unit_test_state *uts)
 {

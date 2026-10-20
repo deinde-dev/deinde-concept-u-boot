@@ -87,6 +87,41 @@ int abrec_read_bootflow_fw(struct udevice *dev, struct bootflow *bflow)
 	return 0;
 }
 
+/**
+ * abrec_get_slot() - Get the position of the firmware for a pick
+ *
+ * @pick: Firmware to look up
+ * @offsetp: Returns the offset of its SPL FIT
+ * @sizep: Returns the size of its SPL FIT
+ * @ub_offsetp: Returns the offset of its U-Boot FIT
+ * @ub_sizep: Returns the size of its U-Boot FIT
+ */
+static void abrec_get_slot(enum vbe_pick_t pick, ulong *offsetp, ulong *sizep,
+			   ulong *ub_offsetp, ulong *ub_sizep)
+{
+	switch (pick) {
+	case VBEP_A:
+		*offsetp = binman_sym(ulong, spl_a, image_pos);
+		*sizep = binman_sym(ulong, spl_a, size);
+		*ub_offsetp = binman_sym(ulong, u_boot_a, image_pos);
+		*ub_sizep = binman_sym(ulong, u_boot_a, size);
+		break;
+	case VBEP_B:
+		*offsetp = binman_sym(ulong, spl_b, image_pos);
+		*sizep = binman_sym(ulong, spl_b, size);
+		*ub_offsetp = binman_sym(ulong, u_boot_b, image_pos);
+		*ub_sizep = binman_sym(ulong, u_boot_b, size);
+		break;
+	case VBEP_RECOVERY:
+	case VBEP_COUNT:
+		*offsetp = binman_sym(ulong, spl_recovery, image_pos);
+		*sizep = binman_sym(ulong, spl_recovery, size);
+		*ub_offsetp = binman_sym(ulong, u_boot_recovery, image_pos);
+		*ub_sizep = binman_sym(ulong, u_boot_recovery, size);
+		break;
+	}
+}
+
 static int abrec_run_vpl(struct udevice *blk, struct spl_image_info *image,
 			 struct vbe_handoff *handoff)
 {
@@ -124,33 +159,28 @@ static int abrec_run_vpl(struct udevice *blk, struct spl_image_info *image,
 			log_warning("VBE: Cannot write state (err=%d)\n", ret);
 	}
 
-	switch (pick) {
-	case VBEP_A:
-		offset = binman_sym(ulong, spl_a, image_pos);
-		size = binman_sym(ulong, spl_a, size);
-		ub_offset = binman_sym(ulong, u_boot_a, image_pos);
-		ub_size = binman_sym(ulong, u_boot_a, size);
-		break;
-	case VBEP_B:
-		offset = binman_sym(ulong, spl_b, image_pos);
-		size = binman_sym(ulong, spl_b, size);
-		ub_offset = binman_sym(ulong, u_boot_b, image_pos);
-		ub_size = binman_sym(ulong, u_boot_b, size);
-		break;
-	case VBEP_RECOVERY:
-	case VBEP_COUNT:
-		offset = binman_sym(ulong, spl_recovery, image_pos);
-		size = binman_sym(ulong, spl_recovery, size);
-		ub_offset = binman_sym(ulong, u_boot_recovery, image_pos);
-		ub_size = binman_sym(ulong, u_boot_recovery, size);
-		break;
-	}
-	log_debug("pick=%d, offset=%lx size=%lx\n", pick, offset, size);
-	log_info("VBE: Firmware pick %s at %lx\n", pick_names[pick], offset);
+	/* if the firmware cannot be loaded, fall back to the next one */
+	changed = false;
+	while (true) {
+		abrec_get_slot(pick, &offset, &size, &ub_offset, &ub_size);
+		log_debug("pick=%d, offset=%lx size=%lx\n", pick, offset, size);
+		log_info("VBE: Firmware pick %s at %lx\n", pick_names[pick],
+			 offset);
 
-	ret = vbe_read_fit(blk, offset, size, image, NULL, NULL, NULL);
-	if (ret)
-		return log_msg_ret("vbe", ret);
+		ret = vbe_read_fit(blk, offset, size, image, NULL, NULL, NULL);
+		if (!ret)
+			break;
+		log_err("VBE: Cannot load firmware %s (err=%d)\n",
+			pick_names[pick], ret);
+		pick = abrec_fallback(&state, pick, &changed);
+		if (pick == VBEP_COUNT)
+			return log_msg_ret("vbe", ret);
+	}
+	if (changed) {
+		ret = abrec_write_nvdata(&priv, blk, &state);
+		if (ret)
+			log_warning("VBE: Cannot write state (err=%d)\n", ret);
+	}
 	handoff->offset = ub_offset;
 	handoff->size = ub_size;
 	handoff->pick = pick;
