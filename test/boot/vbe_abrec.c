@@ -12,6 +12,7 @@
 #include <vbe.h>
 #include <version_string.h>
 #include <dm/device-internal.h>
+#include <linux/libfdt.h>
 #include <dm/ofnode.h>
 #include <test/ut.h>
 #include "bootstd_common.h"
@@ -148,6 +149,28 @@ static int vbe_abrec_test_nvdata(struct unit_test_state *uts)
 }
 BOOTSTD_TEST(vbe_abrec_test_nvdata, UTF_DM | UTF_SCAN_FDT);
 
+/* bind an abrec bootmeth called @name to the node at @path */
+static int bind_abrec_node(struct unit_test_state *uts, const char *path,
+			   const char *name, struct udevice **devp,
+			   struct udevice **blkp)
+{
+	struct udevice *bootstd, *dev;
+	struct abrec_priv *priv;
+	ofnode node;
+
+	node = ofnode_path(path);
+	ut_assert(ofnode_valid(node));
+	ut_assertok(uclass_first_device_err(UCLASS_BOOTSTD, &bootstd));
+	ut_assertok(device_bind(bootstd, DM_DRIVER_GET(vbe_abrec), name, NULL,
+				node, &dev));
+	ut_assertok(device_probe(dev));
+	priv = dev_get_priv(dev);
+	ut_assertok(vbe_get_blk(priv->storage, blkp));
+	*devp = dev;
+
+	return 0;
+}
+
 /*
  * firmware0 in the sandbox devicetree is vbe-simple, but has the properties
  * which abrec needs, so put an abrec bootmeth called "abrec" on it too
@@ -155,21 +178,7 @@ BOOTSTD_TEST(vbe_abrec_test_nvdata, UTF_DM | UTF_SCAN_FDT);
 static int bind_abrec(struct unit_test_state *uts, struct udevice **devp,
 		      struct udevice **blkp)
 {
-	struct udevice *bootstd, *dev;
-	struct abrec_priv *priv;
-	ofnode node;
-
-	node = ofnode_path("/bootstd/firmware0");
-	ut_assert(ofnode_valid(node));
-	ut_assertok(uclass_first_device_err(UCLASS_BOOTSTD, &bootstd));
-	ut_assertok(device_bind(bootstd, DM_DRIVER_GET(vbe_abrec), "abrec",
-				NULL, node, &dev));
-	ut_assertok(device_probe(dev));
-	priv = dev_get_priv(dev);
-	ut_assertok(vbe_get_blk(priv->storage, blkp));
-	*devp = dev;
-
-	return 0;
+	return bind_abrec_node(uts, "/bootstd/firmware0", "abrec", devp, blkp);
 }
 
 /* Check the 'vbe recovery' command */
@@ -268,6 +277,63 @@ static int vbe_abrec_test_info(struct unit_test_state *uts)
 	return 0;
 }
 BOOTSTD_TEST(vbe_abrec_test_info, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Check that the version comes from the slot info of the booted firmware */
+static int vbe_abrec_test_slot_info(struct unit_test_state *uts)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, orig, 0x1000);
+	ALLOC_CACHE_ALIGN_BUFFER(u8, info, 0x1000);
+	struct udevice *dev, *blk;
+	struct abrec_state state;
+	struct abrec_priv *priv;
+	ulong start, blks;
+
+	ut_assertok(bind_abrec_node(uts, "/bootstd/firmware2", "abrec2", &dev,
+				    &blk));
+	priv = dev_get_priv(dev);
+	ut_asserteq(0x40000, priv->slot_a);
+	ut_asserteq(0x1f000, priv->slot_info_offset);
+	ut_asserteq(0x1000, priv->slot_info_size);
+	ut_asserteq(0, priv->version_size);
+
+	/* other tests may use this part of the MMC, so put it back afterwards */
+	start = (priv->slot_a + priv->slot_info_offset) / MMC_MAX_BLOCK_LEN;
+	blks = priv->slot_info_size / MMC_MAX_BLOCK_LEN;
+	ut_asserteq(blks, blk_read(blk, start, blks, orig));
+
+	/* a slot which has no slot info has no version */
+	memset(info, '\0', 0x1000);
+	ut_asserteq(blks, blk_write(blk, start, blks, info));
+	ut_assertok(abrec_read_state(dev, &state));
+	ut_asserteq_str("", state.fw_version);
+
+	/* a devicetree which is not slot info has no version either */
+	ut_assertok(fdt_create_empty_tree(info, 0x1000));
+	ut_assertok(fdt_setprop_string(info, 0, "version", "2026.10.5"));
+	ut_assertok(fdt_setprop_u32(info, 0, "size", 0x1234));
+	ut_asserteq(blks, blk_write(blk, start, blks, info));
+	ut_assertok(abrec_read_state(dev, &state));
+	ut_asserteq_str("", state.fw_version);
+
+	/* nothing booted with VBE here, so A is the firmware in use */
+	ut_assertok(fdt_setprop_string(info, 0, "compatible",
+				       "fwupd,vbe-slot-info"));
+	ut_asserteq(blks, blk_write(blk, start, blks, info));
+	ut_assertok(abrec_read_state(dev, &state));
+	ut_asserteq_str("2026.10.5", state.fw_version);
+
+	ut_assertok(run_command("vbe select abrec2", 0));
+	ut_assertok(run_command("vbe info", 0));
+	ut_assert_nextline("Version: 2026.10.5");
+	ut_assert_skip_to_linen("Picked: ");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("vbe select", 0));
+	ut_asserteq(blks, blk_write(blk, start, blks, orig));
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_abrec_test_slot_info, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
 
 /* Check the information provided to the OS */
 static int vbe_abrec_test_fixup(struct unit_test_state *uts)

@@ -32,8 +32,14 @@ struct udevice;
  *	actual start position on the device
  * @state_offset: Offset from area_start of the VBE state, in bytes
  * @state_size: Size of the state information
- * @version_offset: Offset from from area_start of the VBE version info
- * @version_size: Size of the version info
+ * @version_offset: Offset from area_start of the VBE version info, used
+ *	if there is no slot info
+ * @version_size: Size of the version info, or 0 if none
+ * @slot_a: Offset of the A firmware in the device, in bytes (U-Boot proper only)
+ * @slot_b: Offset of the B firmware (U-Boot proper only)
+ * @slot_recovery: Offset of the recovery firmware (U-Boot proper only)
+ * @slot_info_offset: Offset of the slot info within each slot
+ * @slot_info_size: Size of the slot info, or 0 if there is none
  * @storage: Storage device to use, in the form <uclass><devnum>, e.g. "mmc1"
  * @oem_devicetree: true if we should read an OEM devicetree
  * @ctx: PXE context for extlinux boot/read_all
@@ -46,6 +52,11 @@ struct abrec_priv {
 	u32 state_size;
 	u32 version_offset;
 	u32 version_size;
+	u32 slot_a;
+	u32 slot_b;
+	u32 slot_recovery;
+	u32 slot_info_offset;
+	u32 slot_info_size;
 	const char *storage;
 	bool oem_devicetree;
 	struct pxe_context ctx;
@@ -139,6 +150,13 @@ int abrec_write_nvdata(struct abrec_priv *priv, struct udevice *blk,
  * Return: Firmware to boot
  */
 enum vbe_pick_t abrec_choose(struct abrec_state *state, bool *changedp);
+
+/**
+ * abrec_get_pick() - Find out which firmware VPL chose for this boot
+ *
+ * Return: Firmware picked, or VBEP_COUNT if not known
+ */
+enum vbe_pick_t abrec_get_pick(void);
 
 /**
  * abrec_fallback() - Choose the firmware to use when the pick cannot be loaded

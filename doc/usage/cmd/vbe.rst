@@ -41,7 +41,9 @@ vbe info
 Shows information about the selected VBE bootmeth, such as the version of the
 firmware which it boots.
 
-For the A/B/recovery method this also shows the state of an update:
+For the A/B/recovery method, the version is that of the firmware which booted,
+taken from the slot info at the end of its slot if the board has slot info.
+This also shows the state of an update:
 
 Try B
     whether B is to be tried, i.e. an update is waiting to be confirmed, and how

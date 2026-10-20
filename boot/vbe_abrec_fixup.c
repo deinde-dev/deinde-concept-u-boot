@@ -7,7 +7,6 @@
 
 #define LOG_CATEGORY LOGC_BOOT
 
-#include <bloblist.h>
 #include <dm.h>
 #include <event.h>
 #include <vbe.h>
@@ -78,22 +77,6 @@ int abrec_add_compatible(oftree tree, ofnode node)
 		return 0;
 
 	return ofnode_write_prop(node, "compatible", compat, len, true);
-}
-
-/**
- * abrec_get_pick() - Find out which firmware VPL chose for this boot
- *
- * Return: Firmware picked, or VBEP_COUNT if not known
- */
-static enum vbe_pick_t abrec_get_pick(void)
-{
-	struct vbe_handoff *handoff;
-
-	handoff = bloblist_find(BLOBLISTT_VBE, sizeof(*handoff));
-	if (!handoff || handoff->pick >= VBEP_COUNT)
-		return VBEP_COUNT;
-
-	return handoff->pick;
 }
 
 /**
