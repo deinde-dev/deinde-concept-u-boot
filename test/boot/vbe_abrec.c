@@ -148,20 +148,17 @@ static int vbe_abrec_test_nvdata(struct unit_test_state *uts)
 }
 BOOTSTD_TEST(vbe_abrec_test_nvdata, UTF_DM | UTF_SCAN_FDT);
 
-/* Check the 'vbe recovery' command */
-static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
+/*
+ * firmware0 in the sandbox devicetree is vbe-simple, but has the properties
+ * which abrec needs, so put an abrec bootmeth called "abrec" on it too
+ */
+static int bind_abrec(struct unit_test_state *uts, struct udevice **devp,
+		      struct udevice **blkp)
 {
-	ALLOC_CACHE_ALIGN_BUFFER(u8, orig, MMC_MAX_BLOCK_LEN);
-	struct udevice *bootstd, *dev, *blk;
-	struct abrec_state state;
+	struct udevice *bootstd, *dev;
 	struct abrec_priv *priv;
-	bool changed;
 	ofnode node;
 
-	/*
-	 * firmware0 in the sandbox devicetree is vbe-simple, but has the
-	 * properties which abrec needs, so put an abrec bootmeth on it too
-	 */
 	node = ofnode_path("/bootstd/firmware0");
 	ut_assert(ofnode_valid(node));
 	ut_assertok(uclass_first_device_err(UCLASS_BOOTSTD, &bootstd));
@@ -169,7 +166,23 @@ static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
 				NULL, node, &dev));
 	ut_assertok(device_probe(dev));
 	priv = dev_get_priv(dev);
-	ut_assertok(vbe_get_blk(priv->storage, &blk));
+	ut_assertok(vbe_get_blk(priv->storage, blkp));
+	*devp = dev;
+
+	return 0;
+}
+
+/* Check the 'vbe recovery' command */
+static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, orig, MMC_MAX_BLOCK_LEN);
+	struct udevice *dev, *blk;
+	struct abrec_state state;
+	struct abrec_priv *priv;
+	bool changed;
+
+	ut_assertok(bind_abrec(uts, &dev, &blk));
+	priv = dev_get_priv(dev);
 
 	/* other tests use this block, so put it back afterwards */
 	ut_asserteq(1, blk_read(blk, NVDATA_START_BLK, 1, orig));
@@ -215,6 +228,46 @@ static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
 	return 0;
 }
 BOOTSTD_TEST(vbe_abrec_test_recovery_cmd, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Check that 'vbe info' shows the state */
+static int vbe_abrec_test_info(struct unit_test_state *uts)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, orig, MMC_MAX_BLOCK_LEN);
+	struct udevice *dev, *blk;
+	struct abrec_state state;
+	struct abrec_priv *priv;
+
+	ut_assertok(bind_abrec(uts, &dev, &blk));
+	priv = dev_get_priv(dev);
+
+	/* other tests use this block, so put it back afterwards */
+	ut_asserteq(1, blk_read(blk, NVDATA_START_BLK, 1, orig));
+
+	/* B is being tried, with two tries left */
+	ut_assertok(abrec_read_nvdata(priv, blk, &state));
+	state.try_b = true;
+	state.try_count = 2;
+	state.try_result = VBETR_TRYING;
+	state.pick = VBEP_B;
+	ut_assertok(abrec_write_nvdata(priv, blk, &state));
+
+	ut_assertok(run_command("vbe select abrec", 0));
+	ut_assertok(run_command("vbe info", 0));
+	ut_assert_nextline("Version: %s", TEST_VERSION);
+	ut_assert_nextline("Vernum: %x/%x", TEST_VERNUM >> FWVER_KEY_SHIFT,
+			   TEST_VERNUM & FWVER_FW_MASK);
+	ut_assert_nextline("Try B: yes, 2 tries left");
+	ut_assert_nextline("Last result: trying");
+	ut_assert_nextline("Recovery: off");
+	ut_assert_nextline("Picked: B");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("vbe select", 0));
+	ut_asserteq(1, blk_write(blk, NVDATA_START_BLK, 1, orig));
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_abrec_test_info, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
 
 /* Check the information provided to the OS */
 static int vbe_abrec_test_fixup(struct unit_test_state *uts)

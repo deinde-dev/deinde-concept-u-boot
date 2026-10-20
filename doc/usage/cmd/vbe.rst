@@ -41,6 +41,21 @@ vbe info
 Shows information about the selected VBE bootmeth, such as the version of the
 firmware which it boots.
 
+For the A/B/recovery method this also shows the state of an update:
+
+Try B
+    whether B is to be tried, i.e. an update is waiting to be confirmed, and how
+    many tries it has left
+
+Last result
+    the result of the last try of B: `unknown`, `trying`, `ok` or `bad`
+
+Recovery
+    whether the recovery firmware is requested
+
+Picked
+    which firmware VPL picked on this boot: `A`, `B` or `Recovery`
+
 vbe state
 ~~~~~~~~~
 
@@ -90,6 +105,17 @@ then goes back to normal::
     Recovery: on
     => vbe recovery off
     Recovery: off
+
+This shows an update being tried in B, which has two more tries if it does not
+reach the OS::
+
+    => vbe info
+    Version: U-Boot v2026.10.4
+    Vernum: 1/2
+    Try B: yes, 2 tries left
+    Last result: trying
+    Recovery: off
+    Picked: B
 
 The vbe-simple method has no recovery firmware::
 

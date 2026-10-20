@@ -15,6 +15,9 @@
 #include <dm/ofnode.h>
 #include "vbe_abrec.h"
 
+static const char *const result_names[] = {"unknown", "trying", "ok", "bad"};
+static const char *const pick_names[VBEP_COUNT] = {"A", "B", "Recovery"};
+
 int abrec_read_priv(ofnode node, struct abrec_priv *priv)
 {
 	memset(priv, '\0', sizeof(*priv));
@@ -204,15 +207,24 @@ static int vbe_abrec_get_state_desc(struct udevice *dev, char *buf,
 	struct abrec_state state;
 	int ret;
 
+	/* nothing shows this before U-Boot proper, so save the space */
+	if (IS_ENABLED(CONFIG_XPL_BUILD))
+		return -ENOSYS;
+
 	ret = abrec_read_state(dev, &state);
 	if (ret)
 		return log_msg_ret("read", ret);
 
 	if (maxsize < 30)
 		return -ENOSPC;
-	snprintf(buf, maxsize, "Version: %s\nVernum: %x/%x", state.fw_version,
+	snprintf(buf, maxsize,
+		 "Version: %s\nVernum: %x/%x\nTry B: %s, %d tries left\n"
+		 "Last result: %s\nRecovery: %s\nPicked: %s", state.fw_version,
 		 state.fw_vernum >> FWVER_KEY_SHIFT,
-		 state.fw_vernum & FWVER_FW_MASK);
+		 state.fw_vernum & FWVER_FW_MASK, state.try_b ? "yes" : "no",
+		 state.try_count, result_names[state.try_result],
+		 state.recovery ? "on" : "off",
+		 state.pick < VBEP_COUNT ? pick_names[state.pick] : "?");
 
 	return 0;
 }
