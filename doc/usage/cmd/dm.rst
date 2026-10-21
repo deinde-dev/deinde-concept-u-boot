@@ -531,3 +531,6 @@ See also
   registers its sub-commands directly rather than through a uclass
 * :doc:`w1<w1>` for a 1-Wire bus, whose devices are bound when the bus is
   probed rather than from the devicetree
+* :doc:`sound<sound>` for a device which reaches the audio codec and i2s
+  devices it plays through by phandle, so ``dm tree`` shows the three side by
+  side rather than nested
