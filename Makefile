@@ -1501,7 +1501,10 @@ endif
 
 PHONY += dtbs dtbs_check
 dtbs: dts/dt.dtb
-dts/dt.dtb: dtbs_prepare u-boot
+# With OF_EMBED the U-Boot build descends into dts/ itself, so wait for it to
+# avoid two makes there at once. Otherwise build the devicetree in parallel, so
+# that SPL and TPL, which need it, do not wait for U-Boot to link
+dts/dt.dtb: dtbs_prepare prepare scripts_dtc tools $(if $(CONFIG_OF_EMBED),u-boot)
 	$(Q)$(MAKE) $(build)=dts dtbs
 
 dtbs_prepare: prepare3
