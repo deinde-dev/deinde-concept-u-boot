@@ -844,8 +844,8 @@ u-boot.cfg spl/u-boot.cfg tpl/u-boot.cfg vpl/u-boot.cfg:
 # gimmick, wrong config.mk would be included leading nasty warnings/errors.
 ifneq ($(wildcard $(KCONFIG_CONFIG)),)
 ifneq ($(wildcard include/config/auto.conf),)
-autoconf_is_old := $(shell find . -path ./$(KCONFIG_CONFIG) -newer \
-						include/config/auto.conf)
+autoconf_is_old := $(shell test $(KCONFIG_CONFIG) -nt include/config/auto.conf \
+			   && echo old)
 ifeq ($(autoconf_is_old),)
 include $(srctree)/config.mk
 
