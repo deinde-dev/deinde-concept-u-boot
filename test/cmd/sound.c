@@ -185,6 +185,23 @@ static int cmd_test_sound_usage(struct unit_test_state *uts)
 	ut_assert_nextline_empty();
 	ut_assert_console_end();
 
+	/*
+	 * A length which starts with '-' is an option, which the command
+	 * refuses before the sub-command runs. dectoul() has no sign
+	 * handling, so otherwise this would read the length as zero, play
+	 * nothing at all and report success
+	 */
+	ut_asserteq(1, run_command("sound play -1", 0));
+	ut_assert_skip_to_line(SOUND_USAGE_LAST);
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
+	/* the command itself takes no option either */
+	ut_asserteq(1, run_command("sound -x", 0));
+	ut_assert_skip_to_line(SOUND_USAGE_LAST);
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
 	/* none of this reaches the device */
 	ut_asserteq(0, sandbox_get_setup_called(dev));
 	ut_asserteq(0, sandbox_get_sound_count(dev));

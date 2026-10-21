@@ -7,11 +7,11 @@
 #include <command.h>
 #include <dm.h>
 #include <fdtdec.h>
+#include <getopt.h>
 #include <sound.h>
 
 /* Initilaise sound subsystem */
-static int do_init(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_init(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	int ret;
@@ -28,9 +28,10 @@ static int do_init(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 /* play sound from buffer */
-static int do_play(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_play(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	int ret = 0;
 	int msec = 1000;
@@ -66,14 +67,15 @@ err:
 }
 
 static struct cmd_tbl cmd_sound_sub[] = {
-	U_BOOT_CMD_MKENT(init, 0, 1, do_init, "", ""),
-	U_BOOT_CMD_MKENT(play, CMD_MAXARGS, 1, do_play, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(init, 0, 1, do_init, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(play, CMD_MAXARGS, 1, do_play, "", ""),
 };
 
 /* process sound command */
-static int do_sound(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_sound(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct cmd_tbl *c;
 
 	if (argc < 1)
@@ -86,16 +88,14 @@ static int do_sound(struct cmd_tbl *cmdtp, int flag, int argc,
 	c = find_cmd_tbl(argv[0], &cmd_sound_sub[0], ARRAY_SIZE(cmd_sound_sub));
 
 	if (c)
-		return cmd_invoke(c, flag, argc, argv);
+		return cmd_invoke(c, gs->cmd_flag, argc, argv);
 	else
 		return CMD_RET_USAGE;
 }
 
-U_BOOT_CMD(
-	sound, CMD_MAXARGS, 1, do_sound,
-	"sound sub-system",
-	"init - initialise the sound driver\n"
-	"sound play [len [freq [len [freq ...]]]] - play sounds\n"
-	"  len - duration in ms\n"
-	"  freq - frequency in Hz\n"
-);
+U_BOOT_CMD_NOOPTS(sound, CMD_MAXARGS, 1, do_sound,
+		  "sound sub-system",
+		  "init - initialise the sound driver\n"
+		  "sound play [len [freq [len [freq ...]]]] - play sounds\n"
+		  "  len - duration in ms\n"
+		  "  freq - frequency in Hz\n");
