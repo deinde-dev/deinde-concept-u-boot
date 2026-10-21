@@ -159,6 +159,9 @@ obj-y += sb.o
 obj-$(CONFIG_CMD_SCSI) += scsiboot.o
 obj-$(CONFIG_CMD_SETEXPR) += setexpr.o
 obj-$(CONFIG_CMD_SMBIOS) += smbios.o
+ifdef CONFIG_SOUND_SANDBOX
+obj-$(CONFIG_CMD_SOUND) += sound.o
+endif
 obj-$(CONFIG_CMD_SPI) += sspi.o
 obj-$(CONFIG_CMD_TEMPERATURE) += temperature.o
 obj-$(CONFIG_CMD_TIMER) += timer.o
