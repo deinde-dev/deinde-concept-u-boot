@@ -25,20 +25,20 @@ static int dm_test_sound(struct unit_test_state *uts)
 	ut_asserteq(0, sandbox_get_setup_called(dev));
 
 	ut_assertok(sound_beep(dev, 1, 100));
-	ut_asserteq(48, sandbox_get_sound_count(dev));
-	ut_asserteq(4560, sandbox_get_sound_sum(dev));
-	ut_assertok(sound_beep(dev, 1, 100));
-	ut_asserteq(96, sandbox_get_sound_count(dev));
-	ut_asserteq(9120, sandbox_get_sound_sum(dev));
-	ut_assertok(sound_beep(dev, 1, -100));
-	ut_asserteq(144, sandbox_get_sound_count(dev));
-	ut_asserteq(9120, sandbox_get_sound_sum(dev));
-	ut_assertok(sound_beep(dev, 1, 0));
 	ut_asserteq(192, sandbox_get_sound_count(dev));
-	ut_asserteq(9120, sandbox_get_sound_sum(dev));
+	ut_asserteq(18240, sandbox_get_sound_sum(dev));
+	ut_assertok(sound_beep(dev, 1, 100));
+	ut_asserteq(384, sandbox_get_sound_count(dev));
+	ut_asserteq(36480, sandbox_get_sound_sum(dev));
+	ut_assertok(sound_beep(dev, 1, -100));
+	ut_asserteq(576, sandbox_get_sound_count(dev));
+	ut_asserteq(36480, sandbox_get_sound_sum(dev));
+	ut_assertok(sound_beep(dev, 1, 0));
+	ut_asserteq(768, sandbox_get_sound_count(dev));
+	ut_asserteq(36480, sandbox_get_sound_sum(dev));
 	ut_assertok(sound_beep(dev, 1, INT_MAX));
-	ut_asserteq(240, sandbox_get_sound_count(dev));
-	ut_asserteq(9120, sandbox_get_sound_sum(dev));
+	ut_asserteq(960, sandbox_get_sound_count(dev));
+	ut_asserteq(36480, sandbox_get_sound_sum(dev));
 	ut_asserteq(false, sandbox_get_sound_active(dev));
 
 	return 0;

@@ -109,8 +109,7 @@ int sound_beep(struct udevice *dev, int msecs, int frequency_hz)
 		msecs -= 1000;
 	}
 	if (!ret && msecs) {
-		unsigned long size =
-			(data_size * msecs) / (sizeof(int) * 1000);
+		unsigned long size = (data_size * msecs) / 1000;
 
 		ret = sound_play(dev, data, size);
 	}
