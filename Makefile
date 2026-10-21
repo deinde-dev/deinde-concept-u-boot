@@ -3083,8 +3083,14 @@ cmd_crmodverdir = $(Q)mkdir -p $(MODVERDIR) \
 
 # read saved command lines for existing targets
 existing-targets := $(wildcard $(sort $(targets)))
+existing-cmds := $(foreach f,$(existing-targets),$(dir $(f)).$(notdir $(f)).cmd)
 
--include $(foreach f,$(existing-targets),$(dir $(f)).$(notdir $(f)).cmd)
+-include $(existing-cmds)
+
+# U-Boot: the images built here (u-boot.lds, u-boot-nodtb.bin and so on) are
+# not listed in targets, so read the rest of the saved command lines here too.
+# Without them, if_changed sees an empty command and remakes every one
+-include $(filter-out $(existing-cmds),$(wildcard .*.cmd))
 
 endif   # ifeq ($(config-targets),1)
 endif   # ifeq ($(mixed-targets),1)
