@@ -1462,6 +1462,13 @@ endef
 quiet_cmd_llcheck = LLCHK   $2
 cmd_llcheck = $(srctree)/scripts/check_linker_lists.py $2
 
+# Check the linker lists each time U-Boot is linked, rather than on every build
+.u-boot.llcheck: u-boot
+	$(call cmd,llcheck,u-boot)
+	@touch $@
+
+all: .u-boot.llcheck
+
 # Timestamp file to make sure that binman always runs
 .binman_stamp: $(INPUTS-y) FORCE
 ifeq ($(CONFIG_BINMAN),y)
@@ -2198,7 +2205,6 @@ ifeq ($(CONFIG_KALLSYMS),y)
 	$(call cmd,smap)
 	$(call cmd,u-boot__) common/system_map.o
 endif
-	$(call cmd,llcheck,u-boot)
 ifeq ($(CONFIG_RISCV),y)
 ifneq ($(CONFIG_EFI_APP),y)
 	@tools/prelink-riscv $@
