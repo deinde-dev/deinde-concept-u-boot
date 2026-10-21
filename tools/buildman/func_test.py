@@ -931,6 +931,24 @@ Idx Name          Size      VMA       LMA       File off  Algn
         # Each board has a config and one make per commit
         self.assertEqual(self._make_calls, len(BOARDS) * (self._commits + 1))
 
+    def test_adjust_cfg_incremental(self):
+        """Test that adjusting the config does not reconfigure every commit"""
+        # The test branch has no Kconfig files, so merge_config.sh cannot run
+        with (mock.patch.object(cfgutil, 'run_merge_config',
+                                return_value=command.CommandResult(
+                                    return_code=0)) as merge,
+              mock.patch.object(cfgutil, 'check_cfg_file',
+                                return_value='') as check):
+            self._run_control('-b', TEST_BRANCH, '-o', self._output_dir,
+                              '-a', '~LOCALVERSION_AUTO')
+        self.assertEqual(self._builder.fail, 0)
+
+        # Each board has a config, then one make per commit, with the
+        # adjustments made once but checked after every build
+        self.assertEqual(self._make_calls, len(BOARDS) * (self._commits + 1))
+        self.assertEqual(merge.call_count, len(BOARDS))
+        self.assertEqual(check.call_count, self._total_builds)
+
     def test_force_reconfigure(self):
         """The -f flag should force a rebuild"""
         self._run_control('-b', TEST_BRANCH, '-C', '-o', self._output_dir)

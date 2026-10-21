@@ -649,7 +649,10 @@ class BuilderThread(threading.Thread):
                 cfg_file (str): Path to the .config file
         """
         cfg_file = os.path.join(out_dir or '', '.config')
-        if do_config or req.adjust_cfg:
+
+        # The adjustments stay in .config until the next reconfigure, which
+        # applies them again, so there is no need to reconfigure every commit
+        if do_config:
             result = self._reconfigure(
                 commit, req.brd, setup.cwd, setup.args, setup.env,
                 setup.config_args, config_out, cmd_list, mrproper)
