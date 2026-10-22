@@ -1309,8 +1309,10 @@ int conf_write_autoconf(bool support_spl)
 	fclose(out);
 	fclose(tristate);
 	fclose(out_h);
-	for (spl = 0; spl < num_spls; spl++)
+	for (spl = 0; spl < num_spls; spl++) {
+		fclose(out_spl[spl]);
 		fclose(out_h_spl[spl]);
+	}
 
 	name = getenv("KCONFIG_AUTOHEADER");
 	if (!name)
