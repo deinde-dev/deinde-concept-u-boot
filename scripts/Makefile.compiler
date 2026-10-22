@@ -15,11 +15,37 @@ cc-cross-prefix = $(firstword $(foreach c, $(1), \
 # output directory for tests below
 TMPOUT = $(if $(KBUILD_EXTMOD),$(firstword $(KBUILD_EXTMOD))/).tmp_$$$$
 
+# U-Boot: probing the compiler takes several milliseconds each time and there
+# are dozens of probes, which run whenever the Makefile is read. Keep the
+# results in include/config/probes.mk, which is removed whenever the config is
+# regenerated, including when the compiler changes.
+probe-cache := include/config/probes.mk
+-include $(probe-cache)
+
+# Turn a probe command into a variable name, replacing the characters which
+# cannot appear in one, or which would upset the cache file
+__probe-chars := $(comma) : = $(pound) $$ $(squote) " ( )
+__probe-key = __probe_$(subst $(space),_,$(call __probe-sub,$(__probe-chars),$(strip $(1))))
+__probe-sub = $(if $(1),$(call __probe-sub,$(wordlist 2,$(words $(1)),$(1)),$(subst \
+	$(firstword $(1)),_,$(2))),$(2))
+
+# __probe-store: Record a probe result for this make and later ones
+# Usage: $(call __probe-store,key,result)
+__probe-store = $(eval $(1) := $(subst $$,$$$$,$(2)))$(shell \
+	echo '$(1) := $(subst $$,$$$$,$(2))' 2>/dev/null >> $(probe-cache))$(2)
+
 # try-run
 # Usage: option = $(call try-run, $(CC)...-o "$$TMP",option-ok,otherwise)
 # Exit code chooses option. "$$TMP" serves as a temporary file and is
-# automatically cleaned up.
-try-run = $(shell set -e;		\
+# automatically cleaned up. The result is cached, as above.
+try-run = $(call __probe-get,$(call __probe-key,$(1)),$(1),$(2),$(3))
+
+# __probe-get: Look up a probe result, running and recording it if needed
+# Usage: $(call __probe-get,key,command,option-ok,otherwise)
+__probe-get = $(if $(filter undefined,$(origin $(1))),$(call __probe-store,$(1),$(call \
+	__try-run,$(2),$(3),$(4))),$($(1)))
+
+__try-run = $(shell set -e;		\
 	TMP=$(TMPOUT)/tmp;		\
 	trap "rm -rf $(TMPOUT)" EXIT;	\
 	mkdir -p $(TMPOUT);		\
