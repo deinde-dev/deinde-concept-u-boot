@@ -13,12 +13,17 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from buildman import kconfiglib
+try:
+    from buildman import kconfiglib
+except ImportError:
+    sys.exit('codman needs kconfiglib from the buildman package: '
+             'pip install buildman')
 from u_boot_pylib import tout
 from analyser import Analyser, FileResult
 
