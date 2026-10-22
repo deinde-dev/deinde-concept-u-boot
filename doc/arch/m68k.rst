@@ -59,7 +59,7 @@ and/or
 It is possible to build all ColdFire boards in a single command-line command,
 from u-boot root directory, as::
 
-   ./tools/buildman/buildman m68k
+   buildman m68k
 
 Build U-Boot for a specific board
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

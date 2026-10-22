@@ -1255,10 +1255,10 @@ official or latest in the git repository) version of U-Boot sources.
 But before you submit such a patch, please verify that your modifi-
 cation did not break existing code. At least make sure that *ALL* of
 the supported boards compile WITHOUT ANY compiler warnings. To do so,
-just run the buildman script (tools/buildman/buildman), which will
+just run buildman (install it with 'pip install buildman'), which will
 configure and build U-Boot for ALL supported system. Be warned, this
-will take a while. Please see the buildman README, or run 'buildman -H'
-for documentation.
+will take a while. Please see https://buildman.readthedocs.io/, or run
+'buildman -H' for documentation.
 
 
 See also "U-Boot Porting Guide" below.

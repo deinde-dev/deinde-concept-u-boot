@@ -954,6 +954,7 @@ F:	include/btrfs.h
 BUILDMAN
 M:	Simon Glass <sjg@chromium.org>
 S:	Maintained
+W:	https://github.com/deinde-dev/buildman
 F:	tools/buildman/
 
 CAAM
