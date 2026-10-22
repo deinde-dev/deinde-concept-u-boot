@@ -281,6 +281,21 @@ def find_binman(config):
     return (shutil.which('binman') or
             os.path.join(config.source_dir, 'tools', 'binman', 'binman'))
 
+def find_buildman(config):
+    """Find the buildman tool to run
+
+    buildman is provided by the buildman package. Use the copy on the PATH if
+    there is one, else tools/buildman/buildman in the source tree.
+
+    Args:
+        config (ArbitraryAttributeContainer): Test configuration
+
+    Returns:
+        str: Path to buildman
+    """
+    return (shutil.which('buildman') or
+            os.path.join(config.source_dir, 'tools', 'buildman', 'buildman'))
+
 ram_base = None
 def find_ram_base(ubman):
     """Find the running U-Boot's RAM location.
