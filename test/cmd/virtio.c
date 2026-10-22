@@ -196,6 +196,10 @@ static int cmd_test_virtio_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("virtio bogus", 0));
 	ut_assertok(check_usage(uts));
 
+	/* the command takes no options, so the framework refuses one */
+	ut_asserteq(1, run_command("virtio -x", 0));
+	ut_assertok(check_usage(uts));
+
 	/* neither scan nor list takes an argument */
 	ut_asserteq(1, run_command("virtio scan now", 0));
 	ut_assertok(check_usage(uts));

@@ -7,14 +7,17 @@
 #include <blk.h>
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <virtio_types.h>
 #include <virtio.h>
 
 static int virtio_curr_dev;
 
-static int do_virtio(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+static int do_virtio(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+
 	if (argc == 2 && !strcmp(argv[1], "scan")) {
 		/*
 		 * make sure all virtio devices are enumerated.
@@ -43,16 +46,14 @@ static int do_virtio(struct cmd_tbl *cmdtp, int flag, int argc,
 	return blk_common_cmd(argc, argv, UCLASS_VIRTIO, &virtio_curr_dev);
 }
 
-U_BOOT_CMD(
-	virtio, 8, 1, do_virtio,
-	"virtio block devices sub-system",
-	"scan - initialize virtio bus\n"
-	"list - list virtio devices\n"
-	"virtio info - show all available virtio block devices\n"
-	"virtio device [dev] - show or set current virtio block device\n"
-	"virtio part [dev] - print partition table of one or all virtio block devices\n"
-	"virtio read addr blk# cnt - read `cnt' blocks starting at block\n"
-	"     `blk#' to memory address `addr'\n"
-	"virtio write addr blk# cnt - write `cnt' blocks starting at block\n"
-	"     `blk#' from memory address `addr'"
-);
+U_BOOT_CMD_NOOPTS(virtio, 8, 1, do_virtio,
+		  "virtio block devices sub-system",
+		  "scan - initialize virtio bus\n"
+		  "list - list virtio devices\n"
+		  "virtio info - show all available virtio block devices\n"
+		  "virtio device [dev] - show or set current virtio block device\n"
+		  "virtio part [dev] - print partition table of one or all virtio block devices\n"
+		  "virtio read addr blk# cnt - read `cnt' blocks starting at block\n"
+		  "     `blk#' to memory address `addr'\n"
+		  "virtio write addr blk# cnt - write `cnt' blocks starting at block\n"
+		  "     `blk#' from memory address `addr'");
