@@ -61,8 +61,8 @@ ifeq ($(CONFIG_SYS_THUMB_BUILD),y)
 archprepare: checkthumb checkgcc10
 
 checkthumb:
-	@if test "$(call cc-name)" = "gcc" -a \
-			"$(call cc-version)" -lt "0404"; then \
+	@if test "$(CONFIG_CC_IS_GCC)" = "y" -a \
+			"$(CONFIG_GCC_VERSION)" -lt 40400; then \
 		echo -n '*** Your GCC does not produce working '; \
 		echo 'binaries in THUMB mode.'; \
 		echo '*** Your board is configured for THUMB mode.'; \
@@ -73,8 +73,8 @@ archprepare: checkgcc10
 endif
 
 checkgcc10:
-	@if test "$(call cc-name)" = "gcc" -a \
-			"$(call cc-version)" -lt "1000"; then \
+	@if test "$(CONFIG_CC_IS_GCC)" = "y" -a \
+			"$(CONFIG_GCC_VERSION)" -lt 100000; then \
 		echo '*** Your GCC is older than 10.0 and is not supported'; \
 		false; \
 	fi

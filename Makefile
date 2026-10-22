@@ -594,6 +594,9 @@ export KBUILD_ARFLAGS
 export LDR
 export CPU BOARD VENDOR SOC CPUDIR BOARDDIR
 export UBOOTINCLUDE
+# CC_VERSION_TEXT is referenced from Kconfig (so it needs export), and from
+# include/config/auto.conf.cmd to detect a compiler upgrade. No architecture
+# sets CROSS_COMPILE itself, so it can be worked out once, here
 export CC_VERSION_TEXT := $(shell $(CC) --version | head -n 1)
 
 # When compiling out-of-tree modules, put MODVERDIR in the module
@@ -680,12 +683,6 @@ RETPOLINE_CFLAGS := $(call cc-option,$(RETPOLINE_CFLAGS_GCC),$(call cc-option,$(
 RETPOLINE_VDSO_CFLAGS := $(call cc-option,$(RETPOLINE_VDSO_CFLAGS_GCC),$(call cc-option,$(RETPOLINE_VDSO_CFLAGS_CLANG)))
 export RETPOLINE_CFLAGS
 export RETPOLINE_VDSO_CFLAGS
-
-# The expansion should be delayed until arch/$(SRCARCH)/Makefile is included.
-# Some architectures define CROSS_COMPILE in arch/$(SRCARCH)/Makefile.
-# CC_VERSION_TEXT is referenced from Kconfig (so it needs export),
-# and from include/config/auto.conf.cmd to detect the compiler upgrade.
-CC_VERSION_TEXT = $(shell $(CC) --version | head -n 1)
 
 ifeq ($(config-targets),1)
 # *config targets only - make sure prerequisites are updated, and descend
@@ -821,6 +818,7 @@ endif
 # if auto.conf.cmd is missing then we are probably in a cleaned tree so
 # we execute the config step to be sure to catch updated Kconfig files
 include/config/%.conf: $(KCONFIG_CONFIG) #include/config/auto.conf.cmd
+	$(Q)rm -f $(probe-cache)
 	$(Q)$(MAKE) -f $(srctree)/Makefile syncconfig
 	@# If the following part fails, include/config/auto.conf should be
 	@# deleted so "make silentoldconfig" will be re-run on the next build.
@@ -1024,9 +1022,7 @@ KBUILD_AFLAGS	+= -gdwarf-4
 # ARC tools based on GCC 7.1 has an issue with stack usage
 # with naked functions, see commit message for more details
 ifndef CONFIG_ARC
-ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-stack-usage.sh $(CC)),y)
-	KBUILD_CFLAGS += -fstack-usage
-endif
+KBUILD_CFLAGS += $(call cc-option,-fstack-usage)
 endif
 
 KBUILD_CFLAGS += $(call cc-option,-Wno-format-nonliteral)
@@ -2614,7 +2610,8 @@ scripts_dtc: scripts_basic
 			echo '*** Failed to check dtc version: $(DTC)'; \
 			false; \
 		else \
-			if test "$(call dtc-version)" -lt $(DTC_MIN_VERSION); then \
+			if test "$$($(CONFIG_SHELL) $(srctree)/scripts/dtc-version.sh $(DTC))" \
+					-lt $(DTC_MIN_VERSION); then \
 				echo '*** Your dtc is too old, please upgrade to dtc $(DTC_MIN_VERSION) or newer'; \
 				false; \
 			else \

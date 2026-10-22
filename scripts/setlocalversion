@@ -40,19 +40,15 @@ try_tag() {
 		 return
 	fi
 
-	# Is it an ancestor of HEAD, and if so, how many commits are in $tag..HEAD?
-	# shellcheck disable=SC2046 # word splitting is the point here
-	set -- $(git rev-list --count --left-right "$tag"...HEAD 2> /dev/null)
-
-	# $1 is 0 if and only if $tag is an ancestor of HEAD. Use
-	# string comparison, because $1 is empty if the 'git rev-list'
-	# command somehow failed.
-	if [ "$1" != 0 ]; then
+	# Is it an ancestor of HEAD? Check this first, since counting the
+	# commits on both sides takes much longer when it is not
+	if ! git merge-base --is-ancestor "$tag" HEAD 2> /dev/null; then
 		return
 	fi
 
-	# $2 is the number of commits in the range $tag..HEAD, possibly 0.
-	count="$2"
+	# The number of commits in the range $tag..HEAD, possibly 0. This is
+	# empty if the 'git rev-list' command somehow failed.
+	count=$(git rev-list --count "$tag"..HEAD 2> /dev/null)
 }
 
 scm_version()
