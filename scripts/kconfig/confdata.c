@@ -1082,10 +1082,11 @@ static int conf_write_dep(const char *name)
  * its source mentions, so touching that file rebuilds the objects which use
  * the option. This must be called with include/config as the current directory
  *
+ * @dir: Subdirectory holding the files for a phase, or NULL for U-Boot proper
  * @name: Symbol name, without CONFIG_
  * Return: 0 if OK, 1 on error
  */
-static int conf_touch_dep(const char *name)
+static int conf_touch_dep(const char *dir, const char *name)
 {
 	char path[PATH_MAX + 1];
 	const char *s;
@@ -1095,6 +1096,8 @@ static int conf_touch_dep(const char *name)
 	/* Replace all '_' and append ".h" */
 	s = name;
 	d = path;
+	if (dir)
+		d += snprintf(path, sizeof(path), "%s/", dir);
 	while ((c = *s++)) {
 		c = tolower(c);
 		*d++ = (c == '_') ? '/' : c;
@@ -1195,10 +1198,136 @@ static int conf_split_config(void)
 		 *	different from 'no').
 		 */
 
-		res = conf_touch_dep(sym->name);
+		res = conf_touch_dep(NULL, sym->name);
 		if (res)
 			break;
 	}
+	if (chdir("../.."))
+		return 1;
+
+	return res;
+}
+
+/* An assignment in a generated config file */
+struct conf_line {
+	char *name;	/* symbol name, without CONFIG_ */
+	char *val;	/* value as written */
+};
+
+static int conf_line_cmp(const void *a, const void *b)
+{
+	const struct conf_line *la = a, *lb = b;
+
+	return strcmp(la->name, lb->name);
+}
+
+/**
+ * conf_read_lines() - Read the assignments in a generated config file
+ *
+ * @fname: File to read
+ * @countp: Returns the number of assignments
+ * Return: assignments, sorted by name, or NULL if the file does not exist
+ */
+static struct conf_line *conf_read_lines(const char *fname, int *countp)
+{
+	struct conf_line *lines = NULL;
+	int count = 0, alloc = 0;
+	size_t size = 0;
+	char *line = NULL;
+	FILE *f;
+
+	*countp = 0;
+	f = fopen(fname, "r");
+	if (!f)
+		return NULL;
+	while (compat_getline(&line, &size, f) != -1) {
+		char *val;
+
+		if (strncmp(line, CONFIG_, strlen(CONFIG_)))
+			continue;
+		val = strchr(line, '=');
+		if (!val)
+			continue;
+		*val++ = '\0';
+		val[strcspn(val, "\r\n")] = '\0';
+		if (count == alloc) {
+			alloc = alloc ? alloc * 2 : 256;
+			lines = xrealloc(lines, alloc * sizeof(*lines));
+		}
+		lines[count].name = xstrdup(line + strlen(CONFIG_));
+		lines[count].val = xstrdup(val);
+		count++;
+	}
+	free(line);
+	fclose(f);
+	qsort(lines, count, sizeof(*lines), conf_line_cmp);
+	*countp = count;
+
+	return lines;
+}
+
+static void conf_free_lines(struct conf_line *lines, int count)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		free(lines[i].name);
+		free(lines[i].val);
+	}
+	free(lines);
+}
+
+/**
+ * conf_touch_changed() - Touch the dependencies of options which changed
+ *
+ * U-Boot: each phase has its own config, in which an option can take its value
+ * from a phase-specific twin (SPL_FOO for FOO in SPL) or from U-Boot proper
+ * (PPL_FOO). So each phase has its own set of dependency files: fixdep makes an
+ * SPL object depend on include/config/phase-spl/foo.h for each option FOO which
+ * its source mentions. Touch the file for each option whose value changed.
+ *
+ * @old_fname: Config file from the previous run
+ * @new_fname: Config file just written
+ * @dir: Subdirectory holding the files for the phase
+ * Return: 0 if OK, 1 on error
+ */
+static int conf_touch_changed(const char *old_fname, const char *new_fname,
+			      const char *dir)
+{
+	struct conf_line *old, *new;
+	int nold, nnew, i, j, res;
+
+	old = conf_read_lines(old_fname, &nold);
+	new = conf_read_lines(new_fname, &nnew);
+	if (chdir("include/config")) {
+		conf_free_lines(old, nold);
+		conf_free_lines(new, nnew);
+		return 1;
+	}
+
+	res = 0;
+	for (i = 0, j = 0; !res && (i < nold || j < nnew);) {
+		int cmp;
+
+		if (i == nold)
+			cmp = 1;
+		else if (j == nnew)
+			cmp = -1;
+		else
+			cmp = strcmp(old[i].name, new[j].name);
+		if (cmp < 0) {
+			res = conf_touch_dep(dir, old[i++].name);
+		} else if (cmp > 0) {
+			res = conf_touch_dep(dir, new[j++].name);
+		} else {
+			if (strcmp(old[i].val, new[j].val))
+				res = conf_touch_dep(dir, new[j].name);
+			i++;
+			j++;
+		}
+	}
+	conf_free_lines(old, nold);
+	conf_free_lines(new, nnew);
 	if (chdir("../.."))
 		return 1;
 
@@ -1320,6 +1449,24 @@ int conf_write_autoconf(bool support_spl)
 	for (spl = 0; spl < num_spls; spl++) {
 		fclose(out_spl[spl]);
 		fclose(out_h_spl[spl]);
+	}
+
+	/* U-Boot: touch the dependencies of options which changed in each phase */
+	for (spl = 0; spl < num_spls; spl++) {
+		char tmpname[80], fname[80], dir[80];
+		char *s;
+
+		snprintf(tmpname, sizeof(tmpname), ".tmpconfig_%s",
+			 spl_name[spl]);
+		snprintf(fname, sizeof(fname), "include/config/auto_%s.conf",
+			 spl_name[spl]);
+		snprintf(dir, sizeof(dir), "phase-%s", spl_name[spl]);
+		for (s = fname; *s; s++)
+			*s = tolower(*s);
+		for (s = dir; *s; s++)
+			*s = tolower(*s);
+		if (conf_touch_changed(fname, tmpname, dir))
+			return 1;
 	}
 
 	name = getenv("KCONFIG_AUTOHEADER");
