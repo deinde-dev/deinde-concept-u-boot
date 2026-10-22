@@ -2610,7 +2610,8 @@ scripts_dtc: scripts_basic
 			echo '*** Failed to check dtc version: $(DTC)'; \
 			false; \
 		else \
-			if test "$(call dtc-version)" -lt $(DTC_MIN_VERSION); then \
+			if test "$$($(CONFIG_SHELL) $(srctree)/scripts/dtc-version.sh $(DTC))" \
+					-lt $(DTC_MIN_VERSION); then \
 				echo '*** Your dtc is too old, please upgrade to dtc $(DTC_MIN_VERSION) or newer'; \
 				false; \
 			else \
