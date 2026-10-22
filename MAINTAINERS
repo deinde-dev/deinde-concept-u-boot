@@ -2083,8 +2083,10 @@ F:	include/config/virtio/
 F:	include/config/virtio.h
 F:	include/config/cmd/virtio.h
 F:	include/virtio*.h
+F:	test/cmd/virtio.c
 F:	test/dm/virtio.c
 F:	doc/develop/driver-model/virtio.rst
+F:	doc/usage/cmd/virtio.rst
 
 WATCHDOG
 M:	Stefan Roese <stefan.roese@mailbox.org>
