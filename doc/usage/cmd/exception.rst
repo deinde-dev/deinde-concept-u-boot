@@ -67,3 +67,9 @@ Examples
     pc = 0x56076dd1a0f9, pc_reloc = 0x540f9
 
     resetting ...
+
+See also
+--------
+
+* :doc:`panic<panic>` for stopping U-Boot with a message of your own
+* :doc:`reset<reset>` for restarting the board without reporting a problem

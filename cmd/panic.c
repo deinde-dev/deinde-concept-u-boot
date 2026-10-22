@@ -5,18 +5,18 @@
 
 #include <vsprintf.h>
 #include <command.h>
+#include <getopt.h>
 
-static int do_panic(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char * const argv[])
+static int do_panic(struct getopt_state *gs)
 {
-	char *text = (argc < 2) ? "" : argv[1];
+	char *text = (gs->index < gs->argc) ? gs->argv[gs->index] : "";
 
-	panic(text);
+	panic_str(text);
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	panic,	2,	1,	do_panic,
 	"Panic with optional message",
 	"[message]"
