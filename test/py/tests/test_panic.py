@@ -42,6 +42,16 @@ def test_panic_percent(ubman):
     assert ubman.validate_exited()
 
 @pytest.mark.boardspec('sandbox')
+def test_panic_option(ubman):
+    """Check that an option shows the usage message
+
+    The command has no options, so one leaves U-Boot running rather than
+    panicking with the option as its message.
+    """
+    out = ubman.run_command('panic -x')
+    assert 'panic - Panic with optional message' in out
+
+@pytest.mark.boardspec('sandbox')
 def test_panic_usage(ubman):
     """Check that a second argument shows the usage message
 

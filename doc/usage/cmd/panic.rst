@@ -22,8 +22,9 @@ depending on the configuration.
 
 message
     text to show before stopping. The command takes at most one argument, so
-    a message containing a space must be quoted. The text is shown as it
-    stands; a percent sign in it has no special meaning.
+    a message containing a space must be quoted, and it cannot start with a
+    dash. The text is shown as it stands; a percent sign in it has no special
+    meaning.
 
 Example
 -------
@@ -53,8 +54,8 @@ Return value
 ------------
 
 The command does not return, so there is no return value to check. Giving it
-more than one argument shows the usage message instead of panicking, in which
-case the return value $? is set to 1 (false).
+an option, or more than one argument, shows the usage message instead of
+panicking, in which case the return value $? is set to 1 (false).
 
 See also
 --------
