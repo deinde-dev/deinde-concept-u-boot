@@ -229,14 +229,19 @@ void virtio_list(void)
 		struct virtio_dev_priv *uc_priv = dev_get_uclass_priv(dev);
 		const char *typename = NULL;	/* skip the 'virtio-' prefix */
 		struct udevice *child;
+		uint device = 0;
 
-		if (uc_priv->device < VIRTIO_ID_MAX_NUM)
-			typename = virtio_drv_name[uc_priv->device];
+		/* a device which is not active has no uclass private data */
+		if (uc_priv) {
+			device = uc_priv->device;
+			if (device < VIRTIO_ID_MAX_NUM)
+				typename = virtio_drv_name[device];
+		}
 
 		device_find_first_child(dev, &child);
 
-		printf("%-21.21s %2x: %-11.11s %s\n", dev->name,
-		       uc_priv->device, typename ? typename + 7 : "(unknown)",
+		printf("%-21.21s %2x: %-11.11s %s\n", dev->name, device,
+		       typename ? typename + 7 : "(unknown)",
 		       child ? child->name : "(none)");
 	}
 }

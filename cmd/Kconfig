@@ -2009,6 +2009,7 @@ config CMD_VIRTIO
 	bool "virtio"
 	depends on VIRTIO_BLK
 	default y if VIRTIO_BLK
+	select GETOPT
 	help
 	  VirtIO block device support
 

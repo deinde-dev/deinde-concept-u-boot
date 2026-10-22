@@ -153,6 +153,8 @@ See also
 
 * :doc:`ide<ide>` for the same set of sub-commands on an IDE drive, along with
   the reset which that interface provides
+* :doc:`virtio<virtio>` for the same set of sub-commands on a virtio
+  block-device, along with the listing which that interface provides
 * :doc:`part<part>` for listing and querying partitions on any block device,
   not just an NVMe one
 * :doc:`read<read>` for reading blocks from a partition rather than from the

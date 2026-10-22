@@ -14,8 +14,8 @@ Synopsis
     virtio scan
     virtio info
     virtio list
-    virtio device
-    virtio part
+    virtio device [dev]
+    virtio part [dev]
     virtio read <addr> <blk#> <cnt>
     virtio write <addr> <blk#> <cnt>
 
@@ -26,7 +26,7 @@ The *virtio* command is used to control a virtio block-device. It also provides
 some more general features.
 
 dev
-    Device number fo select
+    Device number to select
 addr
     memory address
 blk#
@@ -52,8 +52,12 @@ capacity.
 virtio list
 ~~~~~~~~~~~
 
-This shows a list of QEMU devices along with U-Boot each attached to each. Note
-that QEMU devices that U-Boot doesn't support will not be assigned a driver.
+This shows a list of QEMU devices along with the U-Boot driver attached to
+each. Note that QEMU devices which U-Boot does not support are not assigned a
+driver.
+
+A device which has not been scanned shows a type of 0 and a name of
+'(unknown)', since the type is read from the device when it is scanned.
 
 virtio device
 ~~~~~~~~~~~~~
@@ -76,6 +80,7 @@ block size is typically 512 but you can change it in the QEMU configuration.
 For example, to set the block size to 4K:
 
 ::
+
    qemu-system-x86_64
    -drive file=disk.img,if=none,id=drive0,format=raw \
    -device virtio-blk-pci,drive=drive0,id=virtio_disk0,logical_block_size=4096
@@ -262,3 +267,29 @@ Configuration
 -------------
 
 The `virtio` command is only available if `CONFIG_CMD_VIRTIO=y`.
+
+Return value
+------------
+
+The return value $? is 0 (true) if the sub-command succeeds and 1 (false) if
+it fails, if the sub-command is not recognised or if its arguments are wrong.
+A sub-command fails when *scan* finds no virtio bus at all, when the device
+asked for does not exist or none is available, or when a transfer moves fewer
+blocks than were requested.
+
+Note that 'virtio info' returns 0 even when no device is present, and so does
+'virtio part', which reports a missing partition table rather than failing.
+
+See also
+--------
+
+* :doc:`part<part>` for listing and querying partitions on any block device,
+  not just a virtio one
+* :doc:`read<read>` for reading blocks from a partition rather than from the
+  start of the device
+* :doc:`write<write>` for writing blocks to a partition
+* :doc:`nvme<nvme>` and :doc:`ide<ide>` for the same set of sub-commands on an
+  NVMe namespace or an IDE drive
+* *scsi* and *usb* for the same set of sub-commands on other kinds of drive
+* :doc:`blkcache<blkcache>` for the cache which sits in front of the reads
+  these sub-commands do
