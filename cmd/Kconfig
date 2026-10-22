@@ -2725,6 +2725,7 @@ config CMD_TIMER
 config CMD_SOUND
 	bool "sound"
 	depends on SOUND
+	select GETOPT
 	help
 	  This provides basic access to the U-Boot's sound support. The main
 	  feature is to play a beep.
