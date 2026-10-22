@@ -113,6 +113,25 @@ def setup_android_v2_image(config, log):
     create_gpt_image(config, log, 8, required_parts, images)
 
 
+def setup_android_avb_image(config, log):
+    """Create mmc17.img: boot image v2 with vbmeta.img
+
+    Args:
+        config (ArbitraryAttributeContainer): Configuration
+        log (multiplexed_log.Logfile): Log to write to
+    """
+    required_parts = [
+        {'num': 1, 'label':'boot', 'size': '4M'},
+        {'num': 2, 'label':'system', 'size': '4M'},
+        {'num': 3, 'label':'vbmeta', 'size': '4M'},
+    ]
+    images = [
+        (1, 'boot.img', test_abootimg.img_hex),
+        (3, 'vbmeta.img', test_abootimg.vbmeta_img_hex),
+    ]
+    create_gpt_image(config, log, 17, required_parts, images)
+
+
 def setup_android_image(config, log):
     """Create disk images with Android partitions
 
@@ -122,3 +141,4 @@ def setup_android_image(config, log):
     """
     setup_android_v4_image(config, log)
     setup_android_v2_image(config, log)
+    setup_android_avb_image(config, log)
