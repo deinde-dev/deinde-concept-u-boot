@@ -101,7 +101,7 @@ echo-cmd = $(if $($(quiet)cmd_$(1)),\
 silent_redirect := exec >/dev/null;
 
 # printing commands
-cmd = @set -e; $(echo-cmd) $($(quiet)redirect) $(cmd_$(1))
+cmd = $(if $(cmd_$(1)),@set -e; $(echo-cmd) $($(quiet)redirect) $(cmd_$(1)))
 
 ###
 # if_changed      - execute command if any prerequisite is newer than
