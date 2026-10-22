@@ -172,6 +172,9 @@ obj-$(CONFIG_CMD_UFETCH) += ufetch.o
 ifdef CONFIG_CMD_USB
 obj-$(CONFIG_USB_STORAGE) += usbboot.o
 endif
+ifdef CONFIG_VIRTIO_SANDBOX_EMUL
+obj-$(CONFIG_CMD_VIRTIO) += virtio.o
+endif
 obj-$(CONFIG_CMD_WDT) += wdt.o
 ifdef CONFIG_NET_LEGACY
 obj-$(CONFIG_CMD_BOOTP) += bootp.o
