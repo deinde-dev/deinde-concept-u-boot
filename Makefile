@@ -594,6 +594,9 @@ export KBUILD_ARFLAGS
 export LDR
 export CPU BOARD VENDOR SOC CPUDIR BOARDDIR
 export UBOOTINCLUDE
+# CC_VERSION_TEXT is referenced from Kconfig (so it needs export), and from
+# include/config/auto.conf.cmd to detect a compiler upgrade. No architecture
+# sets CROSS_COMPILE itself, so it can be worked out once, here
 export CC_VERSION_TEXT := $(shell $(CC) --version | head -n 1)
 
 # When compiling out-of-tree modules, put MODVERDIR in the module
@@ -680,12 +683,6 @@ RETPOLINE_CFLAGS := $(call cc-option,$(RETPOLINE_CFLAGS_GCC),$(call cc-option,$(
 RETPOLINE_VDSO_CFLAGS := $(call cc-option,$(RETPOLINE_VDSO_CFLAGS_GCC),$(call cc-option,$(RETPOLINE_VDSO_CFLAGS_CLANG)))
 export RETPOLINE_CFLAGS
 export RETPOLINE_VDSO_CFLAGS
-
-# The expansion should be delayed until arch/$(SRCARCH)/Makefile is included.
-# Some architectures define CROSS_COMPILE in arch/$(SRCARCH)/Makefile.
-# CC_VERSION_TEXT is referenced from Kconfig (so it needs export),
-# and from include/config/auto.conf.cmd to detect the compiler upgrade.
-CC_VERSION_TEXT = $(shell $(CC) --version | head -n 1)
 
 ifeq ($(config-targets),1)
 # *config targets only - make sure prerequisites are updated, and descend
