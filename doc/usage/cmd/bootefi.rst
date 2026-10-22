@@ -175,3 +175,4 @@ See also
 * :doc:`booti<booti>`, *bootm*, *bootz* for launching a Linux kernel without
   using the UEFI sub-system
 * *efidebug* for setting UEFI boot variables and boot options
+* :doc:`shim<shim>` for the settings which Shim reads when it starts
