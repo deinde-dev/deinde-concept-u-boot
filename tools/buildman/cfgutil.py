@@ -335,7 +335,8 @@ def adjust_cfg_to_fragment(adjust_cfg):
     return '\n'.join(lines) + '\n' if lines else ''
 
 
-def run_merge_config(src_dir, out_dir, cfg_file, adjust_cfg, env):
+def run_merge_config(src_dir, out_dir, cfg_file, adjust_cfg, env,
+                     base_defconfig=None):
     """Run merge_config.sh to apply config changes with Kconfig resolution
 
     This uses scripts/kconfig/merge_config.sh to merge config fragments
@@ -348,12 +349,18 @@ def run_merge_config(src_dir, out_dir, cfg_file, adjust_cfg, env):
     imply from taking effect. Using savedefconfig output ensures only
     explicitly set options are in the base, allowing imply to work.
 
+    If the caller already has such a defconfig, it can pass it as
+    base_defconfig, which avoids running 'make savedefconfig'
+
     Args:
         src_dir (str): Source directory (containing scripts/kconfig)
         out_dir (str): Output directory containing .config
         cfg_file (str): Path to the .config file
         adjust_cfg (dict): Config changes to apply
         env (dict): Environment variables
+        base_defconfig (str or None): Minimal defconfig to use as the base,
+            such as the generated_defconfig left by 'make <board>_defconfig',
+            or None to create one from cfg_file
 
     Returns:
         CommandResult: Result of the merge_config.sh operation
@@ -377,16 +384,19 @@ def run_merge_config(src_dir, out_dir, cfg_file, adjust_cfg, env):
     else:
         rel_out_dir = out_dir or '.'
         rel_cfg_file = cfg_file
-    defconfig_path = os.path.join(rel_out_dir, 'defconfig')
-    make_cmd = ['make', f'O={rel_out_dir}' if rel_out_dir != '.' else None,
-                f'KCONFIG_CONFIG={rel_cfg_file}', 'savedefconfig']
-    make_cmd = [x for x in make_cmd if x]  # Remove None elements
-    result = command.run_one(*make_cmd, cwd=src_dir, env=env, capture=True,
-                             capture_stderr=True)
-    if result.return_code:
-        if os.path.exists(frag_path):
-            os.unlink(frag_path)
-        return result
+    if base_defconfig:
+        defconfig_path = os.path.relpath(base_defconfig, src_dir or '.')
+    else:
+        defconfig_path = os.path.join(rel_out_dir, 'defconfig')
+        make_cmd = ['make', f'O={rel_out_dir}' if rel_out_dir != '.' else None,
+                    f'KCONFIG_CONFIG={rel_cfg_file}', 'savedefconfig']
+        make_cmd = [x for x in make_cmd if x]  # Remove None elements
+        result = command.run_one(*make_cmd, cwd=src_dir, env=env,
+                                 capture=True, capture_stderr=True)
+        if result.return_code:
+            if os.path.exists(frag_path):
+                os.unlink(frag_path)
+            return result
 
     try:
         # Run merge_config.sh with the minimal defconfig as base
