@@ -844,8 +844,8 @@ u-boot.cfg spl/u-boot.cfg tpl/u-boot.cfg vpl/u-boot.cfg:
 # gimmick, wrong config.mk would be included leading nasty warnings/errors.
 ifneq ($(wildcard $(KCONFIG_CONFIG)),)
 ifneq ($(wildcard include/config/auto.conf),)
-autoconf_is_old := $(shell find . -path ./$(KCONFIG_CONFIG) -newer \
-						include/config/auto.conf)
+autoconf_is_old := $(shell test $(KCONFIG_CONFIG) -nt include/config/auto.conf \
+			   && echo old)
 ifeq ($(autoconf_is_old),)
 include $(srctree)/config.mk
 
@@ -1462,6 +1462,13 @@ endef
 quiet_cmd_llcheck = LLCHK   $2
 cmd_llcheck = $(srctree)/scripts/check_linker_lists.py $2
 
+# Check the linker lists each time U-Boot is linked, rather than on every build
+.u-boot.llcheck: u-boot
+	$(call cmd,llcheck,u-boot)
+	@touch $@
+
+all: .u-boot.llcheck
+
 # Timestamp file to make sure that binman always runs
 .binman_stamp: $(INPUTS-y) FORCE
 ifeq ($(CONFIG_BINMAN),y)
@@ -1494,7 +1501,10 @@ endif
 
 PHONY += dtbs dtbs_check
 dtbs: dts/dt.dtb
-dts/dt.dtb: dtbs_prepare u-boot
+# With OF_EMBED the U-Boot build descends into dts/ itself, so wait for it to
+# avoid two makes there at once. Otherwise build the devicetree in parallel, so
+# that SPL and TPL, which need it, do not wait for U-Boot to link
+dts/dt.dtb: dtbs_prepare prepare scripts_dtc tools $(if $(CONFIG_OF_EMBED),u-boot)
 	$(Q)$(MAKE) $(build)=dts dtbs
 
 dtbs_prepare: prepare3
@@ -2198,7 +2208,6 @@ ifeq ($(CONFIG_KALLSYMS),y)
 	$(call cmd,smap)
 	$(call cmd,u-boot__) common/system_map.o
 endif
-	$(call cmd,llcheck,u-boot)
 ifeq ($(CONFIG_RISCV),y)
 ifneq ($(CONFIG_EFI_APP),y)
 	@tools/prelink-riscv $@
@@ -3083,8 +3092,14 @@ cmd_crmodverdir = $(Q)mkdir -p $(MODVERDIR) \
 
 # read saved command lines for existing targets
 existing-targets := $(wildcard $(sort $(targets)))
+existing-cmds := $(foreach f,$(existing-targets),$(dir $(f)).$(notdir $(f)).cmd)
 
--include $(foreach f,$(existing-targets),$(dir $(f)).$(notdir $(f)).cmd)
+-include $(existing-cmds)
+
+# U-Boot: the images built here (u-boot.lds, u-boot-nodtb.bin and so on) are
+# not listed in targets, so read the rest of the saved command lines here too.
+# Without them, if_changed sees an empty command and remakes every one
+-include $(filter-out $(existing-cmds),$(wildcard .*.cmd))
 
 endif   # ifeq ($(config-targets),1)
 endif   # ifeq ($(mixed-targets),1)

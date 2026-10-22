@@ -227,6 +227,30 @@ class TestRunMergeConfig(unittest.TestCase):
         self.assertEqual(src_dir, merge_cwd,
                          f'cwd should be src_dir, got: {merge_cwd}')
 
+    def test_merge_base_defconfig(self):
+        """Test that a base defconfig avoids running savedefconfig"""
+        from unittest import mock
+        from u_boot_pylib import command
+
+        commands_run = []
+
+        def mock_run_one(*args, **kwargs):
+            commands_run.append(args)
+            return command.CommandResult(return_code=0)
+
+        with mock.patch.object(command, 'run_one', mock_run_one):
+            cfgutil.run_merge_config(
+                'src', 'src/build', 'src/build/.config',
+                {'LOCALVERSION_AUTO': '~LOCALVERSION_AUTO'}, {},
+                'src/build/generated_defconfig')
+
+        # Only merge_config.sh runs, with the base given as a path relative
+        # to the source directory
+        self.assertEqual(1, len(commands_run))
+        self.assertEqual('scripts/kconfig/merge_config.sh', commands_run[0][0])
+        self.assertEqual(['-O', 'build', 'build/generated_defconfig'],
+                         list(commands_run[0][1:4]))
+
 
 class TestProcessConfig(unittest.TestCase):
     """Tests for process_config() function"""

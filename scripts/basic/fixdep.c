@@ -99,7 +99,12 @@
 #include <stdio.h>
 #include <ctype.h>
 
-char tmp_buf[256]; /* hack for U-Boot */
+/*
+ * U-Boot: each phase has its own config, so kconfig keeps a separate set of
+ * dependency files for each one, below include/config/phase-<name>/ for the
+ * xPL phases and tools. This is the directory to use for this target
+ */
+static const char *config_dir = "include/config";
 
 static void usage(void)
 {
@@ -222,7 +227,7 @@ static void use_config(const char *m, int slen)
 	    return;
 
 	define_config(m, slen, hash);
-	print_dep(m, slen, "include/config");
+	print_dep(m, slen, config_dir);
 }
 
 /* test if s ends in sub */
@@ -318,6 +323,10 @@ static void *read_file(const char *filename)
 static int is_ignored_file(const char *s, int len)
 {
 	return str_ends_with(s, len, "include/generated/autoconf.h") ||
+	       str_ends_with(s, len, "include/generated/autoconf_spl.h") ||
+	       str_ends_with(s, len, "include/generated/autoconf_tpl.h") ||
+	       str_ends_with(s, len, "include/generated/autoconf_vpl.h") ||
+	       str_ends_with(s, len, "include/generated/autoconf_tools.h") ||
 	       str_ends_with(s, len, "include/generated/autoksyms.h");
 }
 
@@ -486,14 +495,15 @@ int main(int argc, char *argv[])
 	target = argv[2];
 	cmdline = argv[3];
 
-	/* hack for U-Boot */
-	if (!strncmp(target, "spl/", 4))
-		strcpy(tmp_buf, "SPL_");
+	/* U-Boot: pick the dependency files for the phase, as kconfig.h does */
+	if (strstr(cmdline, "-DUSE_HOSTCC"))
+		config_dir = "include/config/phase-tools";
+	else if (!strncmp(target, "spl/", 4))
+		config_dir = "include/config/phase-spl";
 	else if (!strncmp(target, "tpl/", 4))
-		strcpy(tmp_buf, "TPL_");
+		config_dir = "include/config/phase-tpl";
 	else if (!strncmp(target, "vpl/", 4))
-		strcpy(tmp_buf, "VPL_");
-	/* end U-Boot hack */
+		config_dir = "include/config/phase-vpl";
 
 	xprintf("cmd_%s := %s\n\n", target, cmdline);
 

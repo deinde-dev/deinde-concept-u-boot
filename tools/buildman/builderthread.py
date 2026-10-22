@@ -649,14 +649,23 @@ class BuilderThread(threading.Thread):
                 cfg_file (str): Path to the .config file
         """
         cfg_file = os.path.join(out_dir or '', '.config')
-        if do_config or req.adjust_cfg:
+
+        # The adjustments stay in .config until the next reconfigure, which
+        # applies them again, so there is no need to reconfigure every commit
+        if do_config:
             result = self._reconfigure(
                 commit, req.brd, setup.cwd, setup.args, setup.env,
                 setup.config_args, config_out, cmd_list, mrproper)
             do_config = False   # No need to configure next time
             if req.adjust_cfg:
+                # Without fragments, the board's preprocessed defconfig is
+                # already a minimal base for the merge
+                base = os.path.join(out_dir or setup.cwd, 'generated_defconfig')
+                if len(setup.config_args) > 1 or not os.path.exists(base):
+                    base = None
                 merge_result = cfgutil.run_merge_config(
-                    setup.cwd, out_dir, cfg_file, req.adjust_cfg, setup.env)
+                    setup.cwd, out_dir, cfg_file, req.adjust_cfg, setup.env,
+                    base)
                 config_out.write(merge_result.combined)
                 if merge_result.return_code:
                     result = merge_result
