@@ -1140,6 +1140,14 @@ static int conf_split_config(void)
 		sym_calc_value(sym);
 		if ((sym->flags & SYMBOL_NO_WRITE) || !sym->name)
 			continue;
+		/*
+		 * U-Boot: auto.conf also holds a PPL_ copy of each option, which
+		 * reads back as a symbol with an old value but no new one, so
+		 * would be touched every time. Only the top-level Makefile uses
+		 * these, through the saved commands, so skip them
+		 */
+		if (!sym->prop && !strncmp(sym->name, "PPL_", 4))
+			continue;
 		if (sym->flags & SYMBOL_WRITE) {
 			if (sym->flags & SYMBOL_DEF_AUTO) {
 				/*
