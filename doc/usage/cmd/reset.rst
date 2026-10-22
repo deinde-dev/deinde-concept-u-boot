@@ -44,5 +44,6 @@ See also
 --------
 
 * :doc:`bootcount<bootcount>` for the counter which each reset steps on
+* :doc:`panic<panic>` for stopping the board after reporting a problem
 * :doc:`wdt<wdt>` for a watchdog timer, which resets the board when it is
   left unserviced
