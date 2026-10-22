@@ -74,14 +74,13 @@ def create_gpt_image(config, log, mmc_dev, required_parts, images):
         outf.write(disk_data)
 
 
-def setup_android_image(config, log):
-    """Create a 20MB disk image with Android partitions
+def setup_android_v4_image(config, log):
+    """Create mmc7.img: boot image v4 with vendor_boot partitions
 
     Args:
         config (ArbitraryAttributeContainer): Configuration
         log (multiplexed_log.Logfile): Log to write to
     """
-    mmc_dev = 7
     required_parts = [
         {'num': 1, 'label':'misc', 'size': '1M'},
         {'num': 2, 'label':'boot_a', 'size': '4M'},
@@ -93,9 +92,16 @@ def setup_android_image(config, log):
         (2, 'bootv4.img', test_abootimg.boot_img_hex),
         (4, 'vendor_boot.img', test_abootimg.vboot_img_hex),
     ]
-    create_gpt_image(config, log, mmc_dev, required_parts, images)
+    create_gpt_image(config, log, 7, required_parts, images)
 
-    mmc_dev = 8
+
+def setup_android_v2_image(config, log):
+    """Create mmc8.img: boot image v2 without vendor_boot
+
+    Args:
+        config (ArbitraryAttributeContainer): Configuration
+        log (multiplexed_log.Logfile): Log to write to
+    """
     required_parts = [
         {'num': 1, 'label':'misc', 'size': '1M'},
         {'num': 2, 'label':'boot_a', 'size': '4M'},
@@ -104,4 +110,15 @@ def setup_android_image(config, log):
     images = [
         (2, 'boot.img', test_abootimg.img_hex),
     ]
-    create_gpt_image(config, log, mmc_dev, required_parts, images)
+    create_gpt_image(config, log, 8, required_parts, images)
+
+
+def setup_android_image(config, log):
+    """Create disk images with Android partitions
+
+    Args:
+        config (ArbitraryAttributeContainer): Configuration
+        log (multiplexed_log.Logfile): Log to write to
+    """
+    setup_android_v4_image(config, log)
+    setup_android_v2_image(config, log)
