@@ -1075,13 +1075,56 @@ static int conf_write_dep(const char *name)
 	return 0;
 }
 
+/**
+ * conf_touch_dep() - Touch the dependency file for a symbol
+ *
+ * fixdep makes each object depend on include/config/<name>.h for each option
+ * its source mentions, so touching that file rebuilds the objects which use
+ * the option. This must be called with include/config as the current directory
+ *
+ * @name: Symbol name, without CONFIG_
+ * Return: 0 if OK, 1 on error
+ */
+static int conf_touch_dep(const char *name)
+{
+	char path[PATH_MAX + 1];
+	const char *s;
+	char *d, c;
+	int fd;
+
+	/* Replace all '_' and append ".h" */
+	s = name;
+	d = path;
+	while ((c = *s++)) {
+		c = tolower(c);
+		*d++ = (c == '_') ? '/' : c;
+	}
+	strcpy(d, ".h");
+
+	/* Assume directory path already exists. */
+	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (fd == -1) {
+		if (errno != ENOENT)
+			return 1;
+
+		if (make_parent_dir(path))
+			return 1;
+
+		/* Try it again. */
+		fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (fd == -1)
+			return 1;
+	}
+	close(fd);
+
+	return 0;
+}
+
 static int conf_split_config(void)
 {
 	const char *name;
-	char path[PATH_MAX+1];
-	char *s, *d, c;
 	struct symbol *sym;
-	int res, i, fd;
+	int res, i;
 
 	name = conf_get_autoconfig_name();
 	conf_read_simple(name, S_DEF_AUTO);
@@ -1144,38 +1187,10 @@ static int conf_split_config(void)
 		 *	different from 'no').
 		 */
 
-		/* Replace all '_' and append ".h" */
-		s = sym->name;
-		d = path;
-		while ((c = *s++)) {
-			c = tolower(c);
-			*d++ = (c == '_') ? '/' : c;
-		}
-		strcpy(d, ".h");
-
-		/* Assume directory path already exists. */
-		fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-		if (fd == -1) {
-			if (errno != ENOENT) {
-				res = 1;
-				break;
-			}
-
-			if (make_parent_dir(path)) {
-				res = 1;
-				goto out;
-			}
-
-			/* Try it again. */
-			fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-			if (fd == -1) {
-				res = 1;
-				break;
-			}
-		}
-		close(fd);
+		res = conf_touch_dep(sym->name);
+		if (res)
+			break;
 	}
-out:
 	if (chdir("../.."))
 		return 1;
 
