@@ -98,7 +98,10 @@ stages:
       options: $(container_option)
     steps:
       - script: |
-          ./tools/buildman/buildman --maintainer-check
+          python3 -m venv /tmp/venv
+          . /tmp/venv/bin/activate
+          pip install -r tools/buildman/requirements.txt
+          buildman --maintainer-check
 
   - job: allyesconfig_and_tools
     displayName: 'Ensure allyesconfig, tools-only and envtools build'
@@ -122,7 +125,7 @@ stages:
           make tools-only_config envtools -j$(nproc)
 
   - job: utils
-    displayName: 'Run buildman, dtoc and Kconfig testsuites'
+    displayName: 'Run dtoc and Kconfig testsuites'
     pool:
       vmImage: $(ubuntu_vm)
     container:
@@ -147,9 +150,8 @@ stages:
           export UBOOT_TRAVIS_BUILD_DIR=/tmp/tools-only
           export PYTHONPATH=${UBOOT_TRAVIS_BUILD_DIR}/scripts/dtc/pylibfdt
           export PATH=${UBOOT_TRAVIS_BUILD_DIR}/scripts/dtc:${PATH}
-          ./tools/buildman/buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w --board tools-only
+          buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w --board tools-only
           set -ex
-          ./tools/buildman/buildman -t
           ./tools/qconfig.py -t
           ./tools/dtoc/dtoc -t
           ./tools/u_boot_pylib/u_boot_pylib test
@@ -178,7 +180,7 @@ stages:
           echo "[MASTER]" >> .pylintrc
           echo "load-plugins=pylint.extensions.docparams" >> .pylintrc
           export UBOOT_TRAVIS_BUILD_DIR=/tmp/tools-only
-          ./tools/buildman/buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w --board tools-only
+          buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w --board tools-only
           set -ex
           pylint --version
           export PYTHONPATH=${UBOOT_TRAVIS_BUILD_DIR}/scripts/dtc/pylibfdt
@@ -203,42 +205,45 @@ stages:
       options: $(container_option)
     steps:
       - script: |
+          python3 -m venv /tmp/venv
+          . /tmp/venv/bin/activate
+          pip install -r tools/buildman/requirements.txt
           BMANARGS="-o /tmp --dry-run -v"
           # First get the total number of boards
-          total=$(tools/buildman/buildman ${BMANARGS} | grep "Total boards to build for each commit" | cut -d ' ' -f 8)
+          total=$(buildman ${BMANARGS} | grep "Total boards to build for each commit" | cut -d ' ' -f 8)
           # Now build up the list of what each job built.
-          built="$(tools/buildman/buildman ${BMANARGS} $(am33xx_kirkwood) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(amd) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(amlogic_bcm) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(atmel) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(engicam_renesas) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(k3_32b) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(k3_64b) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(kirkwood_mvebu) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(layerscape_vf610) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(m68k_remaining_mx_xtensa) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(mips_x86) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(mx6) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(imx8) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(imx9_arc_nios2_socfpga) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(phytec_toradex) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(powerpc) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(riscv_stm32) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(rk3399) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(rk352x_rk358x) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(rk356x_rk357x) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(rk3xxx_rest) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(sandbox_tegra) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(samsung_omap_mediatek) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(sun4i_5i) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(sun6i_sun7i) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(sun8i) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(sunxi_rest) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(arm_catch_all) | grep '^   ')"
-          built="$built $(tools/buildman/buildman ${BMANARGS} $(aarch64_catch_all) | grep '^   ')"
+          built="$(buildman ${BMANARGS} $(am33xx_kirkwood) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(amd) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(amlogic_bcm) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(atmel) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(engicam_renesas) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(k3_32b) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(k3_64b) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(kirkwood_mvebu) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(layerscape_vf610) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(m68k_remaining_mx_xtensa) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(mips_x86) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(mx6) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(imx8) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(imx9_arc_nios2_socfpga) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(phytec_toradex) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(powerpc) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(riscv_stm32) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(rk3399) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(rk352x_rk358x) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(rk356x_rk357x) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(rk3xxx_rest) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(sandbox_tegra) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(samsung_omap_mediatek) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(sun4i_5i) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(sun6i_sun7i) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(sun8i) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(sunxi_rest) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(arm_catch_all) | grep '^   ')"
+          built="$built $(buildman ${BMANARGS} $(aarch64_catch_all) | grep '^   ')"
 
           # Finally see how many machines that is.
-          actual=$(tools/buildman/buildman ${BMANARGS} $built | grep "Total boards to build for each commit" | cut -d ' ' -f 8)
+          actual=$(buildman ${BMANARGS} $built | grep "Total boards to build for each commit" | cut -d ' ' -f 8)
           echo We would build a total of $actual out of $total platforms this CI run
           [ $actual -eq $total ] && exit 0 || exit 1
 
@@ -289,7 +294,7 @@ stages:
             -r tools/u_boot_pylib/requirements.txt \
             setuptools \
             pytest-azurepipelines
-          tools/buildman/buildman -o \${UBOOT_TRAVIS_BUILD_DIR} -w -E -W -e --board \${TEST_PY_BD} \${OVERRIDE}
+          buildman -o \${UBOOT_TRAVIS_BUILD_DIR} -w -E -W -e --board \${TEST_PY_BD} \${OVERRIDE}
           cp /opt/grub/grub_x86.efi \${UBOOT_TRAVIS_BUILD_DIR}/
           cp /opt/grub/grub_x64.efi \${UBOOT_TRAVIS_BUILD_DIR}/
           cp /opt/grub/grubriscv64.efi \${UBOOT_TRAVIS_BUILD_DIR}/grub_riscv64.efi
@@ -703,9 +708,9 @@ stages:
             -r tools/buildman/requirements.txt
           if [[ "${BUILDMAN}" != "" ]]; then
               ret=0;
-              tools/buildman/buildman -o /tmp -PEWM ${BUILDMAN} ${OVERRIDE} || ret=$?;
+              buildman -o /tmp -PEWM ${BUILDMAN} ${OVERRIDE} || ret=$?;
               if [[ $ret -ne 0 ]]; then
-                  tools/buildman/buildman -o /tmp -seP ${BUILDMAN};
+                  buildman -o /tmp -seP ${BUILDMAN};
                   exit $ret;
               fi;
           fi

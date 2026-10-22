@@ -1,2 +1,2 @@
-filelock==3.20.3
-importlib_resources==6.5.2
+# buildman is maintained as the standalone buildman package
+buildman==0.2.0

@@ -112,7 +112,7 @@ stages:
     - if [ -n "${BUILD_ENV}" ]; then
         export ${BUILD_ENV};
       fi
-    - tools/buildman/buildman -o ${UBOOT_TRAVIS_BUILD_DIR} -w -E -W -e
+    - buildman -o ${UBOOT_TRAVIS_BUILD_DIR} -w -E -W -e
         --board ${TEST_PY_BD} ${OVERRIDE}
     - cp /opt/grub/grub_x86.efi $UBOOT_TRAVIS_BUILD_DIR/
     - cp /opt/grub/grub_x64.efi $UBOOT_TRAVIS_BUILD_DIR/
@@ -202,9 +202,9 @@ build all 32bit ARM platforms:
         setuptools
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      ./tools/buildman/buildman -o /tmp -PEWM arm -x aarch64 || ret=$?;
+      buildman -o /tmp -PEWM arm -x aarch64 || ret=$?;
       if [[ $ret -ne 0 ]]; then
-        ./tools/buildman/buildman -o /tmp -seP;
+        buildman -o /tmp -seP;
         exit $ret;
       fi;
 
@@ -223,9 +223,9 @@ build all 64bit ARM platforms:
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
       pip install -r tools/buildman/requirements.txt;
-      ./tools/buildman/buildman -o /tmp -PEWM aarch64 || ret=$?;
+      buildman -o /tmp -PEWM aarch64 || ret=$?;
       if [[ $ret -ne 0 ]]; then
-        ./tools/buildman/buildman -o /tmp -seP;
+        buildman -o /tmp -seP;
         exit $ret;
       fi;
 
@@ -243,9 +243,9 @@ build all PowerPC platforms:
         setuptools
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      ./tools/buildman/buildman -o /tmp -P -E -W powerpc || ret=$?;
+      buildman -o /tmp -P -E -W powerpc || ret=$?;
       if [[ $ret -ne 0 ]]; then
-        ./tools/buildman/buildman -o /tmp -seP;
+        buildman -o /tmp -seP;
         exit $ret;
       fi;
 
@@ -269,9 +269,9 @@ build all other platforms:
         setuptools
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      ./tools/buildman/buildman -o /tmp -PEWM -x arm,powerpc,xtensa || ret=$?;
+      buildman -o /tmp -PEWM -x arm,powerpc,xtensa || ret=$?;
       if [[ $ret -ne 0 ]]; then
-        ./tools/buildman/buildman -o /tmp -seP;
+        buildman -o /tmp -seP;
         exit $ret;
       fi;
 
@@ -312,7 +312,10 @@ docs:
 Check for configs without MAINTAINERS entry:
   extends: .test_suites
   script:
-    - ./tools/buildman/buildman --maintainer-check
+    - python3 -m venv /tmp/venv;
+      . /tmp/venv/bin/activate;
+      pip install -r tools/buildman/requirements.txt
+    - buildman --maintainer-check
 
 # Ensure host tools build
 Build allyesconfig, tools-only and envtools:
@@ -332,7 +335,7 @@ Build allyesconfig, tools-only and envtools:
       make mrproper;
       make tools-only_config envtools -j$(nproc)
 
-Run buildman, dtoc, hwids_to_dtsi, Kconfig and pickman suites:
+Run dtoc, hwids_to_dtsi, Kconfig and pickman suites:
   extends: .test_suites
   script:
     - git config --global user.name "GitLab CI Runner";
@@ -349,16 +352,14 @@ Run buildman, dtoc, hwids_to_dtsi, Kconfig and pickman suites:
       export PYTHONPATH="${UBOOT_TRAVIS_BUILD_DIR}/scripts/dtc/pylibfdt";
       export PATH="${UBOOT_TRAVIS_BUILD_DIR}/scripts/dtc:${PATH}";
       set +e;
-      ./tools/buildman/buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w
+      buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w
         --board tools-only;
       set -e;
-      ./tools/buildman/buildman -t;
       ./tools/qconfig.py -t;
       ./tools/dtoc/dtoc -t;
       ./tools/u_boot_pylib/u_boot_pylib test;
       ./tools/pickman/pickman test;
       ./tools/pickman/pickman test -T;
-      ./tools/buildman/buildman --coverage;
       python3 ./test/scripts/test_hwids_to_dtsi.py;
       python3 -m pytest ./test/scripts/test_release_version.py;
       make testconfig
@@ -381,7 +382,7 @@ Run pylint:
     - echo "load-plugins=pylint.extensions.docparams" >> .pylintrc
     - export UBOOT_TRAVIS_BUILD_DIR=/tmp/tools-only
     - set +e
-    - ./tools/buildman/buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w
+    - buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w
         --board tools-only
     - set -e
     - pylint --version
@@ -401,9 +402,13 @@ Examples:
       git config --global user.email trini@konsulko.com;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
       export USER=gitlab;
+      python3 -m venv /tmp/venv;
+      . /tmp/venv/bin/activate;
+      pip install -r tools/binman/requirements.txt
+        -r tools/buildman/requirements.txt setuptools;
       export UBOOT_TRAVIS_BUILD_DIR=/tmp/sandbox;
       set +e;
-      ./tools/buildman/buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w
+      buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w
         --board sandbox;
       set -e;
     - echo "Building C examples";
@@ -893,11 +898,12 @@ coreboot test.py:
     - export PATH=$PATH:~/bin
     - export PATH=$PATH:test/hooks/bin
 
-    # Install the binman version this tree expects, in a per-job virtualenv
-    # which can still see the host's Python packages
+    # Install the binman and buildman versions this tree expects, in a
+    # per-job virtualenv which can still see the host's Python packages
     - python3 -m venv --system-site-packages /tmp/venv-${CI_JOB_ID}
     - . /tmp/venv-${CI_JOB_ID}/bin/activate
     - pip install -q -r tools/binman/requirements.txt
+        -r tools/buildman/requirements.txt
 
     # Load it on the device
     - ret=0
