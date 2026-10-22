@@ -11,7 +11,7 @@ static int do_panic(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 	char *text = (argc < 2) ? "" : argv[1];
 
-	panic(text);
+	panic_str(text);
 
 	return CMD_RET_SUCCESS;
 }
