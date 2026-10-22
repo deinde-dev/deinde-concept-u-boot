@@ -143,6 +143,7 @@ CMD_TEST(cmd_test_shim_persist, UTF_CONSOLE);
 static int cmd_test_shim_usage(struct unit_test_state *uts)
 {
 	ut_assertok(init_efi(uts));
+	clear_verbose();
 
 	/* a sub-command is needed */
 	ut_asserteq(1, run_command("shim", 0));
@@ -155,6 +156,15 @@ static int cmd_test_shim_usage(struct unit_test_state *uts)
 	/* -n says how to write the value, so it cannot appear on its own */
 	ut_asserteq(1, run_command("shim debug -n", 0));
 	ut_assertok(check_usage(uts));
+
+	/* an option which the command does not know is refused */
+	ut_asserteq(1, run_command("shim debug -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* that leaves the setting alone */
+	ut_assertok(run_command("shim debug", 0));
+	ut_assert_nextline("0");
+	ut_assert_console_end();
 
 	return 0;
 }

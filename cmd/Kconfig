@@ -695,6 +695,7 @@ config CMD_SHIM
 	bool "shim"
 	depends on CMD_NVEDIT_EFI
 	default y if SANDBOX || EFI_APP
+	select GETOPT
 	help
 	  Provides a few commands for dealing with Shim being in the boot
 	  chain. This can be useful when debugging booting, particularly on
