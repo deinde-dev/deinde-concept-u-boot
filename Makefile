@@ -1022,9 +1022,7 @@ KBUILD_AFLAGS	+= -gdwarf-4
 # ARC tools based on GCC 7.1 has an issue with stack usage
 # with naked functions, see commit message for more details
 ifndef CONFIG_ARC
-ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-stack-usage.sh $(CC)),y)
-	KBUILD_CFLAGS += -fstack-usage
-endif
+KBUILD_CFLAGS += $(call cc-option,-fstack-usage)
 endif
 
 KBUILD_CFLAGS += $(call cc-option,-Wno-format-nonliteral)
