@@ -154,6 +154,8 @@ See also
 * :doc:`write<write>` for writing blocks to a partition
 * :doc:`nvme<nvme>` for the same set of sub-commands on an NVMe namespace,
   along with the scan and detail which that interface provides
+* :doc:`virtio<virtio>` for the same set of sub-commands on a virtio
+  block-device
 * *scsi* and *usb* for the same set of sub-commands on other kinds of drive
 * :doc:`scsiboot<scsiboot>` for loading and starting an image held on a SCSI
   drive, which is the same command as diskboot with another interface
