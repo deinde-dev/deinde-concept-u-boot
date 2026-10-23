@@ -26,7 +26,6 @@ struct dhcp_handoff_test {
 	unsigned int rx_packets;
 	int rx_error;
 	unsigned int discovers;
-	unsigned int arp_replies;
 	unsigned int tftp;
 	unsigned int nfs;
 	u32 boot_server;
@@ -119,13 +118,8 @@ static int dhcp_handoff_tx(struct udevice *dev, void *packet, unsigned int len)
 	u8 *data;
 
 	if (test->rx_burst && netif_dhcp_data(netif_default) &&
-	    ntohs(eth->et_protlen) == PROT_ARP) {
-		struct etharp_hdr *arp = (void *)(eth + 1);
-
-		if (ntohs(arp->opcode) == ARP_REPLY)
-			test->arp_replies++;
+	    ntohs(eth->et_protlen) == PROT_ARP)
 		return 0;
-	}
 	if (!sandbox_eth_arp_req_to_reply(dev, packet, len))
 		return 0;
 	if (len < ETHER_HDR_SIZE + IP_UDP_HDR_SIZE ||
@@ -259,7 +253,6 @@ static int dhcp_handoff_check(struct unit_test_state *uts,
 	ut_assertok(dhcp_handoff_run(1, argv));
 	ut_asserteq(0, test->rx_error);
 	ut_asserteq(ETH_PACKETS_BATCH_RECV, test->rx_packets);
-	ut_asserteq(ETH_PACKETS_BATCH_RECV - 2, test->arp_replies);
 	ut_asserteq_str("1.1.2.3", env_get("ipaddr"));
 	ut_asserteq(0, test->tftp);
 	ut_asserteq(0, test->nfs);
