@@ -35,7 +35,9 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	ulong		addr = image_load_addr;
 	ulong		dest = 0;
 	ulong		data, len;
+	void		*ptr, *dst;
 	int		verify;
+	int		ret = 1;
 	int		part = 0;
 #if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 	ulong		count;
@@ -68,22 +70,30 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		dest = hextoul(argv[3], NULL);
 	}
 
-	switch (genimg_get_format((void *)addr)) {
+	/*
+	 * Map both addresses here, so that the single exit path can unmap
+	 * them. The destination is mapped even when the command is not asked
+	 * to copy anything, in which case it is unused
+	 */
+	ptr = map_sysmem(addr, 0);
+	dst = map_sysmem(dest, 0);
+
+	switch (genimg_get_format(ptr)) {
 #if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 	case IMAGE_FORMAT_LEGACY:
 
 		printf("## Copying part %d from legacy image "
 			"at %08lx ...\n", part, addr);
 
-		hdr = (struct legacy_img_hdr *)addr;
+		hdr = ptr;
 		if (!image_check_magic(hdr)) {
 			printf("Bad Magic Number\n");
-			return 1;
+			goto done;
 		}
 
 		if (!image_check_hcrc(hdr)) {
 			printf("Bad Header Checksum\n");
-			return 1;
+			goto done;
 		}
 #ifdef DEBUG
 		image_print_contents(hdr);
@@ -93,7 +103,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		    !image_check_type(hdr, IH_TYPE_SCRIPT)) {
 			printf("Wrong Image Type for %s command\n",
 					cmdtp->name);
-			return 1;
+			goto done;
 		}
 
 		comp = image_get_comp(hdr);
@@ -101,14 +111,14 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			printf("Must specify load address for %s command "
 					"with compressed image\n",
 					cmdtp->name);
-			return 1;
+			goto done;
 		}
 
 		if (verify) {
 			printf("   Verifying Checksum ... ");
 			if (!image_check_dcrc(hdr)) {
 				printf("Bad Data CRC\n");
-				return 1;
+				goto done;
 			}
 			printf("OK\n");
 		}
@@ -116,7 +126,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		count = image_multi_count(hdr);
 		if (part >= count) {
 			printf("Bad Image Part\n");
-			return 1;
+			goto done;
 		}
 
 		image_multi_getimg(hdr, part, &data, &len);
@@ -126,23 +136,23 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	case IMAGE_FORMAT_FIT:
 		if (uname == NULL) {
 			puts("No FIT subimage unit name\n");
-			return 1;
+			goto done;
 		}
 
 		printf("## Copying '%s' subimage from FIT image "
 			"at %08lx ...\n", uname, addr);
 
-		fit_hdr = (const void *)addr;
+		fit_hdr = ptr;
 		if (fit_check_format(fit_hdr, IMAGE_SIZE_INVAL)) {
 			puts("Bad FIT image format\n");
-			return 1;
+			goto done;
 		}
 
 		/* get subimage node offset */
 		noffset = fit_image_get_node(fit_hdr, uname);
 		if (noffset < 0) {
 			printf("Can't find '%s' FIT subimage\n", uname);
-			return 1;
+			goto done;
 		}
 
 		if (!fit_image_check_comp(fit_hdr, noffset, IH_COMP_NONE)
@@ -150,21 +160,21 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			printf("Must specify load address for %s command "
 				"with compressed image\n",
 				cmdtp->name);
-			return 1;
+			goto done;
 		}
 
 		/* verify integrity */
 		if (verify) {
 			if (!fit_image_verify(fit_hdr, noffset)) {
 				puts("Bad Data Hash\n");
-				return 1;
+				goto done;
 			}
 		}
 
 		/* get subimage/external data address and length */
 		if (fit_image_get_data(fit_hdr, noffset, &fit_data, &fit_len)) {
 			puts("Could not find script subimage data\n");
-			return 1;
+			goto done;
 		}
 
 		if (fit_image_get_comp(fit_hdr, noffset, &comp))
@@ -176,7 +186,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 #endif
 	default:
 		puts("Invalid image type for imxtract\n");
-		return 1;
+		goto done;
 	}
 
 	if (argc > 3) {
@@ -186,7 +196,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			{
 				size_t l = len;
 				size_t tail;
-				void *to = (void *) dest;
+				void *to = dst;
 				void *from = (void *)data;
 
 				printf("   Loading part %d ... ", part);
@@ -202,22 +212,23 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			}
 #else	/* !(CONFIG_HW_WATCHDOG || CONFIG_WATCHDOG) */
 			printf("   Loading part %d ... ", part);
-			memmove((char *) dest, (char *)data, len);
+			memmove(dst, (char *)data, len);
 #endif	/* CONFIG_HW_WATCHDOG || CONFIG_WATCHDOG */
 			break;
 #ifdef CONFIG_GZIP
 		case IH_COMP_GZIP:
 			{
-				int ret = 0;
+				int err;
+
 				printf("   Uncompressing part %d ... ", part);
-				ret = gunzip((void *)dest, unc_len,
-					     (uchar *)data, &len);
-				if (ret == Z_BUF_ERROR) {
+				err = gunzip(dst, unc_len, (uchar *)data,
+					     &len);
+				if (err == Z_BUF_ERROR) {
 					puts("Image too large: increase CONFIG_SYS_XIMG_LEN\n");
-					return 1;
-				} else if (ret != 0) {
+					goto done;
+				} else if (err != 0) {
 					puts("GUNZIP ERROR - image not loaded\n");
-					return 1;
+					goto done;
 				}
 			}
 			break;
@@ -241,7 +252,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 				if (i != BZ_OK) {
 					printf("BUNZIP2 ERROR %d - "
 						"image not loaded\n", i);
-					return 1;
+					goto done;
 				}
 			}
 			break;
@@ -249,36 +260,41 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 #if IS_ENABLED(CONFIG_ZSTD)
 		case IH_COMP_ZSTD:
 			{
-				int ret;
+				int err;
 				struct abuf in, out;
 
 				printf("   Uncompressing part %d ... ", part);
 
 				abuf_init_set(&in, (void *)data, len);
-				abuf_init_set(&out, (void *)dest, unc_len);
-				ret = zstd_decompress(&in, &out);
-				if (ret < 0) {
+				abuf_init_set(&out, dst, unc_len);
+				err = zstd_decompress(&in, &out);
+				if (err < 0) {
 					printf("ZSTD ERROR %d - "
-					       "image not loaded\n", ret);
-					return 1;
+					       "image not loaded\n", err);
+					goto done;
 				}
-				len = ret;
+				len = err;
 			}
 			break;
 #endif
 		default:
 			printf("Unimplemented compression type %d\n", comp);
-			return 1;
+			goto done;
 		}
 		puts("OK\n");
 	}
 
 	flush_cache(dest, ALIGN(len, ARCH_DMA_MINALIGN));
 
-	env_set_hex("fileaddr", data);
+	env_set_hex("fileaddr", map_to_sysmem((void *)data));
 	env_set_hex("filesize", len);
 
-	return 0;
+	ret = 0;
+done:
+	unmap_sysmem(dst);
+	unmap_sysmem(ptr);
+
+	return ret;
 }
 
 U_BOOT_LONGHELP(imgextract,
