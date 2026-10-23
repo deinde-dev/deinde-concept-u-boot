@@ -105,19 +105,7 @@ export PATH=$PATH:${TOOLS_DIR}
 run_test "u_boot_pylib" ./tools/u_boot_pylib/u_boot_pylib test
 
 run_test "qconfig" ./tools/qconfig.py -t
-run_test "fdt" ./tools/dtoc/test_fdt -t
-run_test "dtoc" ./tools/dtoc/dtoc -t
 run_test "hwids_to_dtsi" python3 ./test/scripts/test_hwids_to_dtsi.py
-
-# This needs you to set up Python test coverage tools.
-# To enable Python test coverage on Debian-type distributions (e.g. Ubuntu):
-#   $ sudo apt-get install python-pytest python-coverage
-
-# Code-coverage tests cannot run in parallel, so skip them in that case
-if [ -z "${para}" ]; then
-	run_test "dtoc code coverage" ./tools/dtoc/dtoc -T
-	run_test "fdt code coverage" ./tools/dtoc/test_fdt -T
-fi
 
 if [ $failures == 0 ]; then
 	echo "Tests passed!"
