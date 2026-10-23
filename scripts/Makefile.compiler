@@ -31,8 +31,15 @@ __probe-sub = $(if $(1),$(call __probe-sub,$(wordlist 2,$(words $(1)),$(1)),$(su
 
 # __probe-store: Record a probe result for this make and later ones
 # Usage: $(call __probe-store,key,result)
+#
+# Sub-makes probe and read the cache in parallel, so write a new copy and
+# rename it into place, rather than appending, which can let a reader see half
+# a line. If two makes add a result at once, one of them may be lost, so that
+# probe runs again next time.
 __probe-store = $(eval $(1) := $(subst $$,$$$$,$(2)))$(shell \
-	echo '$(1) := $(subst $$,$$$$,$(2))' 2>/dev/null >> $(probe-cache))$(2)
+	{ cat $(probe-cache); echo '$(1) := $(subst $$,$$$$,$(2))'; } \
+	2>/dev/null > $(probe-cache).$$$$ && \
+	mv -f $(probe-cache).$$$$ $(probe-cache))$(2)
 
 # try-run
 # Usage: option = $(call try-run, $(CC)...-o "$$TMP",option-ok,otherwise)
