@@ -9,9 +9,10 @@
 import os
 import sys
 
-# Allow 'from u_boot_pylib import xxx' to work
+# Allow 'from u_boot_pylib import xxx' to work, using this copy rather than
+# any installed u_boot_pylib package
 our_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(our_path, '..'))
+sys.path.insert(0, os.path.join(our_path, '..'))
 
 import argparse
 
