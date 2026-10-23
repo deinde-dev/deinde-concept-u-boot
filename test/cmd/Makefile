@@ -85,6 +85,9 @@ endif
 ifdef CONFIG_LEGACY_IMAGE_FORMAT
 obj-$(CONFIG_CMD_IMI) += iminfo.o
 endif
+ifdef CONFIG_CONSOLE_RECORD
+obj-$(CONFIG_CMD_XIMG) += imxtract.o
+endif
 obj-$(CONFIG_CMD_LICENSE) += license.o
 obj-$(CONFIG_CMD_LOADM) += loadm.o
 ifdef CONFIG_CONSOLE_RECORD
