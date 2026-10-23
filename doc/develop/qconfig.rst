@@ -21,6 +21,9 @@ Installation
 
 You may need to install 'python3-asteval' for the 'asteval' module.
 
+The tool uses kconfiglib from the buildman package, which you can install with
+``pip install buildman``.
+
 How does it work?
 -----------------
 

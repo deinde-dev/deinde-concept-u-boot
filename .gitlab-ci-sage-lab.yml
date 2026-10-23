@@ -53,7 +53,7 @@
     # possible to ensure we don't leave lab resources acquired.
     - set +e;
     # Sage is 16 threads and has 4 devices attached, so 4 builder threads.
-    - tools/buildman/buildman -o ${UBOOT_TRAVIS_BUILD_DIR} -w -E -W -e
+    - buildman -o ${UBOOT_TRAVIS_BUILD_DIR} -w -E -W -e
         --board ${TEST_PY_BD} ${OVERRIDE} -T 4;
       RC=`echo $?`;
     # Wait for the exporter to have the device ready

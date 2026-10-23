@@ -27,7 +27,11 @@ import tempfile
 import time
 import unittest
 
-from buildman import kconfiglib
+try:
+    from buildman import kconfiglib
+except ImportError:
+    sys.exit('qconfig needs kconfiglib from the buildman package: '
+             'pip install buildman')
 from u_boot_pylib import terminal
 from u_boot_pylib.terminal import tprint
 from u_boot_pylib import tools

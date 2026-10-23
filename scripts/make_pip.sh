@@ -5,7 +5,7 @@
 #
 # Usage: make_pip.sh <tool_name> [--real]
 #
-# Where tool_name is one of buildman, dtoc, u_boot_pylib
+# Where tool_name is one of dtoc, u_boot_pylib
 #
 # and --real means to upload to the real server (otherwise the test one is used)
 #
@@ -34,10 +34,10 @@ tool="$1"
 shift
 flags="$*"
 
-if [[ "${tool}" =~ ^(buildman|dtoc|u_boot_pylib)$ ]]; then
+if [[ "${tool}" =~ ^(dtoc|u_boot_pylib)$ ]]; then
 	echo "Building dist package for tool ${tool}"
 else
-	echo "Unknown tool ${tool}: use u_boot_pylib, buildman or dtoc"
+	echo "Unknown tool ${tool}: use u_boot_pylib or dtoc"
 	exit 1
 fi
 

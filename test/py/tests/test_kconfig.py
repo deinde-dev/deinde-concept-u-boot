@@ -16,7 +16,7 @@ def test_kconfig(ubman):
 
     # This detects build errors in test/lib/kconfig.c
     out = utils.run_and_log(
-        ubman, ['./tools/buildman/buildman', '-m', '--board', 'sandbox',
+        ubman, [utils.find_buildman(ubman.config), '-m', '--board', 'sandbox',
                '-a', 'TEST_KCONFIG', '-o', TMPDIR], ignore_errors=True)
     assert 'invalid_use_of_IF_ENABLED_INT' in out
 
@@ -27,8 +27,9 @@ def test_kconfig_spl(ubman):
 
     # This detects build errors in test/lib/kconfig_spl.c
     out = utils.run_and_log(
-        ubman, ['./tools/buildman/buildman', '-m', '--board', 'sandbox_spl',
-               '-a', 'TEST_KCONFIG', '-o', TMPDIR], ignore_errors=True)
+        ubman, [utils.find_buildman(ubman.config), '-m', '--board',
+                'sandbox_spl', '-a', 'TEST_KCONFIG', '-o', TMPDIR],
+        ignore_errors=True)
 
     # There is no CONFIG_SPL_TEST_KCONFIG, so the IF_ENABLED_INT()
     # line should not generate an error
