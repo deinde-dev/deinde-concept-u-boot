@@ -293,7 +293,7 @@ static int cmd_test_avb_verify(struct unit_test_state *uts)
 	 */
 	ut_assertok(run_command("avb init 0", 0));
 	ut_asserteq(1, run_command("avb verify", 0));
-	ut_assert_nextline("## Android Verified Boot 2.0 version 1.3.0");
+	ut_assert_nextline("## Android Verified Boot 2.0 version 1.4.0");
 	ut_assert_skip_to_line(
 		"Verification failed, reason: Metadata is invalid or inconsistent");
 	ut_assert_console_end();
