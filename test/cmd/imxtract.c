@@ -64,6 +64,15 @@ DECLARE_GLOBAL_DATA_PTR;
 /* space allowed for the compressed form of it */
 #define XIMG_GZ_MAX	0x100
 
+/*
+ * the two lines of the usage message which describe the formats. They are
+ * macros since a string split across lines upsets checkpatch
+ */
+#define USAGE_LEGACY \
+	"    - extract <part> from legacy image at <addr> and copy to <dest>"
+#define USAGE_FIT \
+	"    - extract <uname> subimage from FIT image at <addr> and copy to <dest>"
+
 /* description and image name used for the FIT */
 #define XIMG_FIT_SIZE	0x400
 #define XIMG_FIT_DESC	"test FIT"
@@ -525,6 +534,25 @@ static int cmd_test_imxtract_gzip(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_imxtract_gzip, UTF_CONSOLE);
+
+/* Test that an option is refused, since the command takes none */
+static int cmd_test_imxtract_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_commandf("imxtract -x %lx", XIMG_ADDR));
+	ut_assert_nextline("imxtract - extract a part of a multi-image");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("imxtract addr part [dest]");
+	ut_assert_nextline(USAGE_LEGACY);
+	if (IS_ENABLED(CONFIG_FIT)) {
+		ut_assert_nextline("addr uname [dest]");
+		ut_assert_nextline(USAGE_FIT);
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_imxtract_usage, UTF_CONSOLE);
 
 /* Test 'imxtract' on memory which holds no image at all */
 static int cmd_test_imxtract_invalid(struct unit_test_state *uts)

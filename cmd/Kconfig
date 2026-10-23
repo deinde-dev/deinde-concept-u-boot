@@ -678,6 +678,7 @@ config CMD_IMLS
 config CMD_XIMG
 	bool "imxtract"
 	default y
+	select GETOPT
 	help
 	  Extract a part of a multi-image.
 

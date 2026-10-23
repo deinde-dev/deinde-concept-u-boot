@@ -13,6 +13,7 @@
 #include <command.h>
 #include <cpu_func.h>
 #include <env.h>
+#include <getopt.h>
 #include <gzip.h>
 #if IS_ENABLED(CONFIG_ZSTD)
 #include <linux/zstd.h>
@@ -29,9 +30,10 @@
 #include <asm/io.h>
 #include <u-boot/zlib.h>
 
-static int
-do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_imgextract(struct getopt_state *gs)
 {
+	int		argc = gs->argc;
+	char *const	*argv = gs->argv;
 	ulong		addr = image_load_addr;
 	ulong		dest = 0;
 	ulong		data, len;
@@ -101,16 +103,14 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 		if (!image_check_type(hdr, IH_TYPE_MULTI) &&
 		    !image_check_type(hdr, IH_TYPE_SCRIPT)) {
-			printf("Wrong Image Type for %s command\n",
-					cmdtp->name);
+			printf("Wrong Image Type for imxtract command\n");
 			goto done;
 		}
 
 		comp = image_get_comp(hdr);
 		if ((comp != IH_COMP_NONE) && (argc < 4)) {
-			printf("Must specify load address for %s command "
-					"with compressed image\n",
-					cmdtp->name);
+			printf("Must specify load address for imxtract "
+					"command with compressed image\n");
 			goto done;
 		}
 
@@ -157,9 +157,8 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 		if (!fit_image_check_comp(fit_hdr, noffset, IH_COMP_NONE)
 		    && (argc < 4)) {
-			printf("Must specify load address for %s command "
-				"with compressed image\n",
-				cmdtp->name);
+			printf("Must specify load address for imxtract "
+				"command with compressed image\n");
 			goto done;
 		}
 
@@ -307,7 +306,7 @@ U_BOOT_LONGHELP(imgextract,
 #endif
 	);
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	imxtract, 4, 1, do_imgextract,
 	"extract a part of a multi-image", imgextract_help_text
 );
