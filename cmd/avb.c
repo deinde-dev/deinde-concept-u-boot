@@ -8,6 +8,7 @@
 #include <env.h>
 #include <errno.h>
 #include <getopt.h>
+#include <hexdump.h>
 #include <image.h>
 #include <malloc.h>
 #include <mapmem.h>
@@ -423,6 +424,98 @@ int do_avb_write_pvalue(struct getopt_state *gs)
 			name, value, ret);
 }
 
+int do_avb_read_pvalue_hex(struct getopt_state *gs)
+{
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+	const char *name;
+	size_t bytes;
+	size_t bytes_read;
+	size_t i;
+	u8 *buffer;
+	char *endp;
+	int ret;
+
+	if (!avb_ops)
+		return avb_not_init();
+
+	if (argc != 3)
+		return CMD_RET_USAGE;
+
+	name = argv[1];
+	bytes = dectoul(argv[2], &endp);
+	if (*endp && *endp != '\n')
+		return CMD_RET_USAGE;
+
+	buffer = malloc(bytes);
+	if (!buffer)
+		return CMD_RET_FAILURE;
+
+	ret = avb_ops->read_persistent_value(avb_ops, name, bytes,
+					     buffer, &bytes_read);
+	if (ret == AVB_IO_RESULT_OK) {
+		printf("Read %zu bytes, value = ", bytes_read);
+		for (i = 0; i < bytes_read; i++)
+			printf("%02x", buffer[i]);
+		printf("\n");
+		free(buffer);
+		return CMD_RET_SUCCESS;
+	}
+
+	printf("Failed to read persistent value, err = %d\n", ret);
+
+	free(buffer);
+
+	return CMD_RET_FAILURE;
+}
+
+int do_avb_write_pvalue_hex(struct getopt_state *gs)
+{
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+	const char *name;
+	const char *hex;
+	size_t len, bytes;
+	u8 *buffer;
+	int ret;
+
+	if (!avb_ops)
+		return avb_not_init();
+
+	if (argc != 3)
+		return CMD_RET_USAGE;
+
+	name = argv[1];
+	hex = argv[2];
+	len = strlen(hex);
+	if (!len || len % 2) {
+		printf("Value must be an even number of hex digits\n");
+		return CMD_RET_USAGE;
+	}
+	bytes = len / 2;
+
+	buffer = malloc(bytes);
+	if (!buffer)
+		return CMD_RET_FAILURE;
+
+	if (hex2bin(buffer, hex, bytes)) {
+		printf("Value is not a valid hex string\n");
+		free(buffer);
+		return CMD_RET_USAGE;
+	}
+
+	ret = avb_ops->write_persistent_value(avb_ops, name, bytes, buffer);
+	free(buffer);
+	if (ret == AVB_IO_RESULT_OK) {
+		printf("Wrote %zu bytes\n", bytes);
+		return CMD_RET_SUCCESS;
+	}
+
+	printf("Failed to write persistent value `%s`, err = %d\n", name, ret);
+
+	return CMD_RET_FAILURE;
+}
+
 static struct cmd_tbl cmd_avb[] = {
 	U_BOOT_CMD_MKENT_NOOPTS(init, 3, 0, do_avb_init, "", ""),
 	U_BOOT_CMD_MKENT_NOOPTS(read_rb, 2, 0, do_avb_read_rb, "", ""),
@@ -438,6 +531,10 @@ static struct cmd_tbl cmd_avb[] = {
 	U_BOOT_CMD_MKENT_NOOPTS(read_pvalue, 3, 0, do_avb_read_pvalue, "", ""),
 	U_BOOT_CMD_MKENT_NOOPTS(write_pvalue, 3, 0, do_avb_write_pvalue, "",
 				""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_pvalue_hex, 3, 0, do_avb_read_pvalue_hex,
+				"", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_pvalue_hex, 3, 0, do_avb_write_pvalue_hex,
+				"", ""),
 #endif
 };
 
@@ -464,6 +561,10 @@ U_BOOT_CMD_NOOPTS(
 #ifdef CONFIG_OPTEE_TA_AVB
 	"avb read_pvalue <name> <bytes> - read a persistent value <name>\n"
 	"avb write_pvalue <name> <value> - write a persistent value <name>\n"
+	"avb read_pvalue_hex <name> <bytes> - read a persistent value <name>\n"
+	"    and print it as hex\n"
+	"avb write_pvalue_hex <name> <hex> - write the bytes given as a hex\n"
+	"    string to persistent value <name>\n"
 #endif
 	"avb verify [slot_suffix] - run verification process using hash data\n"
 	"    from vbmeta structure\n"
