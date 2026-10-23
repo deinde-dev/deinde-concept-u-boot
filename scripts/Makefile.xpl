@@ -347,7 +347,14 @@ $(obj)/$(SPL_BIN).dtb: $(obj)/dts/dt-$(SPL_NAME).dtb FORCE
 
 pythonpath = PYTHONPATH=scripts/dtc/pylibfdt
 
-DTOC_ARGS := $(pythonpath) $(srctree)/tools/dtoc/dtoc \
+# Use 'make DTOC=/path/to/dtoc' to select the dtoc to run
+#
+# dtoc is provided by the dtoc package (pip install dtoc). Use the copy on the
+# PATH if there is one, else tools/dtoc/dtoc. This is only looked up when dtoc
+# runs, so that other builds do not pay for it
+DTOC ?= $(or $(shell command -v dtoc 2>/dev/null),$(srctree)/tools/dtoc/dtoc)
+
+DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) \
 	-d $(obj)/$(SPL_BIN).dtb -p $(SPL_NAME)
 
 ifneq ($(CONFIG_OF_PLATDATA_INST),)
