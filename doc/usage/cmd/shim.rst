@@ -1,5 +1,8 @@
 .. SPDX-License-Identifier: GPL-2.0+
 
+.. index::
+   single: shim (command)
+
 shim command
 ============
 
@@ -13,97 +16,75 @@ Synopsis
 Description
 -----------
 
-The ``shim`` command provides utilities for controlling and configuring the
-UEFI Shim bootloader when U-Boot is running as an EFI application. Shim is a
-UEFI bootloader that is used to verify and boot signed operating system
-loaders, commonly used in secure boot environments.
-
-The ``shim debug`` subcommand manages the Shim verbose debugging mode through
-the ``SHIM_VERBOSE`` EFI variable.
-
-Subcommands
-~~~~~~~~~~~
+The ``shim`` command adjusts the settings which Shim reads when it starts.
+Shim is a UEFI bootloader which checks the signature of the operating-system
+loader it hands over to, so that a machine using secure boot can start a
+signed kernel. It takes its settings from EFI variables, which this command
+writes before Shim is started. This is useful when debugging booting,
+particularly on x86 machines.
 
 shim debug
-^^^^^^^^^^
+~~~~~~~~~~
 
-Controls the Shim verbose debugging mode.
+Show or set Shim's verbose-debugging mode. With the mode enabled, Shim
+reports what it is doing as it boots, which helps in working out why a
+machine does not start. The setting is held in the ``SHIM_VERBOSE``
+variable in the Shim-lock GUID namespace
+(``605dab50-e046-4300-abb6-3dd810dd8b23``), as four bytes holding 0 or 1.
 
-**Usage:**
+With no value, the command shows the current setting: 1 if the mode is
+enabled, 0 if it is disabled or the variable does not exist.
 
-::
+0/1
+    new setting, read as a hex number. Zero disables the mode and any other
+    value enables it.
 
-    shim debug          # Display current debug state (0 or 1)
-    shim debug 0        # Disable verbose debugging
-    shim debug 1        # Enable verbose debugging
-    shim debug -n 1     # Enable verbose debugging (non-volatile)
+-n
+    write the variable as non-volatile, so that the setting survives a
+    reset. Without this option the variable is volatile and lasts only until
+    the board restarts. The option must come before the value.
 
-The command reads from or writes to the ``SHIM_VERBOSE`` EFI variable in the
-Shim Lock GUID namespace. When verbose mode is enabled (value = 1), Shim will
-output additional debugging information during the boot process. When disabled
-(value = 0 or variable doesn't exist), Shim operates silently.
+UEFI does not allow the attributes of an existing variable to change, so
+writing the setting the other way round fails. Delete the variable first::
 
-**Parameters:**
+    => env set -e -guid 605dab50-e046-4300-abb6-3dd810dd8b23 SHIM_VERBOSE
 
-* ``-n`` - Makes the variable non-volatile (persistent across reboots)
-* ``<0/1>`` - Optional parameter to set debug mode:
+Example
+-------
 
-  * ``0`` - Disable verbose debugging
-  * ``1`` - Enable verbose debugging
-  * If omitted, displays current debug state
-
-**Return value:**
-
-The command returns 0 on success, 1 on failure.
-
-**Examples:**
-
-Check current debug state::
+This shows the mode being enabled, then read back::
 
     => shim debug
     0
-
-Enable verbose debugging::
-
     => shim debug 1
+    => shim debug
+    1
 
-Disable verbose debugging::
-
-    => shim debug 0
-
-Enable verbose debugging with persistence across reboots::
+Asking for a setting which survives a reset while a volatile variable
+exists fails, since the attributes cannot change::
 
     => shim debug -n 1
+    Failed to write variable (err=8000000000000002)
+
+Return value
+------------
+
+The return value $? is set to 0 (true) if the command succeeds. It is set to
+1 (false) if UEFI cannot be started, or the variable cannot be read or
+written. A sub-command which the command does not know, or -n with no value
+after it, shows the usage message and sets $? to 1 as well.
 
 Configuration
-~~~~~~~~~~~~~
+-------------
 
-The shim command is available when:
+The command is available if CONFIG_CMD_SHIM=y, which needs EFI-variable
+support through CONFIG_CMD_NVEDIT_EFI. It is enabled by default on sandbox
+and in the EFI app.
 
-* ``CONFIG_CMD_SHIM`` is enabled
-* U-Boot is running as an EFI application
-* EFI-variable support is available
+See also
+--------
 
-Implementation Details
-~~~~~~~~~~~~~~~~~~~~~~
-
-The command uses the EFI variable services to read and write the
-``SHIM_VERBOSE`` variable with the following characteristics:
-
-* **Variable Name:** ``SHIM_VERBOSE`` (Unicode string)
-* **GUID:** EFI Shim Lock GUID (``605dab50-e046-4300-abb6-3dd810dd8b23``)
-* **Attributes:** ``EFI_VARIABLE_BOOTSERVICE_ACCESS`` (default) or
-  ``EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_NON_VOLATILE`` (with ``-n`` flag)
-* **Data Type:** 32-bit unsigned integer (4 bytes)
-* **Values:** 0 (disabled) or 1 (enabled)
-
-By default, the variable is volatile and will be reset on reboot. When the
-``-n`` flag is used, the variable becomes non-volatile and persists across
-reboots until explicitly changed or the variable store is cleared.
-
-See Also
-~~~~~~~~
-
-* :doc:`efidebug` - EFI debugging utilities
-* :doc:`bootefi` - Boot EFI applications
-* :doc:`/develop/uefi/u-boot_on_efi`
+* :doc:`bootefi<bootefi>` for starting an EFI application such as Shim
+* :doc:`efidebug<efidebug>` for setting the UEFI boot variables and boot
+  options
+* :doc:`env<env>` for reading and writing EFI variables directly

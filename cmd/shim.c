@@ -10,18 +10,28 @@
 #include <efi_loader.h>
 #include <efi_variable.h>
 #include <errno.h>
+#include <getopt.h>
 #include <shim.h>
 #include <vsprintf.h>
 
-static int do_shim_debug(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_shim_debug(struct getopt_state *gs)
 {
+	bool non_volatile = false;
 	efi_status_t eret;
 	struct abuf buf;
-	const char *sub;
 	u32 value;
 	u32 attr;
-	int ret;
+	int opt, ret;
+
+	while ((opt = getopt(gs, "+n")) > 0) {
+		switch (opt) {
+		case 'n':
+			non_volatile = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
 
 	/* the variable needs the EFI subsystem, which may not be up yet */
 	eret = efi_init_obj_list();
@@ -30,8 +40,9 @@ static int do_shim_debug(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_FAILURE;
 	}
 
-	sub = cmd_arg1(argc, argv);
-	if (argc == 1) {
+	if (gs->index == gs->argc) {
+		if (non_volatile)
+			return CMD_RET_USAGE;
 		ret = efi_read_var(SHIM_VERBOSE_VAR_NAME, &efi_shim_lock, &attr,
 				   &buf, NULL);
 		if (ret == -ENOENT) {
@@ -47,16 +58,10 @@ static int do_shim_debug(struct cmd_tbl *cmdtp, int flag, int argc,
 		}
 		printf("%d\n", value);
 	} else {
-		int arg = 1;
-
 		attr = EFI_VARIABLE_BOOTSERVICE_ACCESS;
-		if (!strcmp("-n", argv[arg])) {
+		if (non_volatile)
 			attr |= EFI_VARIABLE_NON_VOLATILE;
-			arg++;
-		}
-		if (arg == argc)
-			return CMD_RET_USAGE;
-		value = hextoul(argv[arg], NULL) ? 1 : 0;
+		value = hextoul(gs->argv[gs->index], NULL) ? 1 : 0;
 		eret = efi_set_variable_int(SHIM_VERBOSE_VAR_NAME,
 					    &efi_shim_lock, attr,
 					    sizeof(value), &value, false);
@@ -76,4 +81,4 @@ U_BOOT_LONGHELP(shim,
 	"debug [[-n] <0/1>]  - Enable / disable debug verbose mode");
 
 U_BOOT_CMD_WITH_SUBCMDS(shim, "Shim utilities", shim_help_text,
-	U_BOOT_SUBCMD_MKENT(debug, 3, 1, do_shim_debug));
+	U_BOOT_CMD_MKENT_GETOPT(debug, 3, 1, do_shim_debug, "", ""));
