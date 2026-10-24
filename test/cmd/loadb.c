@@ -212,6 +212,28 @@ static int check_cancelled(struct unit_test_state *uts, const char *mode)
 	return 0;
 }
 
+/**
+ * check_usage() - check that a command shows its usage message
+ *
+ * @uts: test state
+ * @name: command name
+ * @mode: protocol the command's help line names
+ * Return: 0 if OK, other value on error
+ */
+static int check_usage(struct unit_test_state *uts, const char *name,
+		       const char *mode)
+{
+	ut_assert_nextline("%s - load binary file over serial line (%s mode)",
+			   name, mode);
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("%s [ addr [ baud ] ]", name);
+	ut_assert_nextlinen("    - load binary file over serial line");
+	ut_assert_console_end();
+
+	return 0;
+}
+
 /* Test 'loadb' with a two-packet kermit transmission */
 static int cmd_test_loadb_base(struct unit_test_state *uts)
 {
@@ -254,6 +276,16 @@ static int cmd_test_loadb_abort(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_loadb_abort, UTF_CONSOLE);
+
+/* Test that an option is refused rather than taken as an address */
+static int cmd_test_loadb_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("loadb -x", 0));
+	ut_assertok(check_usage(uts, "loadb", "kermit"));
+
+	return 0;
+}
+CMD_TEST(cmd_test_loadb_usage, UTF_CONSOLE);
 
 /* Test 'loadx' with a single xmodem packet padded out with ^Z */
 static int cmd_test_loadx_base(struct unit_test_state *uts)
@@ -299,6 +331,16 @@ static int cmd_test_loadx_abort(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_loadx_abort, UTF_CONSOLE);
+
+/* Test that an option is refused rather than taken as an address */
+static int cmd_test_loadx_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("loadx -x", 0));
+	ut_assertok(check_usage(uts, "loadx", "xmodem"));
+
+	return 0;
+}
+CMD_TEST(cmd_test_loadx_usage, UTF_CONSOLE);
 
 /* Test 'loady' with a header packet, one data packet and a trailing packet */
 static int cmd_test_loady_base(struct unit_test_state *uts)
@@ -362,3 +404,13 @@ static int cmd_test_loady_abort(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_loady_abort, UTF_CONSOLE);
+
+/* Test that an option is refused rather than taken as an address */
+static int cmd_test_loady_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("loady -x", 0));
+	ut_assertok(check_usage(uts, "loady", "ymodem"));
+
+	return 0;
+}
+CMD_TEST(cmd_test_loady_usage, UTF_CONSOLE);
