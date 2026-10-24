@@ -2340,13 +2340,6 @@ config CMD_PCAP
 	  them in physical memory in a PCAP formated file,
 	  later to be analyzed by PCAP reader application (IE. WireShark).
 
-config CMD_TFTPPUT
-	bool "tftp put"
-	depends on CMD_TFTPBOOT
-	select GETOPT
-	help
-	  TFTP put command, for uploading files to a server
-
 config CMD_RARP
 	bool "rarpboot"
 	select GETOPT
@@ -2410,6 +2403,14 @@ config CMD_WOL
 	  Wait for wake-on-lan Magic Packet
 
 endif  # if NET_LEGACY
+
+config CMD_TFTPPUT
+	bool "tftp put"
+	depends on CMD_TFTPBOOT
+	select GETOPT
+	help
+	  Enable the tftpput command for uploading a memory range to a TFTP
+	  server.
 
 config NET_TFTP_VARS
 	bool "Control TFTP transfer options through environment"
