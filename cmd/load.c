@@ -435,7 +435,7 @@ static int write_record(char *buf)
 #define tochar(x) ((char) (((x) + SPACE) & 0xff))
 #define untochar(x) ((int) (((x) - SPACE) & 0xff))
 
-static void set_kerm_bin_mode(unsigned long *);
+static void set_kerm_bin_mode(void *addr);
 static int k_recv(void);
 static ulong load_serial_bin(ulong offset);
 
@@ -557,9 +557,12 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 static ulong load_serial_bin(ulong offset)
 {
 	int size, i;
+	void *ptr;
 
-	set_kerm_bin_mode((ulong *) offset);
+	ptr = map_sysmem(offset, 0);
+	set_kerm_bin_mode(ptr);
 	size = k_recv();
+	unmap_sysmem(ptr);
 
 	/*
 	 * Gather any trailing characters (for instance, the ^D which
@@ -681,9 +684,9 @@ static void bin_data_char(char new_char)
 	}
 }
 
-static void set_kerm_bin_mode(unsigned long *addr)
+static void set_kerm_bin_mode(void *addr)
 {
-	bin_start_address = (char *) addr;
+	bin_start_address = addr;
 	os_data_init = bin_data_init;
 	os_data_char = bin_data_char;
 }
@@ -1036,8 +1039,10 @@ static ulong load_serial_ymodem(ulong offset, int mode)
 			} else
 #endif
 			{
-				memcpy((char *)(store_addr), ymodemBuf,
-					res);
+				void *ptr = map_sysmem(store_addr, res);
+
+				memcpy(ptr, ymodemBuf, res);
+				unmap_sysmem(ptr);
 			}
 
 		}
