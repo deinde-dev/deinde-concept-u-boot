@@ -584,7 +584,9 @@ int do_tftpsrv(struct getopt_state *gs)
 
 out:
 	net_lwip_stop(&net);
-	return ret;
+	if (ret || !net_boot_file_size)
+		return ret;
+	return bootm_maybe_autostart();
 }
 
 static int tftp_default_filename(char *fname, size_t size)
@@ -811,7 +813,13 @@ out:
 
 int do_tftpb(struct getopt_state *gs)
 {
-	return do_tftp(gs, TFTP_DOWNLOAD);
+	int ret;
+
+	ret = do_tftp(gs, TFTP_DOWNLOAD);
+	if (ret || !net_boot_file_size)
+		return ret;
+	/* The transfer's callbacks and runtime attachment are already gone. */
+	return bootm_maybe_autostart();
 }
 
 int do_tftpput(struct getopt_state *gs)
