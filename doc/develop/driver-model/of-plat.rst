@@ -44,7 +44,18 @@ SPL/TPL and should be tested with:
 A tool called 'dtoc' converts a devicetree file either into a set of
 struct declarations, one for each compatible node, and a set of
 `U_BOOT_DRVINFO()` declarations along with the actual platform data for each
-device. As an example, consider this MMC node:
+device.
+
+dtoc is maintained as a separate project, at https://github.com/deinde-dev/dtoc,
+and is installed as the dtoc package::
+
+    pip install dtoc
+
+The U-Boot build runs the ``dtoc`` on the PATH, or another copy if set with
+``make DTOC=/path/to/dtoc``. Its documentation is at
+https://dtoc.readthedocs.io/
+
+As an example, consider this MMC node:
 
 .. code-block:: none
 

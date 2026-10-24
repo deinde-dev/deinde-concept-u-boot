@@ -99,7 +99,7 @@ stages:
     - python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r test/py/requirements.txt -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt -r tools/u_boot_pylib/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt -r tools/u_boot_pylib/requirements.txt
         setuptools
 
   after_script:
@@ -198,7 +198,7 @@ build all 32bit ARM platforms:
     - python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
@@ -218,7 +218,7 @@ build all 64bit ARM platforms:
     - python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
@@ -239,7 +239,7 @@ build all PowerPC platforms:
     - python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
@@ -265,7 +265,7 @@ build all other platforms:
     - python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         setuptools
     - ret=0;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
@@ -326,7 +326,7 @@ Build allyesconfig, tools-only and envtools:
     # Prepare python environment, for binman
     - python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
-      pip install -r tools/binman/requirements.txt setuptools
+      pip install -r tools/binman/requirements.txt -r tools/dtoc/requirements.txt setuptools
     # Allow pipefail because of how we use 'yes' here.
     - set +o pipefail;
       yes 0 | make allyesconfig oldconfig all -j$(nproc);
@@ -335,7 +335,7 @@ Build allyesconfig, tools-only and envtools:
       make mrproper;
       make tools-only_config envtools -j$(nproc)
 
-Run dtoc, hwids_to_dtsi, Kconfig and pickman suites:
+Run hwids_to_dtsi, Kconfig and pickman suites:
   extends: .test_suites
   script:
     - git config --global user.name "GitLab CI Runner";
@@ -345,7 +345,7 @@ Run dtoc, hwids_to_dtsi, Kconfig and pickman suites:
       python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r test/py/requirements.txt -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         -r tools/pickman/requirements.txt -r tools/u_boot_pylib/requirements.txt
         -r scripts/dtc/pylibfdt/requirements.txt;
       export UBOOT_TRAVIS_BUILD_DIR=/tmp/tools-only;
@@ -356,7 +356,6 @@ Run dtoc, hwids_to_dtsi, Kconfig and pickman suites:
         --board tools-only;
       set -e;
       ./tools/qconfig.py -t;
-      ./tools/dtoc/dtoc -t;
       ./tools/u_boot_pylib/u_boot_pylib test;
       ./tools/pickman/pickman test;
       ./tools/pickman/pickman test -T;
@@ -374,7 +373,7 @@ Run pylint:
     - python3 -m venv /tmp/venv
     - . /tmp/venv/bin/activate
     - pip install -r test/py/requirements.txt -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         -r tools/u_boot_pylib/requirements.txt
         -r scripts/dtc/pylibfdt/requirements.txt asteval pylint==3.3.4 pyopenssl
     - export PATH=${PATH}:~/.local/bin
@@ -405,7 +404,8 @@ Examples:
       python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt setuptools;
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
+        setuptools;
       export UBOOT_TRAVIS_BUILD_DIR=/tmp/sandbox;
       set +e;
       buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w
@@ -448,7 +448,7 @@ Examples:
       python3 -m venv /tmp/venv;
       . /tmp/venv/bin/activate;
       pip install -r test/py/requirements.txt -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         -r tools/u_boot_pylib/requirements.txt
         -r scripts/dtc/pylibfdt/requirements.txt;
       export UBOOT_TRAVIS_BUILD_DIR=/tmp/tools-only;
@@ -903,7 +903,7 @@ coreboot test.py:
     - python3 -m venv --system-site-packages /tmp/venv-${CI_JOB_ID}
     - . /tmp/venv-${CI_JOB_ID}/bin/activate
     - pip install -q -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt
+        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
 
     # Load it on the device
     - ret=0

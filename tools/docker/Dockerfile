@@ -389,6 +389,7 @@ RUN wget -O /tmp/pytest-requirements.txt https://git.u-boot-project.org/u-boot/u
 RUN wget -O /tmp/sphinx-requirements.txt https://git.u-boot-project.org/u-boot/u-boot/-/raw/master/doc/sphinx/requirements.txt
 RUN wget -O /tmp/binman-requirements.txt https://git.u-boot-project.org/u-boot/u-boot/-/raw/master/tools/binman/requirements.txt
 RUN wget -O /tmp/buildman-requirements.txt https://git.u-boot-project.org/u-boot/u-boot/-/raw/master/tools/buildman/requirements.txt
+RUN wget -O /tmp/dtoc-requirements.txt https://git.u-boot-project.org/u-boot/u-boot/-/raw/master/tools/dtoc/requirements.txt
 RUN wget -O /tmp/u_boot_pylib-requirements.txt https://git.u-boot-project.org/u-boot/u-boot/-/raw/master/tools/u_boot_pylib/requirements.txt
 RUN python3 -m venv /tmp/venv && \
 	. /tmp/venv/bin/activate && \
@@ -396,6 +397,7 @@ RUN python3 -m venv /tmp/venv && \
 		-r /tmp/sphinx-requirements.txt \
 		-r /tmp/binman-requirements.txt \
 		-r /tmp/buildman-requirements.txt \
+		-r /tmp/dtoc-requirements.txt \
 		-r /tmp/u_boot_pylib-requirements.txt \
 		setuptools pytest-azurepipelines && \
 	deactivate && \

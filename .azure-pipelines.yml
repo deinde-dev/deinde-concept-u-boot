@@ -115,7 +115,7 @@ stages:
           # Prepare python environment, for binman
           python3 -m venv /tmp/venv
           . /tmp/venv/bin/activate
-          pip install -r tools/binman/requirements.txt setuptools
+          pip install -r tools/binman/requirements.txt -r tools/dtoc/requirements.txt setuptools
           # Allow pipefail because of how we use 'yes' here.
           set +o pipefail;
           yes 0 | make allyesconfig oldconfig all -j$(nproc)
@@ -125,7 +125,7 @@ stages:
           make tools-only_config envtools -j$(nproc)
 
   - job: utils
-    displayName: 'Run dtoc and Kconfig testsuites'
+    displayName: 'Run Kconfig testsuites'
     pool:
       vmImage: $(ubuntu_vm)
     container:
@@ -144,6 +144,7 @@ stages:
           . /tmp/venv/bin/activate
           pip install -r test/py/requirements.txt \
             -r tools/binman/requirements.txt \
+            -r tools/dtoc/requirements.txt \
             -r tools/buildman/requirements.txt \
             -r tools/u_boot_pylib/requirements.txt \
             -r scripts/dtc/pylibfdt/requirements.txt
@@ -153,7 +154,6 @@ stages:
           buildman -T0 -o ${UBOOT_TRAVIS_BUILD_DIR} -w --board tools-only
           set -ex
           ./tools/qconfig.py -t
-          ./tools/dtoc/dtoc -t
           ./tools/u_boot_pylib/u_boot_pylib test
           make O=${UBOOT_TRAVIS_BUILD_DIR} testconfig
 
@@ -172,6 +172,7 @@ stages:
           . /tmp/venv/bin/activate
           pip install -r test/py/requirements.txt \
             -r tools/binman/requirements.txt \
+            -r tools/dtoc/requirements.txt \
             -r tools/buildman/requirements.txt \
             -r tools/u_boot_pylib/requirements.txt \
             -r scripts/dtc/pylibfdt/requirements.txt \
@@ -288,7 +289,7 @@ stages:
           fi
           python3 -m venv /tmp/venv
           . /tmp/venv/bin/activate
-          pip install -r tools/binman/requirements.txt \
+          pip install -r tools/binman/requirements.txt -r tools/dtoc/requirements.txt \
             -r tools/buildman/requirements.txt \
             -r test/py/requirements.txt \
             -r tools/u_boot_pylib/requirements.txt \
@@ -704,7 +705,7 @@ stages:
           # Setup venv, perform build
           python3 -m venv /tmp/venv
           . /tmp/venv/bin/activate
-          pip install -r tools/binman/requirements.txt \
+          pip install -r tools/binman/requirements.txt -r tools/dtoc/requirements.txt \
             -r tools/buildman/requirements.txt
           if [[ "${BUILDMAN}" != "" ]]; then
               ret=0;
