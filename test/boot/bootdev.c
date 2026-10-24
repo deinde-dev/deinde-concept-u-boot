@@ -771,11 +771,11 @@ static int bootdev_test_next_prio(struct unit_test_state *uts)
 	 * this scans all bootdevs of priority BOOTDEVP_4_SCAN_FAST before it
 	 * starts looking at the devices, so we se virtio as well
 	 */
-	ut_assert_nextlinen("SF: Detected m25p16");
+	ut_assert_nextlinen("SF:    Detected m25p16");
 
 	ut_assertok(bootdev_next_prio(&iter, &dev));
 	ut_asserteq_str("spi.bin@1.bootdev", dev->name);
-	ut_assert_nextlinen("SF: Detected m25p16");
+	ut_assert_nextlinen("SF:    Detected m25p16");
 	ut_assert_console_end();
 
 	/* keep going until there are no more bootdevs */
