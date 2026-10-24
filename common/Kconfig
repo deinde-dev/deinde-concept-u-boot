@@ -47,6 +47,7 @@ config CONSOLE_RECORD_OUT_SIZE_F
 config CONSOLE_RECORD_IN_SIZE
 	hex "Input buffer size"
 	depends on CONSOLE_RECORD
+	default 0x400 if UNIT_TEST
 	default 0x100 if CONSOLE_RECORD
 	help
 	  Set the size of the console recording input buffer. When this contains data,
