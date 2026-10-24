@@ -53,8 +53,8 @@ file transfer.
     Transfer complete
 
     *** exit status: 0 ***
-    /1(CAN) packets, 4 retries
     ## Total Size      = 0x0006165f = 398943 Bytes
+    ## Start Addr      = 0x80064000
     => echo ${filesize}
     6165f
     =>
@@ -70,3 +70,19 @@ The command is only available if CONFIG_CMD_LOADB=y.
 Initial timeout in seconds while waiting for transfer is configured by
 config option CMD_LOADXY_TIMEOUT or by env variable $loadxy_timeout.
 Setting it to 0 means infinite timeout.
+
+Return value
+------------
+
+The return value $? is 0 (true) if the file arrives. It is 1 (false) if the
+transfer is aborted, which happens when the sender cancels it, when the
+initial timeout expires or when a packet cannot be read.
+
+See also
+--------
+
+* :doc:`loadx<loadx>` for the xmodem protocol, which carries neither the name
+  nor the length of the file
+* :doc:`loadb<loadb>` for the same transfer over the kermit protocol
+* :doc:`loads<loads>` for loading a file in S-Record format
+* :doc:`loadm<loadm>` for copying an image which is already in memory
