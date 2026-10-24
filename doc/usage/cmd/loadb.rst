@@ -66,3 +66,18 @@ Configuration
 -------------
 
 The command is only available if CONFIG_CMD_LOADB=y.
+
+Return value
+------------
+
+The return value $? is 0 (true) if the file arrives. It is 1 (false) if the
+transfer is aborted, which the sender does by sending <CTRL+C> in place of a
+packet.
+
+See also
+--------
+
+* :doc:`loadx<loadx>` and :doc:`loady<loady>` for the same transfer over the
+  xmodem and ymodem protocols
+* :doc:`loads<loads>` for loading a file in S-Record format
+* :doc:`loadm<loadm>` for copying an image which is already in memory
