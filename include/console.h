@@ -101,6 +101,19 @@ bool console_record_isempty(void);
  * Return:  the number of bytes added
  */
 int console_in_puts(const char *str);
+
+/**
+ * console_in_write() - Write bytes to the console input buffer
+ *
+ * As console_in_puts(), but with a length, so the data may hold a NUL byte.
+ * Use this for a binary stream, such as the xmodem and ymodem packets the
+ * loadx and loady commands read.
+ *
+ * @data: the bytes to write
+ * @size: number of bytes to write
+ * Return: the number of bytes added
+ */
+int console_in_write(const void *data, int size);
 #else
 static inline int console_record_init(void)
 {
@@ -133,6 +146,12 @@ static inline int console_record_avail(void)
 }
 
 static inline int console_in_puts(const char *str)
+{
+	/* There is never anything written */
+	return 0;
+}
+
+static inline int console_in_write(const void *data, int size)
 {
 	/* There is never anything written */
 	return 0;
