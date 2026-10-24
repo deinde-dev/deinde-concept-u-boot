@@ -89,6 +89,9 @@ ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_XIMG) += imxtract.o
 endif
 obj-$(CONFIG_CMD_LICENSE) += license.o
+ifdef CONFIG_CONSOLE_RECORD
+obj-$(CONFIG_CMD_LOADB) += loadb.o
+endif
 obj-$(CONFIG_CMD_LOADM) += loadm.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_LOADS) += loads.o
