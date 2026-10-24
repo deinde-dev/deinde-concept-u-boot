@@ -2505,6 +2505,7 @@ config CMD_TFTPBOOT
 	bool "tftp"
 	select GETOPT
 	select PROT_UDP_LWIP if NET_LWIP
+	select PROT_ICMP_LWIP if NET_LWIP
 	default y
 	help
 	  tftpboot - load file via network using TFTP protocol
