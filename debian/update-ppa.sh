@@ -25,23 +25,35 @@ fi
 echo "Pulling latest changes..."
 git pull
 
-# Binman is maintained as the binary-manager package. Launchpad builds have
-# no network access, so put the version which U-Boot asks for into the source
-# package, where debian/binman.sh runs it
-BINMAN_VERSION=$(sed -n 's/^binary-manager==//p' tools/binman/requirements.txt)
-echo "Fetching binary-manager ${BINMAN_VERSION}..."
+# Binman is maintained as the binary-manager package, which needs the dtoc
+# package. Launchpad builds have no network access, so put the versions which
+# U-Boot asks for into the source package, where debian/binman.sh runs binman.
+# The U-Boot Python library comes from the tree.
 rm -rf debian/binman
 mkdir -p debian/binman
 trap 'rm -rf debian/binman' EXIT
-BINMAN_URL=$(python3 - "$BINMAN_VERSION" <<'PYEOF'
+for req in tools/binman/requirements.txt tools/dtoc/requirements.txt; do
+    [ -f "$req" ] || continue
+    sed -n 's/^\([A-Za-z0-9_-]*\)==\(.*\)/\1 \2/p' "$req" |
+    while read -r name version; do
+        echo "Fetching ${name} ${version}..."
+        url=$(python3 - "$name" "$version" <<'PYEOF'
 import json, sys, urllib.request
-url = f'https://pypi.org/pypi/binary-manager/{sys.argv[1]}/json'
+url = f'https://pypi.org/pypi/{sys.argv[1]}/{sys.argv[2]}/json'
 with urllib.request.urlopen(url) as resp:
     files = json.load(resp)['urls']
 print(next(f['url'] for f in files if f['packagetype'] == 'sdist'))
 PYEOF
-)
-curl -sSfL "$BINMAN_URL" | tar -xz -C debian/binman --strip-components=1
+        )
+        # Keep only the Python packages from the source distribution
+        tmp=$(mktemp -d)
+        curl -sSfL "$url" | tar -xz -C "$tmp" --strip-components=1
+        for pkg in $(cat "$tmp"/*.egg-info/top_level.txt); do
+            cp -a "$tmp/$pkg" debian/binman/
+        done
+        rm -rf "$tmp"
+    done
+done
 
 # Get version info from the tree
 UBOOT_VERSION=$(sed -n 's/^VERSION = //p' Makefile).$(sed -n 's/^PATCHLEVEL = //p' Makefile)

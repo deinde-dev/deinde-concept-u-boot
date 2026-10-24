@@ -3,13 +3,15 @@
 #
 # Binman is maintained as the binary-manager package. Launchpad builds have
 # no network access, so debian/update-ppa.sh puts the version which U-Boot
-# asks for into debian/binman/ in the source package. Use that, falling back
-# to a binman which is already installed.
+# asks for, with the dtoc package, into debian/binman/ in the source package.
+# Use that, with the U-Boot Python library from the tree, falling back to a
+# binman which is already installed.
 #
 # Binman runs in the build directory. When the build has no python3-libfdt,
 # U-Boot builds pylibfdt itself (see debian/rules), so pick that up too.
 
 dir="$(dirname "$(readlink -f "$0")")/binman"
+tools="$(dirname "$(readlink -f "$0")")/../tools"
 pylibfdt="$PWD/scripts/dtc/pylibfdt"
 if [ -d "$pylibfdt" ]; then
 	PYTHONPATH="$pylibfdt${PYTHONPATH:+:$PYTHONPATH}"
@@ -17,7 +19,7 @@ if [ -d "$pylibfdt" ]; then
 fi
 
 if [ -d "$dir/binman" ]; then
-	PYTHONPATH="$dir${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m binman "$@"
+	PYTHONPATH="$dir:$tools${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m binman "$@"
 fi
 if command -v binman >/dev/null 2>&1; then
 	exec binman "$@"
