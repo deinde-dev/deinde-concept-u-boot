@@ -1076,7 +1076,12 @@ bool console_record_isempty(void)
 
 int console_in_puts(const char *str)
 {
-	return membuf_put((struct membuf *)&gd->console_in, str, strlen(str));
+	return console_in_write(str, strlen(str));
+}
+
+int console_in_write(const void *data, int size)
+{
+	return membuf_put((struct membuf *)&gd->console_in, data, size);
 }
 
 #endif

@@ -26,7 +26,7 @@ addr
     not set to configuration variable CONFIG_SYS_LOAD_ADDR
 
 baud
-    baud rate for the ymodem transmission. After the transmission the baud
+    baud rate for the xmodem transmission. After the transmission the baud
     rate is reset to the original value.
 
 Example
@@ -73,3 +73,19 @@ The command is only available if CONFIG_CMD_LOADB=y.
 Initial timeout in seconds while waiting for transfer is configured by
 config option CMD_LOADXY_TIMEOUT or by env variable $loadxy_timeout.
 Setting it to 0 means infinite timeout.
+
+Return value
+------------
+
+The return value $? is 0 (true) if the file arrives. It is 1 (false) if the
+transfer is aborted, which happens when the sender cancels it, when the
+initial timeout expires or when a packet cannot be read.
+
+See also
+--------
+
+* :doc:`loady<loady>` for the ymodem protocol, which carries the name and
+  length of the file as well
+* :doc:`loadb<loadb>` for the same transfer over the kermit protocol
+* :doc:`loads<loads>` for loading a file in S-Record format
+* :doc:`loadm<loadm>` for copying an image which is already in memory

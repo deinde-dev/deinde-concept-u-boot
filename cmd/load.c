@@ -435,7 +435,7 @@ static int write_record(char *buf)
 #define tochar(x) ((char) (((x) + SPACE) & 0xff))
 #define untochar(x) ((int) (((x) - SPACE) & 0xff))
 
-static void set_kerm_bin_mode(unsigned long *);
+static void set_kerm_bin_mode(void *addr);
 static int k_recv(void);
 static ulong load_serial_bin(ulong offset);
 
@@ -444,8 +444,7 @@ static int  his_pad_count;  /* number of pad chars he needs */
 static char his_pad_char;   /* pad chars he needs */
 static char his_quote;      /* quote chars he'll use */
 
-static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_load_serial_bin(struct getopt_state *gs)
 {
 	ulong offset = 0;
 	ulong addr;
@@ -463,11 +462,12 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	load_baudrate = current_baudrate = gd->baudrate;
 
-	if (argc >= 2) {
-		offset = hextoul(argv[1], NULL);
-	}
-	if (argc == 3) {
-		load_baudrate = (int)dectoul(argv[2], NULL);
+	s = getopt_pop(gs);
+	if (s)
+		offset = hextoul(s, NULL);
+	s = getopt_pop(gs);
+	if (s) {
+		load_baudrate = (int)dectoul(s, NULL);
 
 		/* default to current baudrate */
 		if (load_baudrate == 0)
@@ -488,7 +488,7 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 		}
 	}
 
-	if (strcmp(argv[0],"loady")==0) {
+	if (!strcmp(gs->argv[0], "loady")) {
 		printf("## Ready for binary (ymodem) download "
 			"to 0x%08lX at %d bps...\n",
 			offset,
@@ -504,7 +504,7 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 			printf("## Start Addr      = 0x%08lX\n", addr);
 			image_load_addr = addr;
 		}
-	} else if (strcmp(argv[0],"loadx")==0) {
+	} else if (!strcmp(gs->argv[0], "loadx")) {
 		printf("## Ready for binary (xmodem) download "
 			"to 0x%08lX at %d bps...\n",
 			offset,
@@ -557,9 +557,12 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 static ulong load_serial_bin(ulong offset)
 {
 	int size, i;
+	void *ptr;
 
-	set_kerm_bin_mode((ulong *) offset);
+	ptr = map_sysmem(offset, 0);
+	set_kerm_bin_mode(ptr);
 	size = k_recv();
+	unmap_sysmem(ptr);
 
 	/*
 	 * Gather any trailing characters (for instance, the ^D which
@@ -681,9 +684,9 @@ static void bin_data_char(char new_char)
 	}
 }
 
-static void set_kerm_bin_mode(unsigned long *addr)
+static void set_kerm_bin_mode(void *addr)
 {
-	bin_start_address = (char *) addr;
+	bin_start_address = addr;
 	os_data_init = bin_data_init;
 	os_data_char = bin_data_char;
 }
@@ -1036,8 +1039,10 @@ static ulong load_serial_ymodem(ulong offset, int mode)
 			} else
 #endif
 			{
-				memcpy((char *)(store_addr), ymodemBuf,
-					res);
+				void *ptr = map_sysmem(store_addr, res);
+
+				memcpy(ptr, ymodemBuf, res);
+				unmap_sysmem(ptr);
 			}
 
 		}
@@ -1155,7 +1160,7 @@ U_BOOT_CMD(
 #endif	/* CONFIG_CMD_LOADS */
 
 #if defined(CONFIG_CMD_LOADB)
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	loadb, 3, 0,	do_load_serial_bin,
 	"load binary file over serial line (kermit mode)",
 	"[ addr [ baud ] ]\n"
@@ -1163,7 +1168,7 @@ U_BOOT_CMD(
 	" at address 'addr' with baudrate 'baud'"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	loadx, 3, 0,	do_load_serial_bin,
 	"load binary file over serial line (xmodem mode)",
 	"[ addr [ baud ] ]\n"
@@ -1171,7 +1176,7 @@ U_BOOT_CMD(
 	" at address 'addr' with baudrate 'baud'"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	loady, 3, 0,	do_load_serial_bin,
 	"load binary file over serial line (ymodem mode)",
 	"[ addr [ baud ] ]\n"

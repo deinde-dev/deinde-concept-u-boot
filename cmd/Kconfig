@@ -1530,6 +1530,7 @@ config CMD_W1
 config CMD_LOADB
 	bool "loadb"
 	default y
+	select GETOPT
 	help
 	  Load a binary file over serial line.
 
