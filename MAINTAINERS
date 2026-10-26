@@ -2064,7 +2064,9 @@ VBE
 M:	Simon Glass <sjg@chromium.org>
 S:	Maintained
 F:	boot/vbe*
+F:	cmd/vbe.c
 F:	common/spl_reloc.c
+F:	doc/usage/cmd/vbe.rst
 F:	include/vbe.h
 F:	test/boot/vbe_abrec.c
 
