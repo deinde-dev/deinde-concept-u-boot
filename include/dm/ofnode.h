@@ -2443,6 +2443,24 @@ int ofnode_add_subnode(ofnode parent, const char *name, ofnode *nodep);
 int ofnode_copy_props(ofnode dst, ofnode src);
 
 /**
+ * ofnode_copy_props_from_fdt() - copy all properties from a flat-tree node
+ *
+ * This is like ofnode_copy_props() but reads the properties with libfdt, so
+ * it works when there is no ofnode for the source node, e.g. a node known
+ * only by its offset in a flat tree while the control devicetree is live.
+ *
+ * If @fdt is the flat tree holding @dst, the source node must come before
+ * @dst, since writing to @dst moves everything after it.
+ *
+ * @dst: Destination node to write properties to
+ * @fdt: Flat devicetree holding the source node
+ * @offset: Offset of the source node in @fdt
+ * Return: 0 if OK, -EINVAL if @offset is not a valid node or a property cannot
+ * be read or written
+ */
+int ofnode_copy_props_from_fdt(ofnode dst, const void *fdt, int offset);
+
+/**
  * ofnode_copy_node() - Copy a node to another place
  *
  * If a node with this name already exists in dst_parent, this returns an
@@ -2477,6 +2495,12 @@ static inline int ofnode_add_subnode(ofnode parent, const char *name,
 }
 
 static inline int ofnode_copy_props(ofnode dst, ofnode src)
+{
+	return -ENOSYS;
+}
+
+static inline int ofnode_copy_props_from_fdt(ofnode dst, const void *fdt,
+					     int offset)
 {
 	return -ENOSYS;
 }

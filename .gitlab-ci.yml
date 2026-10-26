@@ -1323,8 +1323,19 @@ tk1:
 vbe:
   variables:
     ROLE: vbe
+    TEST_PY_TEST_SPEC: "and not vbe_abrec_lab"
   resource_group: ff3399-board
   <<: *sjg_lab_dfn
+
+# The same board, going through the VBE A/B/recovery flow from the U-Boot
+# prompt: VPL tries B, falls back to A when B cannot be loaded, and boots the
+# recovery firmware. It rewrites B and the state, so it is a job of its own
+vbe-abrec:
+  variables:
+    ROLE: vbe
+    TEST_PY_TEST_SPEC: "and test_vbe_abrec_lab"
+  resource_group: ff3399-board
+  <<: *sjg_lab_slow_dfn
 
 play:
   variables:

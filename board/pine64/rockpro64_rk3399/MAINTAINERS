@@ -6,3 +6,8 @@ F:	board/pine64/rockpro64_rk3399
 F:	include/configs/rockpro64_rk3399.h
 F:	arch/arm/dts/rk3399-rockpro64*
 F:	configs/rockpro64-rk3399_defconfig
+
+ROCKPRO64-VBE
+M:	Simon Glass <sjg@chromium.org>
+S:	Maintained
+F:	configs/rockpro64-vbe-rk3399_defconfig

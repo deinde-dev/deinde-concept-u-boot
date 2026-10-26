@@ -273,8 +273,9 @@ enum spl_sandbox_flags {
  * @buf: Buffer where the image should be loaded
  * @fdt_buf: Buffer where the FDT will be copied by spl_reloc_jump(), only used
  *	if @fdt_size is non-zero
- * @fdt_start: Pointer to the FDT to be copied (must be set up before calling
- *	spl_reloc_jump()
+ * @fdt_start: Pointer to where the FDT should be copied, or NULL to put it
+ *	directly after the image, once decompressed, where a phase built with
+ *	OF_SEPARATE expects it
  * @rcode_buf: Buffer to hold the relocating-jump code
  * @stack_prot: Pointer to the stack-protection value, used to ensure the stack
  *	does not overflow

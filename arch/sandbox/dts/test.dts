@@ -176,6 +176,27 @@
 		};
 
 		/*
+		 * An abrec method whose firmware is described by slot info, for
+		 * the tests to bind. The slots are small and lie before the
+		 * first partition of the MMC
+		 */
+		firmware2 {
+			status = "disabled";
+			compatible = "fwupd,vbe-abrec";
+			storage = "mmc1";
+			area-start = <0x400>;
+			area-size = <0x1000>;
+			state-offset = <0x400>;
+			state-size = <0x40>;
+			slot-a-offset = <0x40000>;
+			slot-b-offset = <0x60000>;
+			slot-recovery-offset = <0x80000>;
+			slot-size = <0x20000>;
+			slot-info-offset = <0x1f000>;
+			slot-info-size = <0x1000>;
+		};
+
+		/*
 		 * This is used for the VBE VPL tests. The MMC device holds the
 		 * binman image.bin file. The test progresses through each phase
 		 * of U-Boot, loading each in turn from MMC.

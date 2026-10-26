@@ -10,16 +10,12 @@
 #include <dm.h>
 #include <blk.h>
 #include <image.h>
+#include <linux/log2.h>
 #include <mapmem.h>
 #include <memalign.h>
 #include <spl.h>
 #include <u-boot/crc.h>
 #include "vbe_common.h"
-
-binman_sym_declare(ulong, u_boot_vpl_nodtb, size);
-binman_sym_declare(ulong, u_boot_vpl_bss_pad, size);
-binman_sym_declare(ulong, u_boot_spl_nodtb, size);
-binman_sym_declare(ulong, u_boot_spl_bss_pad, size);
 
 int vbe_get_blk(const char *storage, struct udevice **blkp)
 {
@@ -101,12 +97,44 @@ int vbe_read_nvdata(struct udevice *blk, ulong offset, ulong size, u8 *buf)
 	if (hdr_ver != NVD_HDR_VER_CUR)
 		return log_msg_ret("hdr", -EPERM);
 	data_size = 1 << hdr_size;
-	if (!data_size || data_size > sizeof(*nvd))
+
+	/* the CRC must cover the fields, or they could hold anything */
+	if (data_size < offsetof(struct vbe_nvdata, spare2) ||
+	    data_size > sizeof(*nvd))
 		return log_msg_ret("sz", -EPERM);
 
 	crc = crc8(0, buf + 1, data_size - 1);
 	if (crc != nvd->crc8)
 		return log_msg_ret("crc", -EPERM);
+
+	return 0;
+}
+
+void vbe_seal_nvdata(struct vbe_nvdata *nvd, ulong size)
+{
+	nvd->hdr = NVD_HDR_VER_CUR << NVD_HDR_VER_SHIFT |
+		ilog2(size) << NVD_HDR_SIZE_SHIFT;
+	nvd->crc8 = crc8(0, (u8 *)nvd + 1, size - 1);
+}
+
+int vbe_write_nvdata(struct udevice *blk, ulong offset, ulong size,
+		     struct vbe_nvdata *nvd)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, buf, MMC_MAX_BLOCK_LEN);
+
+	if (size > sizeof(*nvd) || !is_power_of_2(size))
+		return log_msg_ret("siz", -E2BIG);
+	if (offset & (MMC_MAX_BLOCK_LEN - 1))
+		return log_msg_ret("off", -EBADF);
+	offset /= MMC_MAX_BLOCK_LEN;
+
+	/* keep whatever else is in the block */
+	if (blk_read(blk, offset, 1, buf) != 1)
+		return log_msg_ret("rd", -EIO);
+	vbe_seal_nvdata(nvd, size);
+	memcpy(buf, nvd, size);
+	if (blk_write(blk, offset, 1, buf) != 1)
+		return log_msg_ret("wr", -EIO);
 
 	return 0;
 }
@@ -360,22 +388,13 @@ int vbe_read_fit(struct udevice *blk, ulong area_offset, ulong area_size,
 #if IS_ENABLED(CONFIG_RELOC_LOADER)
 			image->fdt_buf = fdt_base_buf;
 
-			ulong xpl_size;
-			ulong xpl_pad;
-			ulong fdt_start;
-
-			if (xpl_phase() == PHASE_TPL) {
-				xpl_size = binman_sym(ulong, u_boot_vpl_nodtb, size);
-				xpl_pad = binman_sym(ulong, u_boot_vpl_bss_pad, size);
-			} else {
-				xpl_size = binman_sym(ulong, u_boot_spl_nodtb, size);
-				xpl_pad = binman_sym(ulong, u_boot_spl_bss_pad, size);
-			}
-			fdt_start = image->load_addr + xpl_size + xpl_pad;
-			log_debug("load_addr %lx xpl_size %lx copy-to %lx\n",
-				  image->load_addr, xpl_size + xpl_pad,
-				  fdt_start);
-			image->fdt_start = map_sysmem(fdt_start, fdt_size);
+			/*
+			 * The next phase expects its FDT just after its BSS.
+			 * Its size is only known once it is decompressed, and
+			 * may differ from the one built with this phase, e.g.
+			 * after an update, so let spl_reloc_jump() work it out
+			 */
+			image->fdt_start = NULL;
 #endif
 		}
 	}

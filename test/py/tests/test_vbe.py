@@ -31,6 +31,10 @@ base_its = '''
                     vbe,size = <0x40>;
                     vbe,required;
                 };
+                seed {
+                    compatible = "vbe,random-seed";
+                    vbe,size = <0x20>;
+                };
                 aslr1 {
                     compatible = "vbe,aslr-move";
                     vbe,align = <0x100000>;
@@ -115,7 +119,9 @@ def test_vbe_os_request(ubman):
     params['fit'] = fit
     cmd = base_script % params
 
-    with ubman.log.section('Kernel load'):
+    # The fwupd node holds the U-Boot version, which looks like a sign-on
+    with ubman.log.section('Kernel load'), \
+            ubman.disable_check('main_signon'):
         ubman.run_command_list(cmd.splitlines())
 
     ubman.run_ut('bootstd', 'vbe_test_fixup')

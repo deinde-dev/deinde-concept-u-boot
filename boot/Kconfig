@@ -951,6 +951,7 @@ config BOOTMETH_VBE_ABREC
 	bool "Bootdev support for VBE 'a/b/recovery' method"
 	imply SPL_CRC8
 	imply VPL_CRC8
+	default y if SANDBOX && !SPL
 	help
 	  Enables support for VBE 'abrec' boot. This allows updating one of an
 	  A or B firmware image in boot media such as MMC. The new firmware is
@@ -958,6 +959,11 @@ config BOOTMETH_VBE_ABREC
 	  A and B have the same version. If neither firmware image passes the
 	  verification step, a recovery image is booted. This method will
 	  eventually provide rollback protection as well.
+
+	  In U-Boot proper this adds a node for each abrec bootmeth under
+	  /chosen/fwupd in the OS devicetree, giving the current version and
+	  the firmware slot which was booted, so that an updater such as fwupd
+	  can install new firmware.
 
 config BOOTMETH_VBE_ABREC_OS
 	bool "Bootdev support for VBE 'a/b/recovery' method for the OS"

@@ -20,6 +20,7 @@
 #include <dm.h>
 #include <log.h>
 #include <of_live.h>
+#include <asm/global_data.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
 #include <dm/of_extra.h>
@@ -30,6 +31,8 @@
 #include <linux/sizes.h>
 #include <test/test.h>
 #include <test/ut.h>
+
+DECLARE_GLOBAL_DATA_PTR;
 
 /**
  * get_other_oftree() - Convert a flat tree into an oftree object
@@ -1423,11 +1426,10 @@ static int dm_test_ofnode_too_many(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_ofnode_too_many, UTF_SCAN_FDT);
 
-static int check_copy_props(struct unit_test_state *uts, ofnode dst, ofnode src)
+/* check the properties copied from /b-test */
+static int check_copied_props(struct unit_test_state *uts, ofnode dst)
 {
 	u32 reg[2], val;
-
-	ut_assertok(ofnode_copy_props(dst, src));
 
 	ut_assertok(ofnode_read_u32(dst, "ping-expect", &val));
 	ut_asserteq(3, val);
@@ -1444,6 +1446,13 @@ static int check_copy_props(struct unit_test_state *uts, ofnode dst, ofnode src)
 	ut_assertok(ofnode_write_string(dst, "compatible", "nothing"));
 
 	return 0;
+}
+
+static int check_copy_props(struct unit_test_state *uts, ofnode dst, ofnode src)
+{
+	ut_assertok(ofnode_copy_props(dst, src));
+
+	return check_copied_props(uts, dst);
 }
 
 static int dm_test_ofnode_copy_props(struct unit_test_state *uts)
@@ -1481,6 +1490,28 @@ static int dm_test_ofnode_copy_props_ot(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_ofnode_copy_props_ot, UTF_SCAN_FDT | UTF_OTHER_FDT);
+
+/* test ofnode_copy_props_from_fdt(), which reads the flat control tree */
+static int dm_test_ofnode_copy_props_from_fdt(struct unit_test_state *uts)
+{
+	const void *fdt = gd->fdt_blob;
+	ofnode dst;
+	int offset;
+
+	/* as above, the src node is before the destination node in the tree */
+	offset = fdt_path_offset(fdt, "/b-test");
+	ut_assert(offset > 0);
+	dst = ofnode_path("/some-bus");
+
+	ut_assertok(ofnode_copy_props_from_fdt(dst, fdt, offset));
+	ut_assertok(check_copied_props(uts, dst));
+	ut_asserteq_str("mux0", ofnode_read_string(dst, "mux-control-names"));
+
+	ut_asserteq(-EINVAL, ofnode_copy_props_from_fdt(dst, fdt, -1));
+
+	return 0;
+}
+DM_TEST(dm_test_ofnode_copy_props_from_fdt, UTF_SCAN_FDT);
 
 /* check that the livetree is aligned to a structure boundary */
 static int dm_test_livetree_align(struct unit_test_state *uts)

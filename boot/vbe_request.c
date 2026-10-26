@@ -14,6 +14,7 @@
 #include <malloc.h>
 #include <rng.h>
 #include <dm/ofnode.h>
+#include <linux/libfdt.h>
 
 #define VBE_PREFIX		"vbe,"
 #define VBE_PREFIX_LEN		(sizeof(VBE_PREFIX) - 1)
@@ -104,7 +105,10 @@ static struct vbe_req {
 	/* provide random data for EFI-runtime-services address */
 	{ "efi-runtime-rand", vbe_req_efi_runtime_rand },
 
-	/* generate random data bytes to see the OS's rand generator */
+	/* generate random data bytes to seed the OS's rand generator */
+	{ "random-seed", vbe_req_random_seed },
+
+	/* old name for random-seed */
 	{ "random-rand", vbe_req_random_seed },
 
 };
@@ -152,32 +156,29 @@ static int bootmeth_vbe_ft_fixup(void *ctx, struct event *event)
 {
 	const struct event_ft_fixup *fixup = &event->data.ft_fixup;
 	const struct bootm_headers *images = fixup->images;
-	ofnode parent, dest_parent, root, node;
-	oftree fit;
+	const void *fit;
+	ofnode dest_parent;
+	int node;
 
 	if (!images || !images->fit_hdr_os)
 		return 0;
 
 	/* Get the image node with requests in it */
-	log_debug("fit=%p, noffset=%d\n", images->fit_hdr_os,
-		  images->fit_noffset_os);
-	fit = oftree_from_fdt(images->fit_hdr_os);
-	root = oftree_root(fit);
-	if (of_live_active()) {
-		log_warning("Cannot fix up live tree\n");
-		return 0;
-	}
-	if (!ofnode_valid(root))
-		return log_msg_ret("rt", -EINVAL);
-	parent = noffset_to_ofnode(root, images->fit_noffset_os);
-	if (!ofnode_valid(parent))
+	fit = images->fit_hdr_os;
+	log_debug("fit=%p, noffset=%d\n", fit, images->fit_noffset_os);
+	if (images->fit_noffset_os < 0)
 		return log_msg_ret("img", -EINVAL);
 	dest_parent = oftree_path(fixup->tree, "/chosen");
 	if (!ofnode_valid(dest_parent))
 		return log_msg_ret("dst", -EINVAL);
 
-	ofnode_for_each_subnode(node, parent) {
-		const char *name = ofnode_get_name(node);
+	/*
+	 * ofnode can only read the FIT by unflattening all of it when the
+	 * control devicetree is live, and the node is known only by its flat
+	 * offset, so read it with libfdt
+	 */
+	fdt_for_each_subnode(node, fit, images->fit_noffset_os) {
+		const char *name = fdt_get_name(fit, node, NULL);
 		struct vbe_result result;
 		ofnode dest;
 		int ret;
@@ -186,7 +187,7 @@ static int bootmeth_vbe_ft_fixup(void *ctx, struct event *event)
 		ret = ofnode_add_subnode(dest_parent, name, &dest);
 		if (ret && ret != -EEXIST)
 			return log_msg_ret("add", ret);
-		ret = ofnode_copy_props(dest, node);
+		ret = ofnode_copy_props_from_fdt(dest, fit, node);
 		if (ret)
 			return log_msg_ret("cp", ret);
 
