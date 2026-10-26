@@ -11,6 +11,7 @@
 #include <mmc.h>
 #include <vbe.h>
 #include <version_string.h>
+#include <dm/device-internal.h>
 #include <dm/ofnode.h>
 #include <test/ut.h>
 #include "bootstd_common.h"
@@ -146,6 +147,74 @@ static int vbe_abrec_test_nvdata(struct unit_test_state *uts)
 	return 0;
 }
 BOOTSTD_TEST(vbe_abrec_test_nvdata, UTF_DM | UTF_SCAN_FDT);
+
+/* Check the 'vbe recovery' command */
+static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, orig, MMC_MAX_BLOCK_LEN);
+	struct udevice *bootstd, *dev, *blk;
+	struct abrec_state state;
+	struct abrec_priv *priv;
+	bool changed;
+	ofnode node;
+
+	/*
+	 * firmware0 in the sandbox devicetree is vbe-simple, but has the
+	 * properties which abrec needs, so put an abrec bootmeth on it too
+	 */
+	node = ofnode_path("/bootstd/firmware0");
+	ut_assert(ofnode_valid(node));
+	ut_assertok(uclass_first_device_err(UCLASS_BOOTSTD, &bootstd));
+	ut_assertok(device_bind(bootstd, DM_DRIVER_GET(vbe_abrec), "abrec",
+				NULL, node, &dev));
+	ut_assertok(device_probe(dev));
+	priv = dev_get_priv(dev);
+	ut_assertok(vbe_get_blk(priv->storage, &blk));
+
+	/* other tests use this block, so put it back afterwards */
+	ut_asserteq(1, blk_read(blk, NVDATA_START_BLK, 1, orig));
+
+	/* vbe-simple has no recovery firmware */
+	ut_assertok(run_command("vbe select firmware0", 0));
+	ut_asserteq(1, run_command("vbe recovery", 0));
+	ut_assert_nextline("VBE bootmeth 'firmware0' has no recovery firmware");
+	ut_assert_console_end();
+
+	/* with nothing selected, the first one with recovery firmware is used */
+	ut_assertok(run_command("vbe select", 0));
+	ut_assertok(run_command("vbe recovery", 0));
+	ut_assert_nextline("Recovery: off");
+	ut_assert_console_end();
+
+	/* request recovery, which leaves the rest of the state alone */
+	ut_assertok(run_command("vbe recovery on", 0));
+	ut_assert_nextline("Recovery: on");
+	ut_assert_console_end();
+	ut_assertok(abrec_read_nvdata(priv, blk, &state));
+	ut_assert(state.recovery);
+	ut_asserteq(TEST_VERNUM, state.fw_vernum);
+	ut_assert(!state.try_b);
+
+	/* and it is what VPL picks */
+	ut_asserteq(VBEP_RECOVERY, abrec_choose(&state, &changed));
+
+	ut_assertok(run_command("vbe recovery off", 0));
+	ut_assert_nextline("Recovery: off");
+	ut_assert_console_end();
+	ut_assertok(abrec_read_nvdata(priv, blk, &state));
+	ut_assert(!state.recovery);
+	ut_asserteq(TEST_VERNUM, state.fw_vernum);
+
+	ut_asserteq(1, run_command("vbe recovery maybe", 0));
+	ut_assert_skip_to_linen("vbe recovery [on|off]");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("vbe select", 0));
+	ut_asserteq(1, blk_write(blk, NVDATA_START_BLK, 1, orig));
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_abrec_test_recovery_cmd, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
 
 /* Check the information provided to the OS */
 static int vbe_abrec_test_fixup(struct unit_test_state *uts)

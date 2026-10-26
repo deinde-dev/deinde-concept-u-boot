@@ -160,6 +160,44 @@ int abrec_read_state(struct udevice *dev, struct abrec_state *state)
 	return 0;
 }
 
+int vbe_abrec_get_recovery(struct udevice *dev, bool *recoveryp)
+{
+	struct abrec_state state;
+	int ret;
+
+	if (dev->driver != DM_DRIVER_GET(vbe_abrec))
+		return -ENOSYS;
+	ret = abrec_read_state(dev, &state);
+	if (ret)
+		return log_msg_ret("vgr", ret);
+	*recoveryp = state.recovery;
+
+	return 0;
+}
+
+int vbe_abrec_set_recovery(struct udevice *dev, bool recovery)
+{
+	struct abrec_priv *priv = dev_get_priv(dev);
+	struct abrec_state state;
+	struct udevice *blk;
+	int ret;
+
+	if (dev->driver != DM_DRIVER_GET(vbe_abrec))
+		return -ENOSYS;
+	ret = vbe_get_blk(priv->storage, &blk);
+	if (ret)
+		return log_msg_ret("vsb", ret);
+	ret = abrec_read_nvdata(priv, blk, &state);
+	if (ret)
+		return log_msg_ret("vsr", ret);
+	state.recovery = recovery;
+	ret = abrec_write_nvdata(priv, blk, &state);
+	if (ret)
+		return log_msg_ret("vsw", ret);
+
+	return 0;
+}
+
 static int vbe_abrec_get_state_desc(struct udevice *dev, char *buf,
 				    int maxsize)
 {
