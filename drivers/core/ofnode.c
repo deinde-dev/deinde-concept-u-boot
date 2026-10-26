@@ -2257,6 +2257,32 @@ int ofnode_copy_props(ofnode dst, ofnode src)
 	return 0;
 }
 
+int ofnode_copy_props_from_fdt(ofnode dst, const void *fdt, int offset)
+{
+	int poffset;
+
+	fdt_for_each_property_offset(poffset, fdt, offset) {
+		const char *name;
+		const void *val;
+		int len, ret;
+
+		val = fdt_getprop_by_offset(fdt, poffset, &name, &len);
+		if (!val) {
+			log_debug("Cannot read prop (err=%d)\n", len);
+			return log_msg_ret("fget", -EINVAL);
+		}
+		ret = ofnode_write_prop(dst, name, val, len, true);
+		if (ret) {
+			log_debug("Cannot write prop (err=%d)\n", ret);
+			return log_msg_ret("fwr", -EINVAL);
+		}
+	}
+	if (poffset != -FDT_ERR_NOTFOUND)
+		return log_msg_ret("fnd", -EINVAL);
+
+	return 0;
+}
+
 int ofnode_copy_node(ofnode dst_parent, const char *name, ofnode src,
 		     ofnode *nodep)
 {
