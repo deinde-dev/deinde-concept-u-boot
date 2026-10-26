@@ -101,7 +101,10 @@ int vbe_read_nvdata(struct udevice *blk, ulong offset, ulong size, u8 *buf)
 	if (hdr_ver != NVD_HDR_VER_CUR)
 		return log_msg_ret("hdr", -EPERM);
 	data_size = 1 << hdr_size;
-	if (!data_size || data_size > sizeof(*nvd))
+
+	/* the CRC must cover the fields, or they could hold anything */
+	if (data_size < offsetof(struct vbe_nvdata, spare2) ||
+	    data_size > sizeof(*nvd))
 		return log_msg_ret("sz", -EPERM);
 
 	crc = crc8(0, buf + 1, data_size - 1);

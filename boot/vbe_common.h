@@ -136,7 +136,8 @@ int vbe_read_version(struct udevice *blk, ulong offset, char *version,
  * @buf: Buffer to hold the data
  * Return: 0 if OK, -E2BIG if @size > block size, -EBADF if the offset is not
  * block-aligned, -EIO if an I/O error occurred, -EPERM if the header version is
- * incorrect, the header size is invalid or the data fails its CRC check
+ * incorrect, the header size is invalid or too small to cover the fields, or
+ * the data fails its CRC check
  */
 int vbe_read_nvdata(struct udevice *blk, ulong offset, ulong size, u8 *buf);
 
