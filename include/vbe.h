@@ -141,4 +141,29 @@ int vbe_abrec_get_recovery(struct udevice *dev, bool *recoveryp);
  */
 int vbe_abrec_set_recovery(struct udevice *dev, bool recovery);
 
+/**
+ * vbe_abrec_get_try() - Check whether the B firmware is to be tried
+ *
+ * @dev: VBE bootmeth
+ * @tryp: Returns true if VPL tries B on the next boot
+ * @countp: Returns the number of tries left
+ * Return: 0 if OK, -ENOSYS if @dev is not a VBE abrec bootmeth, other -ve on
+ *	error
+ */
+int vbe_abrec_get_try(struct udevice *dev, bool *tryp, int *countp);
+
+/**
+ * vbe_abrec_set_try() - Ask VPL to try the B firmware, or stop doing so
+ *
+ * This does what an updater does once it has written new firmware to B: B gets
+ * all its tries, the result of the last try is cleared and so is any request
+ * for recovery, since VPL would boot that instead
+ *
+ * @dev: VBE bootmeth
+ * @try: true to try B, false to go back to A
+ * Return: 0 if OK, -ENOSYS if @dev is not a VBE abrec bootmeth, other -ve on
+ *	error
+ */
+int vbe_abrec_set_try(struct udevice *dev, bool try);
+
 #endif

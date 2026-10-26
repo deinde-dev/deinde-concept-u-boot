@@ -312,6 +312,51 @@ int vbe_abrec_set_recovery(struct udevice *dev, bool recovery)
 	return 0;
 }
 
+int vbe_abrec_get_try(struct udevice *dev, bool *tryp, int *countp)
+{
+	struct abrec_state state;
+	int ret;
+
+	if (dev->driver != DM_DRIVER_GET(vbe_abrec))
+		return -ENOSYS;
+	ret = abrec_read_state(dev, &state);
+	if (ret)
+		return log_msg_ret("vgt", ret);
+	*tryp = state.try_b;
+	*countp = state.try_count;
+
+	return 0;
+}
+
+int vbe_abrec_set_try(struct udevice *dev, bool try)
+{
+	struct abrec_priv *priv = dev_get_priv(dev);
+	struct abrec_state state;
+	struct udevice *blk;
+	int ret;
+
+	if (dev->driver != DM_DRIVER_GET(vbe_abrec))
+		return -ENOSYS;
+	ret = vbe_get_blk(priv->storage, &blk);
+	if (ret)
+		return log_msg_ret("vtb", ret);
+	ret = abrec_read_nvdata(priv, blk, &state);
+	if (ret)
+		return log_msg_ret("vtr", ret);
+
+	/* as an updater does, so that B gets all its tries */
+	state.try_b = try;
+	state.try_count = try ? VBEF_TRY_COUNT_MASK : 0;
+	state.try_result = VBETR_UNKNOWN;
+	if (try)
+		state.recovery = false;
+	ret = abrec_write_nvdata(priv, blk, &state);
+	if (ret)
+		return log_msg_ret("vtw", ret);
+
+	return 0;
+}
+
 static int vbe_abrec_get_state_desc(struct udevice *dev, char *buf,
 				    int maxsize)
 {

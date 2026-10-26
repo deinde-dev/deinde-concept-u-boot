@@ -16,6 +16,7 @@ Synopsis
     vbe info
     vbe state
     vbe recovery [on|off]
+    vbe try [on|off]
 
 Description
 -----------
@@ -32,8 +33,9 @@ Lists the VBE bootmeths. The 'Sel' column shows the one selected by
 vbe select
 ~~~~~~~~~~
 
-Selects a VBE bootmeth, by name or sequence number, for use by the `vbe info`
-and `vbe recovery` subcommands. With no argument, the selection is cleared.
+Selects a VBE bootmeth, by name or sequence number, for use by the `vbe info`,
+`vbe recovery` and `vbe try` subcommands. With no argument, the selection is
+cleared.
 
 vbe info
 ~~~~~~~~
@@ -90,6 +92,24 @@ saying there is no recovery firmware.
 Note that VPL also falls back to the recovery firmware by itself, if neither A
 nor B can be loaded and there is recovery firmware.
 
+vbe try
+~~~~~~~
+
+Shows whether the next boot tries the B firmware, and how many tries it has
+left, or changes it. Like `vbe recovery`, this is only supported by the VBE
+A/B/recovery method.
+
+on
+    Ask VPL to try B, as an updater does once it has written new firmware
+    there: B gets all its tries, and the result of the last try and any request
+    for recovery are cleared.
+
+off
+    Stop trying B, so that VPL goes back to booting A.
+
+This writes nothing to B, so B must already hold firmware which can be loaded,
+or VPL marks it bad and falls back to A. It is mostly useful for testing.
+
 Example
 -------
 
@@ -123,6 +143,13 @@ reach the OS::
     Recovery: off
     Picked: B
 
+This asks VPL to try B on the next boot::
+
+    => vbe try
+    Try B: no
+    => vbe try on
+    Try B: yes, 3 tries left
+
 The vbe-simple method has no recovery firmware::
 
     => vbe select firmware0
@@ -132,8 +159,8 @@ The vbe-simple method has no recovery firmware::
 Configuration
 -------------
 
-The `vbe` command is enabled by CONFIG_CMD_VBE and `vbe recovery` also needs
-CONFIG_BOOTMETH_VBE_ABREC
+The `vbe` command is enabled by CONFIG_CMD_VBE and `vbe recovery` and `vbe try`
+also need CONFIG_BOOTMETH_VBE_ABREC
 
 Return value
 ------------

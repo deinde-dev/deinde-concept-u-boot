@@ -251,6 +251,7 @@ static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
 
 	ut_asserteq(1, run_command("vbe recovery maybe", 0));
 	ut_assert_skip_to_linen("vbe recovery [on|off]");
+	ut_assert_nextlinen("vbe try [on|off]");
 	ut_assert_console_end();
 
 	ut_assertok(run_command("vbe select", 0));
@@ -259,6 +260,67 @@ static int vbe_abrec_test_recovery_cmd(struct unit_test_state *uts)
 	return 0;
 }
 BOOTSTD_TEST(vbe_abrec_test_recovery_cmd, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Check the 'vbe try' command */
+static int vbe_abrec_test_try_cmd(struct unit_test_state *uts)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(u8, orig, MMC_MAX_BLOCK_LEN);
+	struct udevice *dev, *blk;
+	struct abrec_state state;
+	struct abrec_priv *priv;
+	bool changed;
+
+	ut_assertok(bind_abrec_node(uts, "/bootstd/firmware2", "abrec2", &dev,
+				    &blk));
+	priv = dev_get_priv(dev);
+
+	/* other tests use this block, so put it back afterwards */
+	ut_asserteq(1, blk_read(blk, NVDATA_START_BLK, 1, orig));
+
+	/* vbe-simple has no B firmware */
+	ut_assertok(run_command("vbe select firmware0", 0));
+	ut_asserteq(1, run_command("vbe try", 0));
+	ut_assert_nextline("VBE bootmeth 'firmware0' has no B firmware");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("vbe select abrec2", 0));
+	ut_assertok(run_command("vbe try", 0));
+	ut_assert_nextline("Try B: no");
+	ut_assert_console_end();
+
+	/* trying B clears a request for recovery, which VPL would boot instead */
+	ut_assertok(run_command("vbe recovery on", 0));
+	ut_assert_nextline("Recovery: on");
+	ut_assertok(run_command("vbe try on", 0));
+	ut_assert_nextline("Try B: yes, 3 tries left");
+	ut_assert_console_end();
+	ut_assertok(abrec_read_nvdata(priv, blk, &state));
+	ut_assert(state.try_b);
+	ut_asserteq(3, state.try_count);
+	ut_assert(!state.recovery);
+	ut_asserteq(TEST_VERNUM, state.fw_vernum);
+
+	/* so VPL picks B, using up a try */
+	ut_asserteq(VBEP_B, abrec_choose(&state, true, &changed));
+	ut_asserteq(2, state.try_count);
+
+	ut_assertok(run_command("vbe try off", 0));
+	ut_assert_nextline("Try B: no");
+	ut_assert_console_end();
+	ut_assertok(abrec_read_nvdata(priv, blk, &state));
+	ut_assert(!state.try_b);
+	ut_asserteq(VBEP_A, abrec_choose(&state, true, &changed));
+
+	ut_asserteq(1, run_command("vbe try maybe", 0));
+	ut_assert_skip_to_linen("vbe try [on|off]");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("vbe select", 0));
+	ut_asserteq(1, blk_write(blk, NVDATA_START_BLK, 1, orig));
+
+	return 0;
+}
+BOOTSTD_TEST(vbe_abrec_test_try_cmd, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
 
 /* Check that 'vbe info' shows the state */
 static int vbe_abrec_test_info(struct unit_test_state *uts)
