@@ -96,6 +96,12 @@ static int cmd_test_setenv_error(struct unit_test_state *uts)
 	ut_assert_skip_to_linen("    - [forcibly] delete environment");
 	ut_assert_console_end();
 
+	/* an option on its own names no variable, so it is a usage error */
+	ut_asserteq(1, run_command("setenv -f", 0));
+	ut_assert_nextlinen("setenv - set environment variables");
+	ut_assert_skip_to_linen("    - [forcibly] delete environment");
+	ut_assert_console_end();
+
 	/* '=' separates a name from its value, so a name cannot hold one */
 	ut_asserteq(1, run_command("setenv ut=set wilma", 0));
 	ut_assert_nextline(ILLEGAL_CHAR " \"ut=set\"");
