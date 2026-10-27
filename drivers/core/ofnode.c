@@ -750,13 +750,16 @@ ofnode ofnode_next_subnode(ofnode node)
 ofnode ofnode_get_parent(ofnode node)
 {
 	ofnode parent;
+	int offset;
 
 	assert(ofnode_valid(node));
-	if (ofnode_is_np(node))
+	if (ofnode_is_np(node)) {
 		parent = np_to_ofnode(of_get_parent(ofnode_to_np(node)));
-	else
-		parent.of_offset = fdt_parent_offset(ofnode_to_fdt(node),
-						     ofnode_to_offset(node));
+	} else {
+		offset = fdt_parent_offset(ofnode_to_fdt(node),
+					   ofnode_to_offset(node));
+		parent = noffset_to_ofnode(node, offset);
+	}
 
 	return parent;
 }

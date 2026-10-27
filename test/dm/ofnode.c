@@ -1375,6 +1375,21 @@ static int dm_test_ofnode_find_subnode_ot(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_ofnode_find_subnode_ot, UTF_OTHER_FDT);
 
+/* test ofnode_get_parent() on the 'other' tree */
+static int dm_test_ofnode_get_parent_ot(struct unit_test_state *uts)
+{
+	oftree otree = get_other_oftree(uts);
+	ofnode node, subnode;
+
+	node = oftree_path(otree, "/node");
+	subnode = ofnode_find_subnode(node, "subnode");
+	ut_assert(ofnode_valid(subnode));
+	ut_assert(ofnode_equal(node, ofnode_get_parent(subnode)));
+
+	return 0;
+}
+DM_TEST(dm_test_ofnode_get_parent_ot, UTF_OTHER_FDT);
+
 static int dm_test_ofnode_get_name(struct unit_test_state *uts)
 {
 	ofnode node;

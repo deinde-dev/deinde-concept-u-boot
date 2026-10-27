@@ -89,6 +89,12 @@ rng-seed
 Both are added by fdt_chosen(), which runs after any measurement of the
 devicetree (see below), so they do not disturb measured boot.
 
+An OS in a FIT can also ask for these with VBE OS requests in its image node:
+'vbe,aslr-rand' for kaslr-seed and 'vbe,random-seed' for rng-seed, with
+vbe,size giving the number of bytes of rng-seed. U-Boot then sets the
+property even when it would not add it itself, and refuses to boot if a request
+marked vbe,required cannot be met.
+
 Measured boot
 -------------
 
