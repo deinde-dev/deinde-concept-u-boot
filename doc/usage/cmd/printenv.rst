@@ -161,3 +161,11 @@ Return value
 
 The return value $? is 1 (false) if a specified variable is not found.
 Otherwise $? is set to 0 (true).
+
+See also
+--------
+
+* :doc:`env<env>` for *env print*, which is this command, and the other
+  environment subcommands
+* :doc:`setenv<setenv>` for setting a variable
+* :doc:`grepenv<grepenv>` for finding variables by name or value
