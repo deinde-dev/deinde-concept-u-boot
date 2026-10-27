@@ -128,3 +128,5 @@ See also
 
 * :doc:`cbfsinit<cbfsinit>` for reading the CBFS whose offset and size this
   command reports
+* :doc:`version<version>` which shows the coreboot version and build string
+  from the same table
