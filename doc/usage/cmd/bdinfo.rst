@@ -180,5 +180,6 @@ See also
 
 * :doc:`ufetch<ufetch>` for a short summary of the same board, rather than
   every field of it
+* :doc:`version<version>` for which U-Boot this is and what built it
 * :doc:`cpu<cpu>` for the CPUs in more detail
 * :doc:`meminfo<meminfo>` for what the memory is being used for

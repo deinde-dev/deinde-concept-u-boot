@@ -116,6 +116,8 @@ The command is only available if CONFIG_CMD_UFETCH=y.
 See also
 --------
 
+* :doc:`version<version>` for the Kernel line in full, with the compiler and
+  linker which built U-Boot
 * :doc:`bdinfo<bdinfo>` for the board information in full, rather than a
   summary of it
 * :doc:`coninfo<coninfo>` for the console devices behind the Consoles line

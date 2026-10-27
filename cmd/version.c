@@ -6,6 +6,7 @@
 
 #include <command.h>
 #include <display_options.h>
+#include <getopt.h>
 #include <version.h>
 #include <version_string.h>
 #include <linux/compiler.h>
@@ -13,12 +14,11 @@
 #include <asm/cb_sysinfo.h>
 #endif
 
-static int do_version(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_version(struct getopt_state *gs)
 {
 	char buf[DISPLAY_OPTIONS_BANNER_LENGTH];
 
-	printf(display_options_get_banner(false, buf, sizeof(buf)));
+	printf("%s", display_options_get_banner(false, buf, sizeof(buf)));
 #ifdef CC_VERSION_STRING
 	puts(CC_VERSION_STRING "\n");
 #endif
@@ -31,7 +31,7 @@ static int do_version(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	version,	1,		1,	do_version,
 	"print monitor, compiler and linker version",
 	""
