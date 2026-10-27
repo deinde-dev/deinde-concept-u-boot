@@ -36,18 +36,23 @@ static int vbe_test_fixup_norun(struct unit_test_state *uts)
 	/* ignore if this test is run on its own */
 	if (!ofnode_valid(node))
 		return 0;
-	data = ofnode_read_prop(node, "data", &size);
-	ut_asserteq(0x40, size);
+	ut_assertnull(ofnode_read_prop(node, "data", NULL));
 
+	/*
+	 * The seeds go in the standard properties, so 'seed' replaces the one
+	 * which fdt_chosen() and the 'random' request put in rng-seed
+	 */
 	node = ofnode_find_subnode(chosen, "seed");
 	ut_assert(ofnode_valid(node));
-	data = ofnode_read_prop(node, "data", &size);
+	ut_assertnull(ofnode_read_prop(node, "data", NULL));
+	ut_assertnonnull(ofnode_read_prop(chosen, "rng-seed", &size));
 	ut_asserteq(0x20, size);
 
 	node = ofnode_find_subnode(chosen, "aslr2");
 	ut_assert(ofnode_valid(node));
-	data = ofnode_read_prop(node, "data", &size);
-	ut_asserteq(4, size);
+	ut_assertnull(ofnode_read_prop(node, "data", NULL));
+	ut_assertnonnull(ofnode_read_prop(chosen, "kaslr-seed", &size));
+	ut_asserteq(8, size);
 
 	node = ofnode_find_subnode(chosen, "efi-runtime");
 	ut_assert(ofnode_valid(node));

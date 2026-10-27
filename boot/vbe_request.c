@@ -28,7 +28,18 @@ struct vbe_result {
 
 typedef int (*vbe_req_func)(ofnode node, struct vbe_result *result);
 
-static int handle_random_req(ofnode node, int default_size,
+/**
+ * handle_random_req() - Provide random data for a request
+ *
+ * @node: Request node in /chosen
+ * @default_size: Number of bytes to provide if the request has no vbe,size
+ *	property, or 0 if it must have one
+ * @prop: Property of /chosen to hold the data, or NULL to put it in a 'data'
+ *	property of the request node
+ * @result: Returns an error message, on failure
+ * Return: 0 if OK, -ve on error
+ */
+static int handle_random_req(ofnode node, int default_size, const char *prop,
 			     struct vbe_result *result)
 {
 	char buf[VBE_MAX_RAND_SIZE];
@@ -65,16 +76,25 @@ static int handle_random_req(ofnode node, int default_size,
 			 "Failed to read random-number device (err=%d)", ret);
 		return log_msg_ret("rd", ret);
 	}
-	ret = ofnode_write_prop(node, "data", buf, size, true);
+	/*
+	 * In a flat tree this moves the request node, but it is not used after
+	 * a successful write
+	 */
+	if (prop)
+		ret = ofnode_write_prop(ofnode_get_parent(node), prop, buf,
+					size, true);
+	else
+		ret = ofnode_write_prop(node, "data", buf, size, true);
 	if (ret)
 		return log_msg_ret("wr", -EINVAL);
 
 	return 0;
 }
 
+/* the OS already reads its seeds from these standard properties of /chosen */
 static int vbe_req_random_seed(ofnode node, struct vbe_result *result)
 {
-	return handle_random_req(node, 0, result);
+	return handle_random_req(node, 0, "rng-seed", result);
 }
 
 static int vbe_req_aslr_move(ofnode node, struct vbe_result *result)
@@ -84,12 +104,21 @@ static int vbe_req_aslr_move(ofnode node, struct vbe_result *result)
 
 static int vbe_req_aslr_rand(ofnode node, struct vbe_result *result)
 {
-	return handle_random_req(node, 4, result);
+	u32 size;
+
+	/* kaslr-seed is always 64 bits */
+	if (!ofnode_read_u32(node, "vbe,size", &size) && size != sizeof(u64)) {
+		snprintf(result->err_str, VBE_ERR_STR_LEN,
+			 "vbe,size %#x must be %#zx", size, sizeof(u64));
+		return log_msg_ret("asl", -EINVAL);
+	}
+
+	return handle_random_req(node, sizeof(u64), "kaslr-seed", result);
 }
 
 static int vbe_req_efi_runtime_rand(ofnode node, struct vbe_result *result)
 {
-	return handle_random_req(node, 4, result);
+	return handle_random_req(node, 4, NULL, result);
 }
 
 static struct vbe_req {
