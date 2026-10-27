@@ -176,7 +176,7 @@ def test_ut(ut_ubman, ut_subtest):
             output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
         assert 'Unknown command \'quux\' - try \'help\'' in output
     elif ut_subtest in ('cmd cmd_test_help_abbrev', 'cmd cmd_test_help_many',
-                        'cmd cmd_test_help_opt', 'cmd cmd_test_help_unknown'):
+                        'cmd cmd_test_help_unknown'):
         # these help sub-tests print "Unknown command" on purpose.
         with ut_ubman.disable_check('unknown_command'):
             output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)

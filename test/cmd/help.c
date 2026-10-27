@@ -204,9 +204,15 @@ static int cmd_test_help_opt(struct unit_test_state *uts)
 {
 	ut_asserteq(CMD_RET_FAILURE, run_command("help -x", 0));
 
-	/* the option is looked up as a command name, like any other argument */
-	ut_assert_nextline(UNKNOWN_MSG, "-x");
+	/*
+	 * the entry takes no options, so cmd_invoke() refuses this one before
+	 * help runs and the usage message is shown; cmd_test_help_cmd() checks
+	 * the rest of that message
+	 */
+	ut_assert_nextline("help - print command description/usage");
 	ut_assert_nextline_empty();
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP))
+		ut_assert_skip_to_line("\t- print detailed usage of 'command'");
 	ut_assert_console_end();
 
 	return 0;
