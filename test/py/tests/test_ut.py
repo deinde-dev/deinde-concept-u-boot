@@ -180,6 +180,11 @@ def test_ut(ut_ubman, ut_subtest):
         # these help sub-tests print "Unknown command" on purpose.
         with ut_ubman.disable_check('unknown_command'):
             output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
+    elif ut_subtest in ('cmd cmd_test_setenv_error',
+                        'cmd cmd_test_setenv_force'):
+        # these setenv sub-tests print "## Error:" on purpose.
+        with ut_ubman.disable_check('error_notification'):
+            output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
     elif ut_subtest == 'cmd cmd_test_showvar_missing':
         # ut cmd cmd_test_showvar_missing prints "## Error:" on purpose.
         with ut_ubman.disable_check('error_notification'):
