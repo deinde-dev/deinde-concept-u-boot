@@ -43,3 +43,4 @@ See also
 --------
 
 * :doc:`license<license>` for the GPL text, which is embedded in the same way
+* :doc:`help<help>` for the commands these options have built in
