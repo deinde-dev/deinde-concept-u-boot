@@ -11,7 +11,7 @@ static int do_help(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 	struct cmd_tbl *start = ll_entry_start(struct cmd_tbl, cmd);
 	const int len = ll_entry_count(struct cmd_tbl, cmd);
-	return _do_help(start, len, cmdtp, flag, argc, argv);
+	return _do_help(start, len, argc, argv);
 }
 
 U_BOOT_CMD(

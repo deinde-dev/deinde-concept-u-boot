@@ -28,9 +28,10 @@ DECLARE_GLOBAL_DATA_PTR;
  * for long help messages
  */
 
-int _do_help(struct cmd_tbl *cmd_start, int cmd_items, struct cmd_tbl *cmdtp,
-	     int flag, int argc, char *const argv[])
+int _do_help(struct cmd_tbl *cmd_start, int cmd_items, int argc,
+	     char *const argv[])
 {
+	struct cmd_tbl *cmdtp;
 	int i;
 	int rcode = 0;
 
