@@ -11,6 +11,9 @@ ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_HUSH_OLD_PARSER) += showvar.o
 obj-$(CONFIG_ENV_SUPPORT) += setenv.o
 obj-$(CONFIG_ENV_IS_IN_SANDBOX) += eraseenv.o
+ifdef CONFIG_CMD_SAVEENV
+obj-$(CONFIG_ENV_IS_IN_SANDBOX) += saveenv.o
+endif
 endif
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_SHIM) += shim.o
