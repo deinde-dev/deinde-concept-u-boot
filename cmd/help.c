@@ -5,16 +5,16 @@
  */
 
 #include <command.h>
+#include <getopt.h>
 
-static int do_help(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_help(struct getopt_state *gs)
 {
 	struct cmd_tbl *start = ll_entry_start(struct cmd_tbl, cmd);
 	const int len = ll_entry_count(struct cmd_tbl, cmd);
-	return _do_help(start, len, cmdtp, flag, argc, argv);
+	return _do_help(start, len, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	help,	CONFIG_SYS_MAXARGS,	1,	do_help,
 	"print command description/usage",
 	"\n"
@@ -28,7 +28,9 @@ U_BOOT_CMD(
  * nor can we rely on the CONFIG_SYS_LONGHELP helper macro
  */
 ll_entry_declare(struct cmd_tbl, question_mark, cmd) = {
-	"?",	CONFIG_SYS_MAXARGS, CMDF_REPEATABLE,	do_help,
+	"?",	CONFIG_SYS_MAXARGS,
+	CMDF_GETOPT | CMDF_NOOPTS | CMDF_REPEATABLE,
+	(int (*)(struct cmd_tbl *, int, int, char *const []))do_help,
 	"alias for 'help'",
 #ifdef  CONFIG_SYS_LONGHELP
 	""

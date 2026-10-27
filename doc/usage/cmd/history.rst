@@ -68,3 +68,9 @@ itself is added to the list.
     bootflow info
     history
     =>
+
+See also
+--------
+
+* :doc:`help<help>` for the commands which are available, rather than the ones
+  which have been typed

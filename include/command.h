@@ -116,8 +116,8 @@ int do_run(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 /* common/command.c */
-int _do_help(struct cmd_tbl *cmd_start, int cmd_items, struct cmd_tbl *cmdtp,
-	     int flag, int argc, char *const argv[]);
+int _do_help(struct cmd_tbl *cmd_start, int cmd_items, int argc,
+	     char *const argv[]);
 struct cmd_tbl *find_cmd(const char *cmd);
 struct cmd_tbl *find_cmd_tbl(const char *cmd, struct cmd_tbl *table,
 			     int table_len);
