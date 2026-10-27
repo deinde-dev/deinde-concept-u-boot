@@ -516,13 +516,12 @@ static int do_env_edit(struct getopt_state *gs)
 #endif /* CONFIG_CMD_EDITENV */
 
 #if defined(CONFIG_CMD_SAVEENV) && !IS_ENABLED(CONFIG_ENV_IS_DEFAULT)
-static int do_env_save(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_env_save(struct getopt_state *gs)
 {
 	return env_save() ? 1 : 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	saveenv, 1, 0,	do_env_save,
 	"save environment variables to persistent storage",
 	""
@@ -1151,7 +1150,7 @@ static struct cmd_tbl cmd_env_sub[] = {
 	U_BOOT_CMD_MKENT(run, CONFIG_SYS_MAXARGS, 1, do_run, "", ""),
 #endif
 #if defined(CONFIG_CMD_SAVEENV) && !IS_ENABLED(CONFIG_ENV_IS_DEFAULT)
-	U_BOOT_CMD_MKENT(save, 1, 0, do_env_save, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(save, 1, 0, do_env_save, "", ""),
 #if defined(CONFIG_CMD_ERASEENV)
 	U_BOOT_CMD_MKENT_NOOPTS(erase, 1, 0, do_env_erase, "", ""),
 #endif
