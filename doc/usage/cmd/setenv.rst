@@ -20,7 +20,7 @@ Description
 The setenv command sets an environment variable to a value, or deletes it when
 no value is given. Only the copy in memory is changed, so the new value is lost
 on the next boot unless the environment is written to persistent storage with
-*saveenv*.
+:doc:`saveenv<saveenv>`.
 
 The value is all the remaining arguments joined with a single space, so the
 quoting applied by the shell decides where the value starts and ends. A name
@@ -101,4 +101,4 @@ See also
 * :doc:`editenv<editenv>` for changing the current value of a variable rather
   than replacing it
 * :doc:`askenv<askenv>` for prompting the user for the value
-* *saveenv* for writing the environment to persistent storage
+* :doc:`saveenv<saveenv>` for writing the environment to persistent storage

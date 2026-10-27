@@ -46,6 +46,7 @@ The next commands are kept as alias and for compatibility:
 + :doc:`grepenv <grepenv>` = *env grep*
 + :doc:`printenv <printenv>` = *env print*
 + *run* = *env run*
++ :doc:`saveenv <saveenv>` = *env save*
 + :doc:`setenv <setenv>` = *env set*
 
 Ask
