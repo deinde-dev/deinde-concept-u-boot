@@ -184,13 +184,39 @@ static int do_env_grep(struct getopt_state *gs)
 #endif /* CONFIG_XPL_BUILD */
 
 #ifndef CONFIG_XPL_BUILD
-static int do_env_set(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_env_set(struct getopt_state *gs)
 {
+	int env_flag = H_INTERACTIVE;
+	int argc, opt;
+	char *const *argv;
+
+	/*
+	 * UEFI variables take options such as -nv and -guid which getopt()
+	 * cannot express, so that form goes straight to env_do_env_set()
+	 */
+	if (IS_ENABLED(CONFIG_CMD_NVEDIT_EFI) && gs->argc > 1 &&
+	    !strncmp(gs->argv[1], "-e", 2))
+		return env_do_env_set(gs->cmd_flag, gs->argc, gs->argv,
+				      env_flag);
+
+	while ((opt = getopt(gs, "+f")) > 0) {
+		switch (opt) {
+		case 'f':		/* force */
+			env_flag |= H_FORCE;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* env_do_env_set() wants a full argv, with the name in argv[1] */
+	argc = gs->argc - gs->index + 1;
+	argv = &gs->argv[gs->index - 1];
+
 	if (argc < 2)
 		return CMD_RET_USAGE;
 
-	return env_do_env_set(flag, argc, argv, H_INTERACTIVE);
+	return env_do_env_set(gs->cmd_flag, argc, argv, env_flag);
 }
 
 /*
@@ -490,13 +516,12 @@ static int do_env_edit(struct getopt_state *gs)
 #endif /* CONFIG_CMD_EDITENV */
 
 #if defined(CONFIG_CMD_SAVEENV) && !IS_ENABLED(CONFIG_ENV_IS_DEFAULT)
-static int do_env_save(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_env_save(struct getopt_state *gs)
 {
 	return env_save() ? 1 : 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	saveenv, 1, 0,	do_env_save,
 	"save environment variables to persistent storage",
 	""
@@ -1125,7 +1150,7 @@ static struct cmd_tbl cmd_env_sub[] = {
 	U_BOOT_CMD_MKENT(run, CONFIG_SYS_MAXARGS, 1, do_run, "", ""),
 #endif
 #if defined(CONFIG_CMD_SAVEENV) && !IS_ENABLED(CONFIG_ENV_IS_DEFAULT)
-	U_BOOT_CMD_MKENT(save, 1, 0, do_env_save, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(save, 1, 0, do_env_save, "", ""),
 #if defined(CONFIG_CMD_ERASEENV)
 	U_BOOT_CMD_MKENT_NOOPTS(erase, 1, 0, do_env_erase, "", ""),
 #endif
@@ -1133,7 +1158,8 @@ static struct cmd_tbl cmd_env_sub[] = {
 #if defined(CONFIG_CMD_NVEDIT_SELECT)
 	U_BOOT_CMD_MKENT(select, 2, 0, do_env_select, "", ""),
 #endif
-	U_BOOT_CMD_MKENT(set, CONFIG_SYS_MAXARGS, 0, do_env_set, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(set, CONFIG_SYS_MAXARGS, 0, do_env_set, "",
+				""),
 #if defined(CONFIG_CMD_ENV_EXISTS)
 	U_BOOT_CMD_MKENT(exists, 2, 0, do_env_exists, "", ""),
 #endif
@@ -1290,7 +1316,7 @@ U_BOOT_CMD_GETOPT_COMPLETE(
 );
 #endif
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_GETOPT_COMPLETE(
 	setenv, CONFIG_SYS_MAXARGS, 0,	do_env_set,
 	"set environment variables",
 #if defined(CONFIG_CMD_NVEDIT_EFI)

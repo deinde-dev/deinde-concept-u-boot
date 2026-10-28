@@ -67,3 +67,12 @@ Return value
 The return value $? is 0 (true) if the variable is updated or deleted. It is
 1 (false) if no name is given, if the environment is not ready yet, or if the
 edit is abandoned with Ctrl-C.
+
+See also
+--------
+
+* :doc:`env<env>` for *env edit*, which is this command, and the other
+  environment subcommands
+* :doc:`setenv<setenv>` for replacing the value of a variable instead of
+  editing it
+* :doc:`printenv<printenv>` for showing the new value

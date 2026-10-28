@@ -93,4 +93,4 @@ See also
 * :doc:`editenv<editenv>` for changing the current value of a variable
   rather than replacing it
 * :doc:`printenv<printenv>` for showing the value which was entered
-* *setenv* for setting a variable without prompting for it
+* :doc:`setenv<setenv>` for setting a variable without prompting for it

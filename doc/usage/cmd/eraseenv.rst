@@ -64,3 +64,11 @@ Return value
 The return value $? is 0 (true) if the environment is erased. It is 1 (false)
 if the location has no erase operation, is not initialised, or the erase
 fails.
+
+See also
+--------
+
+* :doc:`env<env>` for *env erase*, which is this command, and the other
+  environment subcommands
+* :doc:`saveenv<saveenv>` for writing the environment which this erases
+* :doc:`setenv<setenv>` for changing a variable in memory

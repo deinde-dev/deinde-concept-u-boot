@@ -817,6 +817,7 @@ config CMD_SAVEENV
 	bool "saveenv"
 	depends on !(SRIO_PCIE_BOOT_SLAVE && ENV_IS_IN_REMOTE)
 	default y
+	select GETOPT
 	help
 	  Save all environment variables into the compiled-in persistent
 	  storage.
