@@ -18,6 +18,7 @@
 #include <console.h>
 #include <env.h>
 #include <fdtdec.h>
+#include <getopt.h>
 #include <hang.h>
 #include <malloc.h>
 #include <serial.h>
@@ -197,8 +198,10 @@ int run_commandf(const char *fmt, ...)
 /****************************************************************************/
 
 #if defined(CONFIG_CMD_RUN)
-int do_run(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_run(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int i, ret;
 
 	if (argc < 2)
@@ -213,7 +216,7 @@ int do_run(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			return 1;
 		}
 
-		ret = run_command(arg, flag | CMD_FLAG_ENV);
+		ret = run_command(arg, gs->cmd_flag | CMD_FLAG_ENV);
 		if (ret)
 			return ret;
 	}

@@ -1147,7 +1147,7 @@ static struct cmd_tbl cmd_env_sub[] = {
 #endif
 	U_BOOT_CMD_MKENT(print, CONFIG_SYS_MAXARGS, 1, do_env_print, "", ""),
 #if defined(CONFIG_CMD_RUN)
-	U_BOOT_CMD_MKENT(run, CONFIG_SYS_MAXARGS, 1, do_run, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(run, CONFIG_SYS_MAXARGS, 1, do_run, "", ""),
 #endif
 #if defined(CONFIG_CMD_SAVEENV) && !IS_ENABLED(CONFIG_ENV_IS_DEFAULT)
 	U_BOOT_CMD_MKENT_NOOPTS(save, 1, 0, do_env_save, "", ""),
@@ -1351,7 +1351,7 @@ U_BOOT_CMD_NOOPTS(
 #endif
 
 #if defined(CONFIG_CMD_RUN)
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_NOOPTS_COMPLETE(
 	run,	CONFIG_SYS_MAXARGS,	1,	do_run,
 	"run commands in an environment variable",
 	"var [...]\n"
