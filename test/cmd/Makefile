@@ -138,6 +138,7 @@ endif
 obj-$(CONFIG_CMD_QFW) += qfw.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_REGULATOR) += regulator.o
+obj-$(CONFIG_CMD_RUN) += run.o
 endif
 obj-$(CONFIG_CMD_SEAMA) += seama.o
 ifdef CONFIG_SANDBOX
