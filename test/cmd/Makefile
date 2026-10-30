@@ -59,6 +59,7 @@ endif
 obj-$(CONFIG_CMD_CONFIG) += config.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_CONSOLE) += coninfo.o
+obj-$(CONFIG_CMD_CRC32) += crc32.o
 obj-$(CONFIG_CMD_CYCLIC) += cyclic.o
 endif
 obj-$(CONFIG_COREBOOT_SYSINFO) += coreboot.o
