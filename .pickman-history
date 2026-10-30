@@ -100628,3 +100628,37 @@ cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
 
 ---
 
+### Pipeline fix: 2026-10-30 (attempt 1)
+
+Branch: cherry-6b4b1c8dc464
+
+Failed jobs:
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- bpif3 (sjg-lab)
+- snow (sjg-lab)
+- pine64 (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+I made no changes: all seven failures are lab or infrastructure problems, not caused by this branch. I did not create cherry-6b4b1c8dc464-fix1 because there was nothing to fix, and I skipped the builds for the same reason.
+
+**Why the branch can't be the cause:** the four cherry-picked commits only touch pocketbeagle2 files: `k3-am62-pocketbeagle2-u-boot.dtsi`, `board/beagle/pocketbeagle2/pocketbeagle2.c`, `am62_pocketbeagle2_a53_defconfig` and `include/configs/pocketbeagle2.h`, plus `.pickman-history`. None of those are compiled for any of the failing boards, which are sunxi, exynos, x86, riscv and qemu-x86.
+
+**What each job hit:**
+
+| Job | Failure | Cause |
+|---|---|---|
+| snow | pytest INTERNALERROR in `u-boot-test-getrole` | Lab contention: "place snow is not acquired by your user, acquired by labgrid". Another session (kea/labgrid) held the board. |
+| opi_pc | Timed out waiting for the U-Boot prompt after flashing (sunxi) | The board didn't come up, so the lab marked the connection bad. |
+| samus | Same login timeout after writing via em100 | The board didn't come up. |
+| samus_tpl | Same login timeout via em100 | The board didn't come up. |
+| bpif3 | "USB loader not ready … BootROM did not start the FSBL", 5 attempts, then `k1-deploy.py` failed | The board's USB boot mode didn't respond, so U-Boot was never loaded. |
+| pine64 | `test_dm_drivers` expected `bootmeth��fi` | The expected string itself was garbled (it should be `bootmeth_efi`), so serial corruption on the lab console caused the false failure. 41 other tests passed. |
+| qemu-x86_64-win-installed | `test_distro_windows_installed` timed out | U-Boot got to "Starting kernel ..." through efi_mgr. Windows then failed to finish booting within the 10-minute limit. |
+
+Retrying these jobs should be enough; I'd release or kick the snow place first if it is still held.
+
+---
+
