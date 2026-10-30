@@ -8659,7 +8659,8 @@ class TestEnsureMrPipeline(unittest.TestCase):
             return pipeline
 
         merge_req = mock.Mock()
-        merge_req.pipelines.list.return_value = [mock.Mock(id=7)]
+        merge_req.pipelines.list.return_value = [
+            mock.Mock(id=7, ref='refs/merge-requests/42/head')]
         project = mock.Mock()
         project.pipelines.get.side_effect = get_pipeline
         project.mergerequests.get.return_value = merge_req
@@ -8699,6 +8700,42 @@ class TestEnsureMrPipeline(unittest.TestCase):
         self.assertTrue(ret)
         merge_req.pipelines.create.assert_called_once()
         self.assertIn('has no jobs', err)
+
+    def test_push_pipeline_ignored(self):
+        """Test that the skipped pipeline from pushing the branch is ignored
+
+        It shares the merge request's commit, so it is listed with the merge
+        request's pipelines, and it is there before GitLab creates the merge
+        request's own.  It has no jobs, but that is no reason to trigger
+        another pipeline when one is on its way.
+        """
+        push = mock.Mock(id=6, ref='cherry-abc')
+        mr_pipe = mock.Mock(id=7, ref='refs/merge-requests/42/head')
+        project, merge_req = self._project([100])
+        merge_req.pipelines.list.side_effect = [[push], [mr_pipe, push]]
+        ret, err = self._run(project)
+        self.assertTrue(ret)
+        merge_req.pipelines.create.assert_not_called()
+        project.pipelines.get.assert_called_once_with(7)
+        self.assertNotIn('has no jobs', err)
+
+    def test_no_mr_pipeline_triggers_one(self):
+        """Test that an MR which never gets a pipeline is given one"""
+        project, merge_req = self._project([])
+        merge_req.pipelines.list.return_value = [
+            mock.Mock(id=6, ref='cherry-abc')]
+        ret, err = self._run(project)
+        self.assertFalse(ret)
+        merge_req.pipelines.create.assert_called_once()
+        project.pipelines.get.assert_not_called()
+        self.assertIn('no pipeline after 120 seconds - triggering one', err)
+
+    def test_is_mr_pipeline(self):
+        """Test telling a merge request's pipeline from a branch's"""
+        self.assertTrue(gitlab.is_mr_pipeline(
+            mock.Mock(ref='refs/merge-requests/42/head')))
+        self.assertFalse(gitlab.is_mr_pipeline(mock.Mock(ref='cherry-abc')))
+        self.assertFalse(gitlab.is_mr_pipeline(object()))
 
     def test_gives_up_and_says_so(self):
         """Test that a pipeline which stays empty is reported, not hidden"""
