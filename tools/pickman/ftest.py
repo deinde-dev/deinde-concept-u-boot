@@ -40,8 +40,20 @@ from pickman import splitcfg
 
 # Keep the tests away from the user's config file, so that its settings (such
 # as external projects) do not affect them. Tests which need a config file
-# patch this
-gitlab.CONFIG_FILE = '/nonexistent/pickman.conf'
+# patch this. Only do it while the tests run: every pickman command imports
+# this module, so patching on import would hide the config from them too
+NO_CONFIG = mock.patch.object(gitlab, 'CONFIG_FILE',
+                              '/nonexistent/pickman.conf')
+
+
+def setUpModule():  # pylint: disable=invalid-name
+    """Point the config file away from the user's own"""
+    NO_CONFIG.start()
+
+
+def tearDownModule():  # pylint: disable=invalid-name
+    """Put back the config file"""
+    NO_CONFIG.stop()
 
 # Test URL constants
 TEST_OAUTH_URL = 'https://oauth2:test-token@gitlab.com/group/project.git'
@@ -1923,6 +1935,26 @@ class TestConfigFile(unittest.TestCase):
         with mock.patch.object(gitlab, 'CONFIG_FILE', self.config_file):
             value = gitlab.get_config_value('section1', 'key1')
         self.assertEqual(value, 'value1')
+
+    def test_config_hidden_in_tests(self):
+        """Test that the tests do not see the user's config file"""
+        self.assertEqual(gitlab.CONFIG_FILE, '/nonexistent/pickman.conf')
+
+    def test_import_keeps_config(self):
+        """Test that a pickman command still reads the user's config file
+
+        Every command imports the tests, so this needs a fresh interpreter
+        """
+        tools_dir = os.path.dirname(os.path.dirname(gitlab.__file__))
+        env = dict(os.environ, HOME=self.config_dir, PYTHONPATH=tools_dir)
+        out = subprocess.run(
+            [sys.executable, '-c',
+             'from pickman import __main__, gitlab_api; '
+             'print(gitlab_api.CONFIG_FILE)'],
+            capture_output=True, text=True, check=True, env=env).stdout
+        self.assertEqual(out.strip(),
+                         os.path.join(self.config_dir, '.config',
+                                      'pickman.conf'))
 
 
 class TestCheckPermissions(unittest.TestCase):
