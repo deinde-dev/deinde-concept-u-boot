@@ -100574,3 +100574,57 @@ f38b76068abf pickman: Record cherry-pick of 4 commits from us/main
 
 ---
 
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+
+
+### Conversation log
+I'll start by checking the repo state, since last time a stale rebase was left in the main tree.
+
+Now the rebase:
+
+No conflicts. Next I'll cherry-pick the review record on top:
+
+That applied cleanly too. I'll check where the entry landed in the file:
+
+The entry sits right after this MR's own cherry-pick record. Next I'll compare the deltas with the pre-rebase ones:
+
+That change only affects MR creation. Next I'll look at `push-branch` itself:
+
+All six commits build. Next I'll scan the logs for warnings:
+
+Every log is clean. Now the push from the worktree, with `--run-ci` so that the MR gets a real pipeline:
+
+The MR still shows the old SHA, which may just be GitLab lagging. I'll check the remote directly and then poll the MR:
+
+The remote branch is at 0704c8ba437b, matching HEAD. Next I'll poll until GitLab picks up the new SHA and creates a pipeline:
+
+I rebased MR !1500 onto ci/master and force-pushed it. The remote `cherry-6b4b1c8dc464` is now at 0704c8ba437b, and this time an MR pipeline is running for it: **pipeline 10761** (https://concept.deinde.dev/u-boot/u-boot/-/pipelines/10761).
+
+**Commits** (local branch `cherry-6b4b1c8dc464-v3`, on ci/master 6af7fb7db102):
+```
+0704c8ba437b pickman: Record review handling for cherry-6b4b1c8dc464
+e8f910a61ad3 pickman: Record cherry-pick of 4 commits from us/main
+b1d3788c1078 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+5bad510e91e1 k3-am62-pocketbeagle2: add support for efi capsules
+b5fc03cc18bb k3-am62-pocketbeagle2: add initial board support
+cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Rebase:** I started from what the MR actually contained (f38b76068abf, the v2 from last time), not the local `cherry-6b4b1c8dc464`, which is still the old pre-rebase branch. ci/master was 2 commits ahead, both pickman-only changes. There were no conflicts, and `--keep-empty` kept the empty merge commit.
+- **Deltas:** all five rebased commits produce exactly the same patches as before. The merge commit is still empty with a single parent, as it was before.
+- **Builds:** sandbox built after each of the six commits with no warnings or errors. The first build was clean (`-m`) to avoid the stale Cargo cache problem from last time.
+- **Added commit:** after the last round, pickman made a 41-line `.pickman-history` record commit, but only on the stale local branch. I added it on top of the MR because review records like it normally get merged (master has 572). It applied cleanly. If you'd rather keep it out of the MR, the v2 tip plus the rebase is easy to push instead.
+- **CI:** last time's push used pickman's default `-o ci.skip`, and GitLab's API shows that both pipelines for f38b76068abf were skipped, so the previous rebase was never tested in CI. This time I added `--run-ci` to the push command. Pipeline 10761 is running for the new SHA rather than being skipped.
+- **Old pipeline:** pipeline 10745, for the original 41591a6b5b10 SHA, is still running and is now out of date. You may want to cancel it.
+
+**Repo state:** I did all the work in a temporary worktree, which I have removed. The main tree is untouched. It still has an interactive rebase of `cherry-20209a62bc85` stopped partway through in `.git/rebase-merge`, with 28 steps left. That now looks like a different rebase from the one mentioned last time, since it has `exec buildman` steps. Either resume it with `git rebase --continue` or drop it with `git rebase --abort`.
+
+**Suggested MR reply:**
+> Rebased onto the latest master again. The three patches and the empty merge commit are unchanged, and there were no conflicts. A record of the previous review round is added to `.pickman-history`. The sandbox build passes for every commit. A real pipeline is running this time (the previous push skipped CI).
+
+---
+
