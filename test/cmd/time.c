@@ -102,10 +102,14 @@ static int cmd_test_time_opt(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_time_opt, UTF_CONSOLE);
 
-/* Test 'time' with no command to run */
-static int cmd_test_time_usage(struct unit_test_state *uts)
+/**
+ * check_usage() - Check that the usage message of the command follows
+ *
+ * @uts: Test state
+ * Return: 0 if OK, -ve on error
+ */
+static int check_usage(struct unit_test_state *uts)
 {
-	ut_asserteq(1, run_command("time", 0));
 	ut_assert_nextline("time - run commands and summarize execution time");
 	ut_assert_nextline_empty();
 	ut_assert_nextline("Usage:");
@@ -115,7 +119,26 @@ static int cmd_test_time_usage(struct unit_test_state *uts)
 
 	return 0;
 }
+
+/* Test 'time' with no command to run */
+static int cmd_test_time_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("time", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
 CMD_TEST(cmd_test_time_usage, UTF_CONSOLE);
+
+/* Test that an option of the time command itself is refused */
+static int cmd_test_time_noopts(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("time -n echo hi", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_time_noopts, UTF_CONSOLE);
 
 /* Test that the return value of the command which ran comes back */
 static int cmd_test_time_fail(struct unit_test_state *uts)

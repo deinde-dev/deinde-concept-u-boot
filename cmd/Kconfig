@@ -2666,6 +2666,7 @@ config CMD_RTC
 
 config CMD_TIME
 	bool "time"
+	select GETOPT
 	help
 	  Run commands and summarize execution time.
 
