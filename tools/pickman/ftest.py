@@ -40,8 +40,20 @@ from pickman import splitcfg
 
 # Keep the tests away from the user's config file, so that its settings (such
 # as external projects) do not affect them. Tests which need a config file
-# patch this
-gitlab.CONFIG_FILE = '/nonexistent/pickman.conf'
+# patch this. Only do it while the tests run: every pickman command imports
+# this module, so patching on import would hide the config from them too
+NO_CONFIG = mock.patch.object(gitlab, 'CONFIG_FILE',
+                              '/nonexistent/pickman.conf')
+
+
+def setUpModule():  # pylint: disable=invalid-name
+    """Point the config file away from the user's own"""
+    NO_CONFIG.start()
+
+
+def tearDownModule():  # pylint: disable=invalid-name
+    """Put back the config file"""
+    NO_CONFIG.stop()
 
 # Test URL constants
 TEST_OAUTH_URL = 'https://oauth2:test-token@gitlab.com/group/project.git'
@@ -1924,6 +1936,26 @@ class TestConfigFile(unittest.TestCase):
             value = gitlab.get_config_value('section1', 'key1')
         self.assertEqual(value, 'value1')
 
+    def test_config_hidden_in_tests(self):
+        """Test that the tests do not see the user's config file"""
+        self.assertEqual(gitlab.CONFIG_FILE, '/nonexistent/pickman.conf')
+
+    def test_import_keeps_config(self):
+        """Test that a pickman command still reads the user's config file
+
+        Every command imports the tests, so this needs a fresh interpreter
+        """
+        tools_dir = os.path.dirname(os.path.dirname(gitlab.__file__))
+        env = dict(os.environ, HOME=self.config_dir, PYTHONPATH=tools_dir)
+        out = subprocess.run(
+            [sys.executable, '-c',
+             'from pickman import __main__, gitlab_api; '
+             'print(gitlab_api.CONFIG_FILE)'],
+            capture_output=True, text=True, check=True, env=env).stdout
+        self.assertEqual(out.strip(),
+                         os.path.join(self.config_dir, '.config',
+                                      'pickman.conf'))
+
 
 class TestCheckPermissions(unittest.TestCase):
     """Tests for check_permissions function."""
@@ -2248,6 +2280,61 @@ class TestStep(unittest.TestCase):
                             ret = control.do_step(args, None)
 
         self.assertEqual(ret, 0)
+
+    def test_fetch_source(self):
+        """Test fetching the remote which a source comes from"""
+        def git(args):
+            if args == ['remote']:
+                return 'ci\nus'
+            return ''
+
+        with mock.patch.object(control, 'run_git',
+                               side_effect=git) as mock_git:
+            with terminal.capture():
+                self.assertTrue(control.fetch_source('us/main'))
+        mock_git.assert_called_with(['fetch', 'us'])
+
+        # A local branch, or one from an unknown remote, is not fetched
+        with mock.patch.object(control, 'run_git',
+                               side_effect=git) as mock_git:
+            self.assertFalse(control.fetch_source('main'))
+            self.assertFalse(control.fetch_source('other/main'))
+        mock_git.assert_called_once_with(['remote'])
+
+    def test_fetch_source_fails(self):
+        """Test that a failed fetch is reported but does not stop a step"""
+        def git(args):
+            if args == ['remote']:
+                return 'us'
+            raise command.CommandExc('no network', None)
+
+        with mock.patch.object(control, 'run_git', side_effect=git):
+            with terminal.capture() as (_, err):
+                self.assertFalse(control.fetch_source('us/main'))
+        self.assertIn('Failed to fetch us: no network', err.getvalue())
+
+    def test_step_fetches_source(self):
+        """Test that step fetches the source before looking for commits"""
+        calls = []
+        with mock.patch.object(gitlab, 'get_merged_pickman_mrs',
+                               return_value=[]):
+            with mock.patch.object(gitlab, 'get_open_pickman_mrs',
+                                   return_value=[]):
+                with mock.patch.object(
+                        control, 'fetch_source',
+                        side_effect=lambda src: calls.append(('fetch', src))):
+                    with mock.patch.object(
+                            control, '_prepare_get_commits',
+                            side_effect=lambda *a: calls.append(
+                                ('prepare', a[1])) or (None, 0)):
+                        args = argparse.Namespace(
+                            cmd='step', source='us/next', remote='ci',
+                            target='master', max_mrs=1, fix_retries=3)
+                        with terminal.capture():
+                            ret = control.do_step(args, None)
+
+        self.assertEqual(ret, 0)
+        self.assertEqual(calls, [('fetch', 'us/next'), ('prepare', 'us/next')])
 
     def test_step_gitlab_error(self):
         """Test step when GitLab API returns error."""
