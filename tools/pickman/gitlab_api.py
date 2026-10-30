@@ -633,14 +633,33 @@ def count_pipeline_jobs(project, pipeline_id):
         return None
 
 
-def ensure_mr_pipeline(remote, mr_iid, tries=6, delay=5):
+def is_mr_pipeline(pipeline):
+    """Check whether a pipeline is a merge request's own
+
+    A merge request's pipeline list also holds the pipelines for pushes of
+    its source branch which share its commit. pickman pushes a new branch
+    with ci.skip, leaving a skipped pipeline with no jobs, since the merge
+    request runs its own.
+
+    Args:
+        pipeline: python-gitlab pipeline object from a merge request
+
+    Return:
+        bool: True if the pipeline runs on the merge request's ref
+    """
+    return str(getattr(pipeline, 'ref', '')).startswith('refs/merge-requests/')
+
+
+def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
     """Make sure a merge request has a pipeline which will actually run
 
-    A merge request created moments after its branch is pushed can end up
-    with a pipeline holding no jobs at all: the rules are evaluated before
-    the new ref is fully visible, and the result is a merge request which
+    A merge request's pipeline can end up holding no jobs at all, so that it
     looks green while having run nothing.  That is a bad way to fail, so
-    check for it and trigger a fresh pipeline when it happens.
+    check for it and trigger a fresh pipeline when it happens. Only the
+    merge request's own pipelines count: the skipped one from pushing the
+    branch is expected to be empty, and GitLab may take a minute or more to
+    create the merge request's pipeline after it. If none appears, trigger
+    one.
 
     Args:
         remote (str): Remote name
@@ -666,9 +685,13 @@ def ensure_mr_pipeline(remote, mr_iid, tries=6, delay=5):
         project = glab.projects.get(proj_path)
         merge_req = project.mergerequests.get(mr_iid)
 
+        seen = False
         for attempt in range(tries):
-            pipelines = merge_req.pipelines.list(get_all=False)
+            pipelines = [pipe for pipe in
+                         merge_req.pipelines.list(get_all=False)
+                         if is_mr_pipeline(pipe)]
             if pipelines:
+                seen = True
                 count = count_pipeline_jobs(project, pipelines[0].id)
                 if count:
                     return True
@@ -683,6 +706,11 @@ def ensure_mr_pipeline(remote, mr_iid, tries=6, delay=5):
             if attempt < tries - 1:
                 time.sleep(delay)
 
+        if not seen:
+            tout.warning(f'MR !{mr_iid}: no pipeline after {tries * delay} '
+                         'seconds - triggering one; check it by hand')
+            merge_req.pipelines.create({})
+            return False
         tout.warning(f'MR !{mr_iid}: no pipeline with jobs after '
                      f'{tries} tries; check it by hand')
         return False
