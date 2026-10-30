@@ -1245,27 +1245,28 @@ static int mod_mem(struct getopt_state *gs, int incrflag)
 
 #ifdef CONFIG_CMD_CRC32
 
-static int do_mem_crc(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_mem_crc(struct getopt_state *gs)
 {
 	int flags = 0;
-	int ac;
-	char * const *av;
+	int opt;
 
-	if (argc < 3)
+	while (IS_ENABLED(CONFIG_CRC32_VERIFY) &&
+	       (opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			flags |= HASH_FLAG_VERIFY | HASH_FLAG_ENV;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* Need at least: address count */
+	if (gs->argc - gs->index < 2)
 		return CMD_RET_USAGE;
 
-	av = argv + 1;
-	ac = argc - 1;
-#ifdef CONFIG_CRC32_VERIFY
-	if (strcmp(*av, "-v") == 0) {
-		flags |= HASH_FLAG_VERIFY | HASH_FLAG_ENV;
-		av++;
-		ac--;
-	}
-#endif
-
-	return hash_command("crc32", flags, ac, av);
+	return hash_command("crc32", flags, gs->argc - gs->index,
+			    &gs->argv[gs->index]);
 }
 
 #endif
@@ -1365,7 +1366,7 @@ U_BOOT_CMD(
 
 #ifndef CONFIG_CRC32_VERIFY
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	crc32,	4,	1,	do_mem_crc,
 	"checksum calculation",
 	"address count [addr]\n    - compute CRC32 checksum [save at addr]"
@@ -1373,7 +1374,7 @@ U_BOOT_CMD(
 
 #else	/* CONFIG_CRC32_VERIFY */
 
-U_BOOT_CMD(
+U_BOOT_CMD_GETOPT(
 	crc32,	5,	1,	do_mem_crc,
 	"checksum calculation",
 	"address count [addr]\n    - compute CRC32 checksum [save at addr]\n"

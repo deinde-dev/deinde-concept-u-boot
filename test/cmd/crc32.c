@@ -188,6 +188,11 @@ static int cmd_test_crc32_usage(struct unit_test_state *uts)
 	}
 	ut_assert_console_end();
 
+	/* an option the command does not have is refused before it runs */
+	ut_asserteq(1, run_commandf("crc32 -z %lx %x", CRC_ADDR, CRC_SIZE));
+	ut_assert_nextline("crc32 - checksum calculation");
+	console_record_reset();
+
 	return 0;
 }
 CMD_TEST(cmd_test_crc32_usage, UTF_CONSOLE);

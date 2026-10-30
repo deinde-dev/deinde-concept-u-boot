@@ -919,6 +919,7 @@ config CMD_BLOBLIST
 config CMD_CRC32
 	bool "crc32"
 	default y
+	select GETOPT
 	select HASH
 	help
 	  Compute CRC32.
