@@ -100533,3 +100533,44 @@ The branch is ready to push and has not been merged anywhere.
 
 ---
 
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+
+
+### Conversation log
+Pushing sends whatever HEAD is, so I'm checking whether the local-only pickman record commit belongs in the rebase.
+
+Now the rebase, building sandbox after each commit (the first build is clean, to clear the stale Cargo cache):
+
+Both sides append a history entry under the same heading, so I'll keep both, each with its own section.
+
+Deltas match exactly and every commit builds. Now pushing from the worktree, since push-branch pushes HEAD:
+
+The push went through. Checking that the remote ref matches, then cleaning up the temporary worktree:
+
+I rebased MR !1500 onto ci/master and force-pushed it. The remote `cherry-6b4b1c8dc464` is now at f38b76068abf. The pipeline may not have started, though: without `--run-ci`, `pickman push-branch` pushes with `-o ci.skip`, so GitLab probably created no pipeline. If none appears, start one by hand or re-push with `--run-ci`.
+
+**Commits** (local branch `cherry-6b4b1c8dc464-v2`):
+```
+f38b76068abf pickman: Record cherry-pick of 4 commits from us/main
+0d59ba0e388d Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+0d804511babe k3-am62-pocketbeagle2: add support for efi capsules
+81318642e6c0 k3-am62-pocketbeagle2: add initial board support
+454f86fb118d arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Deltas:** the three regular commits produce exactly the same patches as before the rebase. The merge commit is still empty, as before, and `--keep-empty` kept it.
+- **Builds:** sandbox built after each of the five commits with no warnings or errors. Every build was clean (`-m`) to avoid the stale Cargo cache in /tmp/pickman that caused trouble last time.
+- **Conflict:** there was one, in `.pickman-history`, in the local pickman record commit. Both ci/master and this branch added an entry under the same "2026-10-30: us/main" heading; ci/master's is for cherry-8e82c0a75f5d. I kept both entries, each under its own heading, and the commit still adds only 49 lines. The four MR commits had no conflicts.
+- **Record commit:** that pickman record commit was only on the local branch before. Pushing it is normal for pickman, so it is now part of the MR.
+
+**Repo state:** the half-finished `cherry-20209a62bc85` rebase from 02:59 is still in `.git/rebase-merge` in the main tree. To leave it alone, I did this rebase in a temporary worktree and removed it afterwards. The main tree is still on the old `cherry-6b4b1c8dc464` at eba102377b56. That stale rebase still needs to be finished or aborted (`git rebase --abort`).
+
+**Suggested MR reply:**
+> Rebased onto the latest master. The three patches are unchanged and the empty merge commit is kept. The only conflict was in `.pickman-history`, where master had a new entry under the same date heading; I kept both entries. The sandbox build passes for every commit.
+
+---
+
