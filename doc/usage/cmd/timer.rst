@@ -72,4 +72,4 @@ See also
 * :doc:`sleep<sleep>` for waiting for a given time
 * :doc:`bootstage<bootstage>` for timings of the individual steps of the boot
 * :doc:`dhry<dhry>` for a benchmark which does its own timing
-* *time* for timing a single command
+* :doc:`time<time>` for timing a single command

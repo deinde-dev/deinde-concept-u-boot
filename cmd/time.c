@@ -4,6 +4,7 @@
  */
 
 #include <command.h>
+#include <getopt.h>
 
 static void report_time(ulong cycles)
 {
@@ -23,22 +24,22 @@ static void report_time(ulong cycles)
 	printf(" %lu.%03lu seconds\n", seconds, milliseconds);
 }
 
-static int do_time(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_time(struct getopt_state *gs)
 {
 	ulong cycles = 0;
 	int retval = 0;
 	int repeatable = 0;
 
-	if (argc == 1)
+	if (gs->argc == 1)
 		return CMD_RET_USAGE;
 
-	retval = cmd_process(0, argc - 1, argv + 1, &repeatable, &cycles);
+	retval = cmd_process(0, gs->argc - 1, gs->argv + 1, &repeatable,
+			     &cycles);
 	report_time(cycles);
 
 	return retval;
 }
 
-U_BOOT_CMD(time, CONFIG_SYS_MAXARGS, 0, do_time,
-		"run commands and summarize execution time",
-		"command [args...]\n");
+U_BOOT_CMD_NOOPTS(time, CONFIG_SYS_MAXARGS, 0, do_time,
+		  "run commands and summarize execution time",
+		  "command [args...]\n");
