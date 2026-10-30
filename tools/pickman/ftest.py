@@ -8641,21 +8641,22 @@ class TestEnsureMrPipeline(unittest.TestCase):
     """Tests for making sure a merge request has a pipeline which runs"""
 
     @staticmethod
-    def _project(job_counts):
-        """Build a mock project whose pipeline job counts are given
+    def _project(states):
+        """Build a mock project whose pipelines read as given
 
         Args:
-            job_counts (list of int): Number of jobs to report on each
-                successive read of a pipeline
+            states (list of tuple): (status, number of jobs) to report on
+                each successive read of a pipeline
 
         Return:
             tuple: (project mock, merge request mock)
         """
-        counts = iter(job_counts)
+        reads = iter(states)
 
         def get_pipeline(_):
-            pipeline = mock.Mock()
-            pipeline.jobs.list.return_value = [mock.Mock()] * next(counts)
+            status, jobs = next(reads)
+            pipeline = mock.Mock(status=status)
+            pipeline.jobs.list.return_value = [mock.Mock()] * jobs
             return pipeline
 
         merge_req = mock.Mock()
@@ -8684,22 +8685,45 @@ class TestEnsureMrPipeline(unittest.TestCase):
 
     def test_pipeline_has_jobs(self):
         """Test that a pipeline with jobs is left alone"""
-        project, merge_req = self._project([100])
+        project, merge_req = self._project([('running', 100)])
         ret, _ = self._run(project)
         self.assertTrue(ret)
         merge_req.pipelines.create.assert_not_called()
 
-    def test_empty_pipeline_retriggered(self):
-        """Test that a pipeline with no jobs causes another to be made
+    def test_skipped_pipeline_retriggered(self):
+        """Test that a skipped pipeline with no jobs causes another
 
-        A merge request made moments after its branch is pushed can get a
-        pipeline holding nothing, which looks green while running nothing.
+        A ci.skip push processed after the merge request exists adds a
+        skipped merge-request pipeline, which the merge request then shows
+        as though nothing ran.
         """
-        project, merge_req = self._project([0, 100])
+        project, merge_req = self._project([('skipped', 0), ('created', 0),
+                                            ('pending', 100)])
         ret, err = self._run(project)
         self.assertTrue(ret)
         merge_req.pipelines.create.assert_called_once()
-        self.assertIn('has no jobs', err)
+        self.assertIn('was skipped with no jobs', err)
+
+    def test_new_pipeline_not_retriggered(self):
+        """Test that a pipeline still being set up is waited for
+
+        A new pipeline can briefly list no jobs.  Taking that as empty starts
+        another full pipeline on every look until the jobs appear.
+        """
+        project, merge_req = self._project([('created', 0)] * 5 +
+                                           [('pending', 100)])
+        ret, _ = self._run(project)
+        self.assertTrue(ret)
+        merge_req.pipelines.create.assert_not_called()
+
+    def test_unreadable_pipeline(self):
+        """Test that a pipeline which cannot be read is not taken as empty"""
+        project, merge_req = self._project([])
+        project.pipelines.get.side_effect = Exception('gone')
+        ret, err = self._run(project)
+        self.assertFalse(ret)
+        merge_req.pipelines.create.assert_not_called()
+        self.assertIn('Could not read pipeline 7', err)
 
     def test_push_pipeline_ignored(self):
         """Test that the skipped pipeline from pushing the branch is ignored
@@ -8711,13 +8735,13 @@ class TestEnsureMrPipeline(unittest.TestCase):
         """
         push = mock.Mock(id=6, ref='cherry-abc')
         mr_pipe = mock.Mock(id=7, ref='refs/merge-requests/42/head')
-        project, merge_req = self._project([100])
+        project, merge_req = self._project([('running', 100)])
         merge_req.pipelines.list.side_effect = [[push], [mr_pipe, push]]
         ret, err = self._run(project)
         self.assertTrue(ret)
         merge_req.pipelines.create.assert_not_called()
         project.pipelines.get.assert_called_once_with(7)
-        self.assertNotIn('has no jobs', err)
+        self.assertNotIn('no jobs', err)
 
     def test_no_mr_pipeline_triggers_one(self):
         """Test that an MR which never gets a pipeline is given one"""
@@ -8738,10 +8762,14 @@ class TestEnsureMrPipeline(unittest.TestCase):
         self.assertFalse(gitlab.is_mr_pipeline(object()))
 
     def test_gives_up_and_says_so(self):
-        """Test that a pipeline which stays empty is reported, not hidden"""
-        project, merge_req = self._project([0] * 12)
+        """Test that a pipeline which stays empty is reported, not hidden
+
+        It is triggered only once, however many times it is looked at.
+        """
+        project, merge_req = self._project([('skipped', 0)] * 12)
         ret, err = self._run(project)
         self.assertFalse(ret)
+        merge_req.pipelines.create.assert_called_once()
         self.assertIn('check it by hand', err)
 
     def test_not_available(self):
