@@ -114,7 +114,7 @@ static int do_spawn(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	id = next_job_id();
 	if (!id)
-		return CMD_RET_FAILURE;
+		goto err;
 	idx = id - 1;
 
 	job[idx] = uthread_grp_new_id();
@@ -122,7 +122,7 @@ static int do_spawn(struct cmd_tbl *cmdtp, int flag, int argc,
 	ret = uthread_create(NULL, spawn_thread, spa, 0, job[idx]);
 	if (ret) {
 		job[idx] = 0;
-		return CMD_RET_FAILURE;
+		goto err;
 	}
 
 	ret = env_set_ulong("job_id", id);
@@ -130,6 +130,11 @@ static int do_spawn(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_FAILURE;
 
 	return CMD_RET_SUCCESS;
+
+err:
+	spa_free(spa);
+
+	return CMD_RET_FAILURE;
 }
 
 U_BOOT_CMD(spawn, CONFIG_SYS_MAXARGS, 0, do_spawn,
