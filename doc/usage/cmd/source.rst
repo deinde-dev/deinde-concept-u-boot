@@ -188,3 +188,9 @@ The FIT image file format requires CONFIG_FIT=y.#
 The legacy U-Boot image file format requires CONFIG_LEGACY_IMAGE_FORMAT=y.
 On hardened systems support for the legacy U-Boot image format should be
 disabled as these images cannot be signed and verified.
+
+See also
+--------
+
+* :doc:`run<run>` for running a script held in an environment variable
+* :doc:`exit<exit>` for leaving a script before its end

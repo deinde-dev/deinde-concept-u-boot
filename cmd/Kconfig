@@ -659,6 +659,7 @@ config CMD_GO
 config CMD_RUN
 	bool "run"
 	default y
+	select GETOPT
 	help
 	  Run the command in the given environment variable.
 

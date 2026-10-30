@@ -45,7 +45,7 @@ The next commands are kept as alias and for compatibility:
 + :doc:`eraseenv <eraseenv>` = *env erase*
 + :doc:`grepenv <grepenv>` = *env grep*
 + :doc:`printenv <printenv>` = *env print*
-+ *run* = *env run*
++ :doc:`run <run>` = *env run*
 + :doc:`saveenv <saveenv>` = *env save*
 + :doc:`setenv <setenv>` = *env set*
 
@@ -402,3 +402,4 @@ See also
 
 * :doc:`bootcount<bootcount>` for the counter which *bootlimit* and
   *altbootcmd* control
+* :doc:`run<run>` for *env run*, which runs the commands held in a variable

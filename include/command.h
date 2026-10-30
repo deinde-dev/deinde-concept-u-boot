@@ -111,8 +111,7 @@ static inline const char *cmd_arg3(int argc, char *const argv[])
 }
 
 #if defined(CONFIG_CMD_RUN)
-int do_run(struct cmd_tbl *cmdtp, int flag, int argc,
-	   char *const argv[]);
+int do_run(struct getopt_state *gs);
 #endif
 
 /* common/command.c */

@@ -102,3 +102,4 @@ See also
   than replacing it
 * :doc:`askenv<askenv>` for prompting the user for the value
 * :doc:`saveenv<saveenv>` for writing the environment to persistent storage
+* :doc:`run<run>` for running a variable whose value is a list of commands

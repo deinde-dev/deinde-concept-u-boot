@@ -50,7 +50,7 @@ there is then nothing to boot.
 See also
 --------
 
-* *run* for running the command held in any environment variable
+* :doc:`run<run>` for running the commands held in any environment variable
 * :doc:`bootflow<bootflow>` for the standard-boot scan which *bootcmd* starts
   on a board using standard boot
 * :doc:`bootm<bootm>` for booting an image which is already in memory
