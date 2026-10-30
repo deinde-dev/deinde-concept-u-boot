@@ -46,3 +46,10 @@ Return value
 
 The return value $? is 0 (true) if the command completes.
 The return value is 1 (false) if the command is interrupted by CTRL+C.
+
+See also
+--------
+
+* :doc:`spawn<spawn>` for background jobs, which run while this command
+  waits
+* :doc:`wait<wait>` for waiting until the background jobs have finished
