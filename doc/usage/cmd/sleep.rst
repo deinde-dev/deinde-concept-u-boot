@@ -52,3 +52,4 @@ See also
 
 * :doc:`spawn<spawn>` for background jobs, which run while this command
   waits
+* :doc:`wait<wait>` for waiting until the background jobs have finished

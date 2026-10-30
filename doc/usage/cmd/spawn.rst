@@ -19,7 +19,8 @@ Description
 The spawn command starts a command as a background job and returns at once,
 so the shell carries on with the next command while the job runs. Each job
 is given an identifier, which spawn stores in the *job_id* environment
-variable, and *wait* uses that to wait for the job and pick up its result.
+variable, and :doc:`wait<wait>` uses that to wait for the job and pick up
+its result.
 
 The command is run with the arguments as they are given, so the shell has
 already expanded any variable and split the line at ';' by the time spawn
@@ -100,6 +101,7 @@ return value of the command itself is reported by *wait*.
 See also
 --------
 
-* *wait* for waiting until a job has finished and reading its return value
+* :doc:`wait<wait>` for waiting until a job has finished and reading its
+  return value
 * :doc:`run<run>` for running several commands as one job
 * :doc:`sleep<sleep>` for a delay which lets the jobs run
