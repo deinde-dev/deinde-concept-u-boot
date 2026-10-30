@@ -100484,3 +100484,52 @@ The branch is ready to push; I haven't pushed or merged it.
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-6b4b1c8dc464
+
+Commits:
+- 6b4b1c8dc464 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+- c9858573fc93 k3-am62-pocketbeagle2: add initial board support
+- 6a9d070f8bce k3-am62-pocketbeagle2: add support for efi capsules
+- 2f838307d6bc Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+
+### Conversation log
+The sandbox build fails in the Rust examples. I'll look at the error and check whether ci/master fails the same way.
+
+The failure comes from a stale Cargo cache in /tmp/pickman that still points at the old worktree /tmp/wt-cherry-8e82c0a75f5d, not from this commit. I'll rebuild clean with `-m` (mrproper).
+
+The build passes. Next commit:
+
+The delta matches and split-check made no changes. I'll grep the new files for any phase macros it might have missed.
+
+None found, and the build passes. Next commit:
+
+The merge commit is empty, as expected for a merge whose changes are already in the three picks. I'll commit it with its original message.
+
+Sandbox doesn't compile any of the new board code, so I'll also try building the two new pocketbeagle2 boards.
+
+I cherry-picked all four commits onto the new branch cherry-6b4b1c8dc464, and the final sandbox build passes with no warnings or errors.
+
+**Problem at the start:** `git status` was not clean. An interactive rebase of cherry-20209a62bc85 was stopped partway, and I ran the checkout before noticing. No rebase process was running, so it looks abandoned. Since it stopped, pickman has made seven "pickman: Record review handling…" commits on top of the detached HEAD. My checkout moved HEAD away from them and they are not on any branch. They are still in the reflog, with the tip at **310093a48eec**; recover them with `git branch <name> 310093a48eec` if they are needed. I didn't touch `.git/rebase-merge`, so `git status` will still report a rebase in progress until you run `git rebase --abort` (or delete that directory) once you've decided what to do with those commits.
+
+**Commits** (`git log --oneline -n 6` shows all four):
+```
+41591a6b5b10 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+6224fa062791 k3-am62-pocketbeagle2: add support for efi capsules
+0a3bd8abf34f k3-am62-pocketbeagle2: add initial board support
+0b2224c0852b arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+**Deltas:** The three regular commits have the same files and line counts as the originals (2 files +18/−6, 19 files +4631, 4 files +81). The merge commit is empty, as expected, and was kept with `--allow-empty`. None are concerning.
+
+**Fix-ups:** None. There were no conflicts (`arch/arm/dts/Makefile` merged automatically). `split-check` changed nothing, and a grep of the new code found no `CONFIG_IS_ENABLED`, `CONFIG_VAL` or `$(PHASE_)`-style uses.
+
+**Builds:**
+- **Sandbox:** the first build failed in the Rust examples because /tmp/pickman held a stale Cargo cache pointing at an old worktree (/tmp/wt-cherry-8e82c0a75f5d). A clean rebuild (`-m`) fixed it, so it was not caused by these commits. Every build after that, including the final one, passed.
+- **The new boards:** sandbox doesn't compile them, so I also built `am62_pocketbeagle2_a53` and `am62_pocketbeagle2_r5`. Both compile. buildman reports a warning for each because binman can't find TI's external firmware (TIFS, DM, OP-TEE), and the a53 build stops at the final image-packing step for that reason.
+
+The branch is ready to push and has not been merged anywhere.
+
+---
+
