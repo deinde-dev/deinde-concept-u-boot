@@ -5330,6 +5330,32 @@ def do_step(args, dbs):
     return ret
 
 
+def fetch_source(source):
+    """Fetch the remote which a source branch comes from
+
+    New commits are found by comparing the source's position in the database
+    with the local remote-tracking branch, so nothing new is seen unless that
+    branch is up to date.
+
+    Args:
+        source (str): Source branch, e.g. 'us/main'
+
+    Returns:
+        bool: True if the remote was fetched, False if the source does not
+            name a remote or the fetch failed
+    """
+    remote = source.split('/', 1)[0] if '/' in source else None
+    if not remote or remote not in run_git(['remote']).split():
+        return False
+    tout.info(f'Fetching {remote}...')
+    try:
+        run_git(['fetch', remote])
+    except command.CommandExc as exc:
+        tout.warning(f'Failed to fetch {remote}: {exc}')
+        return False
+    return True
+
+
 def _do_step(args, dbs):
     """Internal implementation of do_step"""
     remote = args.remote
@@ -5370,6 +5396,7 @@ def _do_step(args, dbs):
 
     # Process subtree updates and advance past fully-processed merges
     # regardless of MR count, since these don't create MRs
+    fetch_source(source)
     info, ret = _prepare_get_commits(dbs, source, remote, args.target)
     if ret is not None:
         if ret:
