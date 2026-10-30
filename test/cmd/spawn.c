@@ -196,6 +196,12 @@ static int cmd_test_spawn_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_commandf("wait %d", CONFIG_CMD_SPAWN_NUM_JOBS + 1));
 	ut_assertok(check_wait_usage(uts));
 
+	/* neither command takes an option of its own */
+	ut_asserteq(1, run_command("spawn -n echo hi", 0));
+	ut_assertok(check_spawn_usage(uts));
+	ut_asserteq(1, run_command("wait -n", 0));
+	ut_assertok(check_wait_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_spawn_usage, UTF_CONSOLE);

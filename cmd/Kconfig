@@ -3504,6 +3504,7 @@ config CMD_MESON
 config CMD_SPAWN
 	bool "spawn and wait commands"
 	depends on UTHREAD
+	select GETOPT
 	help
 	  spawn runs a command in the background and sets the job_id environment
 	  variable. wait is used to suspend the shell execution until one or more

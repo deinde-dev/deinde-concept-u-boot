@@ -6,6 +6,7 @@
 #include <command.h>
 #include <console.h>
 #include <env.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <vsprintf.h>
 #include <uthread.h>
@@ -95,9 +96,10 @@ static void refresh_jobs(void)
 
 }
 
-static int do_spawn(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_spawn(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	unsigned int id;
 	unsigned int idx;
 	struct spa *spa;
@@ -137,11 +139,11 @@ err:
 	return CMD_RET_FAILURE;
 }
 
-U_BOOT_CMD(spawn, CONFIG_SYS_MAXARGS, 0, do_spawn,
-	   "run a command in the background",
-	   "command [args...]\n"
-	   "    - Run the command as a background job and set the job_id\n"
-	   "      environment variable to the identifier of the new job");
+U_BOOT_CMD_NOOPTS(spawn, CONFIG_SYS_MAXARGS, 0, do_spawn,
+		  "run a command in the background",
+		  "command [args...]\n"
+		  "    - Run the command as a background job and set the job_id\n"
+		  "      environment variable to the identifier of the new job");
 
 static enum command_ret_t wait_job(unsigned int idx)
 {
@@ -162,9 +164,10 @@ static enum command_ret_t wait_job(unsigned int idx)
 	return job_ret[idx];
 }
 
-static int do_wait(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_wait(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	enum command_ret_t ret = CMD_RET_SUCCESS;
 	unsigned long id;
 	unsigned int idx;
@@ -187,9 +190,9 @@ static int do_wait(struct cmd_tbl *cmdtp, int flag, int argc,
 	return ret;
 }
 
-U_BOOT_CMD(wait, CONFIG_SYS_MAXARGS, 0, do_wait,
-	   "wait for one or more jobs to complete",
-	   "[job_id ...]\n"
-	   "    - Wait until all specified jobs have exited and return the\n"
-	   "      exit status of the last job waited for. When no job_id is\n"
-	   "      given, wait for all the background jobs.");
+U_BOOT_CMD_NOOPTS(wait, CONFIG_SYS_MAXARGS, 0, do_wait,
+		  "wait for one or more jobs to complete",
+		  "[job_id ...]\n"
+		  "    - Wait until all specified jobs have exited and return the\n"
+		  "      exit status of the last job waited for. When no job_id is\n"
+		  "      given, wait for all the background jobs.");
