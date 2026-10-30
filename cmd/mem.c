@@ -1377,7 +1377,7 @@ U_BOOT_CMD(
 	crc32,	5,	1,	do_mem_crc,
 	"checksum calculation",
 	"address count [addr]\n    - compute CRC32 checksum [save at addr]\n"
-	"-v address count crc\n    - verify crc of memory area"
+	"crc32 -v address count crc\n    - verify crc of memory area"
 );
 
 #endif	/* CONFIG_CRC32_VERIFY */
