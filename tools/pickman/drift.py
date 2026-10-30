@@ -486,6 +486,57 @@ def defined_names(text, path):
     return names
 
 
+def restored_functions(hunks):
+    """Find the global functions a revert of some hunks would define
+
+    The diff runs from upstream to downstream, so the lines a hunk removes
+    are upstream's, and a revert puts them back. A static function, or a
+    declaration ending in ';', is not counted: only a definition which
+    something elsewhere could call.
+
+    Args:
+        hunks (list of Hunk): Hunks which would be reverted
+
+    Return:
+        set of str: Names of the functions
+    """
+    names = set()
+    for hunk in hunks:
+        for line in hunk.lines[1:]:
+            if not line.startswith('-'):
+                continue
+            text = line[1:]
+            if (text.lstrip().startswith('static') or
+                    text.rstrip().endswith(';')):
+                continue
+            first = text.strip().split('(')[0].split()
+            if first and first[0] in STMT_KEYWORDS:
+                continue
+            match = RE_DEF_FUNC.match(text)
+            if match:
+                names.add(match.group(1))
+    return names
+
+
+def lines_from(hunk, lines):
+    """Check whether a hunk's downstream lines come from a set of lines
+
+    Args:
+        hunk (Hunk): Hunk to examine
+        lines (set of str): Stripped lines, e.g. those some commits added
+
+    Return:
+        bool: True if most of the hunk's longer downstream lines are there
+    """
+    added = [line[1:].strip() for line in hunk.lines[1:]
+             if line.startswith('+')]
+    added = [line for line in added if len(line) >= SIGNIFICANT_LEN]
+    if not added:
+        return False
+    found = sum(1 for line in added if line in lines)
+    return found * 2 >= len(added)
+
+
 def removed_identifiers(hunks):
     """Find the distinctive names which reverting some hunks would remove
 
@@ -599,6 +650,102 @@ def survives_revert(hunks, name):
     return False
 
 
+def upstream_lines(hunk):
+    """Work out which upstream lines a hunk would put back
+
+    The diff runs from upstream to downstream, so a line the hunk removes is
+    one upstream has.  Reverting the hunk restores it, and blaming upstream
+    for it says which commit wrote it.
+
+    Args:
+        hunk (Hunk): Hunk to examine
+
+    Return:
+        list of int: Upstream line numbers of the lines the hunk removes
+    """
+    match = RE_HUNK_HEADER.match(hunk.lines[0])
+    if not match:
+        return []
+    lineno = int(match.group(1))
+    out = []
+    for line in hunk.lines[1:]:
+        if line.startswith('-'):
+            out.append(lineno)
+            lineno += 1
+        elif line.startswith('+') or line.startswith('\\'):
+            # An added line is downstream's alone, and '\ No newline at end
+            # of file' is a note about the line above
+            pass
+        else:
+            lineno += 1
+    return out
+
+
+def line_ranges(lines):
+    """Collapse line numbers into ranges, as 'git blame -L' takes them
+
+    Args:
+        lines (list of int): Line numbers, in any order
+
+    Return:
+        list of tuple: (first, last) for each run of consecutive lines
+    """
+    out = []
+    for num in sorted(set(lines)):
+        if out and num == out[-1][1] + 1:
+            out[-1] = (out[-1][0], num)
+        else:
+            out.append((num, num))
+    return out
+
+
+# Lines shorter than this, once stripped, say too little to be looked for
+SIGNIFICANT_LEN = 4
+
+
+def change_present(patch, text):
+    """Check whether a commit's change to a file is already in some text
+
+    A commit's change to one file is present if the lines it adds are there
+    and the lines it removes are gone.  Short lines - a brace, a blank, a
+    'break;' - turn up everywhere and say nothing, so only the longer ones
+    are counted.  This is a judgement rather than a proof, since a later
+    commit may have reworked the same lines: it answers 'did this arrive?',
+    not 'is this identical?'.
+
+    Args:
+        patch (str): The commit's diff for the file, as from 'git show'
+        text (str): The file's content in the tree being examined, or None if
+            the file is not there at all
+
+    Return:
+        bool: True if the change appears to be there
+    """
+    added = []
+    removed = []
+    for line in patch.splitlines():
+        if line.startswith(('+++', '---')):
+            continue
+        body = line[1:].strip()
+        if len(body) < SIGNIFICANT_LEN:
+            continue
+        if line.startswith('+'):
+            added.append(body)
+        elif line.startswith('-'):
+            removed.append(body)
+    if text is None:
+        # The file is absent, so whatever the commit added is missing too
+        return not added
+    have = {line.strip() for line in text.splitlines()}
+    if added:
+        found = sum(1 for line in added if line in have)
+        return found * 2 >= len(added)
+    if removed:
+        gone = sum(1 for line in removed if line not in have)
+        return gone * 2 >= len(removed)
+    return True
+
+
 def build_patch(fdiffs, verdicts, states=(DRIFT,)):
     """Build a patch which reverts the hunks in some states
 
@@ -627,6 +774,41 @@ def build_patch(fdiffs, verdicts, states=(DRIFT,)):
     if not out:
         return ''
     return '\n'.join(out) + '\n'
+
+
+def pick_boards(candidates, limit, preferred=None):
+    """Choose a few boards which between them build as many files as possible
+
+    This is a greedy set cover: take the board which builds the most files
+    not yet covered, and repeat.  Ties go to a preferred board, then to the
+    name which sorts first, so the choice is stable from one run to the next.
+
+    Args:
+        candidates (dict): Maps path to the set of boards which build it
+        limit (int): Most boards to choose
+        preferred (set of str): Boards to choose over others which build as
+            many files, e.g. those with a commonly installed toolchain
+
+    Return:
+        tuple:
+            list of str: Boards chosen
+            list of str: Paths which none of them builds
+    """
+    todo = {path: boards for path, boards in candidates.items() if boards}
+    chosen = []
+    while todo and len(chosen) < limit:
+        count = {}
+        for boards in todo.values():
+            for board in boards:
+                count[board] = count.get(board, 0) + 1
+        best = min(count, key=lambda board: (
+            -count[board], board not in (preferred or ()), board))
+        chosen.append(best)
+        todo = {path: boards for path, boards in todo.items()
+                if best not in boards}
+    left = sorted(set(todo) | {path for path, boards in candidates.items()
+                               if not boards})
+    return chosen, left
 
 
 def group_by_area(paths):

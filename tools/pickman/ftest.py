@@ -8,6 +8,7 @@
 
 import asyncio
 import argparse
+import json
 import os
 import shutil
 import sqlite3
@@ -9039,6 +9040,348 @@ class TestAbsentOrigin(unittest.TestCase):
         with terminal.capture():
             partial = control.drift_absent_partial(origin, {'a.c'})
         self.assertEqual(partial, {})
+
+
+class TestDriftPartial(unittest.TestCase):
+    """Tests for finding a revert which splits an upstream commit"""
+
+    def tearDown(self):
+        """Clean up test fixtures"""
+        command.TEST_RESULT = None
+
+    def test_upstream_lines(self):
+        """Test finding the upstream lines a hunk puts back"""
+        hunk = drift.Hunk('a.c', 10, 3, [11],
+                          ['@@ -20,3 +10,3 @@', ' keep', '-upstream',
+                           '+downstream', ' keep', '-also upstream'], 'f')
+        self.assertEqual(drift.upstream_lines(hunk), [21, 23])
+
+    def test_upstream_lines_added_only(self):
+        """Test that a hunk which only adds lines puts nothing back"""
+        hunk = drift.Hunk('a.c', 1, 2, [2], ['@@ -1 +1,2 @@', ' x', '+y'],
+                          'f')
+        self.assertEqual(drift.upstream_lines(hunk), [])
+
+    def test_upstream_lines_bad_header(self):
+        """Test that a hunk without a valid header puts nothing back"""
+        hunk = drift.Hunk('a.c', 1, 1, [], ['@@ bad @@', '-upstream'], 'f')
+        self.assertEqual(drift.upstream_lines(hunk), [])
+
+    def test_line_ranges(self):
+        """Test collapsing line numbers into blame ranges"""
+        self.assertEqual(drift.line_ranges([7, 3, 4, 5, 9, 4]),
+                         [(3, 5), (7, 7), (9, 9)])
+        self.assertEqual(drift.line_ranges([]), [])
+
+    def test_change_present_added(self):
+        """Test that a change is present when its added lines are there"""
+        patch = ('--- a/x.h\n+++ b/x.h\n@@ -1 +1,2 @@\n'
+                 '+\tstruct udevice *dev;\n }\n')
+        self.assertTrue(drift.change_present(
+            patch, 'struct a {\n\tstruct udevice *dev;\n};\n'))
+        self.assertFalse(drift.change_present(patch, 'struct a {\n};\n'))
+
+    def test_change_present_removed(self):
+        """Test that a change which only removes lines is judged by them"""
+        patch = '@@ -1,2 +1 @@\n-\tstruct clk clk;\n bool probed;\n'
+        self.assertTrue(drift.change_present(patch, 'bool probed;\n'))
+        self.assertFalse(drift.change_present(
+            patch, 'bool probed;\n\tstruct clk clk;\n'))
+
+    def test_change_present_short_lines(self):
+        """Test that braces and blank lines say nothing either way"""
+        self.assertTrue(drift.change_present('+}\n+\n-{\n', 'other\n'))
+
+    def test_change_present_absent_file(self):
+        """Test that a missing file lacks whatever the commit added"""
+        self.assertFalse(drift.change_present('+int value_here;\n', None))
+        self.assertTrue(drift.change_present('-int value_here;\n', None))
+
+    def test_arrived(self):
+        """Test telling whether an upstream commit is downstream"""
+        full = 'a' * 40
+        with mock.patch.object(control.gitutil, 'is_ancestor',
+                               return_value=False):
+            self.assertTrue(control.drift_arrived(full, 'ci/master', {full}))
+            # A trailer may abbreviate the hash
+            self.assertTrue(control.drift_arrived(full, 'ci/master',
+                                                  {'a' * 12}))
+            self.assertFalse(control.drift_arrived(full, 'ci/master',
+                                                   {'b' * 40}))
+        with mock.patch.object(control.gitutil, 'is_ancestor',
+                               return_value=True):
+            self.assertTrue(control.drift_arrived(full, 'ci/master', set()))
+
+    def _partial(self, missing):
+        """Run drift_partial() with a.c's drift coming from one commit
+
+        Args:
+            missing (list of str): Other files whose change is missing
+
+        Return:
+            tuple: Result of drift_partial()
+        """
+        chash = 'c' * 40
+        with mock.patch.object(control, 'drift_origins',
+                               return_value={'a.c': {chash}}), \
+                mock.patch.object(control, 'drift_cited', return_value=set()), \
+                mock.patch.object(control.gitutil, 'merge_base',
+                                  return_value='f' * 40), \
+                mock.patch.object(control.gitutil, 'is_ancestor',
+                                  return_value=False), \
+                mock.patch.object(control, 'drift_missing_parts',
+                                  return_value=missing), \
+                mock.patch.object(control.gitutil, 'commit_summaries',
+                                  return_value=['ccccccc Add a member']):
+            info = control.DriftInfo('a' * 40, [], {}, [], set(), set(), 0,
+                                     [], [])
+            return control.drift_partial(info, ['a.c'], 'us/main',
+                                         'ci/master')
+
+    def test_partial(self):
+        """Test that a revert which splits a commit is reported"""
+        partial, whole = self._partial(['include/x.h'])
+        self.assertEqual(partial, {'a.c': [('c' * 40, 'Add a member',
+                                            ['include/x.h'])]})
+        self.assertEqual(whole, {})
+
+    def test_whole(self):
+        """Test that a commit the revert brings in entire is not partial"""
+        partial, whole = self._partial([])
+        self.assertEqual(partial, {})
+        self.assertEqual(whole, {'c' * 40: 'Add a member'})
+
+    def test_commit_msg_names_whole(self):
+        """Test that the commit message names commits brought in whole"""
+        info = control.DriftInfo('a' * 40, [], {}, [], set(), set(), 0, [],
+                                 [])
+        msg = control.drift_commit_msg('drivers/clk', ['a.c'], info,
+                                       {'c' * 40: 'Fix the thing'})
+        self.assertIn('never\narrived here', msg)
+        self.assertIn(' - ccccccccccc Fix the thing', msg)
+        self.assertNotIn('never', control.drift_commit_msg(
+            'drivers/clk', ['a.c'], info))
+
+    def test_decline_partial(self):
+        """Test that a split commit's file is left out, naming the pick"""
+        info = control.DriftInfo('a' * 40, [], {}, [], set(), set(), 0, [],
+                                 [])
+        args = argparse.Namespace(source='us/main', branch='ci/master')
+        split = {'a.c': [('c' * 40, 'Add a member', ['include/x.h'])]}
+        with mock.patch.object(control, 'drift_partial',
+                               return_value=(split, {})):
+            with terminal.capture() as (_, stderr):
+                paths, _ = control.drift_decline_partial(
+                    info, 'drivers/clk', ['a.c', 'b.c'], args)
+        self.assertEqual(paths, ['b.c'])
+        self.assertIn('run: pickman pick ccccccccccc', stderr.getvalue())
+
+
+class TestDriftBoards(unittest.TestCase):
+    """Tests for building boards which compile the reverted files"""
+
+    def tearDown(self):
+        """Clean up test fixtures"""
+        command.TEST_RESULT = None
+
+    @staticmethod
+    def _info():
+        """Build a DriftInfo with drift in two hunks of one file"""
+        hunks = [drift.Hunk('a.c', 10, 3, [11], ['@@ -10,3 +10,3 @@'], 'f'),
+                 drift.Hunk('a.c', 40, 0, [], ['@@ -40,2 +39,0 @@'], 'g')]
+        return control.DriftInfo(
+            'a' * 40, [],
+            {'a.c': [drift.Verdict(hunk, drift.DRIFT, None)
+                     for hunk in hunks]}, [], set(), set(), 0, [], [])
+
+    def test_codman_boards(self):
+        """Test asking codman about the lines each revert touches"""
+        calls = []
+
+        def handle(pipe_list=None, **_):
+            calls.append(list(pipe_list[0]))
+            return command.CommandResult(stdout=json.dumps([
+                {'path': 'a.c', 'lines': [10, 12], 'note': None,
+                 'boards': {'x': {'arch': 'arm', 'phases': ['U-Boot']}}},
+                {'path': 'a.c', 'lines': [40, 40], 'note': None,
+                 'boards': {'y': {'arch': 'm68k', 'phases': ['SPL']}}}]))
+
+        command.TEST_RESULT = handle
+        with mock.patch.object(control.os.path, 'exists', return_value=True):
+            found, preferred = control.drift_codman_boards(self._info(),
+                                                           ['a.c'])
+        self.assertEqual(found, {'a.c': {'x', 'y'}})
+        self.assertEqual(preferred, {'x'})
+        # Each hunk's lines are asked about; one which only removes lines
+        # still names the line it sits at
+        self.assertEqual(calls[0][-2:], ['a.c:10-12', 'a.c:40-40'])
+
+    def test_codman_fails(self):
+        """Test that codman failing gives no boards rather than an error"""
+        command.TEST_RESULT = command.CommandResult(stdout='',
+                                                    stderr='oops',
+                                                    return_code=1)
+        with mock.patch.object(control.os.path, 'exists', return_value=True):
+            with terminal.capture():
+                found, _ = control.drift_codman_boards(self._info(), ['a.c'])
+        self.assertEqual(found, {'a.c': set()})
+
+    def test_pick_boards(self):
+        """Test choosing few boards which build many files"""
+        cands = {'a.c': {'x', 'y'}, 'b.c': {'y', 'z'}, 'c.c': {'w'},
+                 'd.c': set()}
+        self.assertEqual(drift.pick_boards(cands, 4),
+                         (['y', 'w'], ['d.c']))
+        self.assertEqual(drift.pick_boards(cands, 1),
+                         (['y'], ['c.c', 'd.c']))
+        # A preferred board wins a tie
+        self.assertEqual(drift.pick_boards({'a.c': {'m', 'n'}}, 1, {'n'}),
+                         (['n'], []))
+
+    def test_choose_skips_sandbox(self):
+        """Test that a file sandbox builds needs no other board"""
+        found = {'a.c': {'sandbox', 'x'}, 'b.c': {'y'}}
+        with mock.patch.object(control, 'drift_codman_boards',
+                               return_value=(found, set())):
+            self.assertEqual(control.drift_choose_boards(None, ['a.c', 'b.c'],
+                                                         4),
+                             (['y'], []))
+
+    def test_check_boards_blames_files(self):
+        """Test that a board the revert breaks names the file at fault"""
+        calls = []
+
+        def build(boards):
+            calls.append(list(boards))
+            if len(calls) == 1:
+                return {'x': 'drivers/clk/a.c:3:1: error: no member',
+                        'y': 'toolchain not found'}
+            # Without the revert, only y still fails
+            return {'y': 'toolchain not found'}
+
+        with mock.patch.object(control, 'drift_build_boards',
+                               side_effect=build), \
+                mock.patch.object(control, 'run_git') as run_git:
+            with terminal.capture():
+                broken, culprits = control.drift_check_boards(
+                    ['x', 'y'], ['drivers/clk/a.c', 'drivers/clk/b.c'])
+        self.assertEqual(list(broken), ['x'])
+        self.assertEqual(culprits, ['drivers/clk/a.c'])
+        self.assertEqual(calls[1], ['x', 'y'])
+        run_git.assert_any_call(['stash'])
+        run_git.assert_any_call(['stash', 'pop'])
+
+    def test_build_boards_warnings_pass(self):
+        """Test that warnings alone, such as a missing blob, pass"""
+        command.TEST_RESULT = command.CommandResult(
+            stdout='Missing blob', return_code=control.BUILDMAN_WARNINGS)
+        with terminal.capture():
+            self.assertEqual(control.drift_build_boards(['x']), {})
+        command.TEST_RESULT = command.CommandResult(
+            stdout='a.c:1: error: oops', return_code=100)
+        with terminal.capture():
+            self.assertEqual(control.drift_build_boards(['x']),
+                             {'x': 'a.c:1: error: oops'})
+
+
+class TestDriftRenamesAndHooks(unittest.TestCase):
+    """Tests for following renames and spotting hooks nothing calls"""
+
+    def tearDown(self):
+        """Clean up test fixtures"""
+        command.TEST_RESULT = None
+
+    def test_renames(self):
+        """Test listing the renames in a range"""
+        command.TEST_RESULT = command.CommandResult(
+            stdout='R100\tboard/freescale/a.c\tboard/nxp/a.c\n'
+                   'M\tMakefile\nR087\tx.c\ty.c\n')
+        self.assertEqual(control.drift_renames('f..b'),
+                         [('board/freescale/a.c', 'board/nxp/a.c'),
+                          ('x.c', 'y.c')])
+
+    def test_follow_renames(self):
+        """Test carrying touched paths through renames, including chains"""
+        renames = [('old/a.c', 'mid/a.c'), ('mid/a.c', 'new/a.c'),
+                   ('other.c', 'moved.c')]
+        self.assertEqual(
+            control.drift_follow_renames({'old/a.c'}, renames),
+            {'mid/a.c': 'old/a.c', 'new/a.c': 'old/a.c'})
+
+    def test_lines_from(self):
+        """Test matching a hunk's downstream lines against a set"""
+        hunk = drift.Hunk('a.c', 1, 3, [1, 2], [
+            '@@ -1 +1,3 @@', '+\tEVENT_SPY_FULL(EVT_X, fn);',
+            '+\tvoid *blob = lookup();', '+}', ' ctx'], 'f')
+        self.assertTrue(drift.lines_from(
+            hunk, {'EVENT_SPY_FULL(EVT_X, fn);', 'void *blob = lookup();'}))
+        self.assertFalse(drift.lines_from(hunk, {'something else'}))
+
+        # Short lines say nothing about where the hunk came from
+        hunk = drift.Hunk('a.c', 1, 1, [1], ['@@ -1 +1 @@', '+}'], 'f')
+        self.assertFalse(drift.lines_from(hunk, {'}'}))
+
+    def test_credit_moved(self):
+        """Test that work added before a rename is credited downstream"""
+        hunk = drift.Hunk('new/a.c', 1, 1, [1],
+                          ['@@ -1 +1 @@', '-int hook(void *blob)',
+                           '+static int spy(void *ctx, struct event *ev)'],
+                          'f')
+        verdicts = {'new/a.c': [drift.Verdict(hunk, drift.DRIFT, None)]}
+        with mock.patch.object(
+                control, 'drift_lines_added',
+                return_value={'static int spy(void *ctx, struct event *ev)'}):
+            control.drift_credit_moved(verdicts, 'new/a.c', 'old/a.c', 'r',
+                                       {'c' * 40})
+        self.assertEqual(verdicts['new/a.c'][0].state, drift.WANTED)
+        self.assertEqual(verdicts['new/a.c'][0].reason,
+                         'downstream, as old/a.c')
+
+    def test_restored_functions(self):
+        """Test finding the global functions a revert would define"""
+        hunk = drift.Hunk('a.c', 1, 1, [], [
+            '@@ -1,5 +1 @@', '-int board_fix_fdt(void *blob)',
+            '-static int helper(void)', '-int decl(void);',
+            '-\treturn other(x);', '-\tif (check(x))', '+int kept(void)'],
+            'f')
+        self.assertEqual(drift.restored_functions([hunk]), {'board_fix_fdt'})
+
+    def test_callers(self):
+        """Test that only calls count, not comments, variables or definitions"""
+        command.TEST_RESULT = command.CommandResult(stdout=(
+            'up:common/board_f.c:783:\treturn board_fix_fdt(blob);\n'
+            'up:a.c:10:int board_fix_fdt(void *fdt)\n'
+            'up:b.c:3: * called by board_fix_fdt() early on\n'
+            'up:c.c:7:\tif (board_fix_fdt && x)\n'
+            'up:self.c:9:\tboard_fix_fdt(blob);\n'))
+        self.assertEqual(control.drift_callers('up', 'board_fix_fdt',
+                                               'self.c'),
+                         ['common/board_f.c'])
+
+    def test_dead_hooks(self):
+        """Test declining a revert which adds a hook nothing here calls"""
+        hunk = drift.Hunk('board/x.c', 1, 1, [],
+                          ['@@ -1 +1 @@', '-int board_fix_fdt(void *blob)',
+                           '+static int spy(void *ctx, struct event *ev)'],
+                          'f')
+        info = control.DriftInfo(
+            'u' * 40, [], {'board/x.c': [drift.Verdict(hunk, drift.DRIFT,
+                                                        None)]},
+            [], set(), set(), 0, [], [])
+
+        def callers(ref, name, path):  # pylint: disable=unused-argument
+            return ['common/board_f.c'] if ref == 'u' * 40 else []
+
+        with mock.patch.object(control, 'drift_callers', side_effect=callers):
+            self.assertEqual(
+                control.drift_dead_hooks(info, ['board/x.c'], 'ci/master'),
+                {'board/x.c': [('board_fix_fdt', 'common/board_f.c')]})
+        # Still called downstream, so nothing to decline
+        with mock.patch.object(control, 'drift_callers',
+                               return_value=['common/board_f.c']):
+            self.assertEqual(
+                control.drift_dead_hooks(info, ['board/x.c'], 'ci/master'),
+                {})
 
 
 class TestClaudeCli(unittest.TestCase):

@@ -143,6 +143,11 @@ def add_main_commands(subparsers):
                                 '~/.config/pickman.conf)')
     drift_fix.add_argument('--no-build', action='store_true',
                            help='Commit a revert without checking it builds')
+    drift_fix.add_argument('--max-boards', type=int, metavar='N',
+                           default=control.DEFAULT_MAX_BOARDS,
+                           help='Most boards to build with buildman, beyond '
+                           'the build command, which compile the reverted '
+                           'files (default: %(default)s, 0 to skip)')
     drift_fix.add_argument('--missing', action='store_true',
                            help='Restore files which upstream has and this '
                                 'tree never received, instead of reverting '

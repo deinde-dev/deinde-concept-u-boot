@@ -9,6 +9,7 @@
 from collections import namedtuple
 from datetime import date
 import fnmatch
+import json
 import os
 import re
 import sys
@@ -1052,6 +1053,74 @@ def drift_downstream_commits(source, branch, sources=None):
     return hashes, paths, orphan
 
 
+def drift_renames(rng):
+    """List the files renamed in a range of commits, oldest first
+
+    Args:
+        rng (str): Commit range, e.g. 'fork..branch'
+
+    Return:
+        list of tuple: (old path, new path) for each rename
+    """
+    out = command.output('git', 'log', '--reverse', '--no-merges', '-M',
+                         '--name-status', '--diff-filter=R', '--format=',
+                         rng, raise_on_error=False)
+    renames = []
+    for line in out.splitlines():
+        parts = line.split('\t')
+        if len(parts) == 3 and parts[0].startswith('R'):
+            renames.append((parts[1], parts[2]))
+    return renames
+
+
+def drift_follow_renames(paths, renames):
+    """Carry the paths downstream commits touched through later renames
+
+    When upstream renames a directory, the pick of that rename carries any
+    downstream work on the files to their new paths, but the downstream
+    commits only ever named the old ones. Without following the rename,
+    that work looks like drift.
+
+    Args:
+        paths (set of str): Paths which downstream commits touched
+        renames (list of tuple): (old, new) pairs, oldest first
+
+    Return:
+        dict: Maps each new path reached this way to its original path
+    """
+    moved = {}
+    for old, new in renames:
+        if old in moved:
+            moved[new] = moved[old]
+        elif old in paths:
+            moved[new] = old
+    return moved
+
+
+def drift_lines_added(rng, path, down_hashes):
+    """Collect the lines downstream-original commits added to a file
+
+    Args:
+        rng (str): Commit range, e.g. 'fork..branch'
+        path (str): File, as the commits named it
+        down_hashes (set of str): Hashes of the downstream-original commits
+
+    Return:
+        set of str: The added lines, stripped
+    """
+    out = command.output('git', 'log', '--no-merges', '-p',
+                         '--format=commit %H', rng, '--', path,
+                         raise_on_error=False)
+    lines = set()
+    keep = False
+    for line in out.splitlines():
+        if line.startswith('commit '):
+            keep = line.split()[1] in down_hashes
+        elif keep and line.startswith('+') and not line.startswith('+++'):
+            lines.add(line[1:].strip())
+    return lines
+
+
 def drift_blame(branch, path, down_hashes):
     """Find which downstream lines of a file a downstream commit wrote
 
@@ -1073,7 +1142,8 @@ def drift_blame(branch, path, down_hashes):
     return blame
 
 
-def drift_collect(dbs, source, branch, deep=False, base=None):  # pylint: disable=too-many-locals
+# pylint: disable-next=too-many-locals,too-many-branches
+def drift_collect(dbs, source, branch, deep=False, base=None):
     """Compare the downstream tree with upstream and classify every delta
 
     Args:
@@ -1104,6 +1174,9 @@ def drift_collect(dbs, source, branch, deep=False, base=None):  # pylint: disabl
     tracked = [name for name, _ in dbs.source_get_all()] or [source]
     down_hashes, down_paths, orphans = drift_downstream_commits(
         source, branch, tracked)
+    rng = f'{gitutil.merge_base(branch, source)}..{branch}'
+    moved = drift_follow_renames(down_paths, drift_renames(rng))
+    down_paths = down_paths | set(moved)
 
     diff = gitutil.diff(base, branch)
     fdiffs = drift.parse_diff(diff)
@@ -1157,9 +1230,35 @@ def drift_collect(dbs, source, branch, deep=False, base=None):  # pylint: disabl
                 continue
             blame = drift_blame(branch, fdiff.path, down_hashes)
         verdicts[fdiff.path] = drift.classify(fdiff, accepts, blame)
+        if fdiff.path in moved:
+            drift_credit_moved(verdicts, fdiff.path, moved[fdiff.path], rng,
+                               down_hashes)
 
     return DriftInfo(base, fdiffs, verdicts, binary, orphans, down_paths,
                      skipped, deleted, subtree)
+
+
+def drift_credit_moved(verdicts, path, old, rng, down_hashes):
+    """Credit downstream work done before a rename
+
+    Blame credits the lines of a renamed file to the pick of the rename, so a
+    hunk whose lines a downstream commit added under the old path still reads
+    as drift. Mark those as wanted.
+
+    Args:
+        verdicts (dict): Maps path to its list of Verdict, updated here
+        path (str): File, at its new path
+        old (str): The path downstream commits knew it by
+        rng (str): Commit range, e.g. 'fork..branch'
+        down_hashes (set of str): Hashes of the downstream-original commits
+    """
+    if not any(vdt.state == drift.DRIFT for vdt in verdicts[path]):
+        return
+    added = drift_lines_added(rng, old, down_hashes)
+    verdicts[path] = [
+        drift.Verdict(vdt.hunk, drift.WANTED, f'downstream, as {old}')
+        if vdt.state == drift.DRIFT and drift.lines_from(vdt.hunk, added)
+        else vdt for vdt in verdicts[path]]
 
 
 def drift_absent_paths(info):
@@ -1244,6 +1343,28 @@ DEFAULT_BUILD_CMD = 'um build sandbox'
 # How many lines of a failed build to show; the first errors name the symbol
 BUILD_ERROR_LINES = 8
 
+# Builds boards which compile the reverted files, from the tree being fixed
+BUILDMAN = './tools/buildman/buildman'
+
+# Where those builds go; each board keeps its own directory, so that the
+# next revert in the same area builds incrementally
+BOARDS_DIR = os.path.join(tempfile.gettempdir(), 'pickman-drift-boards')
+
+# buildman's exit code when a board built with warnings but no errors
+BUILDMAN_WARNINGS = 101
+
+# Most boards to build for one area, beyond sandbox
+DEFAULT_MAX_BOARDS = 4
+
+# Architectures whose boards are chosen first, other things being equal,
+# since their toolchains are the ones most often installed
+PREFERRED_ARCHS = ('arm', 'riscv', 'x86')
+
+# Says which boards build some lines in the tree being fixed; this is the
+# copy beside pickman, since the tree may be too old to have the command
+CODMAN = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..',
+                      'codman', 'codman.py')
+
 
 def drift_build_cmd(args):
     """Work out the build command which checks a revert
@@ -1296,6 +1417,135 @@ def drift_build_ok(build_cmd):
     out = (res.combined or res.stderr or res.stdout or '')
     lines = [line for line in out.splitlines() if line.strip()]
     return False, chr(10).join(lines[:BUILD_ERROR_LINES])
+
+
+def drift_codman_boards(info, paths):
+    """Ask codman which boards build the lines each revert touches
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files being reverted
+
+    Return:
+        tuple:
+            dict: Maps each path to the set of boards which build its drift
+            set of str: Boards of a commonly used architecture
+    """
+    specs = []
+    for path in paths:
+        lines = []
+        for vdt in info.verdicts.get(path, []):
+            if vdt.state == drift.DRIFT:
+                hunk = vdt.hunk
+                lines += range(hunk.start, hunk.start + max(hunk.count, 1))
+        ranges = drift.line_ranges(lines)
+        specs += [f'{path}:{first}-{last}' for first, last in ranges] or [path]
+    candidates = {path: set() for path in paths}
+    preferred = set()
+    if not specs or not os.path.exists(CODMAN):
+        return candidates, preferred
+    res = command.run_one(CODMAN, 'boards', '--format', 'json', *specs,
+                          capture=True, capture_stderr=True,
+                          raise_on_error=False)
+    try:
+        found = json.loads(res.stdout or '[]')
+    except ValueError:
+        tout.warning(f'codman could not say which boards build these files: '
+                     f'{(res.stderr or "").strip()[:200]}')
+        return candidates, preferred
+    for entry in found:
+        for board, detail in entry['boards'].items():
+            candidates.setdefault(entry['path'], set()).add(board)
+            if detail['arch'] in PREFERRED_ARCHS:
+                preferred.add(board)
+    return candidates, preferred
+
+
+def drift_choose_boards(info, paths, limit):
+    """Choose boards to build, beyond sandbox, which compile some files
+
+    Sandbox builds very little driver or arch code, so a revert can pass
+    the build check and still break the board it was written for. codman
+    says which boards build the lines each revert touches, so a hunk inside
+    an '#ifdef' is checked on a board which has it on.
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files being reverted
+        limit (int): Most boards to choose
+
+    Return:
+        tuple:
+            list of str: Boards to build
+            list of str: Files which no board was found for, sandbox aside
+    """
+    found, preferred = drift_codman_boards(info, paths)
+    # Sandbox is built anyway by the build check
+    candidates = {path: boards for path, boards in found.items()
+                  if not any(board.startswith('sandbox') for board in boards)}
+    return drift.pick_boards(candidates, limit, preferred)
+
+
+def drift_build_boards(boards):
+    """Build some boards from the working tree with buildman
+
+    Args:
+        boards (list of str): Boards to build
+
+    Return:
+        dict: Maps each board which failed to the tail of its errors
+    """
+    failed = {}
+    for board in boards:
+        tout.info(f'  building {board} with buildman')
+        # --boards matches the name exactly; a bare name is a pattern, and
+        # one which matches more boards (e.g. a '-optee' variant) is refused
+        # with -w, so would look like a failed build
+        res = command.run_one(BUILDMAN, '-w', '-o',
+                              os.path.join(BOARDS_DIR, board), '--boards',
+                              board, capture=True, capture_stderr=True,
+                              raise_on_error=False)
+        # buildman exits with 100 for errors and 101 for warnings alone,
+        # which a missing binary blob counts as
+        if res.return_code not in (0, BUILDMAN_WARNINGS):
+            out = (res.stdout or '') + (res.stderr or '')
+            errors = [line for line in out.splitlines()
+                      if 'error' in line.lower()] or out.splitlines()
+            failed[board] = chr(10).join(errors[:BUILD_ERROR_LINES])
+    return failed
+
+
+def drift_check_boards(boards, paths):
+    """Check that a reverted working tree still builds some boards
+
+    A board which fails is built again without the revert, so that a board
+    which was already broken, or has no toolchain here, is not held against
+    the revert.
+
+    Args:
+        boards (list of str): Boards to build
+        paths (list of str): Files being reverted, to name in a failure
+
+    Return:
+        tuple:
+            dict: Maps each board the revert breaks to the tail of its errors
+            list of str: Reverted files which those errors name
+    """
+    failed = drift_build_boards(boards)
+    if not failed:
+        return {}, []
+    run_git(['stash'])
+    try:
+        before = drift_build_boards(list(failed))
+    finally:
+        run_git(['stash', 'pop'])
+    for board in sorted(before):
+        tout.warning(f'  {board} fails without the revert too, so it says '
+                     'nothing about it')
+        del failed[board]
+    text = chr(10).join(failed.values())
+    culprits = [path for path in paths if f'{path}:' in text]
+    return failed, culprits
 
 
 # Names searched for in one go, to keep the command line sane
@@ -1423,6 +1673,65 @@ def drift_load_bearing(info, paths, branch):
             if path in held:
                 break
     return held
+
+
+def drift_callers(ref, name, path):
+    """Find the C files at a ref which call a function, other than one file
+
+    Args:
+        ref (str): Commit or branch to search
+        name (str): Function name
+        path (str): File to leave out, the one defining it
+
+    Return:
+        list of str: Files with a line calling the function
+    """
+    out = command.output('git', 'grep', '-n', '-w', name, ref, '--', '*.c',
+                         raise_on_error=False)
+    # Only a call counts: a variable or parameter of the same name, or a
+    # mention in a comment, says nothing about whether the hook is used
+    call = re.compile(rf'\b{re.escape(name)}\s*\(')
+    files = []
+    for line in out.splitlines():
+        parts = line.split(':', 3)
+        if len(parts) < 4 or parts[1] == path:
+            continue
+        text = parts[3].strip()
+        if text.startswith(('/*', '*', '//')) or not call.search(text):
+            continue
+        if name in drift.defined_names(parts[3], parts[1]):
+            continue
+        if parts[1] not in files:
+            files.append(parts[1])
+    return files
+
+
+def drift_dead_hooks(info, paths, branch):
+    """Find reverts which would add a function nothing here calls
+
+    Upstream may call a hook from common code which this tree has replaced,
+    e.g. by an event. Reverting a board to upstream's version then defines
+    the hook, which builds perfectly, but nothing calls it, so whatever it
+    did silently stops.
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files to be reverted
+        branch (str): Downstream branch
+
+    Return:
+        dict: Maps each path to decline to a list of (function, a file
+            upstream calls it from)
+    """
+    dead = {}
+    for path in paths:
+        hunks = [vdt.hunk for vdt in info.verdicts.get(path, [])
+                 if vdt.state == drift.DRIFT]
+        for name in sorted(drift.restored_functions(hunks)):
+            upstream = drift_callers(info.base, name, path)
+            if upstream and not drift_callers(branch, name, path):
+                dead.setdefault(path, []).append((name, upstream[0]))
+    return dead
 
 
 def drift_select(bad, info, patterns=None, unambiguous=False):
@@ -1822,6 +2131,189 @@ def drift_absent_reason(dbs, source_id, paths):
     return found
 
 
+def drift_cited(source, branch):
+    """Collect the upstream commits which downstream cherry-picks name
+
+    Args:
+        source (str): Source branch name, e.g. 'us/main'
+        branch (str): Downstream branch, e.g. 'ci/master'
+
+    Return:
+        set of str: Hashes from '(cherry picked from commit ...)' lines, as
+            written, so possibly abbreviated
+    """
+    fork = gitutil.merge_base(branch, source)
+    cited = set()
+    for _, body in gitutil.log_bodies(f'{fork}..{branch}', no_merges=True):
+        cited.update(RE_CHERRY_PICK.findall(body))
+    return cited
+
+
+def drift_arrived(chash, branch, cited):
+    """Check whether an upstream commit has reached the downstream branch
+
+    Args:
+        chash (str): Full hash of the upstream commit
+        branch (str): Downstream branch
+        cited (set of str): Result from drift_cited()
+
+    Return:
+        bool: True if the branch has the commit, merged or cherry-picked
+    """
+    if chash in cited or any(len(ref) < 40 and chash.startswith(ref)
+                             for ref in cited):
+        return True
+    return gitutil.is_ancestor(chash, branch)
+
+
+def drift_remover(hunk, path, rng):
+    """Find the upstream commit which removed the lines a hunk adds
+
+    Blame says who wrote a line, not who deleted one, so a hunk which only
+    adds lines downstream - lines upstream has since dropped - has nothing
+    to blame.  Searching upstream for the longest of those lines finds the
+    commit which took it away.
+
+    Args:
+        hunk (Hunk): Hunk to examine
+        path (str): File the hunk is in
+        rng (str): Upstream range to search, e.g. 'fork..base'
+
+    Return:
+        str: Hash of the commit, or None if upstream never had the lines
+    """
+    lines = [line[1:].strip() for line in hunk.lines[1:]
+             if line.startswith('+')]
+    lines = [line for line in lines if len(line) >= drift.SIGNIFICANT_LEN]
+    if not lines:
+        return None
+    # A change and its revert can sit on a branch whose net effect is nil,
+    # which history simplification would hide; that is just the case here
+    out = command.output('git', 'log', '--full-history', '--format=%H', '-S',
+                         max(lines, key=len), rng, '--', path,
+                         raise_on_error=False)
+    found = out.split()
+    return found[0] if found else None
+
+
+def drift_origins(info, paths, rng):
+    """Find the upstream commits behind the hunks a revert puts back
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files to be reverted
+        rng (str): Upstream range to search for removals, e.g. 'fork..base'
+
+    Return:
+        dict: Maps path to the set of upstream hashes behind its drift
+    """
+    origins = {}
+    for path in paths:
+        lines = []
+        hashes = set()
+        for vdt in info.verdicts.get(path, []):
+            if vdt.state != drift.DRIFT:
+                continue
+            ups = drift.upstream_lines(vdt.hunk)
+            if ups:
+                lines += ups
+            else:
+                chash = drift_remover(vdt.hunk, path, rng)
+                if chash:
+                    hashes.add(chash)
+        if lines:
+            try:
+                out = gitutil.blame(info.base, path,
+                                    ranges=drift.line_ranges(lines))
+                hashes.update(match.group(1) for match in
+                              map(RE_BLAME_LINE.match, out.splitlines())
+                              if match)
+            except command.CommandExc:
+                pass
+        if hashes:
+            origins[path] = hashes
+    return origins
+
+
+def drift_missing_parts(chash, paths, branch):
+    """Find the files where an upstream commit's change is still missing
+
+    Args:
+        chash (str): Upstream commit
+        paths (set of str): Files the revert covers, which are left out
+        branch (str): Downstream branch
+
+    Return:
+        list of str: Other files the commit changes whose change is not on
+            the downstream branch
+    """
+    missing = []
+    for status, name in gitutil.commit_file_status(chash):
+        if name in paths or status == 'D':
+            continue
+        patch = command.output('git', 'show', '--format=', chash, '--', name,
+                               binary=True).decode('utf-8',
+                                                   errors='surrogateescape')
+        res = command.run_one('git', 'show', f'{branch}:{name}', capture=True,
+                              capture_stderr=True, raise_on_error=False,
+                              binary=True)
+        text = (res.stdout.decode('utf-8', errors='surrogateescape')
+                if not res.return_code else None)
+        if not drift.change_present(patch, text):
+            missing.append(name)
+    return missing
+
+
+def drift_partial(info, paths, source, branch):
+    """Find files whose revert would apply only part of an upstream commit
+
+    Drift is not always a mangled conflict resolution.  Sometimes an upstream
+    commit never arrived at all, and the half of it in a file which is
+    otherwise in step shows up as drift.  Reverting that half alone brings in
+    code which uses a struct member or function from the other half, which
+    does not build - or, worse, builds on sandbox and breaks a board.
+    Picking the commit brings the whole change instead.
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        paths (list of str): Files to be reverted
+        source (str): Source branch name, e.g. 'us/main'
+        branch (str): Downstream branch, e.g. 'ci/master'
+
+    Return:
+        tuple:
+            dict: Maps each path to decline to a list of (hash, subject,
+                other files still missing) for the commits it would split
+            dict: Maps the hash of each commit the revert brings in whole,
+                which never arrived here, to its subject
+    """
+    origins = drift_origins(
+        info, paths, f'{gitutil.merge_base(branch, source)}..{info.base}')
+    if not origins:
+        return {}, {}
+    cited = drift_cited(source, branch)
+    want = set(paths)
+    partial = {}
+    whole = {}
+    seen = {}
+    for path, hashes in sorted(origins.items()):
+        for chash in sorted(hashes):
+            if chash not in seen:
+                if drift_arrived(chash, branch, cited):
+                    seen[chash] = None
+                else:
+                    seen[chash] = drift_missing_parts(chash, want, branch)
+            others = seen[chash]
+            if others is None:
+                continue
+            subj = gitutil.commit_summaries([chash])[0].split(' ', 1)[-1]
+            if others:
+                partial.setdefault(path, []).append((chash, subj, others))
+            else:
+                whole[chash] = subj
+    return partial, whole
+
+
 def drift_absent_msg(area, paths, info, reasons):
     """Compose the commit message for restoring files upstream has
 
@@ -1856,13 +2348,15 @@ def drift_absent_msg(area, paths, info, reasons):
     return chr(10).join(out)
 
 
-def drift_commit_msg(area, paths, info):
+def drift_commit_msg(area, paths, info, whole=None):
     """Compose the commit message for a revert of drift in one area
 
     Args:
         area (str): Area of the tree the revert covers, e.g. 'drivers/video'
         paths (list of str): Files being reverted
         info (DriftInfo): Result from drift_collect()
+        whole (dict): Maps the hash of each upstream commit which never
+            arrived, and which the revert brings in whole, to its subject
 
     Return:
         str: Commit message
@@ -1870,21 +2364,63 @@ def drift_commit_msg(area, paths, info):
     hunks = sum(sum(1 for vdt in info.verdicts.get(path, [])
                     if vdt.state == drift.DRIFT) for path in paths)
     files = '\n'.join(f' - {path}' for path in paths)
-    return (
+    msg = (
         f'{area}: Drop unintended deltas from upstream\n'
         '\n'
         'These deltas differ from upstream but no downstream commit accounts\n'
         'for them, so they crept in while cherry-picking, most likely through\n'
         'a conflict resolution.  Put the affected hunks back to what upstream\n'
         f'has at {info.base[:12]}\n'
-        '\n'
-        f'This reverts {hunks} hunk(s) in {len(paths)} file(s):\n'
-        f'{files}\n')
+        '\n')
+    if whole:
+        commits = '\n'.join(f' - {chash[:11]} {subj}'
+                             for chash, subj in sorted(whole.items()))
+        msg += ('Some of these lines come from upstream commits which never\n'
+                'arrived here, so this brings in their change as well:\n'
+                f'{commits}\n'
+                '\n')
+    return msg + (f'This reverts {hunks} hunk(s) in {len(paths)} file(s):\n'
+                  f'{files}\n')
+
+
+def drift_decline_partial(info, area, paths, args):
+    """Leave out the files whose revert would split an upstream commit
+
+    Args:
+        info (DriftInfo): Result from drift_collect()
+        area (str): Area of the tree, e.g. 'drivers/clk'
+        paths (list of str): Files to revert
+        args (Namespace): Parsed arguments with 'source' and 'branch'
+
+    Return:
+        tuple:
+            list of str: The files still to revert
+            dict: Result from drift_partial() of the commits brought in whole
+    """
+    partial, whole = drift_partial(info, paths, args.source, args.branch)
+    if not partial:
+        return paths, whole
+    tout.warning(f'{area}: declining {len(partial)} file(s) which would '
+                 'apply only part of an upstream commit which never arrived:')
+    shown = sorted(partial.items())[:DECLINE_SHOWN]
+    for path, splits in shown:
+        chash, subj, others = splits[0]
+        tout.warning(f'  {path}: part of {chash[:11]} {subj}')
+        tout.warning(f'    its change to {len(others)} other file(s) is '
+                     f'missing too, e.g. {others[0]}')
+        tout.warning(f'    run: pickman pick {chash[:11]}')
+    if len(partial) > len(shown):
+        tout.warning(f'  ... and {len(partial) - len(shown)} more (showing '
+                     f'{len(shown)} of {len(partial)})')
+    paths = [path for path in paths if path not in partial]
+    if not paths:
+        tout.warning(f'{area}: nothing left to revert, skipping')
+    return paths, whole
 
 
 # pylint: disable-next=too-many-arguments,too-many-locals,too-many-branches
 def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
-                      build_cmd=None):
+                      build_cmd=None, max_boards=0):
     """Create a branch which reverts the drift in one area of the tree
 
     Args:
@@ -1897,15 +2433,33 @@ def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
             revert drift hunks
         build_cmd (str): Command to check the reverted tree builds, or None
             to commit without checking
+        max_boards (int): Most boards to build with buildman as well, since
+            the build command may not compile these files at all; 0 for none
 
     Return:
-        str: Name of the branch created, or None on failure
+        tuple:
+            str: Name of the branch created, or None on failure
+            list of str: Files which a failed board build names, so that the
+                rest can be tried again without them
     """
     name = ('missing-' if missing else 'drift-') + area.replace('/', '-')
     if gitutil.branch_exists(name):
         tout.info(f'Deleting existing branch {name}')
         gitutil.delete_branch(name)
     gitutil.create_branch(name, branch)
+
+    # Choose now, with the branch checked out, since the drift's line numbers
+    # are those of the branch rather than of whatever was checked out before
+    boards = []
+    if build_cmd and max_boards:
+        boards, unbuilt = drift_choose_boards(info, paths, max_boards)
+        if boards:
+            tout.info(f"  also building {', '.join(boards)}, which compile "
+                      'these files')
+        if unbuilt:
+            # Either no board builds these lines, or the limit left it out
+            tout.info(f'  {len(unbuilt)} file(s) not built by any of those, '
+                      f'e.g. {unbuilt[0]}')
 
     wanted = set(paths)
     fdiffs = [fdiff for fdiff in info.fdiffs if fdiff.path in wanted]
@@ -1926,7 +2480,7 @@ def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
         except Exception as exc:  # pylint: disable=broad-except
             what = 'restore' if missing else 'revert drift in'
             tout.error(f'Failed to {what} {area}: {exc}')
-            return None
+            return None, []
         finally:
             os.unlink(pname)
 
@@ -1939,23 +2493,32 @@ def drift_revert_area(info, area, paths, branch, msg=None, missing=False,
     # left where it is
     # Check before committing: a revert can remove something another file
     # still uses, and the identifier check cannot see every such name
+    culprits = []
+    errors = None
     if build_cmd:
         built, errors = drift_build_ok(build_cmd)
-        if not built:
-            tout.error(f'{area}: the revert does not build, so it is not '
-                       'worth a merge request:')
-            for line in errors.splitlines():
-                tout.error(f'    {line}')
-            # Put the working tree back and drop the branch, which has no
-            # commit on it yet
-            run_git(['reset', '--hard'])
-            gitutil.checkout_branch(branch)
-            gitutil.delete_branch(name)
-            return None
+        if built:
+            errors = None
+    if errors is None and boards:
+        broken, culprits = drift_check_boards(boards, paths)
+        if broken:
+            errors = chr(10).join(f'{board}: {text}'
+                                  for board, text in broken.items())
+    if errors is not None:
+        tout.error(f'{area}: the revert does not build, so it is not '
+                   'worth a merge request:')
+        for line in errors.splitlines():
+            tout.error(f'    {line}')
+        # Put the working tree back and drop the branch, which has no
+        # commit on it yet
+        run_git(['reset', '--hard'])
+        gitutil.checkout_branch(branch)
+        gitutil.delete_branch(name)
+        return None, culprits
 
     gitutil.add(paths)
     gitutil.commit_paths(msg or drift_commit_msg(area, paths, info), paths)
-    return name
+    return name, []
 
 
 def do_drift_fix(args, dbs):
@@ -2046,6 +2609,19 @@ def do_drift_fix(args, dbs):
                 if not paths:
                     tout.warning(f'{area}: nothing left to revert, skipping')
                     continue
+            dead = {} if missing else drift_dead_hooks(info, paths,
+                                                       args.branch)
+            if dead:
+                tout.warning(f'{area}: declining {len(dead)} file(s) whose '
+                             'revert would add a function nothing here calls:')
+                for path, hooks in sorted(dead.items())[:DECLINE_SHOWN]:
+                    name, caller = hooks[0]
+                    tout.warning(f'  {path}: {name}(), which upstream calls '
+                                 f'from {caller}')
+                paths = [path for path in paths if path not in dead]
+                if not paths:
+                    tout.warning(f'{area}: nothing left to revert, skipping')
+                    continue
             if missing:
                 sid = dbs.source_get_id(args.source)
                 absent = {path for path, _ in drift_absent_paths(info)}
@@ -2077,9 +2653,27 @@ def do_drift_fix(args, dbs):
                            for path, rec in origin.items() if path in paths}
                 msg = drift_absent_msg(area, paths, info, reasons)
             else:
-                msg = drift_commit_msg(area, paths, info)
-            name = drift_revert_area(info, area, paths, args.branch, msg,
-                                     missing, build_cmd)
+                paths, whole = drift_decline_partial(info, area, paths, args)
+                if not paths:
+                    continue
+                msg = drift_commit_msg(area, paths, info, whole)
+            max_boards = getattr(args, 'max_boards', DEFAULT_MAX_BOARDS)
+            name, culprits = drift_revert_area(info, area, paths, args.branch,
+                                               msg, missing, build_cmd,
+                                               max_boards)
+            if not name and culprits and len(culprits) < len(paths):
+                # The errors name the files at fault, so the rest of the
+                # area is still worth having
+                tout.warning(f'{area}: trying again without '
+                             f"{', '.join(culprits)}, which the errors name")
+                paths = [path for path in paths if path not in culprits]
+                if missing:
+                    msg = drift_absent_msg(area, paths, info, reasons)
+                else:
+                    msg = drift_commit_msg(area, paths, info, whole)
+                name, _ = drift_revert_area(info, area, paths, args.branch,
+                                            msg, missing, build_cmd,
+                                            max_boards)
             if not name:
                 ret = 1
                 continue

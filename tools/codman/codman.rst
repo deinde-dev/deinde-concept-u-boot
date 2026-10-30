@@ -59,6 +59,8 @@ The basic functionality is accessed via these commands:
 * ``summary`` - Show per-file summary
 * ``detail <file>...`` - Show line-by-line analysis of one or more files
 * ``copy-used <dir>`` - Copy used source files to a directory
+* ``boards <file>[:<line>[-<line>]]...`` - Find the boards which build a file
+  or lines, without building (see below)
 
 
 This will build the board and show statistics about source file usage.
@@ -671,6 +673,72 @@ architectures) and ``--format table|csv|count`` to choose the output style.
 
 Line-level data is stored as run-length-encoded active ranges, which keeps the
 database compact even across thousands of boards.
+
+Finding boards without building (``boards``)
+============================================
+
+A scan answers 'which boards build this?' authoritatively, but it has to build
+every board first, and its answers go stale as the tree moves. The ``boards``
+command gives a quick estimate instead, from the source tree as it stands,
+without building anything::
+
+    $ codman boards drivers/clk/mediatek/clk-mtk.c
+    28 boards build drivers/clk/mediatek/clk-mtk.c:
+      mt7622_rfb                               arm        U-Boot
+      mt7629_rfb                               arm        U-Boot, SPL
+      ...
+
+Give a line or a range of lines to ask about just those::
+
+    $ codman boards drivers/mmc/mmc.c:2460
+    1304 boards build drivers/mmc/mmc.c:2460:
+    ...
+
+Here the line sits inside ``#ifndef CONFIG_XPL_BUILD``, so SPL drops out of the
+answer, whereas the file as a whole is built by 1305 boards, 653 of them in
+SPL too.
+
+It works in three steps:
+
+#. The Makefiles say which Kconfig options decide whether the file is built.
+   Each Makefile above the file is read, along with the ``ifdef`` and
+   ``ifeq`` blocks around each rule, composite objects such as
+   ``spinand-objs``, and the full paths which the top-level Makefile names.
+   Where a file sits also counts: ``arch/arm/`` needs ``CONFIG_SYS_ARCH`` to be
+   ``"arm"`` and ``board/acme/rocket/`` needs that vendor and board.
+#. qconfig's database (``qconfig.db``, rebuilt automatically when stale) gives
+   each board's resolved configuration, so the boards which satisfy those
+   conditions can be found. This is done for each phase - U-Boot proper, SPL,
+   TPL and VPL - since ``$(PHASE_)`` makes a rule depend on ``SPL_FOO`` in SPL
+   and ``FOO`` in U-Boot proper.
+#. For particular lines, unifdef is run on the file with each board's
+   configuration, after rewriting ``CONFIG_IS_ENABLED()``, ``CONFIG_VAL()`` and
+   ``IS_ENABLED()`` for the phase. Boards which agree on every option the
+   file's directives test share one run, so this takes about a second even
+   for a file which most boards build.
+
+A header is answered through the source files beside it which include it, as
+is a ``.c`` file which no Makefile names. A shared header (anything in an
+``include/`` directory) has too many users to say. A devicetree file is
+followed through its includes, including the ``-u-boot.dtsi`` files which the
+build picks up by name, to the boards whose ``CONFIG_DEFAULT_DEVICE_TREE`` or
+``CONFIG_OF_LIST`` use it. A line in a Kconfig file goes by the entry it sits
+in, so it matters to the boards which turn that option on.
+
+Options:
+
+* ``--arch <arch>`` - Only show boards of this architecture
+* ``--format table|list|json`` - Output format; ``list`` gives one board per
+  line, for use in a script
+
+This is an estimate. Checked against a scan of five boards, it agrees on
+about 99% of the files each board builds, once the files which only the host
+tools build are left out, and on the lines which a board builds. What it
+misses is mostly code built by special rules, such as the EFI test
+applications. It counts a line which the compiler throws away, such as the
+body of ``if (IS_ENABLED(CONFIG_FOO))``, as built; a scan using DWARF
+(``-w``) does not.
+
 
 See Also
 ========

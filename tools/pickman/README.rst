@@ -801,6 +801,58 @@ bytes being reverted - one test reads the first 32 bytes of the README and
 asserts them, so restoring a single leading space there builds fine and fails
 two tests.  A check which passes says the check passed, nothing more.
 
+Sandbox compiles very little driver or arch code, so a revert can pass that
+check and still break the board it was written for.  Pickman therefore also
+builds a few boards which do compile the reverted lines, with buildman from
+the tree being fixed.  It asks ``codman boards`` which boards build the lines
+each drift hunk touches: codman works this out from the Makefiles, qconfig's
+database and unifdef, without building anything, so a hunk inside an
+``#ifdef`` is checked on a board which has that option on.  Up to
+``--max-boards`` boards are chosen (default 4, 0 to skip) to cover as many
+files as possible, preferring ARM, RISC-V and x86 boards since their
+toolchains are the common ones.  A board which fails is built again without
+the revert, so that one which is already broken, or has no toolchain
+installed, is not held against it.  When the errors name some of the
+reverted files, the area is tried again without them.
+
+Drift is not always a mangled conflict resolution.  Sometimes an upstream
+commit never arrived at all, and the part of it in a file which otherwise
+arrived shows up as drift.  Reverting just that part can bring in code which
+uses a struct member or function from the rest of the commit.  So pickman
+blames upstream for the lines each revert puts back (and searches upstream
+for the commit which removed any lines it takes away), and where that commit
+never reached the downstream branch and its change to some other file is
+missing too, it declines the file and prints the commit to pick instead::
+
+    drivers/clk: declining 1 file(s) which would apply only part of an
+    upstream commit which never arrived:
+      drivers/clk/imx/clk-composite-8m.c: part of eeb2db1edcc clk: imx: ...
+        its change to 2 other file(s) is missing too, e.g. ...
+        run: pickman pick eeb2db1edcc
+
+A commit which the revert does bring in whole is named in the commit
+message instead, so a reviewer can see which upstream fixes are arriving.
+
+When upstream renames a directory, the pick of that rename carries any
+downstream work on its files to the new paths, but the downstream commits
+only ever named the old ones, and blame credits the lines to the pick.  That
+work would then look like drift.  So renames since the trees diverged are
+followed: a file a downstream commit touched under its old path counts as
+touched under its new one, and a hunk whose lines such a commit added is
+wanted rather than drift.
+
+A revert can also build perfectly and still lose something.  Where this tree
+has replaced a hook upstream calls from common code - with an event, say -
+reverting a board to upstream's version brings back a definition of the
+hook which nothing here calls, so whatever it did silently stops.  So a file
+whose revert would define a global function which upstream calls from another
+file, but nothing here calls, is declined::
+
+    board/nxp: declining 1 file(s) whose revert would add a function nothing
+    here calls:
+      board/nxp/lx2160a/lx2160a.c: board_fix_fdt(), which upstream calls from
+      common/board_f.c
+
 Some deltas are correct downstream work which provenance cannot explain,
 because no commit accounts for them.  Those belong in ``.pickman-diverge``
 with a reason saying why, so that nobody reverts them again later.
@@ -891,6 +943,8 @@ Options:
   drift therefore cannot be wanted; the safest first run
 - ``-p`` push each branch and open an MR for it
 - ``-s`` skip blaming touched files, matching a shallow ``drift`` run
+- ``--max-boards N`` most boards to build, beyond the build command, which
+  compile the reverted files (default 4, 0 to skip)
 - ``-r`` git remote for the push (default: ci)
 - ``-t`` target branch for the MR (default: master)
 
