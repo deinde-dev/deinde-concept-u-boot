@@ -117,4 +117,5 @@ See also
 * :doc:`hash<hash>` for the same digest and others, with the algorithm named
   on the command line
 * :doc:`crc32<crc32>` for a checksum, where a digest is not needed
+* :doc:`md5sum<md5sum>` for MD5, which takes the same three forms of argument
 
