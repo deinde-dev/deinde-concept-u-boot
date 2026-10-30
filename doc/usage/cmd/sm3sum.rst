@@ -110,3 +110,10 @@ Configuration
 Enable the sm3sum command via Kconfig option ``CONFIG_CMD_SM3SUM``.
 The ``-v`` option is separate enabled through Kconfig option
 ``CONFIG_SM3SUM_VERIFY``.
+
+See also
+--------
+
+* :doc:`hash<hash>` for the same digest and others, with the algorithm named
+  on the command line
+
