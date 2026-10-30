@@ -84,3 +84,5 @@ See also
   a variable
 * :doc:`bootd<bootd>` for running *bootcmd*, which is what U-Boot does when
   it boots on its own
+* :doc:`spawn<spawn>` for running the commands in a variable as a background
+  job

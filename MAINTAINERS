@@ -2050,6 +2050,7 @@ UTHREAD
 M:	Jerome Forissier <jerome.forissier@arm.com>
 S:	Maintained
 F:	cmd/spawn.c
+F:	doc/usage/cmd/spawn.rst
 F:	include/uthread.h
 F:	lib/uthread.c
 F:	test/cmd/spawn.c
