@@ -249,6 +249,7 @@ config SANDBOX
 	imply FUZZING_ENGINE_SANDBOX
 	imply HASH_VERIFY
 	imply LZMA
+	imply MD5SUM_VERIFY
 	imply TEE
 	imply AVB_VERIFY
 	imply LIBAVB

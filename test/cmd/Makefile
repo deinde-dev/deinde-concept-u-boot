@@ -103,6 +103,9 @@ ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_LOADS) += loads.o
 endif
 obj-$(CONFIG_CMD_MALLOC) += malloc.o
+ifdef CONFIG_CONSOLE_RECORD
+obj-$(CONFIG_CMD_MD5SUM) += md5sum.o
+endif
 ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_MEMINFO) += meminfo.o
 endif
