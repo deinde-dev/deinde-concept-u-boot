@@ -100405,3 +100405,37 @@ All three commits are on `cherry-222563887217`, based on `ci/master`, and the sa
 
 ---
 
+### Pipeline fix: 2026-10-30 (attempt 1)
+
+Branch: cherry-222563887217
+
+Failed jobs:
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- pcduino3 (sjg-lab)
+- snow (sjg-lab)
+- pine64 (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+The failures look like lab or infrastructure problems. Before deciding, I'll check whether the hush change could plausibly affect any of them.
+
+I'll check which hush parser these boards use and what the fix changes.
+
+I made no changes and did not create `cherry-222563887217-fix1`. All seven failures are lab or infrastructure problems, not something this MR causes. A pipeline re-run should clear them.
+
+**Why the MR can't be the cause:** its only code change is one line in `common/cli_hush_upstream.c` (commit 0e0605a0f472). That file is only built with the modern hush parser. All the failing boards use the default old parser, so the change compiles to nothing on them. The other two commits only add a sandbox unit test and an empty merge.
+
+| Job | Failure | Cause |
+|---|---|---|
+| opi_pc, samus, samus_tpl | "Timeout … waiting for login", then "Lab failure: Marking connection bad" | The board never reached a prompt; the lab marked the connection bad and stopped. |
+| snow | `place snow is not acquired by your user, acquired by labgrid` | Another user held the board, so no tests ran. |
+| pcduino3 | `test_sleep`: 3.52s elapsed against a 3.25s limit | A timing flake. |
+| pine64 | `test_dm_compat`: `sunxi_clk` reported as a bad driver | A driver/device-tree compatible-string check, unrelated to the shell; it doesn't depend on this branch. |
+| qemu-x86_64-win-installed | Timed out waiting for `UBOOT-WINDOWS-LOGON` | U-Boot from this branch (g7e69d03d86eb) started normally; the Windows guest never reached logon within the test's time limit. |
+
+If pine64 `test_dm_compat` fails again on the re-run, it is a separate sunxi issue to look at, not something to fix in this MR.
+
+---
+
