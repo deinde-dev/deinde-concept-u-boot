@@ -20,8 +20,8 @@ Description
 The hash command computes a message digest over ``count`` bytes of memory
 starting at ``address``, using any of the digest algorithms U-Boot has been
 built with. It is the general form of the one-algorithm commands
-:doc:`sm3sum<sm3sum>`, *crc32*, *md5sum* and *sha1sum*, each of which names
-its algorithm rather than taking it as an argument.
+:doc:`sm3sum<sm3sum>`, :doc:`crc32<crc32>`, *md5sum* and *sha1sum*, each of
+which names its algorithm rather than taking it as an argument.
 
 The digest is written as a line of the form::
 
@@ -130,6 +130,7 @@ See also
 --------
 
 * :doc:`sm3sum<sm3sum>` for SM3 as a command of its own
-* *crc32* for a checksum rather than a digest
+* :doc:`crc32<crc32>` for a checksum rather than a digest, which can also be
+  stored to memory and verified
 * *md5sum* and *sha1sum* for MD5 and SHA1 as commands of their own
 * :doc:`md<md>` for looking at the memory being hashed
