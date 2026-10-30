@@ -100279,3 +100279,46 @@ Side note: the `claude.ai Gmail` and `Google Calendar` MCP servers in this sessi
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-20209a62bc85
+
+Commits:
+- 20209a62bc85 net: dhcp6: bound received DUID option lengths
+- 5c8ac7ebfcde test: dm: eth: add DHCPv6 oversized option regression tests
+- 2d94618a58ae net: lwip: return ERR_ABRT after aborting wget receive
+- 6fb684d1a937 net: lwip: allow DNS callbacks to be canceled
+- 0c1130caf1b4 net: lwip: add an HTTP client abort operation
+- cabdcdbbca15 net: lwip: allow DHCP to stop without releasing its lease
+- 179aed54f469 net: net6: validate IPv6 payload and transport lengths on receive
+- 9e6028eabcfb net: airoha: fix PCS calibration retry limit
+- ff448fa9a1b8 u-boot: fix error check in eth init
+- 0bbf09859658 net: nfs: Bound the length of an NFS read reply
+- 1c0aff3a5fbf net: nfs: Bound the length of an NFS readlink reply
+- a3afed6c8483 test: dm: nfs: Add regression tests for the NFS reply-length checks
+- 2c7eaee7b342 Merge tag 'net-20260915' of https://git.u-boot-project.org/u-boot/custodians/u-boot-net
+
+### Conversation log
+These are leftover pycache directories from before (ignored on the previous branch), not related. Now the build:
+
+Six of the 13 commits are picked so far, all clean with matching deltas and passing builds. Continuing with the seventh.
+
+Twelve of the 13 are done, all clean. Before the merge commit, I'm checking the Makefile and defconfig lines that the NFS test commit added.
+
+The changes look fine. Now the merge commit:
+
+The merge commit is empty as expected, so I'm committing it with --allow-empty to keep its message:
+
+All 13 commits are on branch `cherry-20209a62bc85`, which is based on ci/master and ready to push. Nothing was merged or pushed.
+
+- **Build:** sandbox built with no warnings or errors after every pick and again at the end.
+- **Fix-ups:** none. Every pick applied cleanly; git merged a few files on its own (`test/dm/eth.c`, `net/lwip/wget.c`, `net/eth-uclass.c`, `configs/sandbox_defconfig`, `test/dm/Makefile`) with no conflicts.
+- **split-check:** reported nothing to convert for any commit. The only build-config lines added are `CONFIG_CMD_NFS=y` in `sandbox_defconfig` and `obj-$(CONFIG_CMD_NFS) += nfs.o`, which are already in the target's form.
+- **Deltas:** for each of the 12 regular commits, the files changed and line counts are identical to the original, so none are concerning.
+- **Merge commit** (2c7eaee7b342, `net-20260915`): it came out empty as expected, because its content is the 12 commits above. I kept it as an empty commit with the "(cherry picked from …)" line to preserve the history.
+- **Already-applied check:** not needed, since the first pick went in without conflicts.
+
+The untracked `tools/binman/home/` and `tools/binman/usr/` directories in the tree are old `.pyc` cache files from August, not created by this work. They showed up only because ci/master's `.gitignore` doesn't hide them the way your previous branch's did. I left them alone.
+
+---
+
