@@ -100366,3 +100366,76 @@ If opi_pc or samus time out again with no console output, the boards' serial or 
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-222563887217
+
+Commits:
+- 222563887217 cli: hush_modern: fix negation during run_pipe
+- d9299ff33c84 test: hush: Test hush negation
+- 37fa35ec585d Merge patch "Fix negation on modern hush shell"
+
+### Conversation log
+The working tree had an interactive rebase in progress on another branch, so it wasn't clean. Before I do anything else, I'll check what was disturbed.
+
+The build fails in `examples/rust`, which looks unrelated to this change. I'll look at the error.
+
+This is a stale cargo cache in `/tmp/pickman`: it points at a deleted worktree (`/tmp/wt-cherry-0384dd3d2ec3`). Clearing the rust build dir should fix it.
+
+Build passes. Next commit:
+
+Now the merge commit:
+
+The merge is empty, as expected, so I'll commit it with its original message.
+
+All three commits are on `cherry-222563887217`, based on `ci/master`, and the sandbox build passes.
+
+```
+7e69d03d86eb Merge patch "Fix negation on modern hush shell"   (empty, as expected)
+6b9cec4fc0ab test: hush: Test hush negation
+0e0605a0f472 cli: hush_modern: fix negation during run_pipe
+```
+
+- **Deltas:** they match the originals exactly. The fix adds 1 line to `common/cli_hush_upstream.c`. The test adds 33 lines across `test/hush/Makefile` and the new `test/hush/modern.c`. The merge is empty because the first two picks already contain its changes; I kept it with its original message.
+- **split-check:** it changed nothing in any of the three commits, so no notes were needed.
+- **Fix-ups:** none to the commits.
+- **Build:** the first build failed in `examples/rust` with "cannot find linker script /tmp/wt-cherry-0384dd3d2ec3/...". That is a stale cargo cache in `/tmp/pickman` pointing at a worktree that no longer exists, not a code problem. I deleted `/tmp/pickman/examples/rust`, and every build after that passed with no warnings.
+
+**Repo state:** the repository wasn't clean when I started. `.git/rebase-merge` is left over from an interrupted interactive rebase of `cherry-20209a62bc85` that stopped at about 02:59 with 28 steps remaining. It isn't live work: HEAD was on a detached pickman record commit (`0e1e21c7d94a`), not one of the rebase's commits, and earlier pickman runs had already switched branches past it. I didn't touch it. It still makes `git status` report "rebase in progress" and needs to be finished or removed with `git rebase --abort` (careful: run while on this branch, that would move it away from these picks).
+
+---
+
+### Pipeline fix: 2026-10-30 (attempt 1)
+
+Branch: cherry-222563887217
+
+Failed jobs:
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- pcduino3 (sjg-lab)
+- snow (sjg-lab)
+- pine64 (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+The failures look like lab or infrastructure problems. Before deciding, I'll check whether the hush change could plausibly affect any of them.
+
+I'll check which hush parser these boards use and what the fix changes.
+
+I made no changes and did not create `cherry-222563887217-fix1`. All seven failures are lab or infrastructure problems, not something this MR causes. A pipeline re-run should clear them.
+
+**Why the MR can't be the cause:** its only code change is one line in `common/cli_hush_upstream.c` (commit 0e0605a0f472). That file is only built with the modern hush parser. All the failing boards use the default old parser, so the change compiles to nothing on them. The other two commits only add a sandbox unit test and an empty merge.
+
+| Job | Failure | Cause |
+|---|---|---|
+| opi_pc, samus, samus_tpl | "Timeout … waiting for login", then "Lab failure: Marking connection bad" | The board never reached a prompt; the lab marked the connection bad and stopped. |
+| snow | `place snow is not acquired by your user, acquired by labgrid` | Another user held the board, so no tests ran. |
+| pcduino3 | `test_sleep`: 3.52s elapsed against a 3.25s limit | A timing flake. |
+| pine64 | `test_dm_compat`: `sunxi_clk` reported as a bad driver | A driver/device-tree compatible-string check, unrelated to the shell; it doesn't depend on this branch. |
+| qemu-x86_64-win-installed | Timed out waiting for `UBOOT-WINDOWS-LOGON` | U-Boot from this branch (g7e69d03d86eb) started normally; the Windows guest never reached logon within the test's time limit. |
+
+If pine64 `test_dm_compat` fails again on the re-run, it is a separate sunxi issue to look at, not something to fix in this MR.
+
+---
+
