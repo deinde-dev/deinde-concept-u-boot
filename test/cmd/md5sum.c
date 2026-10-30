@@ -185,6 +185,11 @@ static int cmd_test_md5sum_usage(struct unit_test_state *uts)
 	}
 	ut_assert_console_end();
 
+	/* an option the command does not have is refused before it runs */
+	ut_asserteq(1, run_commandf("md5sum -z %lx %x", MD5_ADDR, MD5_SIZE));
+	ut_assert_nextline("md5sum - compute MD5 message digest");
+	console_record_reset();
+
 	return 0;
 }
 CMD_TEST(cmd_test_md5sum_usage, UTF_CONSOLE);

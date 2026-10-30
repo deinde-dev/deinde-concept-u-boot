@@ -1025,6 +1025,7 @@ config LOOPW
 
 config CMD_MD5SUM
 	bool "md5sum"
+	select GETOPT
 	select MD5
 	select HASH
 	help
