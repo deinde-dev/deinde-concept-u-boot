@@ -133,8 +133,10 @@ static int do_spawn(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 U_BOOT_CMD(spawn, CONFIG_SYS_MAXARGS, 0, do_spawn,
-	   "run commands and summarize execution time",
-	   "command [args...]\n");
+	   "run a command in the background",
+	   "command [args...]\n"
+	   "    - Run the command as a background job and set the job_id\n"
+	   "      environment variable to the identifier of the new job");
 
 static enum command_ret_t wait_job(unsigned int idx)
 {
@@ -185,4 +187,4 @@ U_BOOT_CMD(wait, CONFIG_SYS_MAXARGS, 0, do_wait,
 	   "[job_id ...]\n"
 	   "    - Wait until all specified jobs have exited and return the\n"
 	   "      exit status of the last job waited for. When no job_id is\n"
-	   "      given, wait for all the background jobs.\n");
+	   "      given, wait for all the background jobs.");
