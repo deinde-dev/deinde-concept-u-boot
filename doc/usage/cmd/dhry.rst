@@ -74,3 +74,4 @@ See also
 * :doc:`cpu<cpu>` for what the CPU says about itself, including the clock speed
   the result should be read against
 * :doc:`mtest<mtest>` for exercising memory rather than the CPU
+* :doc:`time<time>` for timing a single command, including this one

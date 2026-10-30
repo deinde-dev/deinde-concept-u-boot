@@ -86,3 +86,4 @@ See also
   it boots on its own
 * :doc:`spawn<spawn>` for running the commands in a variable as a background
   job
+* :doc:`time<time>` for timing a script, which is done by timing this command
