@@ -100439,3 +100439,48 @@ If pine64 `test_dm_compat` fails again on the re-run, it is a separate sunxi iss
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-8e82c0a75f5d
+
+Commits:
+- 8e82c0a75f5d lib: div64: fix off-by-one shift in div64_u64() and div64_u64_rem()
+- c81dbcc9cef0 lib: div64: use abs64() for the 64-bit operands of div64_s64()
+- 6228dd6d791c lib: div64: inline __iter_div_u64_rem() into its only user
+- 378c10eab1a7 lib: div64: sync with Linux v7.1
+- b7fd64c36d4c lib: math64: sync <linux/math64.h> with Linux v7.1
+- 010a97cef20e Merge patch series "lib: resync lib/div64.c and <linux/math64.h> with Linux v7.1"
+
+### Conversation log
+The repo has a stale rebase from about 3 hours ago (branch cherry-20209a62bc85, stopped at a commit) and no active processes. I'll leave that state alone and carry on.
+
+None are already applied. Starting with the first commit.
+
+Five of the six commits are in, all applied cleanly and building. Now picking the merge commit.
+
+The merge commit is empty as expected, since its five parents are already applied. Committing it as an empty commit.
+
+All six commits are in. Running the final build and checking that the resulting files match upstream.
+
+All six commits are cherry-picked onto `cherry-8e82c0a75f5d` (based on ci/master), and the sandbox build passes with no warnings or errors.
+
+```
+ddd745776573 Merge patch series "lib: resync lib/div64.c and <linux/math64.h> with Linux v7.1"
+9ef3d62481ba lib: math64: sync <linux/math64.h> with Linux v7.1
+135fc4cd691f lib: div64: sync with Linux v7.1
+f9d7ebee680a lib: div64: inline __iter_div_u64_rem() into its only user
+23e814f88142 lib: div64: use abs64() for the 64-bit operands of div64_s64()
+880a8e7c14c4 lib: div64: fix off-by-one shift in div64_u64() and div64_u64_rem()
+```
+
+- **Build:** sandbox built after each pick and again at the end. The final build recompiled the changed objects.
+- **Fix-ups:** none. Every pick applied without conflicts, and `pickman split-check` changed nothing for any commit.
+- **Deltas:** all five regular commits match the originals exactly (same files, same line counts). `lib/div64.c` and `include/linux/math64.h` are now identical to upstream at 010a97cef20e.
+- **Merge commit:** empty, as expected, because the series it merges was already applied. It was kept with `--allow-empty` and has the `(cherry picked from ...)` line.
+
+**Problem to look at:** before I started, the repo was in the middle of an unfinished rebase of `cherry-20209a62bc85` onto `9fbd0a4714d1`. It started at 02:59, about 3 hours earlier, and is stopped after `d45d90c5c41a` ("test: dm: eth: add DHCPv6 oversized option regression tests") with 28 commands left. No git or buildman process was running, so it looks abandoned. I left its `.git/rebase-merge` state alone. While it exists, `git status` keeps reporting a rebase, and running `git rebase --continue` would act on this branch, so it needs to be finished or aborted separately. There are also untracked `tools/binman/home/` and `tools/binman/usr/` directories in the tree.
+
+The branch is ready to push; I haven't pushed or merged it.
+
+---
+
