@@ -615,22 +615,25 @@ def update_mr_title(remote, mr_iid, title):
 RE_MR_IID = re.compile(r'/merge_requests/(\d+)')
 
 
-def count_pipeline_jobs(project, pipeline_id):
-    """Count the jobs in a pipeline
+def pipeline_state(project, pipeline_id):
+    """Get the status of a pipeline and whether it holds any jobs
 
     Args:
         project: python-gitlab project object
         pipeline_id (int): Pipeline ID
 
     Return:
-        int: Number of jobs, or None if the pipeline cannot be read
+        tuple: (status, has_jobs), or (None, False) if the pipeline cannot be
+            read
     """
     try:
         pipeline = project.pipelines.get(pipeline_id)
-        return len(pipeline.jobs.list(get_all=True))
+        # One page is enough to tell whether there are any jobs at all
+        has_jobs = bool(pipeline.jobs.list(get_all=False))
+        return pipeline.status, has_jobs
     except Exception as exc:  # pylint: disable=broad-except
         tout.warning(f'Could not read pipeline {pipeline_id}: {exc}')
-        return None
+        return None, False
 
 
 def is_mr_pipeline(pipeline):
@@ -661,6 +664,13 @@ def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
     create the merge request's pipeline after it. If none appears, trigger
     one.
 
+    Only a pipeline which has finished with the status 'skipped' counts as
+    empty.  A pipeline is set up before its jobs appear, so a new one can
+    briefly list none, and a pipeline triggered here is just as new when it
+    is next looked at.  Taking either as empty starts another full pipeline,
+    and would do so on every look.  For the same reason a pipeline is
+    triggered at most once.
+
     Args:
         remote (str): Remote name
         mr_iid (int): Merge request IID
@@ -686,26 +696,26 @@ def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
         merge_req = project.mergerequests.get(mr_iid)
 
         seen = False
+        triggered = False
         for attempt in range(tries):
             pipelines = [pipe for pipe in
                          merge_req.pipelines.list(get_all=False)
                          if is_mr_pipeline(pipe)]
             if pipelines:
                 seen = True
-                count = count_pipeline_jobs(project, pipelines[0].id)
-                if count:
+                newest = pipelines[0].id
+                status, has_jobs = pipeline_state(project, newest)
+                if has_jobs:
                     return True
-                if count == 0:
+                if status == 'skipped' and not triggered:
                     tout.warning(
-                        f'MR !{mr_iid}: pipeline {pipelines[0].id} has no '
-                        'jobs, so nothing would run - triggering another')
+                        f'MR !{mr_iid}: pipeline {newest} was skipped with '
+                        'no jobs, so nothing would run - triggering another')
                     merge_req.pipelines.create({})
-                    # Give the new one a moment, then look again
-                    time.sleep(delay)
-                    continue
+                    triggered = True
+                # Otherwise it is still being set up, so look again shortly
             if attempt < tries - 1:
                 time.sleep(delay)
-
         if not seen:
             tout.warning(f'MR !{mr_iid}: no pipeline after {tries * delay} '
                          'seconds - triggering one; check it by hand')
