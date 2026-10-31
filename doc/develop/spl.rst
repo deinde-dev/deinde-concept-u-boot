@@ -118,6 +118,17 @@ Further usages of U-Boot SPL comprise:
 * launching Linux kernel
 * launching RISC-V OpenSBI which invokes main U-Boot
 
+Describing the phases
+---------------------
+
+The xPL phases are listed in ``scripts/xpl_phases``, in the order in which
+they run. Each line gives the name of a phase, such as ``tpl``, and the
+devicetree tag which marks the nodes it needs, such as ``bootph-pre-sram``. The
+upper-case name is the prefix of the phase's Kconfig options, so TPL has
+options such as ``CONFIG_TPL_SERIAL``, and ``CONFIG_TPL`` enables the phase.
+When it finishes, a phase moves on to the next enabled phase in the list, with
+U-Boot proper coming after the last one.
+
 Checking the boot phase
 -----------------------
 
