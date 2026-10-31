@@ -166,7 +166,8 @@ static inline enum xpl_phase_t xpl_prev_phase(void)
 #ifdef CONFIG_TPL_BUILD
 	return PHASE_NONE;
 #elif defined(CONFIG_VPL_BUILD)
-	return PHASE_TPL;	/* VPL requires TPL */
+	return IS_ENABLED(CONFIG_TPL) ? PHASE_TPL :
+		PHASE_NONE;
 #elif defined(CONFIG_XPL_BUILD)
 	return IS_ENABLED(CONFIG_VPL) ? PHASE_VPL :
 		IS_ENABLED(CONFIG_TPL) ? PHASE_TPL :
