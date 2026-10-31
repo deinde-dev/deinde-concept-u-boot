@@ -823,11 +823,11 @@ include/config/%.conf: $(KCONFIG_CONFIG) #include/config/auto.conf.cmd
 	@# Otherwise, 'make silentoldconfig' would be invoked twice.
 	$(Q)touch include/config/auto.conf
 
-u-boot.cfg spl/u-boot.cfg tpl/u-boot.cfg vpl/u-boot.cfg:
 # syncconfig writes xpl.conf along with auto.conf, so make sure that the rule
 # above runs only once, rather than once for each file
 include/config/xpl.conf: include/config/auto.conf ;
 
+u-boot.cfg $(addsuffix /u-boot.cfg,$(XPL_PHASES)):
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.autoconf $(@)
 
 -include include/autoconf.mk

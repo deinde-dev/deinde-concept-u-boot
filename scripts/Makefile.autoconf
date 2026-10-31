@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # This helper makefile is used for creating
 #  - symbolic links (arch/$ARCH/include/asm/arch
-#  - include/autoconf.mk, {spl,tpl}/include/autoconf.mk
+#  - include/autoconf.mk and <phase>/include/autoconf.mk for each xPL phase
 #  - include/config.h
 #
 # When our migration to Kconfig is done
@@ -10,19 +10,13 @@
 
 __all: include/autoconf.mk include/autoconf.mk.dep
 
-ifeq ($(shell grep -q '^CONFIG_SPL=y' include/config/auto.conf 2>/dev/null && echo y),y)
-__all: spl/include/autoconf.mk
-endif
-
-ifeq ($(shell grep -q '^CONFIG_TPL=y' include/config/auto.conf 2>/dev/null && echo y),y)
-__all: tpl/include/autoconf.mk
-endif
-
-ifeq ($(shell grep -q '^CONFIG_VPL=y' include/config/auto.conf 2>/dev/null && echo y),y)
-__all: vpl/include/autoconf.mk
-endif
-
 include include/config/auto.conf
+include include/config/xpl.conf
+
+# The xPL phases which are enabled, e.g. tpl if CONFIG_TPL is enabled
+xpl-phases := $(foreach p,$(XPL_PHASES),$(if $(filter y,$(CONFIG_$(XPL_UPPER_$(p)))),$(p)))
+
+__all: $(addsuffix /include/autoconf.mk,$(xpl-phases))
 
 # include scripts/Kbuild.include
 include scripts/Kbuild.uboot
@@ -78,30 +72,14 @@ quiet_cmd_u_boot_cfg = CFG     $@
 u-boot.cfg: include/config.h FORCE
 	$(call cmd,u_boot_cfg)
 
-spl/u-boot.cfg: include/config.h FORCE
+$(addsuffix /u-boot.cfg,$(XPL_PHASES)): %/u-boot.cfg: include/config.h FORCE
 	$(Q)mkdir -p $(dir $@)
-	$(call cmd,u_boot_cfg,-DCONFIG_XPL_BUILD -DCONFIG_SPL_BUILD)
-
-tpl/u-boot.cfg: include/config.h FORCE
-	$(Q)mkdir -p $(dir $@)
-	$(call cmd,u_boot_cfg,-DCONFIG_XPL_BUILD -DCONFIG_TPL_BUILD)
-
-vpl/u-boot.cfg: include/config.h FORCE
-	$(Q)mkdir -p $(dir $@)
-	$(call cmd,u_boot_cfg,-DCONFIG_XPL_BUILD -DCONFIG_VPL_BUILD)
+	$(call cmd,u_boot_cfg,-DCONFIG_XPL_BUILD -DCONFIG_$(XPL_UPPER_$*)_BUILD)
 
 include/autoconf.mk: u-boot.cfg
 	$(call cmd,autoconf)
 
-spl/include/autoconf.mk: spl/u-boot.cfg
-	$(Q)mkdir -p $(dir $@)
-	$(call cmd,autoconf)
-
-tpl/include/autoconf.mk: tpl/u-boot.cfg
-	$(Q)mkdir -p $(dir $@)
-	$(call cmd,autoconf)
-
-vpl/include/autoconf.mk: vpl/u-boot.cfg
+$(addsuffix /include/autoconf.mk,$(XPL_PHASES)): %/include/autoconf.mk: %/u-boot.cfg
 	$(Q)mkdir -p $(dir $@)
 	$(call cmd,autoconf)
 
