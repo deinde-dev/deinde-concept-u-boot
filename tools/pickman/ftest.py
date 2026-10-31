@@ -892,6 +892,52 @@ class TestDatabaseComment(unittest.TestCase):
             dbs.close()
 
 
+class TestDatabaseCiRun(unittest.TestCase):
+    """Tests for Database ci_run functions."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        fd, self.db_path = tempfile.mkstemp(suffix='.db')
+        os.close(fd)
+        os.unlink(self.db_path)
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        if os.path.exists(self.db_path):
+            os.unlink(self.db_path)
+        database.Database.instances.clear()
+
+    def test_cirun(self):
+        """Test recording and reading pipelines with only some jobs"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            self.assertIsNone(dbs.cirun_latest(1))
+            self.assertEqual([], dbs.cirun_since(1, 100))
+
+            dbs.cirun_add(1, 101, 'aaa', 100, ['samus', 'Pine64+ (lwIP)'])
+            dbs.cirun_add(2, 102, 'ccc', 90, ['rpi3'])
+            dbs.cirun_add(1, 103, 'bbb', 100, ['samus'])
+            dbs.cirun_add(1, 105, 'ddd', 104, ['snow'])
+            dbs.commit()
+
+            self.assertEqual(
+                database.CiRun(105, 'ddd', 104, ['snow'], False),
+                dbs.cirun_latest(1))
+            self.assertEqual(
+                [database.CiRun(101, 'aaa', 100, ['samus', 'Pine64+ (lwIP)'],
+                                False),
+                 database.CiRun(103, 'bbb', 100, ['samus'], False)],
+                dbs.cirun_since(1, 100))
+
+            dbs.cirun_set_reported(105)
+            dbs.commit()
+            self.assertTrue(dbs.cirun_latest(1).reported)
+            self.assertFalse(dbs.cirun_latest(2).reported)
+            dbs.close()
+
+
 class TestDatabasePipelineFix(unittest.TestCase):
     """Tests for Database pipeline_fix functions."""
 
