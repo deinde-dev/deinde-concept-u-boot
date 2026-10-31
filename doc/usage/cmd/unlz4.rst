@@ -99,4 +99,4 @@ See also
 * :doc:`md<md>` for looking at the result
 * :doc:`bootm<bootm>` for booting an image, which decompresses it as a step
 * *unzip* for decompressing a gzip-compressed region
-* *zip* for compressing one
+* :doc:`zip<zip>` for compressing a region with gzip
