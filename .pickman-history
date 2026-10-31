@@ -100718,3 +100718,34 @@ cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
 
 ---
 
+### Pipeline fix: 2026-10-30 (attempt 2)
+
+Branch: cherry-6b4b1c8dc464
+
+Failed jobs:
+- qemu-x86_64-win11-sb (sjg-lab)
+- qemu-x86_64-win11-installed (sjg-lab)
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- snow (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Every failure is in a lab stage, and this series only touches K3/pocketbeagle2 files. I'm checking that the commit CI tested (02361d763c49) has no extra code changes before I conclude.
+
+The commit CI tested sits on a newer base that also changes math64/div64. I'm checking whether those changes come from master or from this MR.
+
+I made no changes and didn't create cherry-6b4b1c8dc464-fix2. All seven failures are lab infrastructure or environment problems, not something this series caused.
+
+**What the series touches:** the four commits only add K3 AM62 / pocketbeagle2 files: the board directory, its device trees, two defconfigs, the AM62 clock and power data, and one line in `arch/arm/dts/Makefile`. None of that is built for opi_pc (sunxi), snow (exynos), samus/samus_tpl (x86 Chromebook) or the qemu-x86_64 Windows boards. CI tested 02361d763c49, which is on a newer ci/master base. The other changes in that commit (the math64/div64 sync with Linux v7.1 and the `time` command rework) come from ci/master, not from this MR.
+
+**Each failure:**
+- **snow:** the job never started. labgrid reported "place snow is acquired by a different user (kea/labgrid)", so another user held the board.
+- **opi_pc, samus, samus_tpl:** the flash step ran but U-Boot's prompt never appeared ("Timeout ... waiting for login" after the retry). The job then stopped with "Lab failure: Marking connection bad". The code in those images is the same as ci/master, so this points at the boards or their connections.
+- **qemu-x86_64-win-installed, win11-installed, win11-sb:** U-Boot booted normally, found the boot entry and printed "Starting kernel ...". Windows then failed to finish booting within the 10-minute test timeout. That happens after U-Boot has handed over and in code this MR doesn't change. The "e1000#0 No valid MAC address found" lines are the usual QEMU messages and aren't the cause.
+
+I didn't run the sandbox or buildman builds because there was nothing to fix. Re-running the pipeline should be enough once the snow place is free and the opi_pc and samus boards respond. If the three Windows jobs fail again, check whether they also fail on ci/master, since that would point at the newer base.
+
+---
+
