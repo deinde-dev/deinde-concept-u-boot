@@ -101329,3 +101329,40 @@ I've force-pushed MR !1505 back to the right content and GitLab is running a new
 
 ---
 
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+
+
+### Conversation log
+I'll check the repository state first, since earlier runs reported a leftover rebase in the main tree.
+
+The local branch has a commit I didn't expect: "Record review handling for cherry-824317a8bc56". I'll look at how the local branch, the -v2 branch and the remote relate.
+
+ci/master doesn't touch .pickman-history this time, so I don't expect conflicts. Now the rebase, in a detached worktree, with a sandbox build after every commit:
+
+The rebase is running in the background; I'll pick it up when it finishes.
+
+The background rebase will notify me when it finishes, so I'll wait for that rather than poll.
+
+I rebased MR !1504 onto the latest ci/master (d962323ea418) and force-pushed it. The remote branch and the local cherry-6b917b413d31 now point at the same commit, fdd677145203, and GitLab should start a new pipeline.
+
+**The rebase**
+- **New on ci/master:** 10 commits that add docs and tests for the hash, crc32 and md5sum commands and switch crc32/md5sum to getopt(). None of them touch Rockchip code or .pickman-history.
+- **Conflicts:** none.
+- **Commits unchanged:** all 21 commits are still there, and each has the same `git show --stat` output as before. That is the 14 code commits, the empty merge commit (still empty, with its "cherry picked from" line), and 6 pickman record commits. Apart from .pickman-history, the new branch differs from the old one only by the ci/master changes.
+- **Builds:** buildman built sandbox after every commit and once more at the end. All builds passed.
+- **Branches:** I created cherry-6b917b413d31-v3 at the rebased commit and pointed cherry-6b917b413d31 at it. The main tree is still on cherry-6b917b413d31.
+
+**Things to check**
+1. **A record from another MR is now in this MR.** The local branch had two record commits that weren't on the remote yet, and the push carried both. One of them, "pickman: Record review handling for cherry-824317a8bc56", is about a different MR. It only changes .pickman-history, but you may want it moved to that MR's branch.
+2. **The old rebase is still unfinished.** The rebase of cherry-20209a62bc85 from Oct 30 is still in .git/rebase-merge, so `git status` still says "rebasing". To avoid touching it, I rebased in a temporary worktree at /tmp/wt-cherry-6b917b413d31, which I've since removed. It still needs `git rebase --abort` or finishing.
+3. **The backup branch pickman-records-f0dcb8959308 is still there.**
+
+**Suggested reply for the MR**
+> Rebased onto the latest master (d962323ea418). There were no conflicts. All 21 commits have the same changes as before, including the empty merge commit, and sandbox builds after each one. The new pipeline will also retry the lab boards that failed earlier (samus_tpl, samus, bpif3, snow, pine64, opi_pc). Those failures weren't caused by this Rockchip-only series.
+
+---
+
