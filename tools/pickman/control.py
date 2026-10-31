@@ -4915,6 +4915,11 @@ def process_single_mr(remote, merge_req, dbs, target):
         update_history(merge_req.source_branch,
                                    unresolved, conversation_log)
 
+        # Push the changes along with the history, and run CI on them
+        ci_note = _push_with_ci(remote, merge_req, dbs, ())
+        if ci_note:
+            gitlab_api.reply_to_mr(remote, mr_iid, ci_note.strip())
+
         tout.info(f'Updated MR !{mr_iid} description and history')
     else:
         tout.error(f"Failed to handle comments for MR !{mr_iid}")

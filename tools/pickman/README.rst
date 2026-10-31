@@ -452,19 +452,19 @@ Pickman manages CI pipelines to avoid unnecessary runs.
 
 A push with ``-o ci.skip`` starts no pipeline at all, not even a merge-request
 pipeline for an open MR. Pickman uses this when pushing the branch for a new
-MR, since creating the MR starts its pipeline. When pushing a pipeline fix it
-leaves out ``ci.skip``, so that the MR's pipeline runs, unless it starts a
-pipeline itself as below.
+MR, since creating the MR starts its pipeline. When pushing a pipeline fix or
+changes for review comments it leaves out ``ci.skip``, so that the MR's
+pipeline runs, unless it starts a pipeline itself as below.
 
 **Pipelines with only some jobs**
 
 A full pipeline runs about 140 jobs and takes one to two hours. When a pipeline
-fix only changes files which no job reads (for now just ``.pickman-history``),
-or changes nothing at all, pickman pushes with ``ci.skip`` and starts a pipeline
-with only the jobs which did not pass, apart from any which also fail in other
-MRs. It does this with the ``ONLY_JOBS`` pipeline variable, which holds a regex
-of job names (see ``.gitlab-ci.yml``). If that pipeline cannot be started,
-pickman starts a full MR pipeline instead.
+fix or a review only changes files which no job reads (for now just
+``.pickman-history``), or changes nothing at all, pickman pushes with
+``ci.skip`` and starts a pipeline with only the jobs which did not pass, apart
+from any which also fail in other MRs. It does this with the ``ONLY_JOBS``
+pipeline variable, which holds a regex of job names (see ``.gitlab-ci.yml``).
+If that pipeline cannot be started, pickman starts a full MR pipeline instead.
 
 Such a pipeline is a branch pipeline, so GitLab does not show it as the MR's
 pipeline. Pickman records it in its database and treats it as the MR's pipeline
@@ -480,6 +480,7 @@ Action                           Pipeline Skipped  Reason
 Initial branch push for new MR   Yes               MR creation triggers pipeline
 Push after rebase                No                MR pipeline runs
 Push of a pipeline fix           Sometimes         Only some jobs may need to run
+Push after review                Sometimes         Only some jobs may need to run
 ===============================  ================  ==============================
 
 Usage
@@ -681,7 +682,6 @@ for unresolved comments, and uses a Claude agent to address them. The agent will
 
 - Make code changes based on the feedback
 - Create a local branch with version suffix (e.g., ``cherry-abc123-v2``)
-- Force push to the original remote branch to update the existing MR
 - Use ``--keep-empty`` when rebasing to preserve empty merge commits
 
 After processing, pickman:
@@ -689,6 +689,8 @@ After processing, pickman:
 - Marks comments as processed in the database (to avoid reprocessing)
 - Updates the MR description with the agent's conversation log
 - Appends the review handling to ``.pickman-history``
+- Force pushes the result to the original remote branch to update the existing
+  MR, and runs CI on it (see `CI Pipelines`_)
 
 Options for the review command:
 
@@ -741,7 +743,6 @@ To push a branch using the GitLab API token for authentication::
 
 This is useful when you want commits to appear as coming from the token owner
 (e.g., a pickman bot account) rather than the user's configured git credentials.
-The agent uses this command automatically when pushing review changes.
 
 Options for the push-branch command:
 

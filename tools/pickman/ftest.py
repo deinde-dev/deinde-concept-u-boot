@@ -2599,6 +2599,19 @@ class TestUpdateHistoryWithReview(unittest.TestCase):
         self.assertIn('### Review:', content)
 
 
+class TestBuildReviewPrompt(unittest.TestCase):
+    """Tests for the review agent's prompt"""
+
+    def test_no_push(self):
+        """Test that the agent leaves pushing to pickman"""
+        prompt = agent.build_review_prompt(
+            42, 'cherry-abc', 'address comments', '', '', '', ['comment'],
+            False, 'ci', 'master')
+        self.assertIn("Do NOT push the branch: pickman pushes it to "
+                      "'cherry-abc'", prompt)
+        self.assertNotIn('push-branch', prompt)
+
+
 class TestProcessMrReviewsCommentTracking(unittest.TestCase):
     """Tests for comment tracking in process_mr_reviews."""
 
@@ -2659,9 +2672,14 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                                        return_value=comments):
                     with mock.patch.object(agent, 'handle_mr_comments',
                                            return_value=(True, 'Done')) as moc:
-                        with mock.patch.object(gitlab, 'update_mr_desc'):
-                            with mock.patch.object(control, 'update_history'):
-                                control.process_mr_reviews('ci', mrs, dbs)
+                        with mock.patch.object(gitlab, 'update_mr_desc'), \
+                             mock.patch.object(control, 'update_history'), \
+                             mock.patch.object(control, '_push_with_ci',
+                                               return_value='') as push:
+                            control.process_mr_reviews('ci', mrs, dbs)
+
+            # The result is pushed by pickman, with no note to post
+            push.assert_called_once_with('ci', mrs[0], dbs, ())
 
             # Agent should only receive the new comment
             call_args = moc.call_args
@@ -2693,9 +2711,16 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                                        return_value=[]):
                     with mock.patch.object(agent, 'handle_mr_comments',
                                            return_value=(True, 'Rebased')) as m:
-                        with mock.patch.object(gitlab, 'update_mr_desc'):
-                            with mock.patch.object(control, 'update_history'):
-                                control.process_mr_reviews('ci', mrs, dbs)
+                        with mock.patch.object(gitlab, 'update_mr_desc'), \
+                             mock.patch.object(control, 'update_history'), \
+                             mock.patch.object(
+                                 control, '_push_with_ci',
+                                 return_value='\n\nStarted pipeline 9'), \
+                             mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                            control.process_mr_reviews('ci', mrs, dbs)
+
+            # The note about the pipeline goes on the MR
+            reply.assert_called_once_with('ci', 100, 'Started pipeline 9')
 
             # Agent should be called with needs_rebase=True
             m.assert_called_once()
