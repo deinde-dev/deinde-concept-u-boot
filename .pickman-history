@@ -100662,3 +100662,59 @@ Retrying these jobs should be enough; I'd release or kick the snow place first i
 
 ---
 
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 1): fixed failed job(s) qemu-x86_64-win-installed, samus_tpl, samus, bpif3, sn...
+
+### Conversation log
+I'll check the repo state first, since the main tree had an unfinished rebase last time.
+
+The main tree is in the middle of someone else's rebase, which may still be running (it has `exec buildman` steps). I'll leave it alone and work in a temporary worktree again.
+
+The remote MR branch is at 145ad5db40ba, not the 0704c8ba437b I pushed last time, so something else has updated it since. I'll look at what changed.
+
+The `ci/master..` count and the ancestor check disagree, so I'll check them again more carefully.
+
+Both commits just append to the end of the file, so the resolution is to keep the existing content and add c88e4debaeaa's new section after it. I'll check that its addition is a single appended hunk.
+
+Both are single hunks appended at the end of the file. I'll resolve by keeping our side and appending exactly the lines each commit adds.
+
+That commit now adds the same 54 lines. The second pick (bd5f6c626b76) has stopped on the same kind of conflict, so I'll resolve it the same way.
+
+The build passes with no warnings or errors. Before pushing I'll check the `push-branch` options, since ci/master has since gained "pickman: Trigger a merge-request pipeline at most once".
+
+I restored MR !1500, rebuilt it as `cherry-6b4b1c8dc464-v4`, and force-pushed it. The remote branch is now at 02361d763c49, the MR shows all its files again (22 changed), and a real pipeline has started: **10767**.
+
+**The MR had been wiped.** When I started, the remote branch was not what I pushed last round (0704c8ba437b). It was at 145ad5db40ba: an older master plus two `.pickman-history` commits, one of them for a different MR (cherry-5ddc3158591e). None of the pocketbeagle2 commits were left, and the MR diff was just `.pickman-history`.
+
+The reflog points to the pipeline-fix round. It made no changes, so it never checked out this branch. Then, at 17:57, `push-branch` force-pushed whatever HEAD was in the main tree, which was a detached master with record commits on top. Pipeline 10766 is testing that wrong content. It was still running last I checked, so it's worth cancelling.
+
+**What I pushed** (based on ci/master 6af7fb7db102):
+```
+02361d763c49 pickman: Record pipeline fix for cherry-6b4b1c8dc464
+7e3983d5dc43 pickman: Record review handling for cherry-6b4b1c8dc464
+0704c8ba437b pickman: Record review handling for cherry-6b4b1c8dc464
+e8f910a61ad3 pickman: Record cherry-pick of 4 commits from us/main
+b1d3788c1078 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+5bad510e91e1 k3-am62-pocketbeagle2: add support for efi capsules
+b5fc03cc18bb k3-am62-pocketbeagle2: add initial board support
+cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Rebase:** I started from v3 (0704c8ba437b), the last correct version. ci/master hasn't moved since then, so the rebase changed nothing and the first six commits keep their v3 SHAs and contents. The merge commit is still empty.
+- **Records added:** I added this MR's own review record and pipeline-fix record. Both conflicted in `.pickman-history` only because they were made on the wrong base. I resolved them by appending each entry at the end, and they still add the same 54 and 34 lines. I left out the cherry-5ddc3158591e record because it belongs to another MR.
+- **Build:** a clean sandbox build of the tip passes with no warnings or errors. I didn't rebuild the first six commits one by one, because they are the same commits that each built last round. The two new commits only touch `.pickman-history`.
+- **Review comment:** this was the pipeline-fix report, and it asked for no code change, so there was nothing to address.
+
+**This will happen again until pickman is fixed.** `push-branch <branch>` pushes HEAD, not the branch it is given. Any round that doesn't check out the branch first will overwrite the MR with whatever is in the main tree. Pushing `<branch>:<branch>`, or refusing when HEAD doesn't match the branch, would stop it. Other MRs pushed by a "no changes" pipeline-fix round may have been overwritten the same way.
+
+**Repo state:** I worked in a temporary worktree, which I have removed. The main tree is untouched and still has the stale `cherry-20209a62bc85` interactive rebase in `.git/rebase-merge`, which needs `git rebase --continue` or `--abort`.
+
+**Suggested MR reply:**
+> The pipeline-fix round force-pushed the wrong HEAD to this branch, leaving only `.pickman-history` changes (145ad5db40ba). This restores the branch: the three patches and the empty merge commit are unchanged from the previous version and still on the latest master. This MR's review and pipeline-fix records are added. The sandbox build passes. Pipeline 10767 tests the restored branch; 10766 can be ignored.
+
+---
+
