@@ -101124,3 +101124,418 @@ All 15 commits are cherry-picked onto branch cherry-824317a8bc56 (based on ci/ma
 
 ---
 
+## 2026-10-31: us/main
+
+Branch: cherry-6b917b413d31
+
+Commits:
+- 6b917b413d31 arm: dts: rockchip: Drop OTP nodes from u-boot.dtsi on RK3528/RK356x
+- a29794199190 arm64: dts: rockchip: Add watchdog node for RK3528
+- 42437844e1dc arm64: dts: rockchip: Add USB nodes for RK3528
+- 34aecf3758bb arm64: dts: rockchip: Enable USB 2.0 ports on Radxa E20C
+- 7382b32c71b1 arm64: dts: rockchip: Enable USB ports on Radxa ROCK 2A/2F
+- 6426f2d2b310 arm64: dts: rockchip: Enable USB 2.0 ports on ArmSoM Sige1
+- a6c6a2fd5bdd arm64: dts: rockchip: Enable USB 2.0 ports on NanoPi Zero2
+- 8d913de45891 rockchip: rk3528-generic: Add support for USB OTG
+- 64d6610cf42e rockchip: rk3576-rock-4d: Enable XMC SPI chip
+- e5b3e6fd45ce clk: rockchip: pll: drop misleading fout in rockchip_rk3588_pll_k_get()
+- 7a3ef6c21fdb clk: rockchip: pll: fix rounding of negative k in RK3588 frac PLL
+- ffd377597b57 clk: rockchip: pll: fix RK3588 frac PLL result for k=-32768
+- 3bc88868c237 clk: rockchip: pll: let rockchip_rk3588_pll_k_get update m directly
+- f75a3d96e1f3 clk: rockchip: pll: fix overflow and drop manual two's complement on RK3588/RK3576
+- e50f87c650f8 Merge tag 'u-boot-rockchip-2027.01-20260813' of https://git.u-boot-project.org/u-boot/custodians/u-boot-rockchip into next
+
+### Conversation log
+The repository had an interactive rebase in progress (on branch 'cherry-20209a62bc85'), and my checkout moved off its detached HEAD. Let me look at that state before going further.
+
+The rebase is stale (from yesterday 02:59), but HEAD had pickman record commits made today. Let me check whether those commits are reachable from any ref, so nothing is lost.
+
+Those 12 pickman record commits are only reachable via the reflog. I'll make a backup branch so they aren't lost, then carry on. I'll leave the stale rebase state alone.
+
+Now the cherry-picks. I'll do each one, run split-check, and compare stats, stopping at the first problem.
+
+All nine applied cleanly with identical stats and nothing for split-check to convert. None of them touch sandbox code, so one build here covers all nine:
+
+The build passes. Next, the clk PLL commits, building after each one because they change C code:
+
+Now the merge commit:
+
+As expected, the merge is empty after its parents. I'll commit it with --allow-empty to keep the merge message:
+
+All 15 commits are now on branch cherry-6b917b413d31 (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch hasn't been pushed or merged.
+
+**Results**
+- **The 14 regular commits:** all applied without conflicts. For every one, the files changed and line counts are the same as the original.
+- **The merge commit (e50f87c650f8):** it comes out empty, as expected once its parents are applied. I kept it with --allow-empty, so the merge message and its "cherry picked from" line are preserved.
+- **split-check:** it found nothing to convert in any commit, so I didn't amend or add notes to any of them.
+- **Builds:** sandbox built after the nine DT/board commits (one build covered them, since none touch sandbox code), after each of the five clk commits, and once more at the end. All passed.
+
+**Problems with the repository state**
+1. **The tree wasn't clean when I started.** An interactive rebase of branch cherry-20209a62bc85 was in progress, left over from yesterday (Oct 30, 02:59). It was stopped at an edit with 28 steps still to do, and its state is still in .git/rebase-merge. Because of that, `git status` on the new branch still says "rebasing". I didn't touch the rebase. It should be finished or aborted with `git rebase --abort`, and I'd do that before pushing so later git commands aren't confused by it.
+2. **12 pickman record commits were reachable only from that detached HEAD.** They are "pickman: Record ..." commits ending at f0dcb8959308, and the checkout to the new branch left them unreferenced. To make sure they aren't lost, I created branch pickman-records-f0dcb8959308 pointing at them. pickman probably needs those records put back where it expects them.
+3. **Stale build cache.** The first build failed because the Rust example's build cache in /tmp/pickman/examples/rust still pointed at an old worktree (/tmp/wt-cherry-5ddc3158591e). The commits didn't cause it. I deleted that directory and the build then passed.
+
+---
+
+### Pipeline fix: 2026-10-31 (attempt 1)
+
+Branch: cherry-6b917b413d31
+
+Failed jobs:
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- bpif3 (sjg-lab)
+- snow (sjg-lab)
+- pine64 (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Now to check that nothing on the branch touches code these boards build:
+
+I made no changes and did not create cherry-6b917b413d31-fix1. All six failures are lab or infrastructure problems, not caused by this branch.
+
+Every change on the branch is Rockchip-only. The changed files are the RK3528, RK356x and RK3576 device trees, two Rockchip defconfigs, `drivers/clk/rockchip/clk_pll.c` and `asm/arch-rockchip/clock.h`. None of the failing boards are Rockchip (Allwinner, x86 Chromebook, Exynos and SpacemiT K1), so none of them compile anything this branch changes.
+
+What each job shows:
+
+| Job | Board | Failure |
+|---|---|---|
+| snow | exynos5250 | Labgrid problem: "place snow is not acquired by your user, acquired by labgrid" (held by kea/labgrid). It failed during setup, before any test ran. |
+| bpif3 | spacemit_k1 | Flashing failed: "BootROM did not start the FSBL ... board needs a reset". The deploy script failed before U-Boot ran. |
+| opi_pc | orangepi_pc (sunxi) | No U-Boot prompt within 15s, even after a reset retry, so it was marked "Lab failure". No console output was captured. |
+| samus, samus_tpl | chromebook_samus (x86, em100) | Same thing with a 25s timeout: no console output, marked "Lab failure". |
+| pine64 | pine64_plus (sunxi) | The board booted and ran 41 tests. Only `test_dm_drivers` failed: the expected driver name came back as `'wdt_rebo��'`, but the real output contains `wdt_reboot` correctly. That garbling is serial-console corruption on the test side, not a code problem. |
+
+Since the three boot timeouts produced no console output at all, they look like lab-side problems; nothing in the logs points at the code. I didn't run the sandbox or buildman builds, because there was nothing to fix. The next step is to retry these jobs once the lab boards are free and healthy (snow needs to be released from the kea/labgrid user, and bpif3 may need a manual reset).
+
+Separately, the leftover rebase of cherry-20209a62bc85 from yesterday is still in progress in `.git/rebase-merge`, so `git status` on this branch still says "rebasing". It should be finished or aborted before more work is done in this tree.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 1): fixed failed job(s) samus_tpl, samus, bpif3, snow, pine64, opi_pc.
+
+Now to...
+
+### Conversation log
+The only review comment is the bot's own pipeline-fix report, which says no change is needed. I'll check the repository state before deciding whether there is anything to do.
+
+The comment is the bot's own report from the earlier pipeline-fix attempt, and it says no change is needed. Next I'll check whether the local branch differs from what has been pushed.
+
+I made no changes: the comment doesn't ask for anything. So I didn't create cherry-6b917b413d31-v2, didn't force-push to cherry-6b917b413d31, and didn't run the buildman sandbox build, since nothing changed.
+
+**Why nothing needed doing**
+- The only review comment is pickman's own report from the earlier pipeline-fix attempt (attempt 1). Its title says it "fixed" samus_tpl, samus, bpif3, snow, pine64 and opi_pc, but the text says no changes were made: all six failures were lab or infrastructure problems.
+- I agree with that report. Every change on the branch is Rockchip-only (the RK3528, RK356x and RK3576 device trees, two Rockchip defconfigs and the Rockchip clk PLL code). None of the failing boards are Rockchip, so none of them build anything this branch changes.
+- The only difference between the local branch and the MR branch on ci is pickman's record commit 9ae27f08b72e ("pickman: Record pipeline fix for cherry-6b917b413d31"), which only adds to .pickman-history. Pushing that alone would just restart the pipeline while the lab boards may still be busy or need a reset.
+
+**Problems with the repository state**
+- The rebase of cherry-20209a62bc85 from Oct 30 is still in progress in .git/rebase-merge, with 28 steps left, so `git status` on this branch still says "rebasing". I left it alone, but it should be finished or aborted before more work is done in this tree.
+- The backup branch pickman-records-f0dcb8959308 still holds the 12 pickman record commits that were otherwise unreferenced.
+
+**Suggested reply for the MR**
+> No code changes are needed. All six failed jobs (samus_tpl, samus, bpif3, snow, pine64, opi_pc) are lab or infrastructure failures: snow wasn't acquired by our labgrid user, bpif3's FSBL didn't start, opi_pc/samus/samus_tpl timed out with no console output, and pine64 had garbled serial output in test_dm_drivers. This series only touches Rockchip DTs, defconfigs and clk_pll.c, none of which these boards build. Please retry the jobs once the boards are free (snow needs releasing and bpif3 may need a manual reset).
+
+If you'd rather restart the pipeline to retry those boards, I can push with `./tools/pickman/pickman push-branch cherry-6b917b413d31 -r ci -f`. That push would carry only the pickman record commit.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+
+
+### Conversation log
+I'll start by checking the repository state, since earlier runs reported a leftover rebase.
+
+Now the rebase, with a sandbox build after every commit (the `exec` stops the rebase at the first build failure):
+
+The rebase is running in the background. I'll pick it up when it finishes.
+
+It stopped after the first build, which suggests that build failed. I'll check the output:
+
+The build is still running; git just shows the exec step as "editing". I'll wait for the background task to finish.
+
+The background rebase will notify me when it finishes, so I don't need a monitor. I'll wait for it.
+
+As expected, there's a conflict in .pickman-history: both sides append records. I'll look at the conflict:
+
+Both sides only append a history entry, so the fix is to keep both: the ci/master entry (cherry-5ddc3158591e) first, then this branch's. I'll check the boundary lines before removing the markers:
+
+The trailing `---` separator after the markers belongs to both entries. So I'll keep HEAD's entry, put a `---` separator before this branch's entry, and drop the markers:
+
+The rebase is done and every commit built. Next I'll compare per-commit stats before and after, run the final buildman check, and confirm the merge commit is still present:
+
+The MR branch is now rebased onto ci/master (085d4649fadd) and force-pushed to ci, which should start a new MR pipeline. The remote branch is at e055fe99b406, the same commit as the new local branch cherry-6b917b413d31-v2.
+
+**The rebase**
+- **Upstream changes:** ci/master gained five commits: two Dockerfile changes, their merge, and a pickman record with its merge. None of them touch Rockchip code.
+- **One conflict, in .pickman-history:** the record commit 292ea83f1f83 and the new ci/master record both added an entry at the end of the file. I kept both entries, putting ci/master's (cherry-5ddc3158591e) first and adding the usual `---` separator. Nothing else conflicted.
+- **Commits unchanged:** all 19 commits are there (14 code commits, the empty merge commit 51ee2d4ccb2b kept with `--keep-empty`, and 4 pickman record commits). Every one has the same `git show --stat` output as before the rebase.
+- **Builds:** buildman built sandbox after every commit, and once more at the end. All builds passed.
+- **What the push carried:** besides the rebase, it included three pickman record commits that had only been local until now. Like the rest of the series, they only touch .pickman-history.
+
+**Repository state**
+- The leftover rebase of cherry-20209a62bc85 from Oct 30 is still in .git/rebase-merge, so git can't start a new rebase in the main tree. So that I wouldn't abort someone else's work, I did the rebase in a temporary worktree at /tmp/wt-cherry-6b917b413d31, which I've since removed. The stale rebase should still be finished or aborted with `git rebase --abort` before more work is done in this tree.
+- The backup branch pickman-records-f0dcb8959308 is still there.
+
+**Suggested reply for the MR**
+> Rebased onto the latest master (085d4649fadd). The only conflict was in .pickman-history, where both sides added a history entry; I kept both. All 19 commits have the same changes as before, including the empty merge commit, and sandbox builds after each one. The new pipeline should also retry the lab boards that failed earlier (samus_tpl, samus, bpif3, snow, pine64, opi_pc). Those failures weren't related to this Rockchip-only series.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-824317a8bc56
+
+Comments addressed:
+
+
+### Conversation log
+The conflict pulls in the other branch's history entries. I'll take this branch's file and append only the 120 lines that e055fe99b406 adds.
+
+Same delta as the original (120+). Now the sandbox build check.
+
+Sandbox builds cleanly. The commit deltas are unchanged because no commits were rewritten. Next I'll create the -v2 branch and push from the worktree, so HEAD is the correct branch.
+
+I've force-pushed MR !1505 back to the right content and GitLab is running a new pipeline. The rebase itself had nothing to do: the local branch was already based on the current ci/master (085d4649fadd).
+
+**Why the MR showed as behind:** an earlier job overwrote the remote `cherry-824317a8bc56` branch with a different MR's commits. It held the 15 rockchip commits from cherry-6b917b413d31 plus three pickman records, and none of this series. pickman push-branch pushes `HEAD:<branch>`, so it was most likely run from the main checkout, which is on cherry-6b917b413d31.
+
+**What I did** (in the worktree at `/tmp/wt-cherry-824317a8bc56`; I left the main checkout alone):
+1. **Rebase:** `git rebase --keep-empty --rebase-merges ci/master` reported the branch was already up to date. No commits changed, so every delta matches the earlier run.
+2. **Missing history record:** this series' pickman record (e055fe99b406) had been committed onto cherry-6b917b413d31 instead of this branch. I cherry-picked it on top, keeping only its own 120-line entry. The new commit is 7bfd963d151c with the same delta (120+).
+3. **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes with no warnings or errors. The first attempt failed in the Rust example link because the shared /tmp/pickman output held a stale cache pointing at the deleted `/tmp/wt-cherry-6b917b413d31`. I deleted `/tmp/pickman/examples/rust` and the rebuild was clean.
+4. **Branches:** created the local branch `cherry-824317a8bc56-v2` and pushed to `ci/cherry-824317a8bc56`. The remote now matches 7bfd963d151c: the 15 cherry-picks plus the history record.
+
+**Problems outside this MR that need your attention:**
+- **cherry-6b917b413d31:** the local branch, `-v2` and `ci/cherry-6b917b413d31` all contain e055fe99b406, the history record for *this* series. Drop it from that MR, or this series gets recorded twice when both merge.
+- **Main checkout:** `~/dev/u-boot` is now partway through a rebase of cherry-6b917b413d31, not the cherry-20209a62bc85 rebase reported last time. This is probably how the wrong push and the misplaced record happened. It needs finishing or aborting before pickman runs there again.
+- **Shared /tmp/pickman:** this output dir is shared across worktrees, so other jobs could hit the same stale Rust cache failure.
+
+**Suggested MR reply:**
+
+> Rebased onto ci/master (085d4649fadd). The branch was already current, so the 15 cherry-picks are unchanged from the previous run, with the same deltas and fix-ups.
+>
+> The remote branch had been overwritten by mistake with the cherry-6b917b413d31 (rockchip) series, which is why the MR showed as behind. I've restored the correct content and added the missing pickman history record for this series on top.
+>
+> Sandbox builds cleanly. A new pipeline is running.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+
+
+### Conversation log
+I'll check the repository state first, since earlier runs reported a leftover rebase in the main tree.
+
+The local branch has a commit I didn't expect: "Record review handling for cherry-824317a8bc56". I'll look at how the local branch, the -v2 branch and the remote relate.
+
+ci/master doesn't touch .pickman-history this time, so I don't expect conflicts. Now the rebase, in a detached worktree, with a sandbox build after every commit:
+
+The rebase is running in the background; I'll pick it up when it finishes.
+
+The background rebase will notify me when it finishes, so I'll wait for that rather than poll.
+
+I rebased MR !1504 onto the latest ci/master (d962323ea418) and force-pushed it. The remote branch and the local cherry-6b917b413d31 now point at the same commit, fdd677145203, and GitLab should start a new pipeline.
+
+**The rebase**
+- **New on ci/master:** 10 commits that add docs and tests for the hash, crc32 and md5sum commands and switch crc32/md5sum to getopt(). None of them touch Rockchip code or .pickman-history.
+- **Conflicts:** none.
+- **Commits unchanged:** all 21 commits are still there, and each has the same `git show --stat` output as before. That is the 14 code commits, the empty merge commit (still empty, with its "cherry picked from" line), and 6 pickman record commits. Apart from .pickman-history, the new branch differs from the old one only by the ci/master changes.
+- **Builds:** buildman built sandbox after every commit and once more at the end. All builds passed.
+- **Branches:** I created cherry-6b917b413d31-v3 at the rebased commit and pointed cherry-6b917b413d31 at it. The main tree is still on cherry-6b917b413d31.
+
+**Things to check**
+1. **A record from another MR is now in this MR.** The local branch had two record commits that weren't on the remote yet, and the push carried both. One of them, "pickman: Record review handling for cherry-824317a8bc56", is about a different MR. It only changes .pickman-history, but you may want it moved to that MR's branch.
+2. **The old rebase is still unfinished.** The rebase of cherry-20209a62bc85 from Oct 30 is still in .git/rebase-merge, so `git status` still says "rebasing". To avoid touching it, I rebased in a temporary worktree at /tmp/wt-cherry-6b917b413d31, which I've since removed. It still needs `git rebase --abort` or finishing.
+3. **The backup branch pickman-records-f0dcb8959308 is still there.**
+
+**Suggested reply for the MR**
+> Rebased onto the latest master (d962323ea418). There were no conflicts. All 21 commits have the same changes as before, including the empty merge commit, and sandbox builds after each one. The new pipeline will also retry the lab boards that failed earlier (samus_tpl, samus, bpif3, snow, pine64, opi_pc). Those failures weren't caused by this Rockchip-only series.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-824317a8bc56
+
+Comments addressed:
+
+
+### Conversation log
+I'll start by checking the main checkout, the worktree and the remote state.
+
+ci/master is one merge ahead. Before rebasing, I'll save the per-commit stats and check the merge commit's shape.
+
+The rebase finished with no conflicts and every commit built. Next I'll compare deltas, check the warnings in the final build, and confirm the empty commits survived.
+
+All 16 commit deltas match exactly and the final build has no warnings. `-v2` already exists, so the new local branch is `-v3`. I'll push from the worktree, since `push-branch` pushes HEAD.
+
+The push worked. The last error only came from passing `--short` several revisions at once, so I'll verify them separately.
+
+Before reporting, I'll check whether the misplaced history record from last time is still on the other branch.
+
+MR !1505 is now rebased onto the latest ci/master (d962323ea418) and force-pushed, so GitLab is running a new pipeline. There were no conflicts.
+
+**What I did** (in the worktree at `/tmp/wt-cherry-824317a8bc56`; the main checkout is still mid-rebase, so I left it alone):
+1. **Rebase:** ran `git rebase --keep-empty ci/master` with a sandbox build after every commit. ci/master had moved on by one merge (d962323ea418, cmd-cov-hash2), which only touches the hash commands and their docs, so nothing overlapped with this series.
+2. **Deltas:** the `git show --stat` output for all 16 commits is identical before and after. The six empty commits (five binman ones and the merge) are still there, and all the earlier fix-ups are unchanged.
+3. **Build:** every commit built with `buildman -L --board sandbox -w -o /tmp/pickman`, and the final build has no warnings or errors. The first build failed again on the stale Rust cache in the shared /tmp/pickman, which still pointed at the deleted `/tmp/wt-cherry-6b917b413d31`. I deleted `/tmp/pickman/examples/rust` and the rebuild was clean.
+4. **Branches:** created the local branch `cherry-824317a8bc56-v3` (`-v2` already existed) and pushed to `ci/cherry-824317a8bc56`. Local, `-v3` and the remote are all at 09a169c02573.
+
+**Still needing your attention (outside this MR):**
+- **Duplicate history record:** cherry-6b917b413d31, both locally and on `ci/`, still carries 1f2e17ae5531, which is this series' pickman record. Its own record is 13ddff04b860. Drop 1f2e17ae5531 from that MR, or this series gets recorded twice when both merge.
+- **Main checkout:** `~/dev/u-boot` is still partway through a rebase of cherry-6b917b413d31. It needs finishing or aborting before pickman runs there again.
+- **Shared /tmp/pickman:** the stale Rust cache keeps coming back. It might be worth having pickman clear `examples/rust` before building, or use a separate output dir for each worktree.
+
+**Suggested MR reply:**
+
+> Rebased onto ci/master (d962323ea418). There were no conflicts, and all 16 commits have the same deltas and fix-ups as before. Sandbox builds cleanly after each commit, and a new pipeline is running.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+
+
+### Conversation log
+I'll check the repository state first, since earlier runs found a leftover rebase in the main tree.
+
+The rebase is running in the background. I'll wait for it to notify me.
+
+The background rebase will notify me when it exits, so I won't add a monitor. I'll check its progress in the meantime.
+
+The first build is running. The todo has 22 picks, but the branch has 23 commits, so I'll find out which one git dropped.
+
+My awk cut the subjects short, so that diff is meaningless. I'll compare by hash instead.
+
+The rebase task has exited. Its exit code is tail's, so I'll check the output and the worktree state directly.
+
+The resolved commit is a pure addition of 53 lines, the same as the original. I'll continue the rebase in the background.
+
+The rest of the rebase is running and will notify me when it finishes.
+
+Both end with the same `---` separator and blank line, and the hunk is pure additions. I'll rebuild the file from HEAD plus those 46 lines.
+
+The change now matches the original commit exactly. I'll continue; the three remaining record commits may hit the same kind of conflict.
+
+The rebase finished and every commit built. Now I'll compare the per-commit stats with the saved copy, check the empty merge commit, and run the final buildman check.
+
+Both branches now point at 14483e84aeb6, and I've removed the worktree. Next, the force-push to the MR branch.
+
+MR !1504 is now rebased onto the latest ci/master (7df1deae66fa) and force-pushed, so GitLab should start a new pipeline. The remote branch, the local cherry-6b917b413d31 and the new cherry-6b917b413d31-v4 all point at 14483e84aeb6.
+
+**The rebase**
+- **New on master:** 17 commits, mainly FIT load-address overlap detection in mkimage and binman, plus a few SPL, board_f and board fixes. The last two are the merge of cherry-824317a8bc56 and its pickman record. None of them touch Rockchip code.
+- **All 14 code commits applied without conflicts**, and each has the same `git show --stat` output as before. The empty merge commit is still empty and keeps its "cherry picked from" line.
+- **One commit was dropped automatically:** 1f2e17ae5531, the cherry-pick record for cherry-824317a8bc56. An earlier push had carried it into this branch. Master now has the identical change from that MR's merge (same patch-id), so git skipped it.
+- **Two conflicts, both in .pickman-history**, where both sides added entries at the end of the file:
+  - 13ddff04b860 (this branch's cherry-pick record): I kept master's cherry-824317a8bc56 entry first, then this branch's entry, with the usual `---` separator.
+  - 1a5da12e6d4f (a review record): its expected context was the dropped commit's entry. I resolved it by taking the current file and appending the commit's 46 added lines, and checked that the result matches the original change exactly.
+- **Builds:** buildman built sandbox after every one of the 22 commits and once more at the end. All builds passed.
+
+**Things to check**
+1. **Two record commits from another MR are still on this branch.** "pickman: Record review handling for cherry-824317a8bc56" (aa4293c4ba7b and 14483e84aeb6) only change .pickman-history, but they belong to the other MR, which is already merged. The first of these was already on the remote; the second was only local until this push.
+2. **The old rebase is still unfinished in the main tree.** The rebase of cherry-20209a62bc85 from Oct 30 is still in .git/rebase-merge, so `git status` still says "rebasing". I did this rebase in a temporary worktree, which I've removed, and moved the branch with `git reset --keep`. It still needs `git rebase --abort` or finishing.
+3. **The backup branch pickman-records-f0dcb8959308 is still there.**
+
+**Suggested reply for the MR**
+> Rebased onto the latest master (7df1deae66fa). The code commits applied without conflicts and have the same changes as before, including the empty merge commit. The only conflicts were history-entry additions in .pickman-history, where I kept both sides. One pickman record for cherry-824317a8bc56 dropped out because master now has it. Sandbox builds after each commit. The new pipeline will also retry the lab boards that failed earlier (samus_tpl, samus, bpif3, snow, pine64, opi_pc). Those failures weren't caused by this Rockchip-only series.
+
+---
+
+### Pipeline fix: 2026-10-31 (attempt 1)
+
+Branch: cherry-8841b7b292c7
+
+Failed jobs:
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- vf2 (sjg-lab)
+- snow (sjg-lab)
+- link64 (sjg-lab)
+- link (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Most of these are lab/infra failures. The vf2 one has a binman error, so let me look closer.
+
+vf2 has a real build error: OpenSBI (0x40000000–0x40202138) overlaps U-Boot at 0x40200000. Let me check whether the branch touches anything relevant.
+
+None of the branch's commits touch x86, sunxi, exynos or riscv/StarFive code. Let me check whether vf2 also fails elsewhere, e.g. on master.
+
+The overlap check comes from the 'mkimage: detect FIT image load address overlaps' series, which is already on master (the merge base). Let me confirm that vf2 fails on master too.
+
+I made no changes: none of the seven failures come from this branch. Six are lab or runner problems, and vf2 fails because of something already on master. I didn't create `cherry-8841b7b292c7-fix1` because there's nothing to fix. I also didn't check out the branch, since the working tree is in the middle of an old interactive rebase of `cherry-6b917b413d31` and switching would disturb it.
+
+| Job | Failure | Cause |
+|---|---|---|
+| link, link64 | `BrokenPipeError` on the RFC2217 serial connection, then "Lab failure: Marking connection bad" | Lab serial connection |
+| opi_pc | Timed out after 15s waiting for the U-Boot prompt; lab marked the connection bad | Lab or board |
+| samus, samus_tpl | Timed out after 25s waiting for the U-Boot prompt; lab marked the connection bad | Lab or board |
+| snow | `place snow is acquired by a different user (kea/labgrid)`, so the job never got the board | Lab scheduling |
+| vf2 | Build error: binman/mkimage reports overlapping load regions in `conf-1` | Already on master (see below) |
+
+**vf2 in more detail:** OpenSBI runs from 0x40000000 to 0x40202138, which overlaps U-Boot starting at 0x40200000. The OpenSBI image is about 8KB too big for its 2MB slot. The check that catches this is commit 3ccb1ae36cd1 ("tools: mkimage: detect overlapping load regions in FIT configurations"), which is already in this branch's merge base (master 7df1deae66fa). The OpenSBI image is supplied by the lab, not built from this tree.
+
+The branch only changes i.MX/Toradex/Vybrid/sielaff boards, `board/beagle/beagleplay/rm-cfg.yaml`, and the lpuart and vybrid GPIO drivers. It touches nothing for x86 (link, samus), sunxi (opi_pc), exynos (snow), riscv/StarFive (vf2), or `tools/`/`boot/`. I couldn't check whether master's own vf2 job fails too, because the GitLab API returned 403.
+
+**What to do:**
+- **The six lab jobs:** rerun them once the lab is free. `snow` was held by another labgrid user, and the connection errors on the other boards look intermittent.
+- **vf2:** expect it to keep failing on every branch until the lab's OpenSBI build is made smaller (under 2MB, e.g. a non-debug build) or the vf2 load addresses are moved apart.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-8841b7b292c7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 1): fixed failed job(s) samus_tpl, samus, vf2, snow, link64, link, opi_pc.
+
+Mo...
+
+### Conversation log
+Quick update: the review comment is just the bot's own pipeline report, but the remote MR branch has the wrong content in it, so I'm checking how that happened.
+
+The build passes. Now I'll push from the worktree, where HEAD is the correct branch:
+
+I made no code changes because the comment didn't ask for any. While checking, though, I found that MR !1509 was showing the wrong commits, and I've put the correct ones back.
+
+**The comment:** it's the bot's own report from pipeline-fix attempt 1. It asks for no change, and its conclusions still hold. Six of the failures were lab problems (link, link64, opi_pc, samus, samus_tpl, snow). vf2 fails because of an OpenSBI/U-Boot overlap that is already on master.
+
+**What I found:** at 08:18 today something force-pushed over `ci/cherry-8841b7b292c7`. The remote branch held the history of `cherry-6b917b413d31` (the rockchip u-boot-rockchip-2027.01 merge plus several "pickman: Record review handling" commits) instead of the 16 imx/Toradex commits. The cause is in `pickman push-branch`. In `tools/pickman/gitlab_api.py` (line 234), `push_branch()` pushes `HEAD:<branch>` and ignores which branch is named. This checkout was on `cherry-6b917b413d31` (where the old rebase is still stopped), so a push meant for this MR sent the rockchip history instead.
+
+**What I did:**
+- **Kept a copy of the overwritten remote state** in `refs/backup/ci-cherry-8841b7b292c7-clobbered` (922939753a99). The same commits are also on local `cherry-6b917b413d31`, so nothing is lost.
+- **Checked the local branch:** `cherry-8841b7b292c7` (6432ceecb702) matches the original push (35330d09c751) plus the pickman record commit. I created `cherry-8841b7b292c7-v2` at the same commit.
+- **Built and pushed from a temporary worktree,** so the stale rebase in the main tree wasn't touched. The sandbox `buildman` build passed. I then ran `pickman push-branch cherry-8841b7b292c7 -r ci -f` from there. `ci/cherry-8841b7b292c7` is now 6432ceecb702 again, and I removed the worktree afterwards.
+
+**Things to know:**
+- **No pipeline may start:** without `--run-ci`, `push-branch` adds `-o ci.skip`. You may need to start the MR pipeline by hand, which would also rerun the lab jobs.
+- **The previous analysis may have looked at the wrong commits:** that pipeline may have run on the rockchip commits. Its conclusions still look right, since none of the failures were related to either branch's changes.
+- **The bug will recur:** any `push-branch` run while HEAD is on a different branch will overwrite an MR the same way. The fix is to push `<branch>:<branch>` (or `refs/heads/<branch>`) instead of `HEAD:<branch>`. I didn't change pickman, to keep this MR focused; say if you'd like that patch.
+- **Other MRs may be affected:** the "Record review handling" commits suggest other branches were handled from this same checkout, so it's worth checking those MRs too. The stale `cherry-20209a62bc85` rebase is still in `.git/rebase-merge`.
+
+**Suggested reply for the MR:**
+
+> No code changes needed. All seven failures are unrelated to this branch: six are lab/infra (serial connection drops, prompt timeouts, snow held by another labgrid user) and vf2 fails because of an OpenSBI/U-Boot load overlap already present on master.
+>
+> Note: this MR's branch was accidentally force-pushed with the content of cherry-6b917b413d31 (pickman push-branch pushes HEAD rather than the named branch). It has been restored to the correct 16 commits (6432ceecb702), with the sandbox build passing. Please rerun the pipeline.
+
+---
+
