@@ -45,19 +45,19 @@ KBUILD_CPPFLAGS += -DCONFIG_VPL_BUILD
 endif
 
 ifeq ($(CONFIG_VPL_BUILD),y)
-SPL_BIN := u-boot-vpl
-SPL_NAME := vpl
+XPL_BIN := u-boot-vpl
+XPL_NAME := vpl
 else
 ifeq ($(CONFIG_TPL_BUILD),y)
-SPL_BIN := u-boot-tpl
-SPL_NAME := tpl
+XPL_BIN := u-boot-tpl
+XPL_NAME := tpl
 else
-SPL_BIN := u-boot-spl
-SPL_NAME := spl
+XPL_BIN := u-boot-spl
+XPL_NAME := spl
 endif
 endif
 
-export SPL_NAME
+export XPL_NAME
 
 # The XPL_ and PHASE_ vars resolve to nothing so they can be used in
 # Makefiles
@@ -250,21 +250,21 @@ MKIMAGEFLAGS_boot.bin = -T zynqmpimage -R $(srctree)/$(CONFIG_BOOT_INIT_FILE) \
 	-n "$(shell cd $(srctree); readlink -f $(CONFIG_PMUFW_INIT_FILE))"
 endif
 
-$(obj)/$(SPL_BIN)-align.bin: $(obj)/$(SPL_BIN).bin
+$(obj)/$(XPL_BIN)-align.bin: $(obj)/$(XPL_BIN).bin
 	@dd if=$< of=$@ conv=sync bs=4 2>/dev/null;
 
-spl/boot.bin: $(obj)/$(SPL_BIN)-align.bin FORCE
+spl/boot.bin: $(obj)/$(XPL_BIN)-align.bin FORCE
 	$(call if_changed,mkimage)
 endif
 
-INPUTS-y	+= $(obj)/$(SPL_BIN).bin $(obj)/$(SPL_BIN).sym
+INPUTS-y	+= $(obj)/$(XPL_BIN).bin $(obj)/$(XPL_BIN).sym
 
 ifneq ($(CONFIG_ARCH_EXYNOS)$(CONFIG_ARCH_S5PC1XX),)
 INPUTS-y	+= $(obj)/$(BOARD)-spl.bin
 endif
 
 ifneq ($(CONFIG_ARCH_SOCFPGA_GEN5)$(CONFIG_ARCH_SOCFPGA_ARRIA10),)
-INPUTS-y	+= $(obj)/$(SPL_BIN).sfp
+INPUTS-y	+= $(obj)/$(XPL_BIN).sfp
 endif
 
 INPUTS-$(CONFIG_ARCH_SOCFPGA_SOC64) += $(obj)/u-boot-spl-dtb.hex
@@ -305,13 +305,13 @@ quiet_cmd_copy = COPY    $@
       cmd_copy = cp $< $@
 
 ifneq ($(CONFIG_SPL_MULTI_DTB_FIT),y)
-FINAL_DTB_CONTAINER = $(obj)/$(SPL_BIN).dtb
+FINAL_DTB_CONTAINER = $(obj)/$(XPL_BIN).dtb
 else ifeq ($(CONFIG_SPL_MULTI_DTB_FIT_LZO),y)
-FINAL_DTB_CONTAINER = $(obj)/$(SPL_BIN).multidtb.fit.lzo
+FINAL_DTB_CONTAINER = $(obj)/$(XPL_BIN).multidtb.fit.lzo
 else ifeq ($(CONFIG_SPL_MULTI_DTB_FIT_GZIP),y)
-FINAL_DTB_CONTAINER = $(obj)/$(SPL_BIN).multidtb.fit.gz
+FINAL_DTB_CONTAINER = $(obj)/$(XPL_BIN).multidtb.fit.gz
 else
-FINAL_DTB_CONTAINER = $(obj)/$(SPL_BIN).multidtb.fit
+FINAL_DTB_CONTAINER = $(obj)/$(XPL_BIN).multidtb.fit
 endif
 
 # Build the .dtb file if needed
@@ -325,24 +325,24 @@ endif
 endif
 
 ifneq ($(build_dtb),)
-$(obj)/$(SPL_BIN)-dtb.bin: $(obj)/$(SPL_BIN)-nodtb.bin \
-		$(if $(CONFIG_SEPARATE_BSS),,$(obj)/$(SPL_BIN)-pad.bin) \
+$(obj)/$(XPL_BIN)-dtb.bin: $(obj)/$(XPL_BIN)-nodtb.bin \
+		$(if $(CONFIG_SEPARATE_BSS),,$(obj)/$(XPL_BIN)-pad.bin) \
 		$(FINAL_DTB_CONTAINER)  FORCE
 	$(call if_changed,cat)
 
-$(obj)/$(SPL_BIN).bin: $(obj)/$(SPL_BIN)-dtb.bin FORCE
+$(obj)/$(XPL_BIN).bin: $(obj)/$(XPL_BIN)-dtb.bin FORCE
 	$(call if_changed,copy)
 else
-$(obj)/$(SPL_BIN).bin: $(obj)/$(SPL_BIN)-nodtb.bin FORCE
+$(obj)/$(XPL_BIN).bin: $(obj)/$(XPL_BIN)-nodtb.bin FORCE
 	$(call if_changed,copy)
 endif
 
 # Create a file that pads from the end of u-boot-spl-nodtb.bin to bss_end
-$(obj)/$(SPL_BIN)-pad.bin: $(obj)/$(SPL_BIN)
+$(obj)/$(XPL_BIN)-pad.bin: $(obj)/$(XPL_BIN)
 	@bss_size_str=$(shell $(NM) $< | awk 'BEGIN {size = 0} /__bss_size/ {size = $$1} END {print "ibase=16; " toupper(size)}' | bc); \
 	dd if=/dev/zero of=$@ bs=1 count=$${bss_size_str} 2>/dev/null;
 
-$(obj)/$(SPL_BIN).dtb: $(obj)/dts/dt-$(SPL_NAME).dtb FORCE
+$(obj)/$(XPL_BIN).dtb: $(obj)/dts/dt-$(XPL_NAME).dtb FORCE
 	$(call if_changed,copy)
 
 pythonpath = PYTHONPATH=scripts/dtc/pylibfdt
@@ -355,7 +355,7 @@ pythonpath = PYTHONPATH=scripts/dtc/pylibfdt
 DTOC ?= $(or $(shell command -v dtoc 2>/dev/null),$(srctree)/tools/dtoc/dtoc)
 
 DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) \
-	-d $(obj)/$(SPL_BIN).dtb -p $(SPL_NAME)
+	-d $(obj)/$(XPL_BIN).dtb -p $(XPL_NAME)
 
 ifneq ($(CONFIG_OF_PLATDATA_INST),)
 DTOC_ARGS += -i
@@ -371,7 +371,7 @@ $(obj)/dts/dt-%.o: $(obj)/dts/dt-%.c $(platdata-hdr) FORCE
 	$(call if_changed,plat)
 
 # Don't use dts_dir here, since it forces running this expensive rule every time
-$(platdata-hdr) $(u-boot-spl-platdata_c) &: $(obj)/$(SPL_BIN).dtb FORCE
+$(platdata-hdr) $(u-boot-spl-platdata_c) &: $(obj)/$(XPL_BIN).dtb FORCE
 	@[ -d $(obj)/dts ] || mkdir -p $(obj)/dts
 	@[ -d $(obj)/include/generated ] || mkdir -p $(obj)/include/generated
 	@# Remove old files since which ones we generate depends on the setting
@@ -401,10 +401,10 @@ $(obj)/u-boot-spl.ldr: $(obj)/u-boot-spl
 quiet_cmd_objcopy = OBJCOPY $@
 cmd_objcopy = $(OBJCOPY) $(OBJCOPYFLAGS) $(OBJCOPYFLAGS_$(@F)) $< $@
 
-OBJCOPYFLAGS_$(SPL_BIN)-nodtb.bin = $(SPL_OBJCFLAGS) -O binary \
+OBJCOPYFLAGS_$(XPL_BIN)-nodtb.bin = $(SPL_OBJCFLAGS) -O binary \
 		$(if $(CONFIG_X86_16BIT_INIT),-R .start16 -R .resetvec)
 
-$(obj)/$(SPL_BIN)-nodtb.bin: $(obj)/$(SPL_BIN) FORCE
+$(obj)/$(XPL_BIN)-nodtb.bin: $(obj)/$(XPL_BIN) FORCE
 	$(call if_changed,objcopy)
 
 OBJCOPYFLAGS_u-boot-x86-start16-spl.bin := -O binary -j .start16
@@ -423,24 +423,24 @@ OBJCOPYFLAGS_u-boot-x86-reset16-tpl.bin := -O binary -j .resetvec
 $(obj)/u-boot-x86-reset16-tpl.bin: $(obj)/u-boot-tpl FORCE
 	$(call if_changed,objcopy)
 
-LDFLAGS_$(SPL_BIN) += -T u-boot-spl.lds $(LDFLAGS_FINAL)
+LDFLAGS_$(XPL_BIN) += -T u-boot-spl.lds $(LDFLAGS_FINAL)
 
 # Avoid 'Not enough room for program headers' error on binutils 2.28 onwards.
-LDFLAGS_$(SPL_BIN) += $(call ld-option, --no-dynamic-linker)
+LDFLAGS_$(XPL_BIN) += $(call ld-option, --no-dynamic-linker)
 
-LDFLAGS_$(SPL_BIN) += --build-id=none
+LDFLAGS_$(XPL_BIN) += --build-id=none
 
 # Pick the best match (e.g. SPL_TEXT_BASE for SPL, TPL_TEXT_BASE for TPL)
 ifneq ($(CONFIG_TEXT_BASE),)
-LDFLAGS_$(SPL_BIN) += -Ttext $(CONFIG_TEXT_BASE)
+LDFLAGS_$(XPL_BIN) += -Ttext $(CONFIG_TEXT_BASE)
 endif
 
 ifdef CONFIG_ARCH_SOCFPGA_ARRIA10
-MKIMAGEFLAGS_$(SPL_BIN).sfp = -T socfpgaimage_v1
+MKIMAGEFLAGS_$(XPL_BIN).sfp = -T socfpgaimage_v1
 else
-MKIMAGEFLAGS_$(SPL_BIN).sfp = -T socfpgaimage
+MKIMAGEFLAGS_$(XPL_BIN).sfp = -T socfpgaimage
 endif
-$(obj)/$(SPL_BIN).sfp: $(obj)/$(SPL_BIN).bin FORCE
+$(obj)/$(XPL_BIN).sfp: $(obj)/$(XPL_BIN).bin FORCE
 	$(call if_changed,mkimage)
 
 MKIMAGEFLAGS_sunxi-spl.bin = \
@@ -455,7 +455,7 @@ OBJCOPYFLAGS_u-boot-spl-dtb.hex := -I binary -O ihex --change-address=$(CONFIG_S
 $(obj)/u-boot-spl-dtb.hex: $(obj)/u-boot-spl-dtb.bin FORCE
 	$(call if_changed,objcopy)
 
-$(obj)/sunxi-spl.bin: $(obj)/$(SPL_BIN).bin FORCE
+$(obj)/sunxi-spl.bin: $(obj)/$(XPL_BIN).bin FORCE
 	$(call if_changed,mkimage)
 
 quiet_cmd_sunxi_spl_image_builder = SUNXI_SPL_IMAGE_BUILDER $@
@@ -481,7 +481,7 @@ $(obj)/u-boot-spl-mtk.bin: $(obj)/u-boot-spl.bin FORCE
 
 quiet_cmd_sym ?= SYM     $@
       cmd_sym ?= $(OBJDUMP) -t $< > $@
-$(obj)/$(SPL_BIN).sym: $(obj)/$(SPL_BIN) FORCE
+$(obj)/$(XPL_BIN).sym: $(obj)/$(XPL_BIN) FORCE
 	$(call if_changed,sym)
 
 # Generate linker list symbols references to force compiler to not optimize
@@ -524,7 +524,7 @@ quiet_cmd_u-boot-spl ?= LTO     $@
 			$(patsubst $(obj)/%,%,$(u-boot-spl-keep-syms-lto))	\
 			$(PLATFORM_LIBS)					\
 		-Wl,--no-whole-archive						\
-		-Wl,-Map,$(SPL_BIN).map -o $(SPL_BIN)				\
+		-Wl,-Map,$(XPL_BIN).map -o $(XPL_BIN)				\
 	)
 else
 quiet_cmd_u-boot-spl ?= LD      $@
@@ -538,11 +538,11 @@ quiet_cmd_u-boot-spl ?= LD      $@
 			$(patsubst $(obj)/%,%,$(u-boot-spl-main))	\
 			$(patsubst $(obj)/%,%,$(u-boot-spl-platdata))	\
 		--no-whole-archive					\
-		$(PLATFORM_LIBS) -Map $(SPL_BIN).map -o $(SPL_BIN)	\
+		$(PLATFORM_LIBS) -Map $(XPL_BIN).map -o $(XPL_BIN)	\
 	)
 endif
 
-$(obj)/$(SPL_BIN): $(u-boot-spl-platdata) $(u-boot-spl-init) \
+$(obj)/$(XPL_BIN): $(u-boot-spl-platdata) $(u-boot-spl-init) \
 		$(u-boot-spl-main) $(u-boot-spl-keep-syms-lto) \
 		$(obj)/u-boot-spl.lds FORCE
 	$(call if_changed,u-boot-spl)
@@ -577,7 +577,7 @@ endif
 PHONY += FORCE
 FORCE:
 
-$(obj)/dts/dt-$(SPL_NAME).dtb: dts/dt.dtb
+$(obj)/dts/dt-$(XPL_NAME).dtb: dts/dt.dtb
 	$(Q)$(MAKE) $(build)=$(obj)/dts spl_dtbs need-builtin=1
 
 ifeq ($(CONFIG_OF_UPSTREAM),y)
@@ -605,21 +605,21 @@ $(SHRUNK_ARCH_DTB): $$(patsubst $(obj)/dts/%, $(dt_dir)/%, $$@) $(dir $(SHRUNK_A
 
 targets += $(SPL_OF_LIST_TARGETS)
 
-MKIMAGEFLAGS_$(SPL_BIN).multidtb.fit = -f auto -A $(ARCH) -T firmware -C none -O u-boot \
-	-n "Multi DTB fit image for $(SPL_BIN)" -E \
+MKIMAGEFLAGS_$(XPL_BIN).multidtb.fit = -f auto -A $(ARCH) -T firmware -C none -O u-boot \
+	-n "Multi DTB fit image for $(XPL_BIN)" -E \
 	$(patsubst %,-b %,$(SHRUNK_ARCH_DTB))
 
-$(obj)/$(SPL_BIN).multidtb.fit: /dev/null $(SHRUNK_ARCH_DTB) FORCE
+$(obj)/$(XPL_BIN).multidtb.fit: /dev/null $(SHRUNK_ARCH_DTB) FORCE
 	$(call if_changed,mkimage)
 ifneq ($(SOURCE_DATE_EPOCH),)
-	touch -d @$(SOURCE_DATE_EPOCH) $(obj)/$(SPL_BIN).multidtb.fit
-	chmod 0600 $(obj)/$(SPL_BIN).multidtb.fit
+	touch -d @$(SOURCE_DATE_EPOCH) $(obj)/$(XPL_BIN).multidtb.fit
+	chmod 0600 $(obj)/$(XPL_BIN).multidtb.fit
 endif
 
-$(obj)/$(SPL_BIN).multidtb.fit.gz: $(obj)/$(SPL_BIN).multidtb.fit
+$(obj)/$(XPL_BIN).multidtb.fit.gz: $(obj)/$(XPL_BIN).multidtb.fit
 	@gzip -kf9 $< > $@
 
-$(obj)/$(SPL_BIN).multidtb.fit.lzo: $(obj)/$(SPL_BIN).multidtb.fit
+$(obj)/$(XPL_BIN).multidtb.fit.lzo: $(obj)/$(XPL_BIN).multidtb.fit
 	@lzop -f9 $< > $@
 
 ifdef CONFIG_ARCH_K3

@@ -49,11 +49,11 @@ subdir-ccflags-y :=
 # Read appropriate auto.conf if it exists, otherwise ignore
 # Modified for U-Boot
 
-ifeq ($(SPL_NAME),tpl)
+ifeq ($(XPL_NAME),tpl)
 -include include/config/auto_tpl.conf
-else ifeq ($(SPL_NAME),vpl)
+else ifeq ($(XPL_NAME),vpl)
 -include include/config/auto_vpl.conf
-else ifeq ($(SPL_NAME),spl)
+else ifeq ($(XPL_NAME),spl)
 -include include/config/auto_spl.conf
 else
 -include include/config/auto.conf

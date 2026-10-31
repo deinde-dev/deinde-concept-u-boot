@@ -54,7 +54,7 @@ cmd_u-boot__ = \
 
 cmd_u-boot-spl = (cd $(obj) && \
 	touch $(patsubst $(obj)/%,%,$(u-boot-spl-main)) && \
-	$(CC) -o $(SPL_BIN) -Wl,-T u-boot-spl.lds \
+	$(CC) -o $(XPL_BIN) -Wl,-T u-boot-spl.lds \
 	$(KBUILD_LDFLAGS:%=-Wl,%) \
 	$(SANITIZERS) \
 	$(LTO_FINAL_LDFLAGS) \

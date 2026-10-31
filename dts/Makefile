@@ -36,7 +36,7 @@ else
 DTB := $(dt_dir)/$(DEVICE_TREE).dtb
 endif
 
-$(obj)/dt-$(SPL_NAME).dtb: dts/dt.dtb $(objtree)/tools/fdtgrep FORCE
+$(obj)/dt-$(XPL_NAME).dtb: dts/dt.dtb $(objtree)/tools/fdtgrep FORCE
 	mkdir -p $(dir $@)
 	$(call if_changed,fdtgrep)
 
@@ -83,7 +83,7 @@ dtbs: $(obj)/dt.dtb
 	@:
 
 # Target for SPL/TPL
-spl_dtbs: $(obj)/dt-$(SPL_NAME).dtb
+spl_dtbs: $(obj)/dt-$(XPL_NAME).dtb
 	@:
 
 clean-files := dt.dtb.S
