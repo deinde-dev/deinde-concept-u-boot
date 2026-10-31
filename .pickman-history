@@ -101366,3 +101366,42 @@ I rebased MR !1504 onto the latest ci/master (d962323ea418) and force-pushed it.
 
 ---
 
+### Review: 2026-10-31
+
+Branch: cherry-824317a8bc56
+
+Comments addressed:
+
+
+### Conversation log
+I'll start by checking the main checkout, the worktree and the remote state.
+
+ci/master is one merge ahead. Before rebasing, I'll save the per-commit stats and check the merge commit's shape.
+
+The rebase finished with no conflicts and every commit built. Next I'll compare deltas, check the warnings in the final build, and confirm the empty commits survived.
+
+All 16 commit deltas match exactly and the final build has no warnings. `-v2` already exists, so the new local branch is `-v3`. I'll push from the worktree, since `push-branch` pushes HEAD.
+
+The push worked. The last error only came from passing `--short` several revisions at once, so I'll verify them separately.
+
+Before reporting, I'll check whether the misplaced history record from last time is still on the other branch.
+
+MR !1505 is now rebased onto the latest ci/master (d962323ea418) and force-pushed, so GitLab is running a new pipeline. There were no conflicts.
+
+**What I did** (in the worktree at `/tmp/wt-cherry-824317a8bc56`; the main checkout is still mid-rebase, so I left it alone):
+1. **Rebase:** ran `git rebase --keep-empty ci/master` with a sandbox build after every commit. ci/master had moved on by one merge (d962323ea418, cmd-cov-hash2), which only touches the hash commands and their docs, so nothing overlapped with this series.
+2. **Deltas:** the `git show --stat` output for all 16 commits is identical before and after. The six empty commits (five binman ones and the merge) are still there, and all the earlier fix-ups are unchanged.
+3. **Build:** every commit built with `buildman -L --board sandbox -w -o /tmp/pickman`, and the final build has no warnings or errors. The first build failed again on the stale Rust cache in the shared /tmp/pickman, which still pointed at the deleted `/tmp/wt-cherry-6b917b413d31`. I deleted `/tmp/pickman/examples/rust` and the rebuild was clean.
+4. **Branches:** created the local branch `cherry-824317a8bc56-v3` (`-v2` already existed) and pushed to `ci/cherry-824317a8bc56`. Local, `-v3` and the remote are all at 09a169c02573.
+
+**Still needing your attention (outside this MR):**
+- **Duplicate history record:** cherry-6b917b413d31, both locally and on `ci/`, still carries 1f2e17ae5531, which is this series' pickman record. Its own record is 13ddff04b860. Drop 1f2e17ae5531 from that MR, or this series gets recorded twice when both merge.
+- **Main checkout:** `~/dev/u-boot` is still partway through a rebase of cherry-6b917b413d31. It needs finishing or aborting before pickman runs there again.
+- **Shared /tmp/pickman:** the stale Rust cache keeps coming back. It might be worth having pickman clear `examples/rust` before building, or use a separate output dir for each worktree.
+
+**Suggested MR reply:**
+
+> Rebased onto ci/master (d962323ea418). There were no conflicts, and all 16 commits have the same deltas and fix-ups as before. Sandbox builds cleanly after each commit, and a new pipeline is running.
+
+---
+
