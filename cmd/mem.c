@@ -422,6 +422,10 @@ static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
 			argv++;
 		}
 
+		/* The address, the length and a value are all required */
+		if (argc < 3)
+			return CMD_RET_USAGE;
+
 		/* Address is specified since argc > 1 */
 		addr = hextoul(argv[0], NULL);
 		addr += base_address;
