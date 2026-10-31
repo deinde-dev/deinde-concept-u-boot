@@ -289,7 +289,7 @@ static int boot_get_kernel(const char *addr_fit, ulong os_size_in,
 	return 0;
 }
 
-static int bootm_start(void)
+static int bootm_start(struct udevice *imagemap)
 {
 	/*
 	 * Free dm-verity allocations from a prior boot attempt before
@@ -300,6 +300,7 @@ static int bootm_start(void)
 	fit_verity_free(&images);
 	memset((void *)&images, 0, sizeof(images));
 	images.verify = env_get_yesno("verify");
+	images.imagemap = imagemap;
 
 	bootstage_mark_name(BOOTSTAGE_ID_BOOTM_START, "bootm_start");
 	images.state = BOOTM_STATE_START;
@@ -1265,13 +1266,7 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	 */
 	if (states & BOOTM_STATE_START) {
 		log_debug("start\n");
-		ret = bootm_start();
-		/*
-		 * bootm_start() zeroes the global images struct. Restore
-		 * the loader pointer so the storage-backed path works.
-		 */
-		if (IS_ENABLED(CONFIG_IMAGEMAP) && bmi->imagemap)
-			images->imagemap = bmi->imagemap;
+		ret = bootm_start(bmi->imagemap);
 	}
 
 	if (states & BOOTM_STATE_RESTART) {
