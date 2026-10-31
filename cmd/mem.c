@@ -125,8 +125,11 @@ static int do_mem_nm(struct getopt_state *gs)
 	return mod_mem(gs, 0);
 }
 
-static int do_mem_mw(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+/*
+ * Write a value to memory. The data size comes from the suffix on argv[0], so
+ * the mwc command can call this with its own argv to do a single write.
+ */
+static int mem_write(int argc, char *const argv[])
 {
 	ulong writeval;  /* 64-bit if MEM_SUPPORT_64BIT_DATA */
 	ulong	addr, count;
@@ -179,6 +182,11 @@ static int do_mem_mw(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
+static int do_mem_mw(struct getopt_state *gs)
+{
+	return mem_write(gs->argc, gs->argv);
+}
+
 #ifdef CONFIG_CMD_MX_CYCLIC
 static int do_mem_mdc(struct getopt_state *gs)
 {
@@ -222,7 +230,7 @@ static int do_mem_mwc(struct getopt_state *gs)
 	count = dectoul(argv[3], NULL);
 
 	for (;;) {
-		do_mem_mw (NULL, 0, 3, argv);
+		mem_write(3, argv);
 
 		/* delay for <count> ms... */
 		for (i=0; i<count; i++)
@@ -1334,7 +1342,7 @@ U_BOOT_CMD_NOOPTS(
 	"[.b, .w, .l" HELP_Q "] address"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mw,	4,	1,	do_mem_mw,
 	"memory write (fill)",
 	"[.b, .w, .l" HELP_Q "] address value [count]"
