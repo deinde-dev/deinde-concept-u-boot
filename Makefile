@@ -1236,7 +1236,6 @@ ifneq ($(CONFIG_NXP_ESBC), y)
 INPUTS-$(CONFIG_RAMBOOT_PBL) += u-boot.pbl
 endif
 endif
-INPUTS-$(CONFIG_SPL) += spl/u-boot-spl.bin
 ifeq ($(CONFIG_MX6)$(CONFIG_IMX_HAB), yy)
 INPUTS-$(CONFIG_SPL_FRAMEWORK) += u-boot-ivt.img
 else
@@ -1246,8 +1245,8 @@ else
 INPUTS-$(CONFIG_SPL_FRAMEWORK) += u-boot.img
 endif
 endif
-INPUTS-$(CONFIG_TPL) += tpl/u-boot-tpl.bin
-INPUTS-$(CONFIG_VPL) += vpl/u-boot-vpl.bin
+$(foreach p,$(XPL_PHASES),$(eval \
+	INPUTS-$(CONFIG_$(XPL_UPPER_$(p))) += $(p)/u-boot-$(p).bin))
 
 # Allow omitting the .dtb output if it is not normally used
 INPUTS-$(CONFIG_OF_SEPARATE) += $(if $(CONFIG_OF_OMIT_DTB),dts/dt.dtb,u-boot.dtb)
@@ -2630,18 +2629,23 @@ cmd_cpp_lds = $(CPP) -Wp,-MD,$(depfile) $(cpp_flags) $(LDPPFLAGS) \
 u-boot.lds: $(LDSCRIPT) prepare FORCE
 	$(call if_changed_dep,cpp_lds)
 
-spl/u-boot-spl.bin: spl/u-boot-spl
+# Build each xPL phase, e.g. tpl/u-boot-tpl, in the directory named after it
+define xpl_phase_rules
+$(1)/u-boot-$(1).bin: $(1)/u-boot-$(1)
 	@:
-	$(SPL_SIZE_CHECK)
+	$$($(XPL_UPPER_$(1))_SIZE_CHECK)
+
+$(1)/u-boot-$(1): tools prepare $$(if $$(CONFIG_$(XPL_UPPER_$(1))_OF_CONTROL),dts/dt.dtb)
+	$$(Q)$$(MAKE) obj=$(1) -f $$(srctree)/scripts/Makefile.xpl all
+endef
+
+$(foreach p,$(XPL_PHASES),$(eval $(call xpl_phase_rules,$(p))))
 
 spl/u-boot-spl-dtb.bin: spl/u-boot-spl
 	@:
 
 spl/u-boot-spl-dtb.hex: spl/u-boot-spl
 	@:
-
-spl/u-boot-spl: tools prepare $(if $(CONFIG_SPL_OF_CONTROL),dts/dt.dtb)
-	$(Q)$(MAKE) obj=spl -f $(srctree)/scripts/Makefile.xpl all
 
 spl/sunxi-spl.bin: spl/u-boot-spl
 	@:
@@ -2654,20 +2658,6 @@ spl/u-boot-spl.sfp: spl/u-boot-spl
 
 spl/boot.bin: spl/u-boot-spl
 	@:
-
-tpl/u-boot-tpl.bin: tpl/u-boot-tpl
-	@:
-	$(TPL_SIZE_CHECK)
-
-tpl/u-boot-tpl: tools prepare $(if $(CONFIG_TPL_OF_CONTROL),dts/dt.dtb)
-	$(Q)$(MAKE) obj=tpl -f $(srctree)/scripts/Makefile.xpl all
-
-vpl/u-boot-vpl.bin: vpl/u-boot-vpl
-	@:
-	$(VPL_SIZE_CHECK)
-
-vpl/u-boot-vpl: tools prepare $(if $(CONFIG_VPL_OF_CONTROL),dts/dt.dtb)
-	$(Q)$(MAKE) obj=vpl -f $(srctree)/scripts/Makefile.xpl all
 
 TAG_SUBDIRS := $(patsubst %,$(srctree)/%,$(u-boot-dirs) include)
 
@@ -2739,9 +2729,13 @@ CHANGELOG:
 # make mrproper  Delete the current configuration, and all generated files
 # make distclean Remove editor backup files, patch leftover files and the like
 
+# The xPL phases, read from the source if there is no configuration
+xpl-all-phases = $(or $(XPL_PHASES),$(shell sed -n \
+	's/^\([a-z0-9]*\)[[:space:]].*/\1/p' $(srctree)/scripts/xpl_phases))
+
 # Directories & files removed with 'make clean'
 CLEAN_FILES  += $(MODVERDIR) \
-	       $(foreach d, spl tpl vpl, $(patsubst %,$d/%, \
+	       $(foreach d, $(xpl-all-phases), $(patsubst %,$d/%, \
 			$(filter-out include, $(shell ls -1 $d 2>/dev/null))))
 
 CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
@@ -2764,7 +2758,7 @@ CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
 	       arch/x86/cpu/turin/opensil
 
 # Directories & files removed with 'make mrproper'
-MRPROPER_FILES  += include/config include/generated spl tpl vpl \
+MRPROPER_FILES  += include/config include/generated $(xpl-all-phases) \
 		  .tmp_objdiff doc/output include/asm
 
 # Remove include/asm symlink created by U-Boot before v2014.01
