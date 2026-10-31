@@ -16,15 +16,22 @@
 
 #include "lkc.h"
 
-/* Number of SPL prefixes we recognise */
-#define NUM_SPLS	 4
+/* Maximum number of xPL prefixes we recognise, including TOOLS */
+#define MAX_XPLS	 8
 
 /*
- * SPL prefixes recognised. For example CONFIG_SPL_xxx is considered to be an
- * SPL version of CONFIG_xxx
+ * xPL prefixes recognised. For example CONFIG_SPL_xxx is considered to be an
+ * xPL version of CONFIG_xxx
+ *
+ * These are the xPL phases listed in scripts/xpl_phases, in upper case,
+ * followed by TOOLS for the host tools
  */
-static const char *spl_name[NUM_SPLS] = {"SPL", "TPL", "VPL", "TOOLS"};
-int num_spls;	/* 0 if not supporting SPL, else NUM_SPLS */
+static char *xpl_name[MAX_XPLS];
+int num_xpls;	/* 0 if not supporting xPL, else the number of prefixes */
+
+/* Devicetree tag for each phase, and the number of phases (not TOOLS) */
+static char *phase_tag[MAX_XPLS];
+static int num_phases;
 
 /* return true if 'path' exists, false otherwise */
 static bool is_present(const char *path)
@@ -542,16 +549,16 @@ static void print_makefile_sym(FILE *fp, const char *name,
 }
 
 /**
- * get_primary_name() - Prepends PPL to a symbol if it is an SPL symbol
+ * get_primary_name() - Prepends PPL to a symbol if it is an xPL symbol
  *
  * @sym: Symbol to process
  * @str: Buffer space to use, of size SYMBOL_MAXLENGTH
- * Returns: NULL if this is not an SPL symbol, otherwise returns the symbol
+ * Returns: NULL if this is not an xPL symbol, otherwise returns the symbol
  * name with PPL_ prepended
  */
 static const char *get_primary_name(const struct symbol *sym, char *str)
 {
-	if (sym->flags & SYMBOL_SPL)
+	if (sym->flags & SYMBOL_XPL)
 		return NULL;
 
 	snprintf(str, SYMBOL_MAXLENGTH, "PPL_%s", sym->name);
@@ -573,7 +580,7 @@ kconfig_print_symbol(FILE *fp, struct symbol *sym, const char *value, void *arg)
 	char str[SYMBOL_MAXLENGTH];
 	const char *name;
 
-	if (num_spls) {
+	if (num_xpls) {
 		name = get_primary_name(sym, str);
 		if (name)
 			print_makefile_sym(fp, name, sym->type, value, arg);
@@ -609,44 +616,44 @@ static struct conf_printer kconfig_printer_cb =
 };
 
 /**
- * get_spl_name() - Look up an SPL symbol
+ * get_xpl_name() - Look up an xPL symbol
  *
- * This is used to get the name of a Kconfig option to write in an SPL context.
- * If the symbol has an SPL symbol, this means it is used for U-Boot proper, so
+ * This is used to get the name of a Kconfig option to write in an xPL context.
+ * If the symbol has an xPL symbol, this means it is used for U-Boot proper, so
  * should not be written at all.
  *
- * Otherwise, this returns the name of the option. If the option is an SPL
+ * Otherwise, this returns the name of the option. If the option is an xPL
  * option, then the prefix (SPL_ or TPL_) is removed
  *
  * @sym: Symbol to look up
  * @arg: Argument passed to the symbol function. This is void * but is actually
- *	an int, indicating the SPL index / type (see spl_name[])
+ *	an int, indicating the xPL index / type (see xpl_name[])
  * @return name to write out for this symbol xxx:
- *	NULL (don't write) if xxx has an associated SPL symbol
- *	xxx if xxx is a non-SPL symbol
- *	xxx if SPL_xxx is an SPL symbol
+ *	NULL (don't write) if xxx has an associated xPL symbol
+ *	xxx if xxx is a non-xPL symbol
+ *	xxx if SPL_xxx is an xPL symbol
  */
-static const char *get_spl_name(const struct symbol *sym, const void *arg)
+static const char *get_xpl_name(const struct symbol *sym, const void *arg)
 {
-	int spl = (long)arg;
+	int xpl = (long)arg;
 	const char *name = sym->name;
 
 	/*
-	 * Don't print it if this has an SPL symbol because processing of the
-	 * SPL symbol (e.g. SPL_FOO) will output CONFIG_FOO as well as
+	 * Don't print it if this has an xPL symbol because processing of the
+	 * xPL symbol (e.g. SPL_FOO) will output CONFIG_FOO as well as
 	 * CONFIG_SPL_FOO
 	 */
-	if (sym->flags & SYMBOL_HAS_SPL)
+	if (sym->flags & SYMBOL_HAS_XPL)
 		return NULL;
 
 	/*
-	 * If it is SPL, only print it if the SPL_ prefix matches
+	 * If it is an xPL symbol, only print it if the prefix matches
 	 * Drop the prefix.
 	 */
-	if (sym->flags & SYMBOL_SPL) {
-		int len = strlen(spl_name[spl]);
+	if (sym->flags & SYMBOL_XPL) {
+		int len = strlen(xpl_name[xpl]);
 
-		if (!strncmp(name, spl_name[spl], len) && name[len] == '_')
+		if (!strncmp(name, xpl_name[xpl], len) && name[len] == '_')
 			name += len + 1;
 	}
 
@@ -654,15 +661,15 @@ static const char *get_spl_name(const struct symbol *sym, const void *arg)
 }
 
 /*
- * auto.conf configuration printer for SPL
+ * auto.conf configuration printer for xPL
  *
- * This is used for creating auto.conf as well as SPL files like auto_spl.conf
+ * This is used for creating auto.conf as well as xPL files like auto_spl.conf
  *
  * This printer is used when generating the resulting configuration after
  * kconfig invocation and `defconfig' files. Unset symbol might be omitted by
  * passing a non-NULL argument to the printer.
  */
-static void spl_kconfig_print_symbol(FILE *fp, struct symbol *sym,
+static void xpl_kconfig_print_symbol(FILE *fp, struct symbol *sym,
 				     const char *value, void *arg)
 {
 	char str[SYMBOL_MAXLENGTH];
@@ -672,22 +679,22 @@ static void spl_kconfig_print_symbol(FILE *fp, struct symbol *sym,
 	if (name)
 		print_makefile_sym(fp, name, sym->type, value, true);
 
-	name = get_spl_name(sym, arg);
+	name = get_xpl_name(sym, arg);
 	if (!name)
 		return;
 
 	/*
-	 * If this is an SPL symbol, first print the symbol without the SPL
+	 * If this is an xPL symbol, first print the symbol without the xPL
 	 * prefix
 	 */
 	if (name != sym->name)
 		print_makefile_sym(fp, name, sym->type, value, true);
-	if (!(sym->flags & SYMBOL_NO_SPL))
+	if (!(sym->flags & SYMBOL_NO_XPL))
 		print_makefile_sym(fp, sym->name, sym->type, value, true);
 }
 
-static struct conf_printer spl_kconfig_printer_cb = {
-	.print_symbol = spl_kconfig_print_symbol,
+static struct conf_printer xpl_kconfig_printer_cb = {
+	.print_symbol = xpl_kconfig_print_symbol,
 	.print_comment = kconfig_print_comment,
 };
 
@@ -743,7 +750,7 @@ header_print_symbol(FILE *fp, struct symbol *sym, const char *value, void *arg)
 	char str[SYMBOL_MAXLENGTH];
 	const char *name;
 
-	if (num_spls) {
+	if (num_xpls) {
 		name = get_primary_name(sym, str);
 		if (name)
 			print_header_sym(fp, name, sym->type, value);
@@ -781,12 +788,12 @@ static struct conf_printer header_printer_cb =
 };
 
 /*
- * SPL header printer
+ * xPL header printer
  *
- * This printer is used when generating SPL files such as
+ * This printer is used when generating xPL files such as
  * `include/generated/autoconf_spl.h'
  */
-static void spl_header_print_symbol(FILE *fp, struct symbol *sym,
+static void xpl_header_print_symbol(FILE *fp, struct symbol *sym,
 				    const char *value, void *arg)
 {
 	char str[SYMBOL_MAXLENGTH];
@@ -796,18 +803,18 @@ static void spl_header_print_symbol(FILE *fp, struct symbol *sym,
 	if (name)
 		print_header_sym(fp, name, sym->type, value);
 
-	name = get_spl_name(sym, arg);
+	name = get_xpl_name(sym, arg);
 	if (!name)
 		return;
 
 	if (name != sym->name)
 		print_header_sym(fp, name, sym->type, value);
-	if (!(sym->flags & SYMBOL_NO_SPL))
+	if (!(sym->flags & SYMBOL_NO_XPL))
 		print_header_sym(fp, sym->name, sym->type, value);
 }
 
-static struct conf_printer spl_header_printer_cb = {
-	.print_symbol = spl_header_print_symbol,
+static struct conf_printer xpl_header_printer_cb = {
+	.print_symbol = xpl_header_print_symbol,
 	.print_comment = header_print_comment,
 };
 
@@ -1334,20 +1341,305 @@ static int conf_touch_changed(const char *old_fname, const char *new_fname,
 	return res;
 }
 
-int conf_write_autoconf(bool support_spl)
+/**
+ * u_boot_open_script() - Open a file in the scripts/ directory of the source
+ *
+ * The file is added to the dependencies of auto.conf, so that changing it
+ * updates the configuration
+ *
+ * @fname: Leaf name of the file, e.g. "conf_nospl"
+ * Return: the open file, or NULL on error (an error message has been shown)
+ */
+static FILE *u_boot_open_script(const char *fname)
+{
+	static char fullname[PATH_MAX + 1];
+	const char *env;
+	FILE *f;
+
+	env = getenv(SRCTREE);
+	if (!env) {
+		fprintf(stderr, "No %s environment variable\n", SRCTREE);
+		return NULL;
+	}
+	snprintf(fullname, sizeof(fullname), "%s/scripts/%s", env, fname);
+	f = fopen(fullname, "r");
+	if (!f) {
+		fprintf(stderr, "Cannot open '%s'\n", fullname);
+		return NULL;
+	}
+	snprintf(fullname, sizeof(fullname), "scripts/%s", fname);
+	file_lookup(fullname);
+
+	return f;
+}
+
+/*
+ * Check that a phase name is a lower-case letter followed by lower-case
+ * letters and digits, so it can be used as a directory and, in upper case, as
+ * a Kconfig prefix
+ */
+static bool is_phase_name(const char *name)
+{
+	const char *p;
+
+	if (!islower(*name))
+		return false;
+	for (p = name; *p; p++) {
+		if (!islower(*p) && !isdigit(*p))
+			return false;
+	}
+
+	return true;
+}
+
+/**
+ * u_boot_read_phases() - Read the list of xPL phases
+ *
+ * This sets up xpl_name[] with the upper-case name of each phase, followed by
+ * TOOLS for the host tools, and sets num_xpls to the number of names
+ *
+ * @fname: Leaf name of the file listing the phases (see scripts/xpl_phases)
+ * Return: 0 if OK, 1 on error
+ */
+static int u_boot_read_phases(const char *fname)
+{
+	char buf[256];
+	char *s, *tag;
+	FILE *f;
+	int line;
+
+	f = u_boot_open_script(fname);
+	if (!f)
+		return 1;
+	num_xpls = 0;
+	for (line = 1; s = fgets(buf, sizeof(buf), f), s; line++) {
+		char *name, *extra, *p;
+		int i;
+
+		name = strtok(s, " \t\n");
+		if (!name || *name == '#')
+			continue;
+		tag = strtok(NULL, " \t\n");
+		if (!tag || *tag == '#') {
+			fprintf(stderr, "%s:%d: Missing devicetree tag\n", fname,
+				line);
+			goto err;
+		}
+		extra = strtok(NULL, " \t\n");
+		if (extra && *extra != '#') {
+			fprintf(stderr, "%s:%d: Unexpected '%s'\n", fname, line,
+				extra);
+			goto err;
+		}
+		if (!is_phase_name(name)) {
+			fprintf(stderr,
+				"%s:%d: Invalid phase name '%s': use a-z and 0-9, starting with a letter\n",
+				fname, line, name);
+			goto err;
+		}
+		for (i = 0; i < num_xpls; i++) {
+			if (!strcasecmp(name, xpl_name[i]))
+				break;
+		}
+		if (i < num_xpls || !strcmp(name, "tools")) {
+			fprintf(stderr, "%s:%d: Phase name '%s' is already in use\n",
+				fname, line, name);
+			goto err;
+		}
+		if (num_xpls == MAX_XPLS - 1) {
+			fprintf(stderr, "%s:%d: Too many phases\n", fname, line);
+			goto err;
+		}
+		for (p = name; *p; p++)
+			*p = toupper(*p);
+		phase_tag[num_xpls] = xstrdup(tag);
+		xpl_name[num_xpls++] = xstrdup(name);
+	}
+	fclose(f);
+	num_phases = num_xpls;
+	xpl_name[num_xpls++] = "TOOLS";
+
+	return 0;
+
+err:
+	fclose(f);
+	return 1;
+}
+
+/* Get the lower-case name of a phase, e.g. "tpl" */
+static const char *phase_lower(int phase)
+{
+	static char lower[2][SYMBOL_MAXLENGTH];
+	static int which;
+	char *p = lower[which ^= 1];
+	const char *s;
+
+	for (s = xpl_name[phase]; *s; s++)
+		*p++ = tolower(*s);
+	*p = '\0';
+
+	return lower[which];
+}
+
+/**
+ * u_boot_rename_if_changed() - Move a new file into place if it is different
+ *
+ * This leaves the existing file alone if it already has the same contents, so
+ * that anything which depends on it is not rebuilt
+ *
+ * @tmpname: New file, which is removed
+ * @fname: File to replace
+ * Return: 0 if OK, 1 on error
+ */
+static int u_boot_rename_if_changed(const char *tmpname, const char *fname)
+{
+	FILE *old, *new;
+	bool same = false;
+	int ch;
+
+	old = fopen(fname, "r");
+	new = fopen(tmpname, "r");
+	if (old && new) {
+		do {
+			ch = fgetc(old);
+			same = ch == fgetc(new);
+		} while (same && ch != EOF);
+	}
+	if (old)
+		fclose(old);
+	if (new)
+		fclose(new);
+	if (same)
+		return unlink(tmpname) ? 1 : 0;
+	if (make_parent_dir(fname))
+		return 1;
+
+	return rename(tmpname, fname) ? 1 : 0;
+}
+
+/**
+ * write_phase_chain() - Write an expression for the phase before or after one
+ *
+ * This writes a C expression giving the nearest enabled phase in the given
+ * direction, e.g. for the phase after TPL:
+ *
+ *	(IS_ENABLED(CONFIG_VPL) ? PHASE_VPL : IS_ENABLED(CONFIG_SPL) ?
+ *	PHASE_SPL : PHASE_BOARD_F)
+ *
+ * @out: File to write to
+ * @phase: Phase to start from, or num_phases for U-Boot proper
+ * @dir: -1 for the phase before, 1 for the phase after
+ */
+static void write_phase_chain(FILE *out, int phase, int dir)
+{
+	int i;
+
+	fprintf(out, " \\\n\t(");
+	for (i = phase + dir; i >= 0 && i < num_phases; i += dir)
+		fprintf(out, "IS_ENABLED(CONFIG_%s) ? PHASE_%s : \\\n\t ",
+			xpl_name[i], xpl_name[i]);
+	fprintf(out, "%s)\n", dir < 0 ? "PHASE_NONE" : "PHASE_BOARD_F");
+}
+
+/**
+ * u_boot_write_phases() - Write out the list of xPL phases for the build
+ *
+ * This writes include/config/xpl.conf for make and include/generated/
+ * xpl_phases.h for C, both from scripts/xpl_phases
+ *
+ * Return: 0 if OK, 1 on error
+ */
+static int u_boot_write_phases(void)
+{
+	const char *heading = "Automatically generated from scripts/xpl_phases: do not edit";
+	FILE *out;
+	int i;
+
+	out = fopen(".tmpconfig_xpl", "w");
+	if (!out)
+		return 1;
+	fprintf(out, "# %s\n\nXPL_PHASES :=", heading);
+	for (i = 0; i < num_phases; i++)
+		fprintf(out, " %s", phase_lower(i));
+	fprintf(out, "\n");
+	for (i = 0; i < num_phases; i++) {
+		fprintf(out, "\nXPL_UPPER_%s := %s\n", phase_lower(i),
+			xpl_name[i]);
+		fprintf(out, "XPL_TAG_%s := %s\n", phase_lower(i),
+			phase_tag[i]);
+	}
+	fclose(out);
+
+	/*
+	 * Always replace this one: make remakes include/config/%.conf files
+	 * which are older than .config
+	 */
+	if (make_parent_dir("include/config/xpl.conf") ||
+	    rename(".tmpconfig_xpl", "include/config/xpl.conf"))
+		return 1;
+
+	out = fopen(".tmpconfig_xpl.h", "w");
+	if (!out)
+		return 1;
+	fprintf(out, "/* %s */\n\n", heading);
+	fprintf(out, "#ifndef __XPL_PHASES_H\n#define __XPL_PHASES_H\n\n");
+	fprintf(out, "/*\n * Calls x(upper, lower) for each phase, in the order they run,\n");
+	fprintf(out, " * with a comma between each one\n */\n");
+	fprintf(out, "#define XPL_FOR_EACH_PHASE(x)");
+	for (i = 0; i < num_phases; i++)
+		fprintf(out, " \\\n\tx(%s, %s)%s", xpl_name[i], phase_lower(i),
+			i < num_phases - 1 ? "," : "");
+	fprintf(out, "\n\n");
+
+	fprintf(out, "/*\n * Gives a case label for each phase, with x(upper, lower) followed\n");
+	fprintf(out, " * by a break as its statements and a semicolon between each one\n */\n");
+	fprintf(out, "#define XPL_PHASE_CASES(x)");
+	for (i = 0; i < num_phases; i++)
+		fprintf(out, " \\\n\tcase PHASE_%s: x(%s, %s); break%s",
+			xpl_name[i], xpl_name[i], phase_lower(i),
+			i < num_phases - 1 ? ";" : "");
+	fprintf(out, "\n\n");
+
+	fprintf(out, "/*\n * The phase being built, the header holding its configuration\n");
+	fprintf(out, " * and the enabled phases which run before and after it\n */\n");
+	for (i = 0; i < num_phases; i++) {
+		fprintf(out, "#%s defined(CONFIG_%s_BUILD)\n", i ? "elif" : "if",
+			xpl_name[i]);
+		fprintf(out, "#define XPL_PHASE\t\tPHASE_%s\n", xpl_name[i]);
+		fprintf(out, "#define XPL_PHASE_NAME\t\t\"%s\"\n", xpl_name[i]);
+		fprintf(out, "#define XPL_AUTOCONF\t\t<generated/autoconf_%s.h>\n",
+			phase_lower(i));
+		fprintf(out, "#define XPL_PREV_PHASE");
+		write_phase_chain(out, i, -1);
+		fprintf(out, "#define XPL_NEXT_PHASE");
+		write_phase_chain(out, i, 1);
+	}
+	fprintf(out, "#else\n#define XPL_PREV_PHASE");
+	write_phase_chain(out, num_phases, -1);
+	fprintf(out, "#endif\n\n#endif\n");
+	fclose(out);
+
+	return u_boot_rename_if_changed(".tmpconfig_xpl.h",
+					"include/generated/xpl_phases.h");
+}
+
+int conf_write_autoconf(bool support_xpl)
 {
 	struct symbol *sym;
 	const char *name;
 	FILE *out, *tristate, *out_h;
-	FILE *out_spl[NUM_SPLS];
-	FILE *out_h_spl[NUM_SPLS];
-	int i, spl;
+	FILE *out_xpl[MAX_XPLS];
+	FILE *out_h_xpl[MAX_XPLS];
+	int i, xpl;
 
 	sym_clear_all_valid();
 
-	/* U-Boot: Mark symbols according to their SPL/non-SPL nature */
-	if (support_spl) {
-		num_spls = NUM_SPLS;
+	/* U-Boot: Mark symbols according to their xPL/non-xPL nature */
+	if (support_xpl) {
+		if (u_boot_read_phases("xpl_phases"))
+			return 1;
+		if (u_boot_write_phases())
+			return 1;
 		if (conf_mark_symbols())
 			return 1;
 	}
@@ -1374,17 +1666,17 @@ int conf_write_autoconf(bool support_spl)
 		return 1;
 	}
 
-	for (spl = 0; spl < num_spls; spl++) {
+	for (xpl = 0; xpl < num_xpls; xpl++) {
 		char fname[80];
 
 		snprintf(fname, sizeof(fname), ".tmpconfig_%s",
-			 spl_name[spl]);
+			 xpl_name[xpl]);
 
-		out_spl[spl] = fopen(fname, "w");
-		if (!out_spl[spl]) {
-			while (spl--) {
-				fclose(out_spl[spl]);
-				fclose(out_h_spl[spl]);
+		out_xpl[xpl] = fopen(fname, "w");
+		if (!out_xpl[xpl]) {
+			while (xpl--) {
+				fclose(out_xpl[xpl]);
+				fclose(out_h_xpl[xpl]);
 			}
 			fclose(out_h);
 			fclose(out);
@@ -1393,14 +1685,14 @@ int conf_write_autoconf(bool support_spl)
 		}
 
 		snprintf(fname, sizeof(fname), ".tmpconfig_%s.h",
-			 spl_name[spl]);
+			 xpl_name[xpl]);
 
-		out_h_spl[spl] = fopen(fname, "w");
-		if (!out_h_spl[spl]) {
-			fclose(out_spl[spl]);
-			while (spl--) {
-				fclose(out_spl[spl]);
-				fclose(out_h_spl[spl]);
+		out_h_xpl[xpl] = fopen(fname, "w");
+		if (!out_h_xpl[xpl]) {
+			fclose(out_xpl[xpl]);
+			while (xpl--) {
+				fclose(out_xpl[xpl]);
+				fclose(out_h_xpl[xpl]);
 			}
 			fclose(out_h);
 			fclose(out);
@@ -1415,9 +1707,9 @@ int conf_write_autoconf(bool support_spl)
 
 	conf_write_heading(out_h, &header_printer_cb, NULL);
 
-	for (spl = 0; spl < num_spls; spl++)
-		conf_write_heading(out_h_spl[spl], &spl_header_printer_cb,
-				   (void *)(long)spl);
+	for (xpl = 0; xpl < num_xpls; xpl++)
+		conf_write_heading(out_h_xpl[xpl], &xpl_header_printer_cb,
+				   (void *)(long)xpl);
 
 	for_all_symbols(i, sym) {
 		sym_calc_value(sym);
@@ -1431,36 +1723,36 @@ int conf_write_autoconf(bool support_spl)
 
 		conf_write_symbol(out_h, sym, &header_printer_cb, NULL);
 
-		for (spl = 0; spl < num_spls; spl++) {
-			/* write make variables to auto_<spl>.conf */
-			conf_write_symbol(out_spl[spl], sym,
-					  &spl_kconfig_printer_cb,
-					  (void *)(long)spl);
+		for (xpl = 0; xpl < num_xpls; xpl++) {
+			/* write make variables to auto_<xpl>.conf */
+			conf_write_symbol(out_xpl[xpl], sym,
+					  &xpl_kconfig_printer_cb,
+					  (void *)(long)xpl);
 
-			/* write #defines to autoconf_<spl>.h */
-			conf_write_symbol(out_h_spl[spl], sym,
-					  &spl_header_printer_cb,
-					  (void *)(long)spl);
+			/* write #defines to autoconf_<xpl>.h */
+			conf_write_symbol(out_h_xpl[xpl], sym,
+					  &xpl_header_printer_cb,
+					  (void *)(long)xpl);
 		}
 	}
 	fclose(out);
 	fclose(tristate);
 	fclose(out_h);
-	for (spl = 0; spl < num_spls; spl++) {
-		fclose(out_spl[spl]);
-		fclose(out_h_spl[spl]);
+	for (xpl = 0; xpl < num_xpls; xpl++) {
+		fclose(out_xpl[xpl]);
+		fclose(out_h_xpl[xpl]);
 	}
 
 	/* U-Boot: touch the dependencies of options which changed in each phase */
-	for (spl = 0; spl < num_spls; spl++) {
+	for (xpl = 0; xpl < num_xpls; xpl++) {
 		char tmpname[80], fname[80], dir[80];
 		char *s;
 
 		snprintf(tmpname, sizeof(tmpname), ".tmpconfig_%s",
-			 spl_name[spl]);
+			 xpl_name[xpl]);
 		snprintf(fname, sizeof(fname), "include/config/auto_%s.conf",
-			 spl_name[spl]);
-		snprintf(dir, sizeof(dir), "phase-%s", spl_name[spl]);
+			 xpl_name[xpl]);
+		snprintf(dir, sizeof(dir), "phase-%s", xpl_name[xpl]);
 		for (s = fname; *s; s++)
 			*s = tolower(*s);
 		for (s = dir; *s; s++)
@@ -1477,23 +1769,23 @@ int conf_write_autoconf(bool support_spl)
 	if (rename(".tmpconfig.h", name))
 		return 1;
 
-	for (spl = 0; spl < num_spls; spl++) {
+	for (xpl = 0; xpl < num_xpls; xpl++) {
 		char tmpname[80], fname[80];
 		char *s;
 
 		snprintf(tmpname, sizeof(tmpname), ".tmpconfig_%s.h",
-			 spl_name[spl]);
+			 xpl_name[xpl]);
 		snprintf(fname, sizeof(fname),
-			 "include/generated/autoconf_%s.h", spl_name[spl]);
+			 "include/generated/autoconf_%s.h", xpl_name[xpl]);
 		for (s = fname; *s; s++)
 			*s = tolower(*s);
 		if (rename(tmpname, fname))
 			return 1;
 
 		snprintf(tmpname, sizeof(tmpname), ".tmpconfig_%s",
-			 spl_name[spl]);
+			 xpl_name[xpl]);
 		snprintf(fname, sizeof(fname),
-			 "include/config/auto_%s.conf", spl_name[spl]);
+			 "include/config/auto_%s.conf", xpl_name[xpl]);
 		for (s = fname; *s; s++)
 			*s = tolower(*s);
 		if (rename(tmpname, fname))
@@ -1744,7 +2036,7 @@ bool conf_set_all_new_symbols(enum conf_def_mode mode)
 	return has_changed;
 }
 
-static bool is_spl(const char *name, int *lenp)
+static bool is_xpl(const char *name, int *lenp)
 {
 	const char *uscore;
 	int len;
@@ -1755,9 +2047,9 @@ static bool is_spl(const char *name, int *lenp)
 		return false;
 
 	len = uscore - name;
-	for (i = 0; i < num_spls; i++) {
-		if (len == strlen(spl_name[i]) &&
-		    !strncmp(name, spl_name[i], len)) {
+	for (i = 0; i < num_xpls; i++) {
+		if (len == strlen(xpl_name[i]) &&
+		    !strncmp(name, xpl_name[i], len)) {
 			*lenp = len;
 			return true;
 		}
@@ -1766,7 +2058,7 @@ static bool is_spl(const char *name, int *lenp)
 	return false;
 }
 
-void conf_mark_spl_symbols(void)
+void conf_mark_xpl_symbols(void)
 {
 	struct symbol *sym;
 	int i;
@@ -1774,15 +2066,15 @@ void conf_mark_spl_symbols(void)
 	for_all_symbols(i, sym) {
 		if (sym->name) {
 			int len;
-			bool spl = is_spl(sym->name, &len);
+			bool xpl = is_xpl(sym->name, &len);
 
-			if (spl) {
-				struct symbol *non_spl;
+			if (xpl) {
+				struct symbol *non_xpl;
 
-				sym->flags |= SYMBOL_SPL;
-				non_spl = sym_find(sym->name + len + 1);
-				if (non_spl)
-					non_spl->flags |= SYMBOL_HAS_SPL;
+				sym->flags |= SYMBOL_XPL;
+				non_xpl = sym_find(sym->name + len + 1);
+				if (non_xpl)
+					non_xpl->flags |= SYMBOL_HAS_XPL;
 			}
 		}
 	}
@@ -1790,23 +2082,13 @@ void conf_mark_spl_symbols(void)
 
 static int u_boot_read_conf_nospl(const char *fname)
 {
-	static char fullname[PATH_MAX + 1];
-	const char *env;
 	char buf[256];
 	FILE *f;
 	char *s;
 
-	env = getenv(SRCTREE);
-	if (!env) {
-		fprintf(stderr, "No %s environment variable\n", SRCTREE);
+	f = u_boot_open_script(fname);
+	if (!f)
 		return 1;
-	}
-	snprintf(fullname, sizeof(fullname), "%s/scripts/%s", env, fname);
-	f = fopen(fullname, "r");
-	if (!f) {
-		fprintf(stderr, "Cannot open '%s'\n", fullname);
-		return 1;
-	}
 	while (s = fgets(buf, sizeof(buf), f), s) {
 		struct symbol *sym;
 		int len;
@@ -1827,7 +2109,7 @@ static int u_boot_read_conf_nospl(const char *fname)
 			 */
 			continue;
 		}
-		sym->flags |= SYMBOL_NO_SPL;
+		sym->flags |= SYMBOL_NO_XPL;
 	}
 	fclose(f);
 
@@ -1836,7 +2118,7 @@ static int u_boot_read_conf_nospl(const char *fname)
 
 int conf_mark_symbols(void)
 {
-	conf_mark_spl_symbols();
+	conf_mark_xpl_symbols();
 	if (u_boot_read_conf_nospl("conf_nospl"))
 		return 1;
 

@@ -118,6 +118,134 @@ Further usages of U-Boot SPL comprise:
 * launching Linux kernel
 * launching RISC-V OpenSBI which invokes main U-Boot
 
+Describing the phases
+---------------------
+
+The xPL phases are listed in ``scripts/xpl_phases``, in the order in which
+they run. Each line gives the name of a phase, such as ``tpl``, and the
+devicetree tag which marks the nodes it needs, such as ``bootph-pre-sram``. The
+upper-case name is the prefix of the phase's Kconfig options, so TPL has
+options such as ``CONFIG_TPL_SERIAL``, and ``CONFIG_TPL`` enables the phase.
+When it finishes, a phase moves on to the next enabled phase in the list, with
+U-Boot proper coming after the last one.
+
+Kconfig reads the list and writes two files from it during the build. Both
+depend only on the list, so they are the same for every board.
+
+``include/config/xpl.conf``
+    The list of phases for make, with the upper-case name and devicetree tag
+    of each. The top-level Makefile creates the rules to build each enabled
+    phase from this, and ``scripts/Makefile.xpl`` builds a phase in the
+    directory named after it, e.g. ``tpl/``. For the list above it is:
+
+    .. code-block:: make
+
+        # Automatically generated from scripts/xpl_phases: do not edit
+
+        XPL_PHASES := tpl vpl spl
+
+        XPL_UPPER_tpl := TPL
+        XPL_TAG_tpl := bootph-pre-sram
+
+        XPL_UPPER_vpl := VPL
+        XPL_TAG_vpl := bootph-verify
+
+        XPL_UPPER_spl := SPL
+        XPL_TAG_spl := bootph-pre-ram
+
+``include/generated/xpl_phases.h``
+    The list of phases for C, as the ``XPL_FOR_EACH_PHASE()`` and
+    ``XPL_PHASE_CASES()`` macros, along with the phase being built, the header
+    holding its configuration and the enabled phases before and after it. This
+    provides the ``PHASE_TPL`` etc. values of ``enum xpl_phase_t`` and the
+    information behind ``xpl_phase()``, ``xpl_prev_phase()``,
+    ``xpl_next_phase()``, ``xpl_name()`` and ``xpl_prefix()``. For the list
+    above it starts:
+
+    .. code-block:: c
+
+        #define XPL_FOR_EACH_PHASE(x) \
+                x(TPL, tpl), \
+                x(VPL, vpl), \
+                x(SPL, spl)
+
+        #define XPL_PHASE_CASES(x) \
+                case PHASE_TPL: x(TPL, tpl); break; \
+                case PHASE_VPL: x(VPL, vpl); break; \
+                case PHASE_SPL: x(SPL, spl); break
+
+        #if defined(CONFIG_TPL_BUILD)
+        #define XPL_PHASE               PHASE_TPL
+        #define XPL_PHASE_NAME          "TPL"
+        #define XPL_AUTOCONF            <generated/autoconf_tpl.h>
+        #define XPL_PREV_PHASE \
+                (PHASE_NONE)
+        #define XPL_NEXT_PHASE \
+                (IS_ENABLED(CONFIG_VPL) ? PHASE_VPL : \
+                 IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
+                 PHASE_BOARD_F)
+
+    followed by the same for VPL and SPL. In U-Boot proper, only the previous
+    phase is defined:
+
+    .. code-block:: c
+
+        #else
+        #define XPL_PREV_PHASE \
+                (IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
+                 IS_ENABLED(CONFIG_VPL) ? PHASE_VPL : \
+                 IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
+                 PHASE_NONE)
+        #endif
+
+Using the phases
+----------------
+
+Code which needs to do something for each phase can use
+``XPL_FOR_EACH_PHASE()`` with a macro which takes the upper- and lower-case
+name of a phase. The macro puts a comma between the phases, so follow the use
+with a comma. For example, to list the names of the phases::
+
+    #define NAME_ENTRY(upper, lower)	#upper
+
+    static const char *const names[] = {
+        XPL_FOR_EACH_PHASE(NAME_ENTRY),
+    };
+
+For a switch statement, ``XPL_PHASE_CASES()`` gives a case label for each
+phase, with the macro's expansion followed by a ``break`` as its statements.
+The cases are separated by semicolons, so follow the use with a semicolon. For
+example::
+
+    #define NAME_SET(upper, lower)	name = #upper
+
+    switch (phase) {
+    XPL_PHASE_CASES(NAME_SET);
+    default:
+        name = "other";
+        break;
+    }
+    #undef NAME_SET
+
+In a Makefile, ``$(XPL_PHASES)`` gives the lower-case names of the phases, in
+order. For each phase, ``$(XPL_UPPER_<phase>)`` gives its upper-case name and
+``$(XPL_TAG_<phase>)`` its devicetree tag, e.g. ``$(XPL_TAG_tpl)`` is
+``bootph-pre-sram``. While building a phase, ``$(XPL_NAME)`` is its
+lower-case name.
+
+Python tools can call ``read_phases()`` in ``u_boot_pylib.xpl`` to get the
+phases of a source tree. A tree without ``scripts/xpl_phases``, such as
+mainline U-Boot, gives the original three phases.
+
+To add a phase:
+
+#. Add a line to ``scripts/xpl_phases``, at the point where the phase runs
+#. Add a Kconfig option named after the phase which enables it, such as
+   ``CONFIG_TPL``, along with the phase's versions of the options it uses,
+   such as its text base and linker script
+#. Check ``xpl_phase()`` in code which needs to behave differently in the new
+   phase (see below)
+
 Checking the boot phase
 -----------------------
 

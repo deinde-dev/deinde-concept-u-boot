@@ -4,18 +4,14 @@
 # ==========================================================================
 
 # Modified for U-Boot
-prefix := vpl
+# An xPL phase builds in a directory named after it, e.g. tpl/common
+-include include/config/xpl.conf
+prefix := $(firstword $(foreach p,$(XPL_PHASES),$(if $(filter $(p)/%,$(obj)),$(p))))
+ifneq ($(prefix),)
 src := $(patsubst $(prefix)/%,%,$(obj))
-ifeq ($(obj),$(src))
-prefix := tpl
-src := $(patsubst $(prefix)/%,%,$(obj))
-ifeq ($(obj),$(src))
-prefix := spl
-src := $(patsubst $(prefix)/%,%,$(obj))
-ifeq ($(obj),$(src))
+else
 prefix := .
-endif
-endif
+src := $(obj)
 endif
 
 PHONY := __build
@@ -49,15 +45,7 @@ subdir-ccflags-y :=
 # Read appropriate auto.conf if it exists, otherwise ignore
 # Modified for U-Boot
 
-ifeq ($(SPL_NAME),tpl)
--include include/config/auto_tpl.conf
-else ifeq ($(SPL_NAME),vpl)
--include include/config/auto_vpl.conf
-else ifeq ($(SPL_NAME),spl)
--include include/config/auto_spl.conf
-else
--include include/config/auto.conf
-endif
+-include include/config/auto$(if $(XPL_NAME),_$(XPL_NAME)).conf
 
 -include $(prefix)/include/autoconf.mk
 

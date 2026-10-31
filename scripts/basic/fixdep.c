@@ -319,14 +319,26 @@ static void *read_file(const char *filename)
 	return buf;
 }
 
+/*
+ * U-Boot: Check for a config header, i.e. include/generated/autoconf.h or the
+ * one for a phase, such as include/generated/autoconf_spl.h
+ */
+static int is_autoconf_header(const char *s, int len)
+{
+	const char *leaf = s + len;
+
+	while (leaf > s && leaf[-1] != '/')
+		leaf--;
+
+	return !strncmp(leaf, "autoconf", 8) &&
+	       str_ends_with(leaf, s + len - leaf, ".h") &&
+	       str_ends_with(s, leaf - s, "include/generated/");
+}
+
 /* Ignore certain dependencies */
 static int is_ignored_file(const char *s, int len)
 {
-	return str_ends_with(s, len, "include/generated/autoconf.h") ||
-	       str_ends_with(s, len, "include/generated/autoconf_spl.h") ||
-	       str_ends_with(s, len, "include/generated/autoconf_tpl.h") ||
-	       str_ends_with(s, len, "include/generated/autoconf_vpl.h") ||
-	       str_ends_with(s, len, "include/generated/autoconf_tools.h") ||
+	return is_autoconf_header(s, len) ||
 	       str_ends_with(s, len, "include/generated/autoksyms.h");
 }
 
@@ -429,6 +441,13 @@ static void parse_dep_file(char *m, const char *target)
 		return 1; \
 	}
 
+#define CHECK_INT(expect, got)	\
+	if (expect != got) { \
+		fprintf(stderr, "Test failed at line %d: expect %d, got %d\n", \
+			__LINE__, expect, got); \
+		return 1; \
+	}
+
 static int run_tests(void)
 {
 	const char *out, *end;
@@ -472,12 +491,19 @@ static int run_tests(void)
 	CHECKP(buf + 18, out);
 	CHECKP(buf + 22, end);
 
+	CHECK_INT(1, is_ignored_file("include/generated/autoconf.h", 28));
+	CHECK_INT(1, is_ignored_file("/b/include/generated/autoconf_tpl.h", 35));
+	CHECK_INT(0, is_ignored_file("include/generated/autoconf.mk", 29));
+	CHECK_INT(0, is_ignored_file("include/generated/xpl_phases.h", 30));
+	CHECK_INT(0, is_ignored_file("include/autoconf.h", 18));
+
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	const char *depfile, *target, *cmdline;
+	const char *depfile, *target, *cmdline, *xpl_name;
+	static char xpl_dir[80];
 	void *buf;
 
 	if (argc == 2 && !strcmp("-t", argv[1])) {
@@ -495,15 +521,18 @@ int main(int argc, char *argv[])
 	target = argv[2];
 	cmdline = argv[3];
 
-	/* U-Boot: pick the dependency files for the phase, as kconfig.h does */
-	if (strstr(cmdline, "-DUSE_HOSTCC"))
+	/*
+	 * U-Boot: pick the dependency files for the phase, as kconfig.h does.
+	 * scripts/Makefile.xpl exports the name of the xPL phase it builds.
+	 */
+	xpl_name = getenv("XPL_NAME");
+	if (strstr(cmdline, "-DUSE_HOSTCC")) {
 		config_dir = "include/config/phase-tools";
-	else if (!strncmp(target, "spl/", 4))
-		config_dir = "include/config/phase-spl";
-	else if (!strncmp(target, "tpl/", 4))
-		config_dir = "include/config/phase-tpl";
-	else if (!strncmp(target, "vpl/", 4))
-		config_dir = "include/config/phase-vpl";
+	} else if (xpl_name && *xpl_name) {
+		snprintf(xpl_dir, sizeof(xpl_dir), "include/config/phase-%s",
+			 xpl_name);
+		config_dir = xpl_dir;
+	}
 
 	xprintf("cmd_%s := %s\n\n", target, cmdline);
 

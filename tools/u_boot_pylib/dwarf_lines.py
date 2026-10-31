@@ -23,6 +23,8 @@ import subprocess
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
+from u_boot_pylib import xpl
+
 
 @functools.lru_cache(maxsize=1)
 def _get_readelf():
@@ -37,10 +39,6 @@ def _get_readelf():
             (in which case the subprocess call will fail as before)
     """
     return shutil.which('readelf') or 'readelf'
-
-
-# Build directories holding the objects for each xPL phase
-XPL_DIRS = ('spl', 'tpl', 'vpl')
 
 
 def _resolve_header(header_path, obj_dir, srcdir, cache):
@@ -74,7 +72,7 @@ def _resolve_header(header_path, obj_dir, srcdir, cache):
             # xPL objects are built under a directory named after the phase,
             # e.g. spl/common/spl/spl.o, but their source is common/spl/spl.c
             parts = obj_dir.split(os.sep, 1)
-            if len(parts) == 2 and parts[0] in XPL_DIRS:
+            if len(parts) == 2 and parts[0] in xpl.read_phases(srcdir):
                 abs_path = os.path.realpath(os.path.join(srcdir, parts[1],
                                                          header_path))
         if not os.path.exists(abs_path):

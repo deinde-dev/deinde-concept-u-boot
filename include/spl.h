@@ -16,6 +16,7 @@
 #include <handoff.h>
 #include <image.h>
 #include <mmc.h>
+#include <generated/xpl_phases.h>
 
 struct blk_desc;
 struct legacy_img_hdr;
@@ -63,16 +64,20 @@ static inline bool xpl_is_first_phase(void)
 	return false;
 }
 
+/* Gives PHASE_TPL for TPL, etc. */
+#define XPL_PHASE_ENUM(upper, lower)	PHASE_##upper
+
 enum xpl_phase_t {
 	PHASE_NONE,	/* Invalid phase, signifying before U-Boot */
-	PHASE_TPL,	/* Running in TPL */
-	PHASE_VPL,	/* Running in VPL */
-	PHASE_SPL,	/* Running in SPL */
+	/* Running in each xPL phase, in order, e.g. PHASE_TPL for TPL */
+	XPL_FOR_EACH_PHASE(XPL_PHASE_ENUM),
 	PHASE_BOARD_F,	/* Running in U-Boot before relocation */
 	PHASE_BOARD_R,	/* Running in U-Boot after relocation */
 
 	PHASE_COUNT,
 };
+
+#undef XPL_PHASE_ENUM
 
 /**
  * xpl_phase() - Find out the phase of U-Boot
@@ -119,12 +124,8 @@ enum xpl_phase_t {
  */
 static inline enum xpl_phase_t xpl_phase(void)
 {
-#ifdef CONFIG_TPL_BUILD
-	return PHASE_TPL;
-#elif defined(CONFIG_VPL_BUILD)
-	return PHASE_VPL;
-#elif defined(CONFIG_XPL_BUILD)
-	return PHASE_SPL;
+#ifdef CONFIG_XPL_BUILD
+	return XPL_PHASE;
 #else
 	DECLARE_GLOBAL_DATA_PTR;
 
@@ -163,18 +164,7 @@ static inline bool is_xpl(void)
  */
 static inline enum xpl_phase_t xpl_prev_phase(void)
 {
-#ifdef CONFIG_TPL_BUILD
-	return PHASE_NONE;
-#elif defined(CONFIG_VPL_BUILD)
-	return PHASE_TPL;	/* VPL requires TPL */
-#elif defined(CONFIG_XPL_BUILD)
-	return IS_ENABLED(CONFIG_VPL) ? PHASE_VPL :
-		IS_ENABLED(CONFIG_TPL) ? PHASE_TPL :
-		PHASE_NONE;
-#else
-	return IS_ENABLED(CONFIG_SPL) ? PHASE_SPL :
-		PHASE_NONE;
-#endif
+	return XPL_PREV_PHASE;
 }
 
 /**
@@ -185,10 +175,8 @@ static inline enum xpl_phase_t xpl_prev_phase(void)
  */
 static inline enum xpl_phase_t xpl_next_phase(void)
 {
-#ifdef CONFIG_TPL_BUILD
-	return IS_ENABLED(CONFIG_VPL) ? PHASE_VPL : PHASE_SPL;
-#elif defined(CONFIG_VPL_BUILD)
-	return PHASE_SPL;
+#ifdef CONFIG_XPL_BUILD
+	return XPL_NEXT_PHASE;
 #else
 	return PHASE_BOARD_F;
 #endif
@@ -201,19 +189,22 @@ static inline enum xpl_phase_t xpl_next_phase(void)
  */
 static inline const char *xpl_name(enum xpl_phase_t phase)
 {
+	const char *name;
+
+#define XPL_NAME_SET(upper, lower)	name = #upper
 	switch (phase) {
-	case PHASE_TPL:
-		return "TPL";
-	case PHASE_VPL:
-		return "VPL";
-	case PHASE_SPL:
-		return "SPL";
+	XPL_PHASE_CASES(XPL_NAME_SET);
 	case PHASE_BOARD_F:
 	case PHASE_BOARD_R:
-		return "U-Boot";
+		name = "U-Boot";
+		break;
 	default:
-		return "phase?";
+		name = "phase?";
+		break;
 	}
+#undef XPL_NAME_SET
+
+	return name;
 }
 
 /**
@@ -224,30 +215,27 @@ static inline const char *xpl_name(enum xpl_phase_t phase)
  */
 static inline const char *xpl_prefix(enum xpl_phase_t phase)
 {
+	const char *prefix;
+
+#define XPL_PREFIX_SET(upper, lower)	prefix = #lower
 	switch (phase) {
-	case PHASE_TPL:
-		return "tpl";
-	case PHASE_VPL:
-		return "vpl";
-	case PHASE_SPL:
-		return "spl";
+	XPL_PHASE_CASES(XPL_PREFIX_SET);
 	case PHASE_BOARD_F:
 	case PHASE_BOARD_R:
-		return "";
+		prefix = "";
+		break;
 	default:
-		return "phase?";
+		prefix = "phase?";
+		break;
 	}
+#undef XPL_PREFIX_SET
+
+	return prefix;
 }
 
 /* A string name for SPL or TPL */
 #ifdef CONFIG_XPL_BUILD
-# ifdef CONFIG_TPL_BUILD
-#  define PHASE_NAME	"TPL"
-# elif defined(CONFIG_VPL_BUILD)
-#  define PHASE_NAME	"VPL"
-# elif defined(CONFIG_SPL_BUILD)
-#  define PHASE_NAME	"SPL"
-# endif
+# define PHASE_NAME	XPL_PHASE_NAME
 # define PHASE_PROMPT	PHASE_NAME ": "
 #else
 # define PHASE_NAME	""

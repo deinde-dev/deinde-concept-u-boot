@@ -35,6 +35,11 @@ except ImportError:
 from u_boot_pylib import terminal
 from u_boot_pylib.terminal import tprint
 from u_boot_pylib import tools
+try:
+    from u_boot_pylib import xpl
+except ImportError:
+    # An older u_boot_pylib, such as the one in mainline U-Boot
+    xpl = None
 
 SLEEP_TIME=0.03
 
@@ -74,8 +79,6 @@ IGNORE_SYMS = ['DEBUG_SECTION_MISMATCH', 'FTRACE_MCOUNT_RECORD', 'GCOV_KERNEL',
                'SPL_', 'TPL_', 'SPL_FOO', 'TPL_FOO', 'TOOLS_FOO',
                'ACME', 'SPL_ACME', 'TPL_ACME', 'TRACE_BRANCH_PROFILING',
                'VAL', '_UNDEFINED', 'SPL_BUILD', 'XPL_BUILD', ]
-
-SPL_PREFIXES = ['SPL_', 'TPL_', 'VPL_', 'TOOLS_']
 
 ### helper functions ###
 def check_top_directory():
@@ -1600,8 +1603,15 @@ def do_scan_source(path, do_update, do_update_source, show_conflicts,
         do_commit (bool): Create commits to remove use of SPL_TPL_ and
            CONFIG_IS_ENABLED macros when there is no SPL symbol.
     """
+    # Prefixes of the Kconfig options for each xPL phase and for the host
+    # tools, e.g. 'SPL_'. A tree without scripts/xpl_phases, or without the
+    # xpl module, such as mainline U-Boot, has the original phases
+    phases = xpl.read_phases(path) if xpl else ('spl', 'tpl', 'vpl')
+    prefixes = [f'{phase.upper()}_' for phase in phases]
+    prefixes.append('TOOLS_')
+
     def is_not_proper(name):
-        for prefix in SPL_PREFIXES:
+        for prefix in prefixes:
             if name.startswith(prefix):
                 return name[len(prefix):]
         return False
@@ -1639,7 +1649,7 @@ def do_scan_source(path, do_update, do_update_source, show_conflicts,
                 # If it is an SPL symbol, try prepending all xPL_ prefixes to
                 # find at least one SPL symbol
                 if use.is_spl:
-                    for prefix in SPL_PREFIXES:
+                    for prefix in prefixes:
                         try_name = prefix + name
                         sym = kconf.syms.get(try_name)
                         if sym:
@@ -1663,7 +1673,7 @@ def do_scan_source(path, do_update, do_update_source, show_conflicts,
                         name = proper_name
                     sym = kconf.syms.get(name)
                 if not sym:
-                    for prefix in SPL_PREFIXES:
+                    for prefix in prefixes:
                         try_name = prefix + name
                         sym = kconf.syms.get(try_name)
                         if sym:

@@ -4,12 +4,9 @@
 
 #ifdef USE_HOSTCC
 #include <generated/autoconf_tools.h>
-#elif defined(CONFIG_TPL_BUILD)
-#include <generated/autoconf_tpl.h>
-#elif defined(CONFIG_VPL_BUILD)
-#include <generated/autoconf_vpl.h>
-#elif defined(CONFIG_SPL_BUILD)
-#include <generated/autoconf_spl.h>
+#elif defined(CONFIG_XPL_BUILD)
+#include <generated/xpl_phases.h>
+#include XPL_AUTOCONF
 #else
 #include <generated/autoconf.h>
 #endif
