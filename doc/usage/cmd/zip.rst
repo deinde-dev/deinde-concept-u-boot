@@ -18,8 +18,8 @@ Description
 
 The zip command compresses a region of memory with zlib's deflate method,
 writing a gzip stream somewhere else in memory. The :doc:`unzip<unzip>`
-command expands such a stream again, and *gzwrite* writes one to a block
-device as it decompresses it.
+command expands such a stream again, and :doc:`gzwrite<gzwrite>` writes one
+to a block device as it decompresses it.
 
 Compression uses the Z_BEST_SPEED level, the quickest setting, since the point
 is to move data about on a board rather than to produce the smallest file.
@@ -90,7 +90,7 @@ See also
 --------
 
 * :doc:`unzip<unzip>` for expanding a gzip stream held in memory
-* *gzwrite* for writing one to a block device
+* :doc:`gzwrite<gzwrite>` for writing one to a block device
 * :doc:`lzmadec<lzmadec>` and :doc:`unlz4<unlz4>` for decompressing other
   formats, neither of which U-Boot can compress
 * :doc:`load<load>` for reading a file into memory first

@@ -23,8 +23,9 @@ into memory with :doc:`load<load>` and expanded there.
 
 U-Boot decompresses images by itself when booting them, so this command is
 mostly useful for data which is not part of a boot image, or for checking that
-a stream is intact before it is used. *gzwrite* is the one to use where the
-result is larger than memory, since it writes to a block device as it goes.
+a stream is intact before it is used. :doc:`gzwrite<gzwrite>` is the one to
+use where the result is larger than memory, since it writes to a block device
+as it goes.
 
 srcaddr
     address of the gzip stream, hexadecimal
@@ -85,7 +86,7 @@ Configuration
 
 The command is only available if CONFIG_CMD_UNZIP=y. It is enabled by default
 where CONFIG_CMD_BOOTI=y, and it selects CONFIG_GZIP=y for the decompression
-code itself. The *gzwrite* command comes with it.
+code itself. The :doc:`gzwrite<gzwrite>` command comes with it.
 
 Return value
 ------------
@@ -98,7 +99,7 @@ See also
 --------
 
 * :doc:`zip<zip>` for producing a gzip stream in memory
-* *gzwrite* for decompressing one onto a block device
+* :doc:`gzwrite<gzwrite>` for decompressing one onto a block device
 * :doc:`lzmadec<lzmadec>` for the same job on an LZMA stream
 * :doc:`unlz4<unlz4>` for the same job on an lz4 frame
 * :doc:`load<load>` for reading a compressed file into memory first
