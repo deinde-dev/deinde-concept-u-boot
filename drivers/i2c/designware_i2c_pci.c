@@ -53,7 +53,7 @@ static int designware_i2c_pci_of_to_plat(struct udevice *dev)
 				      PCI_COMMAND_MASTER);
 	}
 
-	if (xpl_phase() < PHASE_BOARD_F) {
+	if (is_xpl()) {
 		/* Handle early, fixed mapping into a different address space */
 		priv->regs = (struct i2c_regs *)dm_pci_read_bar32(dev, 0);
 	} else {
