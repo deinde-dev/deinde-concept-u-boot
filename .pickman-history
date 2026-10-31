@@ -100484,3 +100484,469 @@ The branch is ready to push; I haven't pushed or merged it.
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-6b4b1c8dc464
+
+Commits:
+- 6b4b1c8dc464 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+- c9858573fc93 k3-am62-pocketbeagle2: add initial board support
+- 6a9d070f8bce k3-am62-pocketbeagle2: add support for efi capsules
+- 2f838307d6bc Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+
+### Conversation log
+The sandbox build fails in the Rust examples. I'll look at the error and check whether ci/master fails the same way.
+
+The failure comes from a stale Cargo cache in /tmp/pickman that still points at the old worktree /tmp/wt-cherry-8e82c0a75f5d, not from this commit. I'll rebuild clean with `-m` (mrproper).
+
+The build passes. Next commit:
+
+The delta matches and split-check made no changes. I'll grep the new files for any phase macros it might have missed.
+
+None found, and the build passes. Next commit:
+
+The merge commit is empty, as expected for a merge whose changes are already in the three picks. I'll commit it with its original message.
+
+Sandbox doesn't compile any of the new board code, so I'll also try building the two new pocketbeagle2 boards.
+
+I cherry-picked all four commits onto the new branch cherry-6b4b1c8dc464, and the final sandbox build passes with no warnings or errors.
+
+**Problem at the start:** `git status` was not clean. An interactive rebase of cherry-20209a62bc85 was stopped partway, and I ran the checkout before noticing. No rebase process was running, so it looks abandoned. Since it stopped, pickman has made seven "pickman: Record review handling…" commits on top of the detached HEAD. My checkout moved HEAD away from them and they are not on any branch. They are still in the reflog, with the tip at **310093a48eec**; recover them with `git branch <name> 310093a48eec` if they are needed. I didn't touch `.git/rebase-merge`, so `git status` will still report a rebase in progress until you run `git rebase --abort` (or delete that directory) once you've decided what to do with those commits.
+
+**Commits** (`git log --oneline -n 6` shows all four):
+```
+41591a6b5b10 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+6224fa062791 k3-am62-pocketbeagle2: add support for efi capsules
+0a3bd8abf34f k3-am62-pocketbeagle2: add initial board support
+0b2224c0852b arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+**Deltas:** The three regular commits have the same files and line counts as the originals (2 files +18/−6, 19 files +4631, 4 files +81). The merge commit is empty, as expected, and was kept with `--allow-empty`. None are concerning.
+
+**Fix-ups:** None. There were no conflicts (`arch/arm/dts/Makefile` merged automatically). `split-check` changed nothing, and a grep of the new code found no `CONFIG_IS_ENABLED`, `CONFIG_VAL` or `$(PHASE_)`-style uses.
+
+**Builds:**
+- **Sandbox:** the first build failed in the Rust examples because /tmp/pickman held a stale Cargo cache pointing at an old worktree (/tmp/wt-cherry-8e82c0a75f5d). A clean rebuild (`-m`) fixed it, so it was not caused by these commits. Every build after that, including the final one, passed.
+- **The new boards:** sandbox doesn't compile them, so I also built `am62_pocketbeagle2_a53` and `am62_pocketbeagle2_r5`. Both compile. buildman reports a warning for each because binman can't find TI's external firmware (TIFS, DM, OP-TEE), and the a53 build stops at the final image-packing step for that reason.
+
+The branch is ready to push and has not been merged anywhere.
+
+---
+
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+
+
+### Conversation log
+Pushing sends whatever HEAD is, so I'm checking whether the local-only pickman record commit belongs in the rebase.
+
+Now the rebase, building sandbox after each commit (the first build is clean, to clear the stale Cargo cache):
+
+Both sides append a history entry under the same heading, so I'll keep both, each with its own section.
+
+Deltas match exactly and every commit builds. Now pushing from the worktree, since push-branch pushes HEAD:
+
+The push went through. Checking that the remote ref matches, then cleaning up the temporary worktree:
+
+I rebased MR !1500 onto ci/master and force-pushed it. The remote `cherry-6b4b1c8dc464` is now at f38b76068abf. The pipeline may not have started, though: without `--run-ci`, `pickman push-branch` pushes with `-o ci.skip`, so GitLab probably created no pipeline. If none appears, start one by hand or re-push with `--run-ci`.
+
+**Commits** (local branch `cherry-6b4b1c8dc464-v2`):
+```
+f38b76068abf pickman: Record cherry-pick of 4 commits from us/main
+0d59ba0e388d Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+0d804511babe k3-am62-pocketbeagle2: add support for efi capsules
+81318642e6c0 k3-am62-pocketbeagle2: add initial board support
+454f86fb118d arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Deltas:** the three regular commits produce exactly the same patches as before the rebase. The merge commit is still empty, as before, and `--keep-empty` kept it.
+- **Builds:** sandbox built after each of the five commits with no warnings or errors. Every build was clean (`-m`) to avoid the stale Cargo cache in /tmp/pickman that caused trouble last time.
+- **Conflict:** there was one, in `.pickman-history`, in the local pickman record commit. Both ci/master and this branch added an entry under the same "2026-10-30: us/main" heading; ci/master's is for cherry-8e82c0a75f5d. I kept both entries, each under its own heading, and the commit still adds only 49 lines. The four MR commits had no conflicts.
+- **Record commit:** that pickman record commit was only on the local branch before. Pushing it is normal for pickman, so it is now part of the MR.
+
+**Repo state:** the half-finished `cherry-20209a62bc85` rebase from 02:59 is still in `.git/rebase-merge` in the main tree. To leave it alone, I did this rebase in a temporary worktree and removed it afterwards. The main tree is still on the old `cherry-6b4b1c8dc464` at eba102377b56. That stale rebase still needs to be finished or aborted (`git rebase --abort`).
+
+**Suggested MR reply:**
+> Rebased onto the latest master. The three patches are unchanged and the empty merge commit is kept. The only conflict was in `.pickman-history`, where master had a new entry under the same date heading; I kept both entries. The sandbox build passes for every commit.
+
+---
+
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+
+
+### Conversation log
+I'll start by checking the repo state, since last time a stale rebase was left in the main tree.
+
+Now the rebase:
+
+No conflicts. Next I'll cherry-pick the review record on top:
+
+That applied cleanly too. I'll check where the entry landed in the file:
+
+The entry sits right after this MR's own cherry-pick record. Next I'll compare the deltas with the pre-rebase ones:
+
+That change only affects MR creation. Next I'll look at `push-branch` itself:
+
+All six commits build. Next I'll scan the logs for warnings:
+
+Every log is clean. Now the push from the worktree, with `--run-ci` so that the MR gets a real pipeline:
+
+The MR still shows the old SHA, which may just be GitLab lagging. I'll check the remote directly and then poll the MR:
+
+The remote branch is at 0704c8ba437b, matching HEAD. Next I'll poll until GitLab picks up the new SHA and creates a pipeline:
+
+I rebased MR !1500 onto ci/master and force-pushed it. The remote `cherry-6b4b1c8dc464` is now at 0704c8ba437b, and this time an MR pipeline is running for it: **pipeline 10761** (https://concept.deinde.dev/u-boot/u-boot/-/pipelines/10761).
+
+**Commits** (local branch `cherry-6b4b1c8dc464-v3`, on ci/master 6af7fb7db102):
+```
+0704c8ba437b pickman: Record review handling for cherry-6b4b1c8dc464
+e8f910a61ad3 pickman: Record cherry-pick of 4 commits from us/main
+b1d3788c1078 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+5bad510e91e1 k3-am62-pocketbeagle2: add support for efi capsules
+b5fc03cc18bb k3-am62-pocketbeagle2: add initial board support
+cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Rebase:** I started from what the MR actually contained (f38b76068abf, the v2 from last time), not the local `cherry-6b4b1c8dc464`, which is still the old pre-rebase branch. ci/master was 2 commits ahead, both pickman-only changes. There were no conflicts, and `--keep-empty` kept the empty merge commit.
+- **Deltas:** all five rebased commits produce exactly the same patches as before. The merge commit is still empty with a single parent, as it was before.
+- **Builds:** sandbox built after each of the six commits with no warnings or errors. The first build was clean (`-m`) to avoid the stale Cargo cache problem from last time.
+- **Added commit:** after the last round, pickman made a 41-line `.pickman-history` record commit, but only on the stale local branch. I added it on top of the MR because review records like it normally get merged (master has 572). It applied cleanly. If you'd rather keep it out of the MR, the v2 tip plus the rebase is easy to push instead.
+- **CI:** last time's push used pickman's default `-o ci.skip`, and GitLab's API shows that both pipelines for f38b76068abf were skipped, so the previous rebase was never tested in CI. This time I added `--run-ci` to the push command. Pipeline 10761 is running for the new SHA rather than being skipped.
+- **Old pipeline:** pipeline 10745, for the original 41591a6b5b10 SHA, is still running and is now out of date. You may want to cancel it.
+
+**Repo state:** I did all the work in a temporary worktree, which I have removed. The main tree is untouched. It still has an interactive rebase of `cherry-20209a62bc85` stopped partway through in `.git/rebase-merge`, with 28 steps left. That now looks like a different rebase from the one mentioned last time, since it has `exec buildman` steps. Either resume it with `git rebase --continue` or drop it with `git rebase --abort`.
+
+**Suggested MR reply:**
+> Rebased onto the latest master again. The three patches and the empty merge commit are unchanged, and there were no conflicts. A record of the previous review round is added to `.pickman-history`. The sandbox build passes for every commit. A real pipeline is running this time (the previous push skipped CI).
+
+---
+
+### Pipeline fix: 2026-10-30 (attempt 1)
+
+Branch: cherry-6b4b1c8dc464
+
+Failed jobs:
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- bpif3 (sjg-lab)
+- snow (sjg-lab)
+- pine64 (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+I made no changes: all seven failures are lab or infrastructure problems, not caused by this branch. I did not create cherry-6b4b1c8dc464-fix1 because there was nothing to fix, and I skipped the builds for the same reason.
+
+**Why the branch can't be the cause:** the four cherry-picked commits only touch pocketbeagle2 files: `k3-am62-pocketbeagle2-u-boot.dtsi`, `board/beagle/pocketbeagle2/pocketbeagle2.c`, `am62_pocketbeagle2_a53_defconfig` and `include/configs/pocketbeagle2.h`, plus `.pickman-history`. None of those are compiled for any of the failing boards, which are sunxi, exynos, x86, riscv and qemu-x86.
+
+**What each job hit:**
+
+| Job | Failure | Cause |
+|---|---|---|
+| snow | pytest INTERNALERROR in `u-boot-test-getrole` | Lab contention: "place snow is not acquired by your user, acquired by labgrid". Another session (kea/labgrid) held the board. |
+| opi_pc | Timed out waiting for the U-Boot prompt after flashing (sunxi) | The board didn't come up, so the lab marked the connection bad. |
+| samus | Same login timeout after writing via em100 | The board didn't come up. |
+| samus_tpl | Same login timeout via em100 | The board didn't come up. |
+| bpif3 | "USB loader not ready … BootROM did not start the FSBL", 5 attempts, then `k1-deploy.py` failed | The board's USB boot mode didn't respond, so U-Boot was never loaded. |
+| pine64 | `test_dm_drivers` expected `bootmeth��fi` | The expected string itself was garbled (it should be `bootmeth_efi`), so serial corruption on the lab console caused the false failure. 41 other tests passed. |
+| qemu-x86_64-win-installed | `test_distro_windows_installed` timed out | U-Boot got to "Starting kernel ..." through efi_mgr. Windows then failed to finish booting within the 10-minute limit. |
+
+Retrying these jobs should be enough; I'd release or kick the snow place first if it is still held.
+
+---
+
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 1): fixed failed job(s) qemu-x86_64-win-installed, samus_tpl, samus, bpif3, sn...
+
+### Conversation log
+I'll check the repo state first, since the main tree had an unfinished rebase last time.
+
+The main tree is in the middle of someone else's rebase, which may still be running (it has `exec buildman` steps). I'll leave it alone and work in a temporary worktree again.
+
+The remote MR branch is at 145ad5db40ba, not the 0704c8ba437b I pushed last time, so something else has updated it since. I'll look at what changed.
+
+The `ci/master..` count and the ancestor check disagree, so I'll check them again more carefully.
+
+Both commits just append to the end of the file, so the resolution is to keep the existing content and add c88e4debaeaa's new section after it. I'll check that its addition is a single appended hunk.
+
+Both are single hunks appended at the end of the file. I'll resolve by keeping our side and appending exactly the lines each commit adds.
+
+That commit now adds the same 54 lines. The second pick (bd5f6c626b76) has stopped on the same kind of conflict, so I'll resolve it the same way.
+
+The build passes with no warnings or errors. Before pushing I'll check the `push-branch` options, since ci/master has since gained "pickman: Trigger a merge-request pipeline at most once".
+
+I restored MR !1500, rebuilt it as `cherry-6b4b1c8dc464-v4`, and force-pushed it. The remote branch is now at 02361d763c49, the MR shows all its files again (22 changed), and a real pipeline has started: **10767**.
+
+**The MR had been wiped.** When I started, the remote branch was not what I pushed last round (0704c8ba437b). It was at 145ad5db40ba: an older master plus two `.pickman-history` commits, one of them for a different MR (cherry-5ddc3158591e). None of the pocketbeagle2 commits were left, and the MR diff was just `.pickman-history`.
+
+The reflog points to the pipeline-fix round. It made no changes, so it never checked out this branch. Then, at 17:57, `push-branch` force-pushed whatever HEAD was in the main tree, which was a detached master with record commits on top. Pipeline 10766 is testing that wrong content. It was still running last I checked, so it's worth cancelling.
+
+**What I pushed** (based on ci/master 6af7fb7db102):
+```
+02361d763c49 pickman: Record pipeline fix for cherry-6b4b1c8dc464
+7e3983d5dc43 pickman: Record review handling for cherry-6b4b1c8dc464
+0704c8ba437b pickman: Record review handling for cherry-6b4b1c8dc464
+e8f910a61ad3 pickman: Record cherry-pick of 4 commits from us/main
+b1d3788c1078 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+5bad510e91e1 k3-am62-pocketbeagle2: add support for efi capsules
+b5fc03cc18bb k3-am62-pocketbeagle2: add initial board support
+cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Rebase:** I started from v3 (0704c8ba437b), the last correct version. ci/master hasn't moved since then, so the rebase changed nothing and the first six commits keep their v3 SHAs and contents. The merge commit is still empty.
+- **Records added:** I added this MR's own review record and pipeline-fix record. Both conflicted in `.pickman-history` only because they were made on the wrong base. I resolved them by appending each entry at the end, and they still add the same 54 and 34 lines. I left out the cherry-5ddc3158591e record because it belongs to another MR.
+- **Build:** a clean sandbox build of the tip passes with no warnings or errors. I didn't rebuild the first six commits one by one, because they are the same commits that each built last round. The two new commits only touch `.pickman-history`.
+- **Review comment:** this was the pipeline-fix report, and it asked for no code change, so there was nothing to address.
+
+**This will happen again until pickman is fixed.** `push-branch <branch>` pushes HEAD, not the branch it is given. Any round that doesn't check out the branch first will overwrite the MR with whatever is in the main tree. Pushing `<branch>:<branch>`, or refusing when HEAD doesn't match the branch, would stop it. Other MRs pushed by a "no changes" pipeline-fix round may have been overwritten the same way.
+
+**Repo state:** I worked in a temporary worktree, which I have removed. The main tree is untouched and still has the stale `cherry-20209a62bc85` interactive rebase in `.git/rebase-merge`, which needs `git rebase --continue` or `--abort`.
+
+**Suggested MR reply:**
+> The pipeline-fix round force-pushed the wrong HEAD to this branch, leaving only `.pickman-history` changes (145ad5db40ba). This restores the branch: the three patches and the empty merge commit are unchanged from the previous version and still on the latest master. This MR's review and pipeline-fix records are added. The sandbox build passes. Pipeline 10767 tests the restored branch; 10766 can be ignored.
+
+---
+
+### Pipeline fix: 2026-10-30 (attempt 2)
+
+Branch: cherry-6b4b1c8dc464
+
+Failed jobs:
+- qemu-x86_64-win11-sb (sjg-lab)
+- qemu-x86_64-win11-installed (sjg-lab)
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- snow (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Every failure is in a lab stage, and this series only touches K3/pocketbeagle2 files. I'm checking that the commit CI tested (02361d763c49) has no extra code changes before I conclude.
+
+The commit CI tested sits on a newer base that also changes math64/div64. I'm checking whether those changes come from master or from this MR.
+
+I made no changes and didn't create cherry-6b4b1c8dc464-fix2. All seven failures are lab infrastructure or environment problems, not something this series caused.
+
+**What the series touches:** the four commits only add K3 AM62 / pocketbeagle2 files: the board directory, its device trees, two defconfigs, the AM62 clock and power data, and one line in `arch/arm/dts/Makefile`. None of that is built for opi_pc (sunxi), snow (exynos), samus/samus_tpl (x86 Chromebook) or the qemu-x86_64 Windows boards. CI tested 02361d763c49, which is on a newer ci/master base. The other changes in that commit (the math64/div64 sync with Linux v7.1 and the `time` command rework) come from ci/master, not from this MR.
+
+**Each failure:**
+- **snow:** the job never started. labgrid reported "place snow is acquired by a different user (kea/labgrid)", so another user held the board.
+- **opi_pc, samus, samus_tpl:** the flash step ran but U-Boot's prompt never appeared ("Timeout ... waiting for login" after the retry). The job then stopped with "Lab failure: Marking connection bad". The code in those images is the same as ci/master, so this points at the boards or their connections.
+- **qemu-x86_64-win-installed, win11-installed, win11-sb:** U-Boot booted normally, found the boot entry and printed "Starting kernel ...". Windows then failed to finish booting within the 10-minute test timeout. That happens after U-Boot has handed over and in code this MR doesn't change. The "e1000#0 No valid MAC address found" lines are the usual QEMU messages and aren't the cause.
+
+I didn't run the sandbox or buildman builds because there was nothing to fix. Re-running the pipeline should be enough once the snow place is free and the opi_pc and samus boards respond. If the three Windows jobs fail again, check whether they also fail on ci/master, since that would point at the newer base.
+
+---
+
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 2): fixed failed job(s) qemu-x86_64-win11-sb, qemu-x86_64-win11-installed, qem...
+
+### Conversation log
+I'll start by checking the repo state and what the remote MR branch actually holds, since a past round overwrote it.
+
+The remote MR branch looks wiped again: only four pickman record commits sit above ci/master. I'll check whether the pocketbeagle2 commits are still there and what the main tree's HEAD is.
+
+Both are single hunks appended at the end of the file, and ci/master hasn't moved since v4, so the rebase should be a no-op. Now I'll set up the worktree, rebase and cherry-pick the two records:
+
+Both picked cleanly and add the same 56 and 31 lines as the originals; only the line offsets changed. The first eight commits keep their v4 SHAs and contents. Next, a clean sandbox build of the tip:
+
+The build passes with no warnings or errors. Before pushing, I'll check the `push-branch` options:
+
+The remote now matches 0111c1d26b9a. I'll check that GitLab has picked up the new SHA and started a pipeline:
+
+That only affects MR creation. Polling again:
+
+Pipeline 10769 has been created for 0111c1d26b9a. Now I'll remove the temporary worktree; the `-v5` branch stays.
+
+I've restored MR !1500 a second time. It had been wiped again, the same way as last round. The remote `cherry-6b4b1c8dc464` is now at 0111c1d26b9a, and the MR shows its 22 files again. A real pipeline, **10769**, has been created for the new SHA.
+
+**What I found:** the remote branch was at fe650122ba3b. That is an older master (aa787cb6ff0f) plus four `.pickman-history` commits, one of them for another MR (cherry-5ddc3158591e). None of the pocketbeagle2 commits were there, and the MR diff was 186 lines of `.pickman-history`. The reflog shows fe650122ba3b being committed on the main tree's detached HEAD at 18:05, after my v4 push. It is the record of last round's review handling. It then got pushed, almost certainly by `push-branch`, which pushes `HEAD:<branch>` rather than the branch named on the command line. That push is what pipeline 10768 is testing.
+
+**What I pushed** (local branch `cherry-6b4b1c8dc464-v5`, on ci/master 6af7fb7db102):
+```
+0111c1d26b9a pickman: Record pipeline fix for cherry-6b4b1c8dc464
+21fc9811c674 pickman: Record review handling for cherry-6b4b1c8dc464
+02361d763c49 pickman: Record pipeline fix for cherry-6b4b1c8dc464
+7e3983d5dc43 pickman: Record review handling for cherry-6b4b1c8dc464
+0704c8ba437b pickman: Record review handling for cherry-6b4b1c8dc464
+e8f910a61ad3 pickman: Record cherry-pick of 4 commits from us/main
+b1d3788c1078 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+5bad510e91e1 k3-am62-pocketbeagle2: add support for efi capsules
+b5fc03cc18bb k3-am62-pocketbeagle2: add initial board support
+cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Rebase:** I started from v4 (02361d763c49), the last correct version. ci/master hasn't moved since then, so the rebase changed nothing. The first eight commits, including the three patches and the empty merge commit, have the same SHAs and contents as v4.
+- **Records added:** I added this MR's two newer records, last round's review handling (from fe650122ba3b) and pipeline-fix attempt 2 (from cd8d3051816b). Both applied cleanly and add the same 56 and 31 lines as the originals. I left out the cherry-5ddc3158591e record because it belongs to another MR.
+- **Build:** a clean sandbox build of the tip passes with no warnings or errors. I didn't rebuild the earlier commits one by one, because they are the same commits that each built before. The two new commits only touch `.pickman-history`.
+- **Review comment:** this was the attempt-2 pipeline-fix report. It found only lab failures and asked for no code change, so there was nothing to address.
+- **Main tree:** I worked in a temporary worktree and have removed it. The main tree is untouched and still has the stale `cherry-20209a62bc85` interactive rebase in `.git/rebase-merge`.
+
+**Decisions for you:**
+- **This will probably happen again as soon as this round ends.** Last time, the wipe came from the record commit pickman makes after a review round, made on the main tree's detached HEAD and then pushed. If this round does the same, it will overwrite 0111c1d26b9a again. Before trusting pipeline 10769, check that the remote still points at it (`git ls-remote ci refs/heads/cherry-6b4b1c8dc464`). There are two ways to stop it:
+  - Change `push_branch()` in `tools/pickman/gitlab_api.py` to push `<branch>:<branch>`, or to refuse when HEAD isn't that branch.
+  - Clear the stale rebase in the main tree (`git rebase --continue` or `--abort`) so pickman isn't working from a detached HEAD.
+- **Pipeline 10768** is still running against the wiped content (fe650122ba3b) and is worth cancelling.
+
+**Suggested MR reply:**
+> The branch was overwritten again with `.pickman-history`-only content (fe650122ba3b) after the previous round, because `push-branch` pushes HEAD rather than the named branch. This restores it: the three patches and the empty merge commit are unchanged and on the latest master. This MR's two newer review and pipeline-fix records are added. The sandbox build passes. Pipeline 10769 tests the restored branch; 10768 can be ignored. The pipeline-fix report needed no code changes.
+
+---
+
+### Pipeline fix: 2026-10-30 (attempt 3)
+
+Branch: cherry-6b4b1c8dc464
+
+Failed jobs:
+- play (sjg-lab)
+- qemu-x86_64-win11-sb (sjg-lab)
+- qemu-x86_64-win11-installed (sjg-lab)
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- snow (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Logs show lab-side failures (boards not reaching a prompt, a place lock, Windows boot timeouts). I'm checking what earlier fix attempts concluded before deciding.
+
+The only new failure versus attempt 2 is 'play'. I'm checking whether that board is AM62-based and whether the tested code changed since play last passed.
+
+No code changes are needed, so I made none and did not create `cherry-6b4b1c8dc464-fix3`. All eight failures are lab or environment problems, not something this series caused.
+
+**What the series touches:** the four commits only touch AM62 / pocketbeagle2 files: the AM62 R5 clock and power data (`arch/arm/mach-k3/r5/am62x/clk-data.c`, `dev-data.c`), the new pocketbeagle2 board files, device trees and defconfigs, and one line in `arch/arm/dts/Makefile`. None of this is built for opi_pc (sunxi), snow (exynos), samus/samus_tpl (x86 Chromebook) or the qemu-x86_64 Windows boards.
+
+**Each failure:**
+- **snow:** the job never started. labgrid reported "place snow is acquired by a different user (kea/labgrid)", so another user held the board.
+- **opi_pc, samus, samus_tpl:** the flash step ran, but no U-Boot prompt appeared even after the retry ("Timeout … waiting for login"). The job then stopped with "Lab failure: Marking connection bad". The code in these images is the same as ci/master. This is the same failure as attempt 2.
+- **qemu-x86_64-win-installed, win11-installed, win11-sb:** U-Boot booted and handed over to Windows. Windows then didn't reach the logon marker within the 10-minute timeout. The "e1000#0 No valid MAC address found" lines are normal QEMU noise. This is the same failure as attempt 2.
+- **play:** this is the only new failure. The board is AM62x-based, so the series does reach it, but the code it changes isn't what failed:
+  - U-Boot booted and ran a full set of tests, so the changed R5 clock and power code worked; it only runs during early boot.
+  - During `help` the AM62 boot ROM's startup hex line (`…616d363278…`, i.e. "am62x") appeared on the console. That means the board itself was reset in the middle of the test; it wasn't U-Boot hanging.
+  - The AM62 and board code on this branch is identical to `cherry-6b4b1c8dc464-v4`, which attempt 2's pipeline tested, and play wasn't among the jobs that failed then. The only differences between the two branches are in ci/master files (math64/div64, `time` command, pickman tools).
+
+I didn't run the sandbox or buildman builds because nothing changed. I also didn't touch the main tree at `/home/sglass/dev/u-boot`, which is partway through someone else's rebase (`cherry-20209a62bc85`).
+
+**Next step:** re-run the lab jobs once snow is free and opi_pc, samus and play respond. If the three Windows jobs fail a third time, run them on ci/master to see whether the base is the cause.
+
+---
+
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 3): fixed failed job(s) play, qemu-x86_64-win11-sb, qemu-x86_64-win11-installe...
+
+### Conversation log
+I'll start by checking the repo state and what the remote MR branch actually holds, since earlier rounds found it overwritten.
+
+The remote is at 963961d937d8, not the 0111c1d26b9a I pushed last round. I'll check whether it was wiped again.
+
+Both picked cleanly. I'll check the deltas against the originals, then do a clean sandbox build of the tip.
+
+The build passes with no warnings or errors. Now I'll push from the worktree, so that HEAD is the right commit, using `--run-ci` as in the last two rounds.
+
+The remote matches d415c3bebbb2. I'll check that GitLab has picked it up and created a pipeline.
+
+Pipeline 10771 has been created for d415c3bebbb2. Now I'll remove the temporary worktree; the `-v6` branch stays.
+
+I've restored MR !1500 a third time and force-pushed it. It had been wiped again, the same way as the last two rounds. The remote `cherry-6b4b1c8dc464` is now at d415c3bebbb2, the MR shows its 22 files again, and a new pipeline, **10771**, has been created for that SHA.
+
+**What I found:** the remote branch was at 963961d937d8. That is the older master aa787cb6ff0f plus six `.pickman-history` record commits, one of them for another MR (cherry-5ddc3158591e). None of the pocketbeagle2 commits were there. 963961d937d8 is the record of last round's review handling, committed on the main tree's detached HEAD and then pushed. On ci/master, `push_branch()` in `tools/pickman/gitlab_api.py` still pushes `HEAD:{branch}`, so the cause is the same as before. Pipeline 10770 is testing that wiped content.
+
+**What I pushed** (local branch `cherry-6b4b1c8dc464-v6`, on ci/master 6af7fb7db102):
+```
+d415c3bebbb2 pickman: Record pipeline fix for cherry-6b4b1c8dc464
+52fd3575c915 pickman: Record review handling for cherry-6b4b1c8dc464
+0111c1d26b9a pickman: Record pipeline fix for cherry-6b4b1c8dc464
+...                                   (same as v5)
+b1d3788c1078 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+5bad510e91e1 k3-am62-pocketbeagle2: add support for efi capsules
+b5fc03cc18bb k3-am62-pocketbeagle2: add initial board support
+cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Rebase:** I started from v5 (0111c1d26b9a), the last correct version. ci/master hasn't moved, so `git rebase --keep-empty ci/master` changed nothing. The first ten commits, including the three patches and the empty merge commit, have the same SHAs and contents as v5.
+- **Records added:** I added this MR's two newer records: last round's review handling (963961d937d8) and pipeline-fix attempt 3 (9127c92b25f6, which had never been pushed). Both applied cleanly and add exactly the same lines as the originals. I left out the cherry-5ddc3158591e record because it belongs to another MR.
+- **Build:** a clean sandbox build of the tip passes with no warnings or errors. I didn't rebuild the earlier commits one by one: they are the same commits that each built before, and the two new ones only touch `.pickman-history`.
+- **Review comment:** this was the attempt-3 pipeline-fix report. It found only lab failures and asked for no code change, so there was nothing to address.
+- **Main tree:** I worked in a temporary worktree and have removed it. The main tree is untouched and still has the stale `cherry-20209a62bc85` interactive rebase in `.git/rebase-merge`.
+
+**Decisions for you:**
+- **This will happen again as soon as this round ends.** That is now three rounds in a row. Each round's record commit is made on the main tree's detached HEAD, and `push-branch` then pushes that HEAD over the MR. Check that the remote still points at d415c3bebbb2 before trusting pipeline 10771 (`git ls-remote ci refs/heads/cherry-6b4b1c8dc464`). To stop it, either:
+  - change `push_branch()` to push `{branch}:{branch}`, or to refuse when HEAD isn't that branch, or
+  - finish or abort the stale rebase in the main tree, so pickman isn't working from a detached HEAD.
+- **Pipeline 10770** is still running against the wiped content (963961d937d8) and is worth cancelling.
+
+**Suggested MR reply:**
+> The branch was overwritten again with `.pickman-history`-only content (963961d937d8), because `push-branch` pushes HEAD rather than the named branch. This restores it: the three patches and the empty merge commit are unchanged and on the latest master. This MR's two newer review and pipeline-fix records are added. The sandbox build passes. Pipeline 10771 tests the restored branch; 10770 can be ignored. The attempt-3 pipeline-fix report found only lab failures and needed no code changes.
+
+---
+
+### Review: 2026-10-31
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+I'll check the repo state and what the remote MR branch holds, since the last three rounds found it overwritten.
+
+The remote is still at d415c3bebbb2 (v6), so this time it was not wiped. Next I'll look at the local branch tip 754bce97370b, which is new, and the main tree's HEAD.
+
+The record applied cleanly and adds the same 53 lines. The code delta against ci/master is unchanged (21 files outside `.pickman-history`). Next, a clean sandbox build of the tip:
+
+The build passes: 1 OK, no warnings or errors. Now I'll push from the worktree, so that HEAD is the v7 tip, using `--run-ci` so the MR's latest pipeline is a real one rather than a skipped one.
+
+My loop stopped early because grep's exit status masked the script's, so I'll poll again properly:
+
+Pipeline 10772 has been created for 7a7f9d4f0b1e. Now I'll clean up the temporary worktree (the `-v7` branch stays):
+
+There was no code to change in MR !1500. The "retry limit" comment just means pickman has stopped its automatic pipeline fixes. The same seven lab jobs keep failing, and they fail without this series too. I added one missing record commit and force-pushed, so the remote `cherry-6b4b1c8dc464` is now at 7a7f9d4f0b1e. A new pipeline, **10772**, has been created for it.
+
+**The MR wasn't wiped this time.** The remote was still at d415c3bebbb2, the version I restored last round, with all 22 files. Last round's record commit (e48514453a1e) had been made on the main tree's detached HEAD but never pushed.
+
+**Why the failures aren't caused by this series:**
+- Pipeline 10771 tested the restored branch. It failed in the same lab jobs as earlier attempts: qemu-x86_64-win11-sb, win11-installed, win-installed, samus_tpl, samus, snow and opi_pc. play passed this time.
+- Pipelines 10768 and 10770 tested the wiped branch, which had no pocketbeagle2 code at all, just master plus `.pickman-history`. They failed in exactly the same seven jobs.
+- On master these lab jobs are `manual`, so no master pipeline has run them. Nobody has noticed they fail on the base.
+
+**What I pushed** (local branch `cherry-6b4b1c8dc464-v7`):
+```
+7a7f9d4f0b1e pickman: Record review handling for cherry-6b4b1c8dc464   (new)
+d415c3bebbb2 pickman: Record pipeline fix for cherry-6b4b1c8dc464      (v6 tip)
+...
+```
+- **Base:** v6 (d415c3bebbb2). ci/master is still at 6af7fb7db102, so no rebase was needed. Apart from `.pickman-history`, the diff from ci/master is the same 21 files as before.
+- **Record commit:** I added last round's review record (e48514453a1e). It applied cleanly and adds the same 53 lines.
+- **Build:** a clean sandbox build passes with no warnings or errors.
+- **Push:** I pushed from a temporary worktree, because `push_branch()` still pushes `HEAD:{branch}`. I used `--run-ci` so the MR's latest pipeline is a real one rather than a skipped one. The worktree has been removed.
+
+**Decisions for you:**
+- **Merging:** pipeline 10772 will almost certainly fail the same seven lab jobs. Either merge on the strength of the evidence above, or fix the lab first. snow is held by kea/labgrid, opi_pc and samus/samus_tpl never reach a U-Boot prompt, and Windows doesn't finish booting within 10 minutes in the three qemu jobs. To confirm the last group, run those manual jobs on a master pipeline.
+- **The push bug is still there:** `push_branch()` in `tools/pickman/gitlab_api.py` still pushes HEAD. It wiped this MR three times and could do it again on the next round.
+- **Main tree:** it is still on the stale `cherry-20209a62bc85` interactive rebase (detached at e48514453a1e). I didn't touch it.
+- **Old pipeline:** 10771 has finished. Nothing needs cancelling.
+
+**Suggested MR reply:**
+> Pickman's automatic pipeline fixes have stopped after 3 attempts. No code changes are needed. The failing jobs (snow, opi_pc, samus, samus_tpl and the three qemu-x86_64 Windows boots) are all lab jobs. They fail the same way in pipelines 10768 and 10770, which tested master plus `.pickman-history` only, without this series. On master they are manual jobs, so they aren't normally run there. The three pocketbeagle2 patches and the empty merge commit are unchanged. I added the last review record and the sandbox build passes. This needs a manual decision: merge despite the lab failures, or fix the lab first.
+
+---
+
