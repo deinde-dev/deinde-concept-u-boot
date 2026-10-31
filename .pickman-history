@@ -100808,3 +100808,41 @@ cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
 
 ---
 
+### Pipeline fix: 2026-10-30 (attempt 3)
+
+Branch: cherry-6b4b1c8dc464
+
+Failed jobs:
+- play (sjg-lab)
+- qemu-x86_64-win11-sb (sjg-lab)
+- qemu-x86_64-win11-installed (sjg-lab)
+- qemu-x86_64-win-installed (sjg-lab)
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- snow (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Logs show lab-side failures (boards not reaching a prompt, a place lock, Windows boot timeouts). I'm checking what earlier fix attempts concluded before deciding.
+
+The only new failure versus attempt 2 is 'play'. I'm checking whether that board is AM62-based and whether the tested code changed since play last passed.
+
+No code changes are needed, so I made none and did not create `cherry-6b4b1c8dc464-fix3`. All eight failures are lab or environment problems, not something this series caused.
+
+**What the series touches:** the four commits only touch AM62 / pocketbeagle2 files: the AM62 R5 clock and power data (`arch/arm/mach-k3/r5/am62x/clk-data.c`, `dev-data.c`), the new pocketbeagle2 board files, device trees and defconfigs, and one line in `arch/arm/dts/Makefile`. None of this is built for opi_pc (sunxi), snow (exynos), samus/samus_tpl (x86 Chromebook) or the qemu-x86_64 Windows boards.
+
+**Each failure:**
+- **snow:** the job never started. labgrid reported "place snow is acquired by a different user (kea/labgrid)", so another user held the board.
+- **opi_pc, samus, samus_tpl:** the flash step ran, but no U-Boot prompt appeared even after the retry ("Timeout … waiting for login"). The job then stopped with "Lab failure: Marking connection bad". The code in these images is the same as ci/master. This is the same failure as attempt 2.
+- **qemu-x86_64-win-installed, win11-installed, win11-sb:** U-Boot booted and handed over to Windows. Windows then didn't reach the logon marker within the 10-minute timeout. The "e1000#0 No valid MAC address found" lines are normal QEMU noise. This is the same failure as attempt 2.
+- **play:** this is the only new failure. The board is AM62x-based, so the series does reach it, but the code it changes isn't what failed:
+  - U-Boot booted and ran a full set of tests, so the changed R5 clock and power code worked; it only runs during early boot.
+  - During `help` the AM62 boot ROM's startup hex line (`…616d363278…`, i.e. "am62x") appeared on the console. That means the board itself was reset in the middle of the test; it wasn't U-Boot hanging.
+  - The AM62 and board code on this branch is identical to `cherry-6b4b1c8dc464-v4`, which attempt 2's pipeline tested, and play wasn't among the jobs that failed then. The only differences between the two branches are in ci/master files (math64/div64, `time` command, pickman tools).
+
+I didn't run the sandbox or buildman builds because nothing changed. I also didn't touch the main tree at `/home/sglass/dev/u-boot`, which is partway through someone else's rebase (`cherry-20209a62bc85`).
+
+**Next step:** re-run the lab jobs once snow is free and opi_pc, samus and play respond. If the three Windows jobs fail a third time, run them on ci/master to see whether the base is the cause.
+
+---
+
