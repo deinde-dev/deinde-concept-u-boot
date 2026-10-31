@@ -423,7 +423,9 @@ for failed pipelines. For each failed pipeline:
    so on the MR and stops there
 3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
-4. The fix is pushed to the MR branch, triggering a new pipeline
+4. The fix is pushed to the MR branch, triggering a new pipeline. If the fix
+   cannot affect the jobs which passed, the pipeline runs only the others (see
+   `CI Pipelines`_)
 5. The attempt is recorded in the database to avoid reprocessing
 
 **Retry behaviour**
@@ -444,16 +446,31 @@ in other MRs too does not count as an attempt.
 CI Pipelines
 ------------
 
-Pickman manages CI pipelines to avoid unnecessary duplicate runs. GitLab
-automatically triggers an MR pipeline whenever the source branch is updated,
-so pickman skips the push pipeline to avoid running two pipelines.
+Pickman manages CI pipelines to avoid unnecessary runs.
 
 **How it works**
 
-When pushing a branch (for new MRs or updates), pickman uses ``-o ci.skip``
-to skip the push pipeline. GitLab then triggers an MR pipeline when it
-detects the branch update on the merge request. This ensures exactly one
-pipeline runs for each push.
+A push with ``-o ci.skip`` starts no pipeline at all, not even a merge-request
+pipeline for an open MR. Pickman uses this when pushing the branch for a new
+MR, since creating the MR starts its pipeline. When pushing a pipeline fix it
+leaves out ``ci.skip``, so that the MR's pipeline runs, unless it starts a
+pipeline itself as below.
+
+**Pipelines with only some jobs**
+
+A full pipeline runs about 140 jobs and takes one to two hours. When a pipeline
+fix only changes files which no job reads (for now just ``.pickman-history``),
+or changes nothing at all, pickman pushes with ``ci.skip`` and starts a pipeline
+with only the jobs which did not pass, apart from any which also fail in other
+MRs. It does this with the ``ONLY_JOBS`` pipeline variable, which holds a regex
+of job names (see ``.gitlab-ci.yml``). If that pipeline cannot be started,
+pickman starts a full MR pipeline instead.
+
+Such a pipeline is a branch pipeline, so GitLab does not show it as the MR's
+pipeline. Pickman records it in its database and treats it as the MR's pipeline
+while it is the newest for the MR's commit. When it passes, pickman says so on
+the MR, naming the pipeline whose results it carries over for the other jobs.
+Pickman never merges an MR itself.
 
 **Summary**
 
@@ -461,7 +478,8 @@ pipeline runs for each push.
 Action                           Pipeline Skipped  Reason
 ===============================  ================  ==============================
 Initial branch push for new MR   Yes               MR creation triggers pipeline
-Push after rebase/review         Yes               MR update triggers pipeline
+Push after rebase                No                MR pipeline runs
+Push of a pipeline fix           Sometimes         Only some jobs may need to run
 ===============================  ================  ==============================
 
 Usage

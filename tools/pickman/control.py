@@ -5002,6 +5002,184 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
     return True
 
 
+# Files which no CI job reads, so a change to them cannot affect a result
+NO_JOBS_READ = {HISTORY_FILE}
+
+# Job statuses which need no re-run: passed, or never started in a full run
+JOB_DONE = ('success', 'manual')
+
+# Pipeline statuses whose job results can be carried over
+PIPELINE_DONE = ('success', 'failed', 'canceled')
+
+
+def narrow_jobs(base_sha, head, statuses, leave_out=()):
+    """Work out which jobs a pipeline for a new commit has to run
+
+    A job which passes for one commit need not run again for another if the
+    change between them cannot affect it. For now the only change taken as
+    safe is one to files which no job reads. Anything else needs every job.
+
+    Args:
+        base_sha (str): Commit which the job results are for
+        head (str): New commit
+        statuses (dict): Job name -> job status for base_sha
+        leave_out (iterable of str): Jobs not to run, e.g. because they also
+            fail in other merge requests
+
+    Returns:
+        list of str: Sorted names of the jobs to run, or None if every job
+            has to run
+    """
+    try:
+        changed = run_git(['diff', '--name-only', base_sha, head])
+    except command.CommandExc:
+        return None
+    if set(changed.splitlines()) - NO_JOBS_READ:
+        return None
+    return sorted(name for name, status in statuses.items()
+                  if status not in JOB_DONE and name not in leave_out)
+
+
+def _job_view(remote, merge_req, dbs):
+    """Get the latest result of each job for a merge request
+
+    The merge request's pipeline may be one which runs only some jobs. Its
+    results then combine with those of the pipeline it carries over results
+    from, and of any others which carry over from that one.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): Merge request, with its current pipeline
+        dbs (Database): Database instance
+
+    Returns:
+        tuple: (base_id, base_sha, statuses), where base_id is the pipeline
+            which runs every job, base_sha is the commit it runs on and
+            statuses is a dict of job name -> latest status; or None if a
+            pipeline cannot be read
+    """
+    run = dbs.cirun_latest(merge_req.iid)
+    base_id = merge_req.pipeline_id
+    if run and run.pipeline_id == base_id:
+        base_id = run.base_id
+    base = gitlab_api.get_pipeline_jobs(remote, base_id)
+    if not base:
+        return None
+    statuses = dict(base.jobs)
+    for later in dbs.cirun_since(merge_req.iid, base_id):
+        jobs = gitlab_api.get_pipeline_jobs(remote, later.pipeline_id)
+        if not jobs:
+            return None
+        statuses.update(jobs.jobs)
+    return base_id, base.sha, statuses
+
+
+def _push_with_ci(remote, merge_req, dbs, leave_out):
+    """Push a branch and start a pipeline with just the jobs it needs
+
+    If the change since the merge request's finished pipeline only touches
+    files which no job reads, or there is no change at all, e.g. because a
+    failure is a transient one, only the jobs which did not pass need to run
+    again. Otherwise every job runs, as before.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): Merge request, with its current pipeline
+        dbs (Database): Database instance
+        leave_out (iterable of str): Jobs not to run again, since they also
+            fail in other merge requests
+
+    Returns:
+        str: Note for the merge request about the pipeline, or ''
+    """
+    branch = merge_req.source_branch
+    merge_req, _ = _current_pipeline(remote, merge_req, dbs)
+    view = None
+    if merge_req.pipeline_status in PIPELINE_DONE:
+        view = _job_view(remote, merge_req, dbs)
+    if not view:
+        gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
+        return ''
+    base_id, base_sha, statuses = view
+    head = run_git(['rev-parse', 'HEAD'])
+    jobs = narrow_jobs(base_sha, head, statuses, leave_out)
+    if jobs is None:
+        gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
+        return ''
+
+    gitlab_api.push_branch(remote, branch, force=True)
+    if not jobs:
+        return (f'\n\nNo pipeline is needed: every job passed in pipeline '
+                f'{base_id} (commit {base_sha[:12]}) or also fails in other '
+                f'merge requests, and nothing they read has changed since.')
+    pipeline_id = gitlab_api.start_only_jobs_pipeline(remote, branch, jobs)
+    if not pipeline_id:
+        gitlab_api.start_mr_pipeline(remote, merge_req.iid)
+        return ''
+    dbs.cirun_add(merge_req.iid, pipeline_id, head, base_id, jobs)
+    dbs.commit()
+    tout.info(f'MR !{merge_req.iid}: started pipeline {pipeline_id} with '
+              f'{len(jobs)} job(s)')
+    return (f'\n\nStarted pipeline {pipeline_id} with only the jobs which '
+            f'did not pass: {", ".join(jobs)}. The others passed in '
+            f'pipeline {base_id} (commit {base_sha[:12]}), and nothing they '
+            f'read has changed since.')
+
+
+def _current_pipeline(remote, merge_req, dbs):
+    """Use pickman's own pipeline for a merge request if it is the latest
+
+    A pipeline which runs only some jobs does not become the merge request's
+    head pipeline, so put it in place of that one when it is for the merge
+    request's commit and is newer.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): Merge request
+        dbs (Database): Database instance
+
+    Returns:
+        tuple: (PickmanMr, CiRun), with the CiRun None if the head pipeline
+            is still the current one
+    """
+    if not merge_req.sha:
+        return merge_req, None
+    run = dbs.cirun_latest(merge_req.iid)
+    if (not run or run.sha != merge_req.sha or
+            (merge_req.pipeline_id or 0) > run.pipeline_id):
+        return merge_req, None
+    jobs = gitlab_api.get_pipeline_jobs(remote, run.pipeline_id)
+    return merge_req._replace(pipeline_id=run.pipeline_id,
+                              pipeline_status=jobs.status if jobs else None,
+                              ), run
+
+
+def _report_run_passed(remote, merge_req, run, dbs):
+    """Report on a merge request that pickman's own pipeline passed
+
+    pickman does not merge, so say which jobs passed where, for whoever does.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): Merge request, with the pipeline in place
+        run (CiRun): The pipeline which passed
+        dbs (Database): Database instance
+    """
+    view = _job_view(remote, merge_req, dbs)
+    failing = sorted(name for name, status in view[2].items()
+                     if status not in JOB_DONE) if view else []
+    msg = (f'Pipeline {run.pipeline_id} passed, running only: '
+           f'{", ".join(run.jobs)}. The other jobs passed in pipeline '
+           f'{run.base_id}.')
+    if failing:
+        msg += (f'\n\nStill failing, as in other merge requests: '
+                f'{", ".join(failing)}')
+    gitlab_api.reply_to_mr(remote, merge_req.iid, msg)
+    dbs.cirun_set_reported(run.pipeline_id)
+    dbs.commit()
+    tout.info(f'MR !{merge_req.iid}: pipeline {run.pipeline_id} passed')
+
+
 def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
     """Run the agent to fix a failed pipeline and report the result
 
@@ -5071,9 +5249,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
 
     if success:
         # Push the fix branch to the original MR branch
-        branch = merge_req.source_branch
-        gitlab_api.push_branch(remote, branch, force=True,
-                               skip_ci=False)
+        ci_note = _push_with_ci(remote, merge_req, dbs, shared)
 
         # Update MR description with fix log
         old_desc = merge_req.description
@@ -5088,7 +5264,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
             remote, mr_iid,
             f'Pipeline fix (attempt {attempt}): '
             f'fixed failed job(s) {job_names}.\n\n'
-            f'{conversation_log[:2000]}{shared_note}')
+            f'{conversation_log[:2000]}{shared_note}{ci_note}')
 
         # Update .pickman-history
         update_history_pipeline_fix(merge_req.source_branch, failed_jobs,
@@ -5132,6 +5308,9 @@ def process_pipeline_failures(remote, mrs, dbs, target, max_retries):
     processed = 0
     for merge_req in mrs:
         mr_iid = merge_req.iid
+        merge_req, run = _current_pipeline(remote, merge_req, dbs)
+        if run and merge_req.pipeline_status == 'success' and not run.reported:
+            _report_run_passed(remote, merge_req, run, dbs)
 
         # Skip if pipeline is not failed or has no pipeline
         if merge_req.pipeline_status != 'failed':
