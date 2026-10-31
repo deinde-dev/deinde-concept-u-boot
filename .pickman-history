@@ -101124,3 +101124,56 @@ All 15 commits are cherry-picked onto branch cherry-824317a8bc56 (based on ci/ma
 
 ---
 
+## 2026-10-31: us/main
+
+Branch: cherry-6b917b413d31
+
+Commits:
+- 6b917b413d31 arm: dts: rockchip: Drop OTP nodes from u-boot.dtsi on RK3528/RK356x
+- a29794199190 arm64: dts: rockchip: Add watchdog node for RK3528
+- 42437844e1dc arm64: dts: rockchip: Add USB nodes for RK3528
+- 34aecf3758bb arm64: dts: rockchip: Enable USB 2.0 ports on Radxa E20C
+- 7382b32c71b1 arm64: dts: rockchip: Enable USB ports on Radxa ROCK 2A/2F
+- 6426f2d2b310 arm64: dts: rockchip: Enable USB 2.0 ports on ArmSoM Sige1
+- a6c6a2fd5bdd arm64: dts: rockchip: Enable USB 2.0 ports on NanoPi Zero2
+- 8d913de45891 rockchip: rk3528-generic: Add support for USB OTG
+- 64d6610cf42e rockchip: rk3576-rock-4d: Enable XMC SPI chip
+- e5b3e6fd45ce clk: rockchip: pll: drop misleading fout in rockchip_rk3588_pll_k_get()
+- 7a3ef6c21fdb clk: rockchip: pll: fix rounding of negative k in RK3588 frac PLL
+- ffd377597b57 clk: rockchip: pll: fix RK3588 frac PLL result for k=-32768
+- 3bc88868c237 clk: rockchip: pll: let rockchip_rk3588_pll_k_get update m directly
+- f75a3d96e1f3 clk: rockchip: pll: fix overflow and drop manual two's complement on RK3588/RK3576
+- e50f87c650f8 Merge tag 'u-boot-rockchip-2027.01-20260813' of https://git.u-boot-project.org/u-boot/custodians/u-boot-rockchip into next
+
+### Conversation log
+The repository had an interactive rebase in progress (on branch 'cherry-20209a62bc85'), and my checkout moved off its detached HEAD. Let me look at that state before going further.
+
+The rebase is stale (from yesterday 02:59), but HEAD had pickman record commits made today. Let me check whether those commits are reachable from any ref, so nothing is lost.
+
+Those 12 pickman record commits are only reachable via the reflog. I'll make a backup branch so they aren't lost, then carry on. I'll leave the stale rebase state alone.
+
+Now the cherry-picks. I'll do each one, run split-check, and compare stats, stopping at the first problem.
+
+All nine applied cleanly with identical stats and nothing for split-check to convert. None of them touch sandbox code, so one build here covers all nine:
+
+The build passes. Next, the clk PLL commits, building after each one because they change C code:
+
+Now the merge commit:
+
+As expected, the merge is empty after its parents. I'll commit it with --allow-empty to keep the merge message:
+
+All 15 commits are now on branch cherry-6b917b413d31 (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch hasn't been pushed or merged.
+
+**Results**
+- **The 14 regular commits:** all applied without conflicts. For every one, the files changed and line counts are the same as the original.
+- **The merge commit (e50f87c650f8):** it comes out empty, as expected once its parents are applied. I kept it with --allow-empty, so the merge message and its "cherry picked from" line are preserved.
+- **split-check:** it found nothing to convert in any commit, so I didn't amend or add notes to any of them.
+- **Builds:** sandbox built after the nine DT/board commits (one build covered them, since none touch sandbox code), after each of the five clk commits, and once more at the end. All passed.
+
+**Problems with the repository state**
+1. **The tree wasn't clean when I started.** An interactive rebase of branch cherry-20209a62bc85 was in progress, left over from yesterday (Oct 30, 02:59). It was stopped at an edit with 28 steps still to do, and its state is still in .git/rebase-merge. Because of that, `git status` on the new branch still says "rebasing". I didn't touch the rebase. It should be finished or aborted with `git rebase --abort`, and I'd do that before pushing so later git commands aren't confused by it.
+2. **12 pickman record commits were reachable only from that detached HEAD.** They are "pickman: Record ..." commits ending at f0dcb8959308, and the checkout to the new branch left them unreferenced. To make sure they aren't lost, I created branch pickman-records-f0dcb8959308 pointing at them. pickman probably needs those records put back where it expects them.
+3. **Stale build cache.** The first build failed because the Rust example's build cache in /tmp/pickman/examples/rust still pointed at an old worktree (/tmp/wt-cherry-5ddc3158591e). The commits didn't cause it. I deleted that directory and the build then passed.
+
+---
+
