@@ -100846,3 +100846,56 @@ I didn't run the sandbox or buildman builds because nothing changed. I also didn
 
 ---
 
+### Review: 2026-10-30
+
+Branch: cherry-6b4b1c8dc464
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 3): fixed failed job(s) play, qemu-x86_64-win11-sb, qemu-x86_64-win11-installe...
+
+### Conversation log
+I'll start by checking the repo state and what the remote MR branch actually holds, since earlier rounds found it overwritten.
+
+The remote is at 963961d937d8, not the 0111c1d26b9a I pushed last round. I'll check whether it was wiped again.
+
+Both picked cleanly. I'll check the deltas against the originals, then do a clean sandbox build of the tip.
+
+The build passes with no warnings or errors. Now I'll push from the worktree, so that HEAD is the right commit, using `--run-ci` as in the last two rounds.
+
+The remote matches d415c3bebbb2. I'll check that GitLab has picked it up and created a pipeline.
+
+Pipeline 10771 has been created for d415c3bebbb2. Now I'll remove the temporary worktree; the `-v6` branch stays.
+
+I've restored MR !1500 a third time and force-pushed it. It had been wiped again, the same way as the last two rounds. The remote `cherry-6b4b1c8dc464` is now at d415c3bebbb2, the MR shows its 22 files again, and a new pipeline, **10771**, has been created for that SHA.
+
+**What I found:** the remote branch was at 963961d937d8. That is the older master aa787cb6ff0f plus six `.pickman-history` record commits, one of them for another MR (cherry-5ddc3158591e). None of the pocketbeagle2 commits were there. 963961d937d8 is the record of last round's review handling, committed on the main tree's detached HEAD and then pushed. On ci/master, `push_branch()` in `tools/pickman/gitlab_api.py` still pushes `HEAD:{branch}`, so the cause is the same as before. Pipeline 10770 is testing that wiped content.
+
+**What I pushed** (local branch `cherry-6b4b1c8dc464-v6`, on ci/master 6af7fb7db102):
+```
+d415c3bebbb2 pickman: Record pipeline fix for cherry-6b4b1c8dc464
+52fd3575c915 pickman: Record review handling for cherry-6b4b1c8dc464
+0111c1d26b9a pickman: Record pipeline fix for cherry-6b4b1c8dc464
+...                                   (same as v5)
+b1d3788c1078 Merge patch series "k3-am62-pocketbeagle2: add board and variant support"
+5bad510e91e1 k3-am62-pocketbeagle2: add support for efi capsules
+b5fc03cc18bb k3-am62-pocketbeagle2: add initial board support
+cf44dc865986 arm: mach-k3: am62: add &main_uart6 to clock and pwr tree
+```
+
+- **Rebase:** I started from v5 (0111c1d26b9a), the last correct version. ci/master hasn't moved, so `git rebase --keep-empty ci/master` changed nothing. The first ten commits, including the three patches and the empty merge commit, have the same SHAs and contents as v5.
+- **Records added:** I added this MR's two newer records: last round's review handling (963961d937d8) and pipeline-fix attempt 3 (9127c92b25f6, which had never been pushed). Both applied cleanly and add exactly the same lines as the originals. I left out the cherry-5ddc3158591e record because it belongs to another MR.
+- **Build:** a clean sandbox build of the tip passes with no warnings or errors. I didn't rebuild the earlier commits one by one: they are the same commits that each built before, and the two new ones only touch `.pickman-history`.
+- **Review comment:** this was the attempt-3 pipeline-fix report. It found only lab failures and asked for no code change, so there was nothing to address.
+- **Main tree:** I worked in a temporary worktree and have removed it. The main tree is untouched and still has the stale `cherry-20209a62bc85` interactive rebase in `.git/rebase-merge`.
+
+**Decisions for you:**
+- **This will happen again as soon as this round ends.** That is now three rounds in a row. Each round's record commit is made on the main tree's detached HEAD, and `push-branch` then pushes that HEAD over the MR. Check that the remote still points at d415c3bebbb2 before trusting pipeline 10771 (`git ls-remote ci refs/heads/cherry-6b4b1c8dc464`). To stop it, either:
+  - change `push_branch()` to push `{branch}:{branch}`, or to refuse when HEAD isn't that branch, or
+  - finish or abort the stale rebase in the main tree, so pickman isn't working from a detached HEAD.
+- **Pipeline 10770** is still running against the wiped content (963961d937d8) and is worth cancelling.
+
+**Suggested MR reply:**
+> The branch was overwritten again with `.pickman-history`-only content (963961d937d8), because `push-branch` pushes HEAD rather than the named branch. This restores it: the three patches and the empty merge commit are unchanged and on the latest master. This MR's two newer review and pipeline-fix records are added. The sandbox build passes. Pipeline 10771 tests the restored branch; 10770 can be ignored. The attempt-3 pipeline-fix report found only lab failures and needed no code changes.
+
+---
+
