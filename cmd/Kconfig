@@ -1208,6 +1208,7 @@ config CMD_UNZIP
 
 config CMD_ZIP
 	bool "zip"
+	select GETOPT
 	select GZIP_COMPRESSED
 	help
 	  Compress a memory region with zlib deflate method.
