@@ -101405,3 +101405,56 @@ MR !1505 is now rebased onto the latest ci/master (d962323ea418) and force-pushe
 
 ---
 
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+
+
+### Conversation log
+I'll check the repository state first, since earlier runs found a leftover rebase in the main tree.
+
+The rebase is running in the background. I'll wait for it to notify me.
+
+The background rebase will notify me when it exits, so I won't add a monitor. I'll check its progress in the meantime.
+
+The first build is running. The todo has 22 picks, but the branch has 23 commits, so I'll find out which one git dropped.
+
+My awk cut the subjects short, so that diff is meaningless. I'll compare by hash instead.
+
+The rebase task has exited. Its exit code is tail's, so I'll check the output and the worktree state directly.
+
+The resolved commit is a pure addition of 53 lines, the same as the original. I'll continue the rebase in the background.
+
+The rest of the rebase is running and will notify me when it finishes.
+
+Both end with the same `---` separator and blank line, and the hunk is pure additions. I'll rebuild the file from HEAD plus those 46 lines.
+
+The change now matches the original commit exactly. I'll continue; the three remaining record commits may hit the same kind of conflict.
+
+The rebase finished and every commit built. Now I'll compare the per-commit stats with the saved copy, check the empty merge commit, and run the final buildman check.
+
+Both branches now point at 14483e84aeb6, and I've removed the worktree. Next, the force-push to the MR branch.
+
+MR !1504 is now rebased onto the latest ci/master (7df1deae66fa) and force-pushed, so GitLab should start a new pipeline. The remote branch, the local cherry-6b917b413d31 and the new cherry-6b917b413d31-v4 all point at 14483e84aeb6.
+
+**The rebase**
+- **New on master:** 17 commits, mainly FIT load-address overlap detection in mkimage and binman, plus a few SPL, board_f and board fixes. The last two are the merge of cherry-824317a8bc56 and its pickman record. None of them touch Rockchip code.
+- **All 14 code commits applied without conflicts**, and each has the same `git show --stat` output as before. The empty merge commit is still empty and keeps its "cherry picked from" line.
+- **One commit was dropped automatically:** 1f2e17ae5531, the cherry-pick record for cherry-824317a8bc56. An earlier push had carried it into this branch. Master now has the identical change from that MR's merge (same patch-id), so git skipped it.
+- **Two conflicts, both in .pickman-history**, where both sides added entries at the end of the file:
+  - 13ddff04b860 (this branch's cherry-pick record): I kept master's cherry-824317a8bc56 entry first, then this branch's entry, with the usual `---` separator.
+  - 1a5da12e6d4f (a review record): its expected context was the dropped commit's entry. I resolved it by taking the current file and appending the commit's 46 added lines, and checked that the result matches the original change exactly.
+- **Builds:** buildman built sandbox after every one of the 22 commits and once more at the end. All builds passed.
+
+**Things to check**
+1. **Two record commits from another MR are still on this branch.** "pickman: Record review handling for cherry-824317a8bc56" (aa4293c4ba7b and 14483e84aeb6) only change .pickman-history, but they belong to the other MR, which is already merged. The first of these was already on the remote; the second was only local until this push.
+2. **The old rebase is still unfinished in the main tree.** The rebase of cherry-20209a62bc85 from Oct 30 is still in .git/rebase-merge, so `git status` still says "rebasing". I did this rebase in a temporary worktree, which I've removed, and moved the branch with `git reset --keep`. It still needs `git rebase --abort` or finishing.
+3. **The backup branch pickman-records-f0dcb8959308 is still there.**
+
+**Suggested reply for the MR**
+> Rebased onto the latest master (7df1deae66fa). The code commits applied without conflicts and have the same changes as before, including the empty merge commit. The only conflicts were history-entry additions in .pickman-history, where I kept both sides. One pickman record for cherry-824317a8bc56 dropped out because master now has it. Sandbox builds after each commit. The new pipeline will also retry the lab boards that failed earlier (samus_tpl, samus, bpif3, snow, pine64, opi_pc). Those failures weren't caused by this Rockchip-only series.
+
+---
+
