@@ -85,5 +85,5 @@ See also
 * :doc:`mm<mm>` for modifying memory with an auto-incrementing address
 * :doc:`mdc<mdc>` for displaying memory repeatedly
 * :doc:`md<md>` for displaying memory once
-* *mw* for writing a value to memory without prompting
+* :doc:`mw<mw>` for writing a value to memory without prompting
 * :doc:`base<base>` for the address offset applied to these commands

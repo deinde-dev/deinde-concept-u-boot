@@ -85,4 +85,5 @@ See also
 
 * :doc:`cmp<cmp>` for checking that the copy matches the source
 * :doc:`md<md>` for looking at either region
+* :doc:`mw<mw>` for filling a region with a constant value instead of a copy
 * :doc:`base<base>` for the offset cp adds to both addresses

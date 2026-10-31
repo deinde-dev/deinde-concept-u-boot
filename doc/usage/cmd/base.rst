@@ -48,7 +48,7 @@ Example
     01000000: deadbeef deadbeef deadbeef deadbeef  ................
 
 The write goes to 0x1000000 because the offset is added to the address 0
-given to *mw*. Once the offset is back to zero the same memory is reached by
+given to :doc:`mw<mw>`. Once the offset is back to zero the same memory is reached by
 its own address.
 
 Configuration
@@ -67,6 +67,7 @@ See also
 * :doc:`md<md>` for displaying memory at an offset from the base address
 * :doc:`mm<mm>` and :doc:`nm<nm>` for modifying it
 * :doc:`cp<cp>` and :doc:`cmp<cmp>` for copying and comparing two regions
+* :doc:`mw<mw>` for writing a value at an offset from the base address
 * :doc:`mdc<mdc>` and :doc:`mwc<mwc>` for the cyclic forms, which use the
   offset too
 * *ms* for searching memory, which also uses the offset
