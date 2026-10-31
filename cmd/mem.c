@@ -32,7 +32,6 @@
 #include <asm/io.h>
 #include <linux/bitops.h>
 #include <linux/compiler.h>
-#include <linux/ctype.h>
 #include <linux/delay.h>
 
 /* Create a compile-time value */
@@ -376,8 +375,7 @@ static int do_mem_cp(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 #ifdef CONFIG_CMD_MEM_SEARCH
-static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_mem_search(struct getopt_state *gs)
 {
 	ulong addr, length, bytes, offset;
 	u8 *ptr, *end, *buf;
@@ -385,9 +383,12 @@ static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
 	ulong last_pos;		/* Offset of last match in 'size' units*/
 	ulong last_addr;	/* Address of last displayed line */
 	int limit = 10;
+	char *const *argv;
 	int used_len;
 	int count;
 	int size;
+	int argc;
+	int opt;
 	int i;
 
 	/* We use the last specified parameters, unless new ones are entered */
@@ -395,32 +396,32 @@ static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
 	size = dp_last_size;
 	length = dp_last_ms_length;
 
-	if (argc < 3)
+	if (gs->argc < 3)
 		return CMD_RET_USAGE;
 
-	if (!(flag & CMD_FLAG_REPEAT)) {
+	if (!(gs->cmd_flag & CMD_FLAG_REPEAT)) {
 		/*
 		 * Check for a size specification.
 		 * Defaults to long if no or incorrect specification.
 		 */
-		size = cmd_get_data_size(argv[0], 4);
+		size = cmd_get_data_size(gs->argv[0], 4);
 		if (size < 0 && size != CMD_DATA_SIZE_STR)
 			return 1;
 
-		argc--;
-		argv++;
-		while (argc && *argv[0] == '-') {
-			int ch = argv[0][1];
-
-			if (ch == 'q')
+		while ((opt = getopt(gs, "+ql:")) > 0) {
+			switch (opt) {
+			case 'q':
 				quiet = true;
-			else if (ch == 'l' && isxdigit(argv[0][2]))
-				limit = hextoul(argv[0] + 2, NULL);
-			else
+				break;
+			case 'l':
+				limit = hextoul(gs->arg, NULL);
+				break;
+			default:
 				return CMD_RET_USAGE;
-			argc--;
-			argv++;
+			}
 		}
+		argc = gs->argc - gs->index;
+		argv = &gs->argv[gs->index];
 
 		/* The address, the length and a value are all required */
 		if (argc < 3)
@@ -1366,7 +1367,7 @@ U_BOOT_CMD(
 
 #ifdef CONFIG_CMD_MEM_SEARCH
 /**************************************************/
-U_BOOT_CMD(
+U_BOOT_CMD_GETOPT(
 	ms,	255,	1,	do_mem_search,
 	"memory search",
 	"[.b, .w, .l" HELP_Q ", .s] [-q] [-l<n>] addr #-of-objects <value>...\n"
