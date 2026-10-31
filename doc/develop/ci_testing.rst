@@ -123,6 +123,25 @@ TEST_SPEC
 
         git push ci -o ci.variable=TEST_SPEC=bootstd
 
+ONLY_JOBS
+    Set to a regular expression to run just the jobs whose names match it.
+    Matching jobs run even if they are normally manual or turned off by the
+    other variables. Jobs which a selected job normally waits for are left out
+    unless they match too. For example::
+
+        git push ci -o ci.variable='ONLY_JOBS=/^(sandbox test\.py|rpi3)$/'
+
+    A push to a branch with an open merge request starts only the
+    merge-request pipeline, which does not see push variables. To run a
+    selection on such a branch, create a pipeline through the API, which is
+    allowed when ``ONLY_JOBS`` is set::
+
+        curl --request POST --header "PRIVATE-TOKEN: <token>" \
+            --header "Content-Type: application/json" \
+            --data '{"ref": "<branch>", "variables": [{"key": "ONLY_JOBS",
+                "value": "/^BeagleBone Black \\(lwIP\\)$/"}]}' \
+            https://concept.deinde.dev/api/v4/projects/1/pipeline
+
 Using the lab
 -------------
 

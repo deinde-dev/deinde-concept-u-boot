@@ -6,6 +6,10 @@ include:
 
 workflow:
   rules:
+    # An API pipeline which names its jobs in ONLY_JOBS, e.g. to re-run just
+    # the jobs which a change can affect on a merge-request branch
+    - if: $CI_PIPELINE_SOURCE == "api" && $ONLY_JOBS
+      when: always
     # A push to a branch which already has an open merge request would
     # otherwise start a branch pipeline as well as the merge-request one; skip
     # the branch pipeline, since the merge-request pipeline covers it.  Manual
@@ -28,6 +32,9 @@ variables:
   SAGE_LAB: ""
   SJG_LAB: ""
   SJG_LAB_SLOW: ""
+  # Regular expression selecting the jobs to run, e.g. /^(rpi3|samus)$/; when
+  # set, only the matching jobs run, including those which are normally manual
+  ONLY_JOBS: ""
   # Tell labgrid this is an automated run, so it skips the interactive
   # "Terminal ready" console banner (which would corrupt captured output)
   LG_QUIET: "1"
@@ -43,6 +50,15 @@ default:
   services:
     - name: container-$(CI_JOB_ID)
       command: ["--rm"]
+
+# Rules which go first in every job's rules, so that ONLY_JOBS can select
+# the jobs which run
+.only_jobs:
+  rules:
+    - if: $ONLY_JOBS && $CI_JOB_NAME =~ $ONLY_JOBS
+      when: always
+    - if: $ONLY_JOBS
+      when: never
 
 # We run some tests in different order, to catch some failures quicker.
 stages:
@@ -62,8 +78,11 @@ stages:
   # The GitLab runner must be configured with:
   #   - privileged = true in /etc/gitlab-runner/config.toml
   #   OR passwordless sudo for: modprobe, cryptsetup, dd
-  needs: [ "Build allyesconfig, tools-only and envtools" ]
+  needs:
+    - job: "Build allyesconfig, tools-only and envtools"
+      optional: true
   rules:
+    - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-pytest]
     - if: $CI_MERGE_REQUEST_DESCRIPTION =~ /\[skip-pytest\]/
       when: never
@@ -180,6 +199,7 @@ stages:
   stage: world_build
   dependencies: []
   rules:
+    - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-world]  
     - if: $CI_MERGE_REQUEST_DESCRIPTION =~ /\[skip-world\]/
       when: never
@@ -190,7 +210,9 @@ stages:
 build all 32bit ARM platforms:
   extends: .world_build
   dependencies: []
-  needs: [ "sandbox test.py" ]
+  needs:
+    - job: "sandbox test.py"
+      optional: true
   tags:
     - single
   script:
@@ -278,6 +300,7 @@ build all other platforms:
 .test_suites:
   stage: test_suites
   rules:
+    - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-suites]
     - if: $CI_MERGE_REQUEST_DESCRIPTION =~ /\[skip-suites\]/
       when: never
@@ -430,6 +453,7 @@ Examples:
 .python_check_template:
   stage: test.py
   rules:
+    - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-pytest]
     - if: $CI_MERGE_REQUEST_DESCRIPTION =~ /\[skip-pytest\]/
       when: never
@@ -871,6 +895,7 @@ coreboot test.py:
   stage: sjg-lab
   needs: []
   rules:
+    - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-sjg]
     - if: $CI_MERGE_REQUEST_DESCRIPTION =~ /\[skip-sjg\]/
       when: never
@@ -942,6 +967,7 @@ coreboot test.py:
   <<: *sjg_lab_dfn
   stage: sjg-lab-slow
   rules:
+    - !reference [.only_jobs, rules]
     - if: $CI_MERGE_REQUEST_DESCRIPTION =~ /\[skip-sjg-slow\]/
       when: never
     - if: $SJG_LAB_SLOW == $ROLE || $SJG_LAB_SLOW == "1"
@@ -1365,6 +1391,8 @@ trigger_snap_builds:
   variables:
     GIT_DEPTH: 0  # Need full history for GitHub push
   rules:
+    - if: $ONLY_JOBS
+      when: never
     - if: $CI_COMMIT_BRANCH == "master"
   before_script:
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client git -y )'
