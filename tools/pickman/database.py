@@ -512,6 +512,9 @@ class Database:  # pylint: disable=too-many-public-methods
     def pfix_count(self, mr_iid):
         """Count fix attempts for an MR
 
+        A pipeline left alone because its failures also happen in other
+        merge requests is not an attempt, so it does not count.
+
         Args:
             mr_iid (int): Merge request IID
 
@@ -519,7 +522,8 @@ class Database:  # pylint: disable=too-many-public-methods
             int: Number of fix attempts
         """
         res = self.execute(
-            'SELECT COUNT(*) FROM pipeline_fix WHERE mr_iid = ?',
+            'SELECT COUNT(*) FROM pipeline_fix '
+            "WHERE mr_iid = ? AND status != 'shared'",
             (mr_iid,))
         return res.fetchone()[0]
 

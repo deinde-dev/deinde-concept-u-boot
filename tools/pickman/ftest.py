@@ -936,6 +936,12 @@ class TestDatabasePipelineFix(unittest.TestCase):
             # Different MR should have 0
             self.assertEqual(dbs.pfix_count(999), 0)
 
+            # A pipeline left alone for shared failures is not an attempt
+            dbs.pfix_add(123, 300, 0, 'shared')
+            dbs.commit()
+            self.assertTrue(dbs.pfix_has(123, 300))
+            self.assertEqual(dbs.pfix_count(123), 2)
+
             dbs.close()
 
     def test_pfix_has(self):
@@ -6957,7 +6963,9 @@ class TestProcessPipelineFailures(unittest.TestCase):
 
             with mock.patch.object(control, 'run_git'):
                 with mock.patch.object(gitlab, 'get_failed_jobs',
-                                       return_value=failed_jobs):
+                                       return_value=failed_jobs), \
+                     mock.patch.object(gitlab, 'get_shared_failures',
+                                       return_value={}):
                     with mock.patch.object(agent, 'fix_pipeline',
                                            return_value=(True, 'Fixed it')):
                         with mock.patch.object(
@@ -6986,6 +6994,78 @@ class TestProcessPipelineFailures(unittest.TestCase):
             reply_msg = mock_reply.call_args[0][2]
             self.assertIn('Fixed it', reply_msg)
             self.assertIn('build', reply_msg)
+            dbs.close()
+
+    @staticmethod
+    def _failed(*names):
+        """Build FailedJob tuples with the given names"""
+        return [gitlab.FailedJob(id=i, name=name, stage='test',
+                                 web_url=f'https://gitlab.com/job/{i}',
+                                 log_tail='error')
+                for i, name in enumerate(names)]
+
+    def test_shared_failures_left_alone(self):
+        """Test that failures shared with other MRs get no fix attempt"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr()]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=self._failed('samus',
+                                                             'snow')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'samus': [10, 11],
+                                                 'snow': [11, 12]}), \
+                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
+                 mock.patch.object(gitlab, 'push_branch') as mock_push, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            mock_fix.assert_not_called()
+            mock_push.assert_not_called()
+            reply_msg = mock_reply.call_args[0][2]
+            self.assertIn('lab or infrastructure problem', reply_msg)
+            self.assertIn('- samus (!10, !11)', reply_msg)
+            self.assertIn('- snow (!11, !12)', reply_msg)
+
+            # Recorded, so not looked at again, but not an attempt
+            self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(dbs.pfix_count(1), 0)
+            dbs.close()
+
+    def test_shared_failures_left_out(self):
+        """Test that only this MR's own failures go to the agent"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr()]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=self._failed('samus',
+                                                             'sandbox')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'samus': [10, 11]}), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No luck')) \
+                    as mock_fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 1)
+            jobs = mock_fix.call_args[0][2]
+            self.assertEqual(['sandbox'], [job.name for job in jobs])
+            reply_msg = mock_reply.call_args[0][2]
+            self.assertIn('No luck', reply_msg)
+            self.assertIn('also fail in other merge requests:\n'
+                          '- samus (!10, !11)', reply_msg)
             dbs.close()
 
     def test_skips_skipped_mr(self):
@@ -8868,6 +8948,124 @@ class TestEnsureMrPipeline(unittest.TestCase):
                                return_value=False):
             with terminal.capture():
                 self.assertFalse(gitlab.ensure_mr_pipeline('ci', 42))
+
+
+class TestGetSharedFailures(unittest.TestCase):
+    """Tests for finding jobs which fail in other merge requests too"""
+
+    @staticmethod
+    def _pipe(mr_iid, status, failed=()):
+        """Build a mock merge-request pipeline
+
+        Args:
+            mr_iid (int): Merge request it belongs to, or None for a branch
+            status (str): Pipeline status
+            failed (tuple of str): Names of the jobs which failed in it
+
+        Return:
+            Mock: pipeline
+        """
+        ref = (f'refs/merge-requests/{mr_iid}/head' if mr_iid
+               else 'master')
+        pipe = mock.Mock(ref=ref, status=status)
+        jobs = []
+        for name in failed:
+            job = mock.Mock()
+            job.name = name
+            jobs.append(job)
+        pipe.jobs.list.return_value = jobs
+        return pipe
+
+    def _run(self, pipes, names, **kwargs):
+        """Run get_shared_failures() against some pipelines, newest first
+
+        Return:
+            tuple: (result, project mock)
+        """
+        project = mock.Mock()
+        project.pipelines.list.return_value = pipes
+        glab = mock.Mock()
+        glab.projects.get.return_value = project
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value='tok'), \
+             mock.patch.object(gitlab, 'get_remote_url',
+                               return_value=TEST_SSH_URL), \
+             mock.patch('gitlab.Gitlab', return_value=glab):
+            with terminal.capture():
+                result = gitlab.get_shared_failures('ci', 42, names,
+                                                    **kwargs)
+        return result, project
+
+    def test_shared(self):
+        """Test that only each other MR's newest finished pipeline counts"""
+        pipes = [
+            self._pipe(42, 'failed', ['samus', 'rpi3']),
+            self._pipe(10, 'running'),
+            self._pipe(10, 'failed', ['samus', 'snow']),
+            self._pipe(10, 'failed', ['rpi3']),
+            self._pipe(None, 'failed', ['rpi3']),
+            self._pipe(11, 'failed', ['samus', 'other']),
+            self._pipe(12, 'success'),
+            self._pipe(12, 'failed', ['snow', 'rpi3']),
+        ]
+        result, project = self._run(pipes, ['samus', 'snow', 'rpi3'])
+        self.assertEqual({'samus': [10, 11]}, result)
+        kwargs = project.pipelines.list.call_args[1]
+        self.assertEqual('merge_request_event', kwargs['source'])
+        self.assertIn('updated_after', kwargs)
+
+        # Asking for fewer merge requests lets snow through
+        result, _ = self._run(pipes, ['samus', 'snow', 'rpi3'], min_mrs=1)
+        self.assertEqual({'samus': [10, 11], 'snow': [10]}, result)
+
+    def test_nothing_to_check(self):
+        """Test that no failed jobs needs no API calls"""
+        with mock.patch.object(gitlab, 'check_available') as check:
+            self.assertEqual({}, gitlab.get_shared_failures('ci', 42, []))
+        check.assert_not_called()
+
+    def test_unavailable(self):
+        """Test that a missing module, token or URL reports nothing shared"""
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=False):
+            self.assertEqual({}, gitlab.get_shared_failures('ci', 42, ['a']))
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value=None):
+            self.assertEqual({}, gitlab.get_shared_failures('ci', 42, ['a']))
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value='tok'), \
+             mock.patch.object(gitlab, 'get_remote_url',
+                               return_value='not-a-url'):
+            self.assertEqual({}, gitlab.get_shared_failures('ci', 42, ['a']))
+
+    def test_api_error(self):
+        """Test that an API error reports nothing shared, with a warning"""
+        project = mock.Mock()
+        project.pipelines.list.side_effect = \
+            gitlab.gitlab.exceptions.GitlabError('denied')
+        glab = mock.Mock()
+        glab.projects.get.return_value = project
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value='tok'), \
+             mock.patch.object(gitlab, 'get_remote_url',
+                               return_value=TEST_SSH_URL), \
+             mock.patch('gitlab.Gitlab', return_value=glab):
+            with terminal.capture() as (_, err):
+                result = gitlab.get_shared_failures('ci', 42, ['a'])
+        self.assertEqual({}, result)
+        self.assertIn('Could not check other pipelines: denied',
+                      err.getvalue())
+
+    def test_mr_iid_of_ref(self):
+        """Test reading the merge request from a pipeline ref"""
+        self.assertEqual(42, gitlab.mr_iid_of_ref(
+            'refs/merge-requests/42/head'))
+        self.assertIsNone(gitlab.mr_iid_of_ref('cherry-abc'))
+        self.assertIsNone(gitlab.mr_iid_of_ref(None))
 
 
 class TestRemovedIdentifiers(unittest.TestCase):

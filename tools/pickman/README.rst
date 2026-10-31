@@ -417,10 +417,14 @@ During each step, after processing review comments, pickman checks active MRs
 for failed pipelines. For each failed pipeline:
 
 1. Pickman fetches the failed job logs from GitLab
-2. A Claude agent analyses the logs, diagnoses the root cause, and makes
+2. Pickman leaves out jobs which also fail in the newest pipelines of at least
+   two other MRs from the last two days, e.g. because a lab board is broken,
+   since the series cannot be the cause. If no other failures remain, it says
+   so on the MR and stops there
+3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
-3. The fix is pushed to the MR branch, triggering a new pipeline
-4. The attempt is recorded in the database to avoid reprocessing
+4. The fix is pushed to the MR branch, triggering a new pipeline
+5. The attempt is recorded in the database to avoid reprocessing
 
 **Retry behaviour**
 
@@ -429,7 +433,8 @@ reached, pickman posts a comment on the MR indicating that manual intervention
 is required. Set ``--fix-retries 0`` to disable automatic pipeline fixing.
 
 Each attempt is tracked per pipeline ID, so a new pipeline triggered by a rebase
-or comment fix is treated independently.
+or comment fix is treated independently. A pipeline whose failures all happen
+in other MRs too does not count as an attempt.
 
 **Options**
 

@@ -7,6 +7,7 @@
 
 from collections import namedtuple
 import configparser
+from datetime import datetime, timedelta, timezone
 import os
 import re
 import sys
@@ -499,6 +500,79 @@ def get_failed_jobs(remote, pipeline_id, max_log_lines=200):
     except gitlab.exceptions.GitlabError as exc:
         tout.error(f'GitLab API error: {exc}')
         return None
+
+
+def mr_iid_of_ref(ref):
+    """Get the merge request which a pipeline ref belongs to
+
+    Args:
+        ref (str): Pipeline ref, e.g. 'refs/merge-requests/42/head'
+
+    Returns:
+        int: Merge request IID, or None if the ref is not a merge request's
+    """
+    match = re.match(r'refs/merge-requests/(\d+)/', ref or '')
+    return int(match.group(1)) if match else None
+
+
+def get_shared_failures(remote, mr_iid, job_names, min_mrs=2, days=2,
+                        max_pipelines=40):
+    """Find which jobs also fail in other merge requests' pipelines
+
+    Some jobs fail whatever a merge request changes, e.g. when a lab board is
+    broken. Such a failure is no reason to change the series, and a new
+    pipeline would only fail again. Look at the newest finished pipeline of
+    each other merge request in the last few days and report the jobs which
+    fail in enough of them.
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request whose failures are being checked
+        job_names (list of str): Names of the jobs which failed
+        min_mrs (int): How many other merge requests a job must fail in
+        days (int): How far back to look
+        max_pipelines (int): Most pipelines to look at
+
+    Returns:
+        dict: Job name -> sorted list of IIDs of the other merge requests
+            where it fails, holding only the jobs which fail in at least
+            min_mrs of them; empty if none do or the pipelines cannot be read
+    """
+    if not job_names or not check_available():
+        return {}
+    token = get_token()
+    if not token:
+        return {}
+    host, proj_path = parse_url(get_remote_url(remote))
+    if not host or not proj_path:
+        return {}
+
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    failed_in = {name: set() for name in job_names}
+    try:
+        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        project = glab.projects.get(proj_path)
+        seen = set()
+        for pipe in project.pipelines.list(
+                source='merge_request_event', updated_after=since,
+                order_by='id', sort='desc', per_page=max_pipelines,
+                get_all=False):
+            iid = mr_iid_of_ref(pipe.ref)
+            if iid in (None, mr_iid) or iid in seen:
+                continue
+            if pipe.status not in ('success', 'failed'):
+                continue
+            seen.add(iid)
+            if pipe.status == 'success':
+                continue
+            for job in pipe.jobs.list(scope='failed', get_all=True):
+                if job.name in failed_in:
+                    failed_in[job.name].add(iid)
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'Could not check other pipelines: {exc}')
+        return {}
+    return {name: sorted(iids) for name, iids in failed_in.items()
+            if len(iids) >= min_mrs}
 
 
 def reply_to_mr(remote, mr_iid, message):

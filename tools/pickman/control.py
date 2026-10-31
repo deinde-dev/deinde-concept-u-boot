@@ -5030,6 +5030,30 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
         dbs.commit()
         return False
 
+    # Leave out jobs which fail in other merge requests too
+    shared = gitlab_api.get_shared_failures(
+        remote, mr_iid, [job.name for job in failed_jobs])
+    shared_note = ''
+    if shared:
+        shared_note = ('\n\nNot attempted, since these also fail in other '
+                       'merge requests:\n' + '\n'.join(
+                           f'- {name} (' +
+                           ', '.join(f'!{iid}' for iid in iids) + ')'
+                           for name, iids in sorted(shared.items())))
+        failed_jobs = [job for job in failed_jobs if job.name not in shared]
+        if not failed_jobs:
+            tout.info(f'MR !{mr_iid}: every failed job also fails in other '
+                      f'merge requests, not attempting a fix')
+            gitlab_api.reply_to_mr(
+                remote, mr_iid,
+                f'Pipeline {merge_req.pipeline_id}: every failed job also '
+                f'fails in other merge requests, so this looks like a lab '
+                f'or infrastructure problem rather than this series.'
+                f'{shared_note}')
+            dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'shared')
+            dbs.commit()
+            return False
+
     # Run agent to fix the failures
     success, conversation_log = agent.fix_pipeline(
         mr_iid,
@@ -5064,7 +5088,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
             remote, mr_iid,
             f'Pipeline fix (attempt {attempt}): '
             f'fixed failed job(s) {job_names}.\n\n'
-            f'{conversation_log[:2000]}')
+            f'{conversation_log[:2000]}{shared_note}')
 
         # Update .pickman-history
         update_history_pipeline_fix(merge_req.source_branch, failed_jobs,
@@ -5075,7 +5099,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
         gitlab_api.reply_to_mr(
             remote, mr_iid,
             f'Pipeline fix attempt {attempt} failed. '
-            f'Agent output:\n\n{conversation_log[:1000]}')
+            f'Agent output:\n\n{conversation_log[:1000]}{shared_note}')
         tout.error(f'MR !{mr_iid}: pipeline fix failed '
                    f'(attempt {attempt})')
 
