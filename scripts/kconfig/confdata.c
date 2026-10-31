@@ -29,6 +29,10 @@
 static char *xpl_name[MAX_XPLS];
 int num_xpls;	/* 0 if not supporting xPL, else the number of prefixes */
 
+/* Devicetree tag for each phase, and the number of phases (not TOOLS) */
+static char *phase_tag[MAX_XPLS];
+static int num_phases;
+
 /* return true if 'path' exists, false otherwise */
 static bool is_present(const char *path)
 {
@@ -1340,6 +1344,9 @@ static int conf_touch_changed(const char *old_fname, const char *new_fname,
 /**
  * u_boot_open_script() - Open a file in the scripts/ directory of the source
  *
+ * The file is added to the dependencies of auto.conf, so that changing it
+ * updates the configuration
+ *
  * @fname: Leaf name of the file, e.g. "conf_nospl"
  * Return: the open file, or NULL on error (an error message has been shown)
  */
@@ -1356,8 +1363,12 @@ static FILE *u_boot_open_script(const char *fname)
 	}
 	snprintf(fullname, sizeof(fullname), "%s/scripts/%s", env, fname);
 	f = fopen(fullname, "r");
-	if (!f)
+	if (!f) {
 		fprintf(stderr, "Cannot open '%s'\n", fullname);
+		return NULL;
+	}
+	snprintf(fullname, sizeof(fullname), "scripts/%s", fname);
+	file_lookup(fullname);
 
 	return f;
 }
@@ -1441,9 +1452,11 @@ static int u_boot_read_phases(const char *fname)
 		}
 		for (p = name; *p; p++)
 			*p = toupper(*p);
+		phase_tag[num_xpls] = xstrdup(tag);
 		xpl_name[num_xpls++] = xstrdup(name);
 	}
 	fclose(f);
+	num_phases = num_xpls;
 	xpl_name[num_xpls++] = "TOOLS";
 
 	return 0;
@@ -1451,6 +1464,163 @@ static int u_boot_read_phases(const char *fname)
 err:
 	fclose(f);
 	return 1;
+}
+
+/* Get the lower-case name of a phase, e.g. "tpl" */
+static const char *phase_lower(int phase)
+{
+	static char lower[2][SYMBOL_MAXLENGTH];
+	static int which;
+	char *p = lower[which ^= 1];
+	const char *s;
+
+	for (s = xpl_name[phase]; *s; s++)
+		*p++ = tolower(*s);
+	*p = '\0';
+
+	return lower[which];
+}
+
+/**
+ * u_boot_rename_if_changed() - Move a new file into place if it is different
+ *
+ * This leaves the existing file alone if it already has the same contents, so
+ * that anything which depends on it is not rebuilt
+ *
+ * @tmpname: New file, which is removed
+ * @fname: File to replace
+ * Return: 0 if OK, 1 on error
+ */
+static int u_boot_rename_if_changed(const char *tmpname, const char *fname)
+{
+	FILE *old, *new;
+	bool same = false;
+	int ch;
+
+	old = fopen(fname, "r");
+	new = fopen(tmpname, "r");
+	if (old && new) {
+		do {
+			ch = fgetc(old);
+			same = ch == fgetc(new);
+		} while (same && ch != EOF);
+	}
+	if (old)
+		fclose(old);
+	if (new)
+		fclose(new);
+	if (same)
+		return unlink(tmpname) ? 1 : 0;
+	if (make_parent_dir(fname))
+		return 1;
+
+	return rename(tmpname, fname) ? 1 : 0;
+}
+
+/**
+ * write_phase_chain() - Write an expression for the phase before or after one
+ *
+ * This writes a C expression giving the nearest enabled phase in the given
+ * direction, e.g. for the phase after TPL:
+ *
+ *	(IS_ENABLED(CONFIG_VPL) ? PHASE_VPL : IS_ENABLED(CONFIG_SPL) ?
+ *	PHASE_SPL : PHASE_BOARD_F)
+ *
+ * @out: File to write to
+ * @phase: Phase to start from, or num_phases for U-Boot proper
+ * @dir: -1 for the phase before, 1 for the phase after
+ */
+static void write_phase_chain(FILE *out, int phase, int dir)
+{
+	int i;
+
+	fprintf(out, " \\\n\t(");
+	for (i = phase + dir; i >= 0 && i < num_phases; i += dir)
+		fprintf(out, "IS_ENABLED(CONFIG_%s) ? PHASE_%s : \\\n\t ",
+			xpl_name[i], xpl_name[i]);
+	fprintf(out, "%s)\n", dir < 0 ? "PHASE_NONE" : "PHASE_BOARD_F");
+}
+
+/**
+ * u_boot_write_phases() - Write out the list of xPL phases for the build
+ *
+ * This writes include/config/xpl.conf for make and include/generated/
+ * xpl_phases.h for C, both from scripts/xpl_phases
+ *
+ * Return: 0 if OK, 1 on error
+ */
+static int u_boot_write_phases(void)
+{
+	const char *heading = "Automatically generated from scripts/xpl_phases: do not edit";
+	FILE *out;
+	int i;
+
+	out = fopen(".tmpconfig_xpl", "w");
+	if (!out)
+		return 1;
+	fprintf(out, "# %s\n\nXPL_PHASES :=", heading);
+	for (i = 0; i < num_phases; i++)
+		fprintf(out, " %s", phase_lower(i));
+	fprintf(out, "\n");
+	for (i = 0; i < num_phases; i++) {
+		fprintf(out, "\nXPL_UPPER_%s := %s\n", phase_lower(i),
+			xpl_name[i]);
+		fprintf(out, "XPL_TAG_%s := %s\n", phase_lower(i),
+			phase_tag[i]);
+	}
+	fclose(out);
+
+	/*
+	 * Always replace this one: make remakes include/config/%.conf files
+	 * which are older than .config
+	 */
+	if (make_parent_dir("include/config/xpl.conf") ||
+	    rename(".tmpconfig_xpl", "include/config/xpl.conf"))
+		return 1;
+
+	out = fopen(".tmpconfig_xpl.h", "w");
+	if (!out)
+		return 1;
+	fprintf(out, "/* %s */\n\n", heading);
+	fprintf(out, "#ifndef __XPL_PHASES_H\n#define __XPL_PHASES_H\n\n");
+	fprintf(out, "/*\n * Calls x(upper, lower) for each phase, in the order they run,\n");
+	fprintf(out, " * with a comma between each one\n */\n");
+	fprintf(out, "#define XPL_FOR_EACH_PHASE(x)");
+	for (i = 0; i < num_phases; i++)
+		fprintf(out, " \\\n\tx(%s, %s)%s", xpl_name[i], phase_lower(i),
+			i < num_phases - 1 ? "," : "");
+	fprintf(out, "\n\n");
+
+	fprintf(out, "/*\n * Gives a case label for each phase, with x(upper, lower) followed\n");
+	fprintf(out, " * by a break as its statements and a semicolon between each one\n */\n");
+	fprintf(out, "#define XPL_PHASE_CASES(x)");
+	for (i = 0; i < num_phases; i++)
+		fprintf(out, " \\\n\tcase PHASE_%s: x(%s, %s); break%s",
+			xpl_name[i], xpl_name[i], phase_lower(i),
+			i < num_phases - 1 ? ";" : "");
+	fprintf(out, "\n\n");
+
+	fprintf(out, "/*\n * The phase being built, the header holding its configuration\n");
+	fprintf(out, " * and the enabled phases which run before and after it\n */\n");
+	for (i = 0; i < num_phases; i++) {
+		fprintf(out, "#%s defined(CONFIG_%s_BUILD)\n", i ? "elif" : "if",
+			xpl_name[i]);
+		fprintf(out, "#define XPL_PHASE\t\tPHASE_%s\n", xpl_name[i]);
+		fprintf(out, "#define XPL_PHASE_NAME\t\t\"%s\"\n", xpl_name[i]);
+		fprintf(out, "#define XPL_AUTOCONF\t\t<generated/autoconf_%s.h>\n",
+			phase_lower(i));
+		fprintf(out, "#define XPL_PREV_PHASE");
+		write_phase_chain(out, i, -1);
+		fprintf(out, "#define XPL_NEXT_PHASE");
+		write_phase_chain(out, i, 1);
+	}
+	fprintf(out, "#else\n#define XPL_PREV_PHASE");
+	write_phase_chain(out, num_phases, -1);
+	fprintf(out, "#endif\n\n#endif\n");
+	fclose(out);
+
+	return u_boot_rename_if_changed(".tmpconfig_xpl.h",
+					"include/generated/xpl_phases.h");
 }
 
 int conf_write_autoconf(bool support_xpl)
@@ -1467,6 +1637,8 @@ int conf_write_autoconf(bool support_xpl)
 	/* U-Boot: Mark symbols according to their xPL/non-xPL nature */
 	if (support_xpl) {
 		if (u_boot_read_phases("xpl_phases"))
+			return 1;
+		if (u_boot_write_phases())
 			return 1;
 		if (conf_mark_symbols())
 			return 1;
