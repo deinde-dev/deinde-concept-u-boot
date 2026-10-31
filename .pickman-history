@@ -101614,3 +101614,50 @@ The branch is ready to push and hasn't been merged anywhere.
 
 ---
 
+## 2026-10-31: us/main
+
+Branch: cherry-58fea72c0ff7
+
+Commits:
+- 58fea72c0ff7 test: dm: free gpio in dm_test_gpio_requestf()
+- 7b1ae01ed37a test: sandbox: enable GPIO_DELAY
+- ef019bb9ebce test: dm: add sandbox coverage for gpio-delay
+- c3991218c80d Merge patch series "test: dm: add sandbox coverage for gpio-delay"
+
+### Conversation log
+The tree was in the middle of a rebase on another branch (cherry-20209a62bc85), and the checkout went ahead anyway. Before I go further I'll check whether another process is still using that rebase.
+
+Neither commit is in ci/master yet. Picking the first one:
+
+The build failed because of stale Rust artefacts in /tmp/pickman: they still point at an old worktree, /tmp/wt-cherry-d2b6f7d9c4b4. I'll delete that directory and rebuild.
+
+It builds now. Picking the second commit:
+
+Last one is the merge commit:
+
+The merge commit came out empty, as expected, because the earlier commits already carry its changes. I'll commit it with --allow-empty and keep the prepared message, which includes the -x line.
+
+All four commits are in. Running the final build, plus the gpio tests as a quick check:
+
+Only one test ran, so `ut dm gpio` probably matched just the test named "gpio". I'll run all the gpio tests explicitly:
+
+All four commits are on branch cherry-58fea72c0ff7 (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready to push.
+
+```
+e591f459b874 Merge patch series "test: dm: add sandbox coverage for gpio-delay"
+3f78721455eb test: dm: add sandbox coverage for gpio-delay
+3f0359c36842 test: sandbox: enable GPIO_DELAY
+732288912ef6 test: dm: free gpio in dm_test_gpio_requestf()
+```
+
+- **Fix-ups:** none. Every pick applied without conflicts, and `pickman split-check` changed nothing in any of them.
+- **Deltas:** each commit matches its original exactly (2, 12 and 69 lines added). The merge commit is empty because the three commits before it already contain its changes. I kept it with `--allow-empty`, along with its message and the `cherry picked from` line.
+- **Tests:** I also ran the 14 `ut dm gpio*` tests on the new build. They include `dm_test_gpio_delay` and all passed.
+
+Two things in the environment need attention:
+
+1. **Stale Rust build output:** the first build failed with a Rust link error. The files in `/tmp/pickman/examples/rust` still pointed at a linker script in an old worktree, `/tmp/wt-cherry-d2b6f7d9c4b4`, which no longer exists. I deleted that directory and the build then passed, so the failure had nothing to do with these commits. Other pickman runs that share `/tmp/pickman` could hit the same problem.
+2. **Leftover rebase:** `git status` was not clean at the start. An interactive rebase of `cherry-20209a62bc85` is still open in `.git/rebase-merge`, with 28 steps left. It was already detached from HEAD, which was on `cherry-6b917b413d31` at the time, and nothing was running it. I didn't touch it, but it should be either aborted or finished. Until then, `git status` will keep showing it, and a stray `git rebase --continue` would act on whatever branch is checked out.
+
+---
+
