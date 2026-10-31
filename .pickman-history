@@ -101539,3 +101539,78 @@ I made no code changes because the comment didn't ask for any. While checking, t
 
 ---
 
+## 2026-10-31: us/main
+
+Branch: cherry-d2b6f7d9c4b4
+
+Commits:
+- d2b6f7d9c4b4 buildman: Differentiate 32-bit and 64-bit LoongArch variants
+- 41541f47a3af global_data: Only include driver model fields when DM is enabled
+- e3aa1ec1e3a3 gpio: uclass: log when a gpio offset is already claimed
+- 826d8b8b1771 gpio: cmd: warn when a gpio offset is already claimed
+- 04e3d07ebe6f gpio: delay: set gpio_count and validate index against it
+- 8df3881e173d gpio: delay: fix offset propagation in gpio_delay_xlate()
+- 55752c23945b gpio: delay: free wrapped real GPIOs on remove
+- bb6283adea94 gpio: delay: free already-requested GPIOs on probe failure
+- 346f721fa833 Merge patch series "gpio: improve claim diagnostics and fix gpio-delay offset handling"
+
+### Conversation log
+None are in ci/master yet. Starting with the first commit.
+
+tools/buildman/boards.py doesn't exist in ci/master. I'll find where that code lives now.
+
+Buildman now lives in a separate package, so this change belongs in that repository. I'll check how earlier buildman picks were handled.
+
+No earlier pick has hit this yet. I'll keep the deletion and record the commit as empty. First I'll check whether the installed buildman package already handles LoongArch.
+
+The buildman on PATH doesn't have the fix-up either, so it needs porting to the standalone buildman repository. I'll record it here as an empty commit.
+
+I'll shorten that note to fit the line limit.
+
+The old note was left in. Rewriting the message cleanly:
+
+Next, the global_data commit:
+
+Resolution: keep the passage fields from HEAD and take the new DM guard. I'll write it as IS_ENABLED(CONFIG_DM) directly, since this target has a separate config per phase.
+
+Only drivers/core uses dmtag_list, and that is only built with DM. Committing and running split-check:
+
+split-check converted both guards. Amending with the conflict note and the split-check note:
+
+The failure is a stale Rust build cache in /tmp/pickman that still points at an old worktree (/tmp/wt-cherry-8841b7b292c7), not this change. I'll clear that build output and rebuild.
+
+Build passes. Now the six gpio commits, stopping on the first problem:
+
+All six applied cleanly with matching deltas, split-check changed nothing, and every build passed. Now the merge commit:
+
+As expected, the merge is empty because its changes are already in the individual commits. I'll commit it as empty, keeping the prepared message.
+
+All 9 commits are on branch cherry-d2b6f7d9c4b4, based on ci/master, and the final sandbox build passes with no warnings or errors. One commit is an empty placeholder: the buildman change has nowhere to go in this tree.
+
+| New | Original | Result |
+|---|---|---|
+| ca339561e0b5 | d2b6f7d9c4b4 buildman: LoongArch variants | **Empty**, see below |
+| d848200fc546 | 41541f47a3af global_data: DM fields | Conflict fixed, converted to per-phase config |
+| c8840d7df19c | e3aa1ec1e3a3 gpio: uclass: log claimed offset | Clean |
+| cd8fdeb5fc6c | 826d8b8b1771 gpio: cmd: warn claimed offset | Clean |
+| 441ab5e638c1 | 04e3d07ebe6f gpio: delay: gpio_count | Clean |
+| abf4ae5c56fa | 8df3881e173d gpio: delay: offset propagation | Clean |
+| cc1560a6f4a7 | 55752c23945b gpio: delay: free on remove | Clean |
+| 6328e760c028 | bb6283adea94 gpio: delay: free on probe failure | Clean |
+| ecc2bf0d4498 | 346f721fa833 Merge (gpio series) | Empty, as expected for the merge |
+
+**Fix-ups:**
+- **buildman (needs a decision):** this commit only changes `tools/buildman/boards.py`, which ci/master deleted in 707f703739a9 ("buildman: Remove the implementation") when buildman moved to its own package. I kept the deletion and made it an empty commit with the note `[Empty: buildman is now a standalone package; the change goes there]`. The buildman on PATH (`/home/sglass/dev/buildman.stable`) doesn't have the LoongArch fix-up yet, so it still needs porting to the standalone buildman repository.
+- **global_data:** the conflict was with the passage fields in ci/master. I kept them and applied the new DM guard. split-check then turned both `CONFIG_IS_ENABLED(DM)` guards into `IS_ENABLED(CONFIG_DM)`. Two notes are in the commit message: `[Resolve a conflict with the passage fields in global_data]` and `[pickman] convert to per-phase config macros`. Only `drivers/core` uses `dmtag_list`, and that is only built with DM, so the new guard is safe.
+- split-check changed nothing in the other commits.
+
+**Deltas:** all the non-empty picks match their originals in files and line counts.
+
+**Build:** the first build after the global_data commit failed, and it wasn't caused by the change. The cached Rust example build in `/tmp/pickman/examples/rust` still pointed at a linker script in a worktree that no longer exists (`/tmp/wt-cherry-8841b7b292c7`). I deleted that build output, and every build after that passed.
+
+**Leftover rebase in your repo:** there is a stale, unfinished rebase of `cherry-20209a62bc85` from 30 Oct in `.git/rebase-merge`, so `git status` keeps saying a rebase is in progress. HEAD was on `cherry-6b917b413d31`, not in that rebase, so this pick didn't disturb it. I left it alone. If you don't need it, `git rebase --quit` clears the state without moving HEAD. `git rebase --abort` would switch you back to `cherry-20209a62bc85`.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
