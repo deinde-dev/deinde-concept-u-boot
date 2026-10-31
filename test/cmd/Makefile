@@ -59,6 +59,7 @@ endif
 obj-$(CONFIG_CMD_CONFIG) += config.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_CONSOLE) += coninfo.o
+obj-$(CONFIG_CMD_CRC32) += crc32.o
 obj-$(CONFIG_CMD_CYCLIC) += cyclic.o
 endif
 obj-$(CONFIG_COREBOOT_SYSINFO) += coreboot.o
@@ -79,9 +80,7 @@ obj-$(CONFIG_CMD_FDT) += fdt.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_GETTIME) += gettime.o
 obj-$(CONFIG_CMD_GREPENV) += grepenv.o
-endif
 obj-$(CONFIG_CMD_HASH) += hash.o
-ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_HELP) += help.o
 endif
 obj-$(CONFIG_CMD_HISTORY) += history.o
@@ -104,6 +103,9 @@ ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_LOADS) += loads.o
 endif
 obj-$(CONFIG_CMD_MALLOC) += malloc.o
+ifdef CONFIG_CONSOLE_RECORD
+obj-$(CONFIG_CMD_MD5SUM) += md5sum.o
+endif
 ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_MEMINFO) += meminfo.o
 endif

@@ -919,6 +919,7 @@ config CMD_BLOBLIST
 config CMD_CRC32
 	bool "crc32"
 	default y
+	select GETOPT
 	select HASH
 	help
 	  Compute CRC32.
@@ -1024,6 +1025,7 @@ config LOOPW
 
 config CMD_MD5SUM
 	bool "md5sum"
+	select GETOPT
 	select MD5
 	select HASH
 	help
