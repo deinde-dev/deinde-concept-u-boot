@@ -112,5 +112,7 @@ See also
 
 * :doc:`cp<cp>` for copying one of the regions over the other
 * :doc:`md<md>` for showing where two regions differ
+* :doc:`ms<ms>` for searching one region for a value, rather than comparing
+  two
 * :doc:`aes<aes>` for producing a region to compare, by decrypting another one
 * :doc:`base<base>` for the offset cmp adds to both addresses

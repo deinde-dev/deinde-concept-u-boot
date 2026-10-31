@@ -117,6 +117,7 @@ See also
 * :doc:`pcap<pcap>` for filling a buffer with the network packets U-Boot sends
   and receives
 * :doc:`mw<mw>` for writing a value to memory, which md then shows
+* :doc:`ms<ms>` for finding where a value appears in memory
 * :doc:`base<base>` for the offset md adds to the address it is given
 * :doc:`hash<hash>` for a digest of a region of memory, rather than its
   contents

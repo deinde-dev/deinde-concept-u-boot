@@ -70,4 +70,4 @@ See also
 * :doc:`mw<mw>` for writing a value at an offset from the base address
 * :doc:`mdc<mdc>` and :doc:`mwc<mwc>` for the cyclic forms, which use the
   offset too
-* *ms* for searching memory, which also uses the offset
+* :doc:`ms<ms>` for searching memory, which also uses the offset

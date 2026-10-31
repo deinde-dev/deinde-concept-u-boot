@@ -88,5 +88,6 @@ See also
 * :doc:`mwc<mwc>` for writing a value over and over, with a delay
 * :doc:`cp<cp>` for filling a region with a copy of another one, rather than
   with a constant
+* :doc:`ms<ms>` for finding a value which mw has written
 * :doc:`random<random>` for filling a region with random data
 * :doc:`base<base>` for the address offset applied to these commands
