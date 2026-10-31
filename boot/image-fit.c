@@ -745,10 +745,10 @@ int fit_image_get_data(const void *fit, int noffset, const void **data,
 		}
 		*data = fit + offset;
 #if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
-		if (images.imagemap) {
+		if (bootm_imagemap(&images)) {
 			void *mapped;
 
-			mapped = imagemap_lookup(images.imagemap,
+			mapped = imagemap_lookup(bootm_imagemap(&images),
 						 offset, len);
 			if (mapped)
 				*data = mapped;
@@ -1814,6 +1814,7 @@ static int fit_image_load_storage(struct bootm_headers *images, const void *fit,
 	u8 img_comp = IH_COMP_NONE;
 	void *mapped;
 	void *dst;
+	struct udevice *imagemap = bootm_imagemap(images);
 	int ret;
 
 	if (IS_ENABLED(CONFIG_FIT_VERITY)) {
@@ -1847,11 +1848,11 @@ static int fit_image_load_storage(struct bootm_headers *images, const void *fit,
 	    !fit_image_get_load(fit, noffset, &img_load)) {
 		dst = map_sysmem(img_load, data_sz);
 
-		mapped = imagemap_map_to(images->imagemap, data_off, data_sz,
+		mapped = imagemap_map_to(imagemap, data_off, data_sz,
 					 dst);
 		unmap_sysmem(dst);
 	} else {
-		mapped = imagemap_map(images->imagemap, data_off, data_sz);
+		mapped = imagemap_map(imagemap, data_off, data_sz);
 	}
 
 	return IS_ERR(mapped) ? PTR_ERR(mapped) : 0;
@@ -2025,7 +2026,7 @@ static int select_image(const void *fit, struct bootm_headers *images,
 	 * On-demand storage: pre-load external-data payloads into RAM (or leave
 	 * dm-verity filesystems on storage) before print_and_verify() verifies.
 	 */
-	if (IS_ENABLED(CONFIG_IMAGEMAP) && !tools_build() && images->imagemap) {
+	if (!tools_build() && bootm_imagemap(images)) {
 		ret = fit_image_load_storage(images, fit, noffset, load_op,
 					     datap, lenp, earlyp);
 		if (ret)
@@ -2312,7 +2313,7 @@ static int handle_load_op(struct bootm_headers *images, const void *fit,
 		}
 
 		/* A storage-backed image was read straight to its load address */
-		if (!images->imagemap || data != load)
+		if (!bootm_imagemap(images) || data != load)
 			printf("   Loading %s from 0x%08lx to 0x%08lx\n",
 			       prop_name, data, load);
 	} else {

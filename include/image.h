@@ -479,7 +479,9 @@ struct bootm_headers {
 	/* true if this is a load-only FIT with no OS */
 	bool no_os;
 
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
 	struct udevice *imagemap;	/* on-demand storage loader, or NULL */
+#endif
 };
 
 extern struct bootm_headers images;
@@ -488,6 +490,35 @@ static inline void images_set_arch(struct bootm_headers *images, int os_arch)
 {
 #ifndef USE_HOSTCC
 	images->os.arch = os_arch;
+#endif
+}
+
+/**
+ * bootm_imagemap() - Get the on-demand storage loader in use, if any
+ *
+ * @images: Images being booted
+ * Return: the imagemap device, or NULL when the image is already in RAM
+ */
+static inline struct udevice *bootm_imagemap(struct bootm_headers *images)
+{
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
+	return images->imagemap;
+#else
+	return NULL;
+#endif
+}
+
+/**
+ * bootm_set_imagemap() - Record the on-demand storage loader to read through
+ *
+ * @images: Images being booted
+ * @imagemap: The imagemap device, or NULL for an image already in RAM
+ */
+static inline void bootm_set_imagemap(struct bootm_headers *images,
+				      struct udevice *imagemap)
+{
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
+	images->imagemap = imagemap;
 #endif
 }
 
