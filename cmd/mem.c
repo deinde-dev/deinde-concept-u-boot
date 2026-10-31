@@ -512,7 +512,7 @@ static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
 	unmap_sysmem(buf);
 
 	used_len = offset / size;
-	dp_last_addr = addr + used_len;
+	dp_last_addr = addr + offset;
 	dp_last_size = size;
 	dp_last_ms_length = length < used_len ? 0 : length - used_len;
 
