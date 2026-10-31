@@ -16,15 +16,18 @@
 
 #include "lkc.h"
 
-/* Number of xPL prefixes we recognise */
-#define NUM_XPLS	 4
+/* Maximum number of xPL prefixes we recognise, including TOOLS */
+#define MAX_XPLS	 8
 
 /*
  * xPL prefixes recognised. For example CONFIG_SPL_xxx is considered to be an
  * xPL version of CONFIG_xxx
+ *
+ * These are the xPL phases listed in scripts/xpl_phases, in upper case,
+ * followed by TOOLS for the host tools
  */
-static const char *xpl_name[NUM_XPLS] = {"SPL", "TPL", "VPL", "TOOLS"};
-int num_xpls;	/* 0 if not supporting xPL, else NUM_XPLS */
+static char *xpl_name[MAX_XPLS];
+int num_xpls;	/* 0 if not supporting xPL, else the number of prefixes */
 
 /* return true if 'path' exists, false otherwise */
 static bool is_present(const char *path)
@@ -1334,20 +1337,137 @@ static int conf_touch_changed(const char *old_fname, const char *new_fname,
 	return res;
 }
 
+/**
+ * u_boot_open_script() - Open a file in the scripts/ directory of the source
+ *
+ * @fname: Leaf name of the file, e.g. "conf_nospl"
+ * Return: the open file, or NULL on error (an error message has been shown)
+ */
+static FILE *u_boot_open_script(const char *fname)
+{
+	static char fullname[PATH_MAX + 1];
+	const char *env;
+	FILE *f;
+
+	env = getenv(SRCTREE);
+	if (!env) {
+		fprintf(stderr, "No %s environment variable\n", SRCTREE);
+		return NULL;
+	}
+	snprintf(fullname, sizeof(fullname), "%s/scripts/%s", env, fname);
+	f = fopen(fullname, "r");
+	if (!f)
+		fprintf(stderr, "Cannot open '%s'\n", fullname);
+
+	return f;
+}
+
+/*
+ * Check that a phase name is a lower-case letter followed by lower-case
+ * letters and digits, so it can be used as a directory and, in upper case, as
+ * a Kconfig prefix
+ */
+static bool is_phase_name(const char *name)
+{
+	const char *p;
+
+	if (!islower(*name))
+		return false;
+	for (p = name; *p; p++) {
+		if (!islower(*p) && !isdigit(*p))
+			return false;
+	}
+
+	return true;
+}
+
+/**
+ * u_boot_read_phases() - Read the list of xPL phases
+ *
+ * This sets up xpl_name[] with the upper-case name of each phase, followed by
+ * TOOLS for the host tools, and sets num_xpls to the number of names
+ *
+ * @fname: Leaf name of the file listing the phases (see scripts/xpl_phases)
+ * Return: 0 if OK, 1 on error
+ */
+static int u_boot_read_phases(const char *fname)
+{
+	char buf[256];
+	char *s, *tag;
+	FILE *f;
+	int line;
+
+	f = u_boot_open_script(fname);
+	if (!f)
+		return 1;
+	num_xpls = 0;
+	for (line = 1; s = fgets(buf, sizeof(buf), f), s; line++) {
+		char *name, *extra, *p;
+		int i;
+
+		name = strtok(s, " \t\n");
+		if (!name || *name == '#')
+			continue;
+		tag = strtok(NULL, " \t\n");
+		if (!tag || *tag == '#') {
+			fprintf(stderr, "%s:%d: Missing devicetree tag\n", fname,
+				line);
+			goto err;
+		}
+		extra = strtok(NULL, " \t\n");
+		if (extra && *extra != '#') {
+			fprintf(stderr, "%s:%d: Unexpected '%s'\n", fname, line,
+				extra);
+			goto err;
+		}
+		if (!is_phase_name(name)) {
+			fprintf(stderr,
+				"%s:%d: Invalid phase name '%s': use a-z and 0-9, starting with a letter\n",
+				fname, line, name);
+			goto err;
+		}
+		for (i = 0; i < num_xpls; i++) {
+			if (!strcasecmp(name, xpl_name[i]))
+				break;
+		}
+		if (i < num_xpls || !strcmp(name, "tools")) {
+			fprintf(stderr, "%s:%d: Phase name '%s' is already in use\n",
+				fname, line, name);
+			goto err;
+		}
+		if (num_xpls == MAX_XPLS - 1) {
+			fprintf(stderr, "%s:%d: Too many phases\n", fname, line);
+			goto err;
+		}
+		for (p = name; *p; p++)
+			*p = toupper(*p);
+		xpl_name[num_xpls++] = xstrdup(name);
+	}
+	fclose(f);
+	xpl_name[num_xpls++] = "TOOLS";
+
+	return 0;
+
+err:
+	fclose(f);
+	return 1;
+}
+
 int conf_write_autoconf(bool support_xpl)
 {
 	struct symbol *sym;
 	const char *name;
 	FILE *out, *tristate, *out_h;
-	FILE *out_xpl[NUM_XPLS];
-	FILE *out_h_xpl[NUM_XPLS];
+	FILE *out_xpl[MAX_XPLS];
+	FILE *out_h_xpl[MAX_XPLS];
 	int i, xpl;
 
 	sym_clear_all_valid();
 
 	/* U-Boot: Mark symbols according to their xPL/non-xPL nature */
 	if (support_xpl) {
-		num_xpls = NUM_XPLS;
+		if (u_boot_read_phases("xpl_phases"))
+			return 1;
 		if (conf_mark_symbols())
 			return 1;
 	}
@@ -1790,23 +1910,13 @@ void conf_mark_xpl_symbols(void)
 
 static int u_boot_read_conf_nospl(const char *fname)
 {
-	static char fullname[PATH_MAX + 1];
-	const char *env;
 	char buf[256];
 	FILE *f;
 	char *s;
 
-	env = getenv(SRCTREE);
-	if (!env) {
-		fprintf(stderr, "No %s environment variable\n", SRCTREE);
+	f = u_boot_open_script(fname);
+	if (!f)
 		return 1;
-	}
-	snprintf(fullname, sizeof(fullname), "%s/scripts/%s", env, fname);
-	f = fopen(fullname, "r");
-	if (!f) {
-		fprintf(stderr, "Cannot open '%s'\n", fullname);
-		return 1;
-	}
 	while (s = fgets(buf, sizeof(buf), f), s) {
 		struct symbol *sym;
 		int len;
