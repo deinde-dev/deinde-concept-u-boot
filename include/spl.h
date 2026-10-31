@@ -189,9 +189,12 @@ static inline enum xpl_phase_t xpl_prev_phase(void)
 static inline enum xpl_phase_t xpl_next_phase(void)
 {
 #ifdef CONFIG_TPL_BUILD
-	return IS_ENABLED(CONFIG_VPL) ? PHASE_VPL : PHASE_SPL;
+	return IS_ENABLED(CONFIG_VPL) ? PHASE_VPL :
+		IS_ENABLED(CONFIG_SPL) ? PHASE_SPL :
+		PHASE_BOARD_F;
 #elif defined(CONFIG_VPL_BUILD)
-	return PHASE_SPL;
+	return IS_ENABLED(CONFIG_SPL) ? PHASE_SPL :
+		PHASE_BOARD_F;
 #else
 	return PHASE_BOARD_F;
 #endif
