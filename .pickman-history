@@ -101212,3 +101212,35 @@ Separately, the leftover rebase of cherry-20209a62bc85 from yesterday is still i
 
 ---
 
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 1): fixed failed job(s) samus_tpl, samus, bpif3, snow, pine64, opi_pc.
+
+Now to...
+
+### Conversation log
+The only review comment is the bot's own pipeline-fix report, which says no change is needed. I'll check the repository state before deciding whether there is anything to do.
+
+The comment is the bot's own report from the earlier pipeline-fix attempt, and it says no change is needed. Next I'll check whether the local branch differs from what has been pushed.
+
+I made no changes: the comment doesn't ask for anything. So I didn't create cherry-6b917b413d31-v2, didn't force-push to cherry-6b917b413d31, and didn't run the buildman sandbox build, since nothing changed.
+
+**Why nothing needed doing**
+- The only review comment is pickman's own report from the earlier pipeline-fix attempt (attempt 1). Its title says it "fixed" samus_tpl, samus, bpif3, snow, pine64 and opi_pc, but the text says no changes were made: all six failures were lab or infrastructure problems.
+- I agree with that report. Every change on the branch is Rockchip-only (the RK3528, RK356x and RK3576 device trees, two Rockchip defconfigs and the Rockchip clk PLL code). None of the failing boards are Rockchip, so none of them build anything this branch changes.
+- The only difference between the local branch and the MR branch on ci is pickman's record commit 9ae27f08b72e ("pickman: Record pipeline fix for cherry-6b917b413d31"), which only adds to .pickman-history. Pushing that alone would just restart the pipeline while the lab boards may still be busy or need a reset.
+
+**Problems with the repository state**
+- The rebase of cherry-20209a62bc85 from Oct 30 is still in progress in .git/rebase-merge, with 28 steps left, so `git status` on this branch still says "rebasing". I left it alone, but it should be finished or aborted before more work is done in this tree.
+- The backup branch pickman-records-f0dcb8959308 still holds the 12 pickman record commits that were otherwise unreferenced.
+
+**Suggested reply for the MR**
+> No code changes are needed. All six failed jobs (samus_tpl, samus, bpif3, snow, pine64, opi_pc) are lab or infrastructure failures: snow wasn't acquired by our labgrid user, bpif3's FSBL didn't start, opi_pc/samus/samus_tpl timed out with no console output, and pine64 had garbled serial output in test_dm_drivers. This series only touches Rockchip DTs, defconfigs and clk_pll.c, none of which these boards build. Please retry the jobs once the boards are free (snow needs releasing and bpif3 may need a manual reset).
+
+If you'd rather restart the pipeline to retry those boards, I can push with `./tools/pickman/pickman push-branch cherry-6b917b413d31 -r ci -f`. That push would carry only the pickman record commit.
+
+---
+
