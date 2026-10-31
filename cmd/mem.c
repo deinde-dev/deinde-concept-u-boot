@@ -1369,8 +1369,8 @@ U_BOOT_CMD(
 U_BOOT_CMD(
 	ms,	255,	1,	do_mem_search,
 	"memory search",
-	"[.b, .w, .l" HELP_Q ", .s] [-q | -<n>] address #-of-objects <value>..."
-	"  -q = quiet, -l<val> = match limit"
+	"[.b, .w, .l" HELP_Q ", .s] [-q] [-l<n>] addr #-of-objects <value>...\n"
+	"    -q = quiet, -l<n> = show at most <n> matches, default 10"
 );
 #endif
 
