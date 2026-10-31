@@ -246,3 +246,213 @@ static int dm_test_cmd_gzwrite_chunk_boundary(struct unit_test_state *uts)
 	return ret;
 }
 DM_TEST(dm_test_cmd_gzwrite_chunk_boundary, UTF_CONSOLE);
+
+/* Memory used by the tests below, clear of the addresses other tests take */
+#define SRC_ADDR	((ulong)CONFIG_SYS_LOAD_ADDR + 0x10000)
+#define ENC_ADDR	((ulong)CONFIG_SYS_LOAD_ADDR + 0x20000)
+#define DEC_ADDR	((ulong)CONFIG_SYS_LOAD_ADDR + 0x30000)
+#define SRC_SIZE	0x4000
+
+/**
+ * setup_src() - Fill the source region with data which compresses
+ *
+ * Return: pointer to the source region, or NULL if it is not in memory
+ */
+static void *setup_src(void)
+{
+	u8 *srcp;
+	int i;
+
+	/* a board which sets no load address cannot provide these regions */
+	if (gd->ram_base > SRC_ADDR)
+		return NULL;
+
+	srcp = map_sysmem(SRC_ADDR, SRC_SIZE);
+	for (i = 0; i < SRC_SIZE; i++)
+		srcp[i] = i & 0x1f;
+
+	return srcp;
+}
+
+/* Test 'zip' and 'unzip' on data which compresses */
+static int cmd_test_zip_base(struct unit_test_state *uts)
+{
+	void *srcp, *decp;
+	ulong clen;
+
+	srcp = setup_src();
+	if (!srcp)
+		return -EAGAIN;
+	decp = map_sysmem(DEC_ADDR, SRC_SIZE);
+	memset(decp, '\0', SRC_SIZE);
+
+	/* the size printed is the one left in $filesize */
+	ut_assertok(run_commandf("zip %lx %x %lx", SRC_ADDR, SRC_SIZE,
+				 ENC_ADDR));
+	clen = env_get_hex("filesize", 0);
+	ut_assert(clen > 0 && clen < SRC_SIZE);
+	ut_assert_nextline("Compressed size: %lu = 0x%lX", clen, clen);
+	ut_assert_console_end();
+
+	/* the stream expands to exactly what went in */
+	ut_assertok(run_commandf("unzip %lx %lx %x", ENC_ADDR, DEC_ADDR,
+				 SRC_SIZE));
+	ut_assert_nextline("Uncompressed size: %lu = 0x%lX", (ulong)SRC_SIZE,
+			   (ulong)SRC_SIZE);
+	ut_assert_console_end();
+	ut_asserteq(SRC_SIZE, env_get_hex("filesize", 0));
+	ut_asserteq_mem(srcp, decp, SRC_SIZE);
+
+	unmap_sysmem(srcp);
+	unmap_sysmem(decp);
+
+	return 0;
+}
+CMD_TEST(cmd_test_zip_base, UTF_CONSOLE);
+
+/* Test 'zip' with nothing to compress */
+static int cmd_test_zip_empty(struct unit_test_state *uts)
+{
+	void *srcp;
+
+	srcp = setup_src();
+	if (!srcp)
+		return -EAGAIN;
+
+	ut_assertok(run_commandf("zip %lx 0 %lx", SRC_ADDR, ENC_ADDR));
+	ut_assert_nextline("Compressed size: 0 = 0x0");
+	ut_assert_console_end();
+	ut_asserteq(0, env_get_hex("filesize", ~0));
+
+	unmap_sysmem(srcp);
+
+	return 0;
+}
+CMD_TEST(cmd_test_zip_empty, UTF_CONSOLE);
+
+/* Test 'zip' with a destination too small to hold the stream */
+static int cmd_test_zip_small(struct unit_test_state *uts)
+{
+	void *srcp;
+
+	srcp = setup_src();
+	if (!srcp)
+		return -EAGAIN;
+
+	/*
+	 * The amount left is however much is unread when the destination
+	 * fills up, which depends on how the deflate blocks fall
+	 */
+	ut_asserteq(1, run_commandf("zip %lx %x %lx 10", SRC_ADDR, SRC_SIZE,
+				    ENC_ADDR));
+	ut_assert_nextlinen("Deflate need more space to compress left ");
+	ut_assert_console_end();
+
+	unmap_sysmem(srcp);
+
+	return 0;
+}
+CMD_TEST(cmd_test_zip_small, UTF_CONSOLE);
+
+/* Test 'zip' with a bad command line */
+static int cmd_test_zip_usage(struct unit_test_state *uts)
+{
+	/* the destination is required, so two arguments are not enough */
+	ut_asserteq(1, run_commandf("zip %lx %x", SRC_ADDR, SRC_SIZE));
+	ut_assert_nextline("zip - zip a memory region");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("zip srcaddr srcsize dstaddr [dstsize]");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_zip_usage, UTF_CONSOLE);
+
+/* Test 'unzip' with a destination too small to hold the result */
+static int cmd_test_unzip_small(struct unit_test_state *uts)
+{
+	void *srcp, *decp;
+
+	srcp = setup_src();
+	if (!srcp)
+		return -EAGAIN;
+	decp = map_sysmem(DEC_ADDR, SRC_SIZE);
+
+	ut_assertok(run_commandf("zip %lx %x %lx", SRC_ADDR, SRC_SIZE,
+				 ENC_ADDR));
+	ut_assert_nextlinen("Compressed size: ");
+
+	/* -5 is zlib's Z_BUF_ERROR, which is where the room runs out */
+	ut_asserteq(1, run_commandf("unzip %lx %lx %x", ENC_ADDR, DEC_ADDR,
+				    SRC_SIZE / 2));
+	ut_assert_nextline("Error: inflate() returned -5");
+	ut_assert_console_end();
+
+	unmap_sysmem(srcp);
+	unmap_sysmem(decp);
+
+	return 0;
+}
+CMD_TEST(cmd_test_unzip_small, UTF_CONSOLE);
+
+/* Test 'unzip' on something which is not a gzip stream */
+static int cmd_test_unzip_bad(struct unit_test_state *uts)
+{
+	void *srcp, *decp;
+
+	srcp = setup_src();
+	if (!srcp)
+		return -EAGAIN;
+	decp = map_sysmem(DEC_ADDR, SRC_SIZE);
+	memset(decp, '\0', SRC_SIZE);
+
+	/*
+	 * The header check looks at the method byte rather than the magic
+	 * number, and the pattern has a 2 there
+	 */
+	ut_asserteq(1, run_commandf("unzip %lx %lx %x", SRC_ADDR, DEC_ADDR,
+				    SRC_SIZE));
+	ut_assert_nextline("Error: Bad gzipped data");
+	ut_assert_console_end();
+
+	/* nothing is written to the destination */
+	ut_asserteq(0, *(u8 *)decp);
+
+	unmap_sysmem(srcp);
+	unmap_sysmem(decp);
+
+	return 0;
+}
+CMD_TEST(cmd_test_unzip_bad, UTF_CONSOLE);
+
+/* Test 'unzip' with a bad command line */
+static int cmd_test_unzip_usage(struct unit_test_state *uts)
+{
+	/* the destination is required, so one argument is not enough */
+	ut_asserteq(1, run_commandf("unzip %lx", SRC_ADDR));
+	ut_assert_nextline("unzip - unzip a memory region");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("unzip srcaddr dstaddr [dstsize]");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_unzip_usage, UTF_CONSOLE);
+
+/* Test 'gzwrite' with a bad command line */
+static int cmd_test_gzwrite_usage(struct unit_test_state *uts)
+{
+	/* the length is required, so four arguments are not enough */
+	ut_asserteq(1, run_commandf("gzwrite mmc 0 %lx", ENC_ADDR));
+	ut_assert_nextline("gzwrite - unzip and write memory to block device");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextlinen("gzwrite <interface> <dev> <addr> length ");
+	ut_assert_skip_to_line("");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_gzwrite_usage, UTF_CONSOLE);
