@@ -101458,3 +101458,45 @@ MR !1504 is now rebased onto the latest ci/master (7df1deae66fa) and force-pushe
 
 ---
 
+### Pipeline fix: 2026-10-31 (attempt 1)
+
+Branch: cherry-8841b7b292c7
+
+Failed jobs:
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- vf2 (sjg-lab)
+- snow (sjg-lab)
+- link64 (sjg-lab)
+- link (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Most of these are lab/infra failures. The vf2 one has a binman error, so let me look closer.
+
+vf2 has a real build error: OpenSBI (0x40000000–0x40202138) overlaps U-Boot at 0x40200000. Let me check whether the branch touches anything relevant.
+
+None of the branch's commits touch x86, sunxi, exynos or riscv/StarFive code. Let me check whether vf2 also fails elsewhere, e.g. on master.
+
+The overlap check comes from the 'mkimage: detect FIT image load address overlaps' series, which is already on master (the merge base). Let me confirm that vf2 fails on master too.
+
+I made no changes: none of the seven failures come from this branch. Six are lab or runner problems, and vf2 fails because of something already on master. I didn't create `cherry-8841b7b292c7-fix1` because there's nothing to fix. I also didn't check out the branch, since the working tree is in the middle of an old interactive rebase of `cherry-6b917b413d31` and switching would disturb it.
+
+| Job | Failure | Cause |
+|---|---|---|
+| link, link64 | `BrokenPipeError` on the RFC2217 serial connection, then "Lab failure: Marking connection bad" | Lab serial connection |
+| opi_pc | Timed out after 15s waiting for the U-Boot prompt; lab marked the connection bad | Lab or board |
+| samus, samus_tpl | Timed out after 25s waiting for the U-Boot prompt; lab marked the connection bad | Lab or board |
+| snow | `place snow is acquired by a different user (kea/labgrid)`, so the job never got the board | Lab scheduling |
+| vf2 | Build error: binman/mkimage reports overlapping load regions in `conf-1` | Already on master (see below) |
+
+**vf2 in more detail:** OpenSBI runs from 0x40000000 to 0x40202138, which overlaps U-Boot starting at 0x40200000. The OpenSBI image is about 8KB too big for its 2MB slot. The check that catches this is commit 3ccb1ae36cd1 ("tools: mkimage: detect overlapping load regions in FIT configurations"), which is already in this branch's merge base (master 7df1deae66fa). The OpenSBI image is supplied by the lab, not built from this tree.
+
+The branch only changes i.MX/Toradex/Vybrid/sielaff boards, `board/beagle/beagleplay/rm-cfg.yaml`, and the lpuart and vybrid GPIO drivers. It touches nothing for x86 (link, samus), sunxi (opi_pc), exynos (snow), riscv/StarFive (vf2), or `tools/`/`boot/`. I couldn't check whether master's own vf2 job fails too, because the GitLab API returned 403.
+
+**What to do:**
+- **The six lab jobs:** rerun them once the lab is free. `snow` was held by another labgrid user, and the connection errors on the other boards look intermittent.
+- **vf2:** expect it to keep failing on every branch until the lab's OpenSBI build is made smaller (under 2MB, e.g. a non-debug build) or the vf2 load addresses are moved apart.
+
+---
+
