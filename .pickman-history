@@ -101290,3 +101290,42 @@ The MR branch is now rebased onto ci/master (085d4649fadd) and force-pushed to c
 
 ---
 
+### Review: 2026-10-31
+
+Branch: cherry-824317a8bc56
+
+Comments addressed:
+
+
+### Conversation log
+The conflict pulls in the other branch's history entries. I'll take this branch's file and append only the 120 lines that e055fe99b406 adds.
+
+Same delta as the original (120+). Now the sandbox build check.
+
+Sandbox builds cleanly. The commit deltas are unchanged because no commits were rewritten. Next I'll create the -v2 branch and push from the worktree, so HEAD is the correct branch.
+
+I've force-pushed MR !1505 back to the right content and GitLab is running a new pipeline. The rebase itself had nothing to do: the local branch was already based on the current ci/master (085d4649fadd).
+
+**Why the MR showed as behind:** an earlier job overwrote the remote `cherry-824317a8bc56` branch with a different MR's commits. It held the 15 rockchip commits from cherry-6b917b413d31 plus three pickman records, and none of this series. pickman push-branch pushes `HEAD:<branch>`, so it was most likely run from the main checkout, which is on cherry-6b917b413d31.
+
+**What I did** (in the worktree at `/tmp/wt-cherry-824317a8bc56`; I left the main checkout alone):
+1. **Rebase:** `git rebase --keep-empty --rebase-merges ci/master` reported the branch was already up to date. No commits changed, so every delta matches the earlier run.
+2. **Missing history record:** this series' pickman record (e055fe99b406) had been committed onto cherry-6b917b413d31 instead of this branch. I cherry-picked it on top, keeping only its own 120-line entry. The new commit is 7bfd963d151c with the same delta (120+).
+3. **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes with no warnings or errors. The first attempt failed in the Rust example link because the shared /tmp/pickman output held a stale cache pointing at the deleted `/tmp/wt-cherry-6b917b413d31`. I deleted `/tmp/pickman/examples/rust` and the rebuild was clean.
+4. **Branches:** created the local branch `cherry-824317a8bc56-v2` and pushed to `ci/cherry-824317a8bc56`. The remote now matches 7bfd963d151c: the 15 cherry-picks plus the history record.
+
+**Problems outside this MR that need your attention:**
+- **cherry-6b917b413d31:** the local branch, `-v2` and `ci/cherry-6b917b413d31` all contain e055fe99b406, the history record for *this* series. Drop it from that MR, or this series gets recorded twice when both merge.
+- **Main checkout:** `~/dev/u-boot` is now partway through a rebase of cherry-6b917b413d31, not the cherry-20209a62bc85 rebase reported last time. This is probably how the wrong push and the misplaced record happened. It needs finishing or aborting before pickman runs there again.
+- **Shared /tmp/pickman:** this output dir is shared across worktrees, so other jobs could hit the same stale Rust cache failure.
+
+**Suggested MR reply:**
+
+> Rebased onto ci/master (085d4649fadd). The branch was already current, so the 15 cherry-picks are unchanged from the previous run, with the same deltas and fix-ups.
+>
+> The remote branch had been overwritten by mistake with the cherry-6b917b413d31 (rockchip) series, which is why the MR showed as behind. I've restored the correct content and added the missing pickman history record for this series on top.
+>
+> Sandbox builds cleanly. A new pipeline is running.
+
+---
+
