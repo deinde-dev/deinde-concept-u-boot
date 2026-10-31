@@ -101500,3 +101500,42 @@ The branch only changes i.MX/Toradex/Vybrid/sielaff boards, `board/beagle/beagle
 
 ---
 
+### Review: 2026-10-31
+
+Branch: cherry-8841b7b292c7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 1): fixed failed job(s) samus_tpl, samus, vf2, snow, link64, link, opi_pc.
+
+Mo...
+
+### Conversation log
+Quick update: the review comment is just the bot's own pipeline report, but the remote MR branch has the wrong content in it, so I'm checking how that happened.
+
+The build passes. Now I'll push from the worktree, where HEAD is the correct branch:
+
+I made no code changes because the comment didn't ask for any. While checking, though, I found that MR !1509 was showing the wrong commits, and I've put the correct ones back.
+
+**The comment:** it's the bot's own report from pipeline-fix attempt 1. It asks for no change, and its conclusions still hold. Six of the failures were lab problems (link, link64, opi_pc, samus, samus_tpl, snow). vf2 fails because of an OpenSBI/U-Boot overlap that is already on master.
+
+**What I found:** at 08:18 today something force-pushed over `ci/cherry-8841b7b292c7`. The remote branch held the history of `cherry-6b917b413d31` (the rockchip u-boot-rockchip-2027.01 merge plus several "pickman: Record review handling" commits) instead of the 16 imx/Toradex commits. The cause is in `pickman push-branch`. In `tools/pickman/gitlab_api.py` (line 234), `push_branch()` pushes `HEAD:<branch>` and ignores which branch is named. This checkout was on `cherry-6b917b413d31` (where the old rebase is still stopped), so a push meant for this MR sent the rockchip history instead.
+
+**What I did:**
+- **Kept a copy of the overwritten remote state** in `refs/backup/ci-cherry-8841b7b292c7-clobbered` (922939753a99). The same commits are also on local `cherry-6b917b413d31`, so nothing is lost.
+- **Checked the local branch:** `cherry-8841b7b292c7` (6432ceecb702) matches the original push (35330d09c751) plus the pickman record commit. I created `cherry-8841b7b292c7-v2` at the same commit.
+- **Built and pushed from a temporary worktree,** so the stale rebase in the main tree wasn't touched. The sandbox `buildman` build passed. I then ran `pickman push-branch cherry-8841b7b292c7 -r ci -f` from there. `ci/cherry-8841b7b292c7` is now 6432ceecb702 again, and I removed the worktree afterwards.
+
+**Things to know:**
+- **No pipeline may start:** without `--run-ci`, `push-branch` adds `-o ci.skip`. You may need to start the MR pipeline by hand, which would also rerun the lab jobs.
+- **The previous analysis may have looked at the wrong commits:** that pipeline may have run on the rockchip commits. Its conclusions still look right, since none of the failures were related to either branch's changes.
+- **The bug will recur:** any `push-branch` run while HEAD is on a different branch will overwrite an MR the same way. The fix is to push `<branch>:<branch>` (or `refs/heads/<branch>`) instead of `HEAD:<branch>`. I didn't change pickman, to keep this MR focused; say if you'd like that patch.
+- **Other MRs may be affected:** the "Record review handling" commits suggest other branches were handled from this same checkout, so it's worth checking those MRs too. The stale `cherry-20209a62bc85` rebase is still in `.git/rebase-merge`.
+
+**Suggested reply for the MR:**
+
+> No code changes needed. All seven failures are unrelated to this branch: six are lab/infra (serial connection drops, prompt timeouts, snow held by another labgrid user) and vf2 fails because of an OpenSBI/U-Boot load overlap already present on master.
+>
+> Note: this MR's branch was accidentally force-pushed with the content of cherry-6b917b413d31 (pickman push-branch pushes HEAD rather than the named branch). It has been restored to the correct 16 commits (6432ceecb702), with the sandbox build passing. Please rerun the pipeline.
+
+---
+
