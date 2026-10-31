@@ -101177,3 +101177,38 @@ All 15 commits are now on branch cherry-6b917b413d31 (based on ci/master), and t
 
 ---
 
+### Pipeline fix: 2026-10-31 (attempt 1)
+
+Branch: cherry-6b917b413d31
+
+Failed jobs:
+- samus_tpl (sjg-lab)
+- samus (sjg-lab)
+- bpif3 (sjg-lab)
+- snow (sjg-lab)
+- pine64 (sjg-lab)
+- opi_pc (sjg-lab)
+
+### Conversation log
+Now to check that nothing on the branch touches code these boards build:
+
+I made no changes and did not create cherry-6b917b413d31-fix1. All six failures are lab or infrastructure problems, not caused by this branch.
+
+Every change on the branch is Rockchip-only. The changed files are the RK3528, RK356x and RK3576 device trees, two Rockchip defconfigs, `drivers/clk/rockchip/clk_pll.c` and `asm/arch-rockchip/clock.h`. None of the failing boards are Rockchip (Allwinner, x86 Chromebook, Exynos and SpacemiT K1), so none of them compile anything this branch changes.
+
+What each job shows:
+
+| Job | Board | Failure |
+|---|---|---|
+| snow | exynos5250 | Labgrid problem: "place snow is not acquired by your user, acquired by labgrid" (held by kea/labgrid). It failed during setup, before any test ran. |
+| bpif3 | spacemit_k1 | Flashing failed: "BootROM did not start the FSBL ... board needs a reset". The deploy script failed before U-Boot ran. |
+| opi_pc | orangepi_pc (sunxi) | No U-Boot prompt within 15s, even after a reset retry, so it was marked "Lab failure". No console output was captured. |
+| samus, samus_tpl | chromebook_samus (x86, em100) | Same thing with a 25s timeout: no console output, marked "Lab failure". |
+| pine64 | pine64_plus (sunxi) | The board booted and ran 41 tests. Only `test_dm_drivers` failed: the expected driver name came back as `'wdt_rebo��'`, but the real output contains `wdt_reboot` correctly. That garbling is serial-console corruption on the test side, not a code problem. |
+
+Since the three boot timeouts produced no console output at all, they look like lab-side problems; nothing in the logs points at the code. I didn't run the sandbox or buildman builds, because there was nothing to fix. The next step is to retry these jobs once the lab boards are free and healthy (snow needs to be released from the kea/labgrid user, and bpif3 may need a manual reset).
+
+Separately, the leftover rebase of cherry-20209a62bc85 from yesterday is still in progress in `.git/rebase-merge`, so `git status` on this branch still says "rebasing". It should be finished or aborted before more work is done in this tree.
+
+---
+
