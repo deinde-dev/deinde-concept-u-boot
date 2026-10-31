@@ -174,6 +174,8 @@ static inline enum xpl_phase_t xpl_prev_phase(void)
 		PHASE_NONE;
 #else
 	return IS_ENABLED(CONFIG_SPL) ? PHASE_SPL :
+		IS_ENABLED(CONFIG_VPL) ? PHASE_VPL :
+		IS_ENABLED(CONFIG_TPL) ? PHASE_TPL :
 		PHASE_NONE;
 #endif
 }
