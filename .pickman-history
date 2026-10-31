@@ -101004,3 +101004,123 @@ No commits have worrying size differences.
 
 ---
 
+## 2026-10-31: us/main
+
+Branch: cherry-824317a8bc56
+
+Commits:
+- 824317a8bc56 spl: Fix link when LZMA is enabled without legacy image format support
+- a1f39f701347 board_f: Make printing reset information optional
+- 7cb377e2492a binman: Do not dedent docstrings twice on Python 3.13+
+- b152f193fe10 spl: fit: Fill in the image descriptor when skipping a zero-size image
+- 9cb44d1e960b configs: sc598-som-ezlite: select EV-SOMCRR-EZLITE carrier
+- 8eb951f77992 arm: aspeed: Add ASRock Rack B650D4U BMC support
+- d3e8597e46b6 pytest: fix out of bounds access to bad_pattern_ids
+- 5d1aba89f305 binman: Fix typo for the test case name
+- 6ac5492d596d binman: Fix FIT image overlap issues
+- 4a65f3eb67f4 binman: Fix FIT image overlap issues for testFitSplitElf
+- a3112b4fe4f8 arm: dts: k3: phycore: widen SPL overlay load address spacing
+- 21bb6417641b tools: mkimage: detect overlapping load regions in FIT configurations
+- 8e14d8825231 test: fit: cover mkimage load address overlap detection
+- dbe1b57e16ca binman: fit: document how ELF load addresses are determined
+- cf51beb75593 Merge patch series "mkimage: detect FIT image load address overlaps"
+
+### Conversation log
+The main checkout is in the middle of an unrelated, paused rebase (branch cherry-20209a62bc85). I'll leave it alone and do this work in a separate worktree, as earlier jobs did.
+
+The "maybe applied" hash 9ec1bd60e035 is only a pickman history record. It names the real us/next commits, so I'll compare against those.
+
+Those us/next hashes aren't ancestors of ci/master, but the record means cherry-picks of them may be there. I'll check the content in ci/master.
+
+binman has been moved out of the tree (tools/binman/binman is now a symlink). Here are the file lists for each commit:
+
+There's a revert of the k3-am6xx commit from the earlier us/next series, so that series was in ci/master at some point. I'll look at its history.
+
+Split-check converted CONFIG_IS_ENABLED(). I'll amend the commit with its note, then check the build.
+
+Next, a1f39f701347 (board_f):
+
+A simple conflict: the target already uses IS_ENABLED() form. I'll resolve it to IS_ENABLED(CONFIG_SYSRESET_PRINT_RESETINFO).
+
+board_f.c only builds in U-Boot proper, so conf_nospl doesn't need a change. I'll amend the note and build.
+
+Next is 7cb377e2492a (binman, Python 3.13 dedent). Its files were deleted in ci/master:
+
+As expected, these are modify/delete conflicts. I'll keep the deletions and record an empty commit with a note.
+
+Author and message are preserved. Next, b152f193fe10 (spl_fit):
+
+The target's fit_get_name() takes two arguments. I'll keep that and add the new call.
+
+The delta matches (29+/11-). Next are the three straightforward commits (sc598 config, aspeed board, pytest). I'll pick them one at a time, stopping on any conflict:
+
+The target's console_base.py has been heavily refactored, so I need to check whether the off-by-one bug still exists there. Let me look at the target's version:
+
+I'll check how the original changed the last two sites:
+
+The delta is smaller (20+/12- against 25+/15-) because the target's ready-prompt loop already uses base. I'll amend with a note and build.
+
+Next are the three binman test commits (5d1aba89f305, 6ac5492d596d, 4a65f3eb67f4):
+
+The third one also adds two new test files under tools/binman/test, which has no use without the test suite. I'll drop them too:
+
+Next, a3112b4fe4f8 (k3 phycore dts):
+
+Next, 21bb6417641b (the mkimage overlap check):
+
+The target renamed struct image_tool_params *params to struct imgtool *itl. I'll resolve the header conflict, then check whether the merged new code still refers to params.
+
+One leftover params->cmdname in the new code needs changing to itl->cmdname. I'll fix it and compare the mkimage.c hunk with the original:
+
+Line 508 is an existing comment. I'll continue the pick, run split-check, add the note and build:
+
+mkimage rebuilt with the same delta as the original. Next, 8e14d8825231 (the mkimage overlap test):
+
+Next, dbe1b57e16ca (binman fit docs), which touches tools/binman/etype/fit.py:
+
+Before recording this as empty, I'll check whether any in-tree doc still carries the binman entry documentation:
+
+No in-tree copy, so I'll record it as empty too.
+
+Now the merge commit cf51beb75593:
+
+These are only the rename conflicts. I'll resolve everything to HEAD and commit the merge as empty:
+
+The "...com>m says:" line looks odd. Let me check it is in the original:
+
+All 15 commits are there, and the odd line comes from the original merge message. Now the final sandbox build, then the new mkimage pytests (these also exercise the changed console_base.py):
+
+Sandbox builds and the tests pass. The new overlap check runs on any board that packages FITs, so I'll also build the new aspeed board and the phycore boards whose load addresses changed:
+
+Everything built, with warnings only. I'll check the warnings for any overlap error and see what b650d4u reports:
+
+All 15 commits are cherry-picked onto branch cherry-824317a8bc56 (based on ci/master), and the sandbox build passes with no warnings or errors. The branch hasn't been pushed or merged anywhere.
+
+**Where the work is:** the main checkout at `~/dev/u-boot` is still in the middle of the abandoned rebase of `cherry-20209a62bc85` that earlier runs reported. I didn't touch it, so step 1's clean-tree check failed and I worked in a separate worktree at `/tmp/wt-cherry-824317a8bc56` instead. That leftover rebase still needs a `git rebase --abort` or `--quit`.
+
+**"Maybe already applied" commits:** none of them were. 9ec1bd60e035 is only a pickman record of the first version of this series from us/next. That version was later reverted here (975defe41409), and this is upstream's second version, so I picked them all.
+
+**Testing:**
+- **Sandbox:** built after every pick, with no warnings or errors.
+- **pytest:** `test_fit_mkimage_validate` (including the two new overlap tests) and `test_help` gave 21 passed and 1 skipped.
+- **Other boards:** I also built b650d4u and the phycore_am62x/am62ax/am64x and am62x_evm boards, since the new overlap check runs whenever their firmware images are packaged. None hit an overlap error. b650d4u only shows the same devicetree warnings as the other ast2600 boards, and the K3 boards only report missing TI firmware.
+
+**Fix-ups** (each one has a `[pickman]` note at the end of its commit message):
+
+| Commit | Fix-up |
+|---|---|
+| 824317a8bc56 spl: Fix link when LZMA… | split-check converted `CONFIG_IS_ENABLED(LEGACY_IMAGE_FORMAT)` to `IS_ENABLED(CONFIG_LEGACY_IMAGE_FORMAT)` |
+| a1f39f701347 board_f: Make printing reset… | Conflict with the target's existing `IS_ENABLED(CONFIG_SYSRESET)`; resolved to `IS_ENABLED(CONFIG_SYSRESET_PRINT_RESETINFO)`. `board_f.c` only builds in U-Boot proper, so `scripts/conf_nospl` needs no change |
+| b152f193fe10 spl: fit: Fill in the image descriptor… | Conflict because `fit_get_name()` takes two arguments here; kept that and added the new call |
+| d3e8597e46b6 pytest: fix out of bounds… | `console_base.py` has been heavily reworked here, so I applied the fix by hand. The off-by-one bug is real here too, in `_wait_for_banner()` |
+| 21bb6417641b tools: mkimage: detect overlapping… | `params` is renamed to `itl` (`struct imgtool`) here, which caused a conflict and one leftover `params->cmdname`; both fixed. The change is the same size as the original (101+/1-) |
+
+**Empty commits:** 7cb377e2492a, 5d1aba89f305, 6ac5492d596d, 4a65f3eb67f4 and dbe1b57e16ca only touch binman code, tests or docs. binman was moved out to the separate binary-manager package (8cb32f46f695), so they have nothing to apply here. I kept them as empty commits with a note rather than marking them `[FAILED]`. The merge cf51beb75593 is also empty, since the commits before it already apply the series.
+
+**Size differences from the originals:**
+- **d3e8597e46b6:** 20+/12- against 25+/15-, because this tree's ready-prompt loop already uses the correct index. It is the only real code change that came out smaller.
+- **Empty commits:** the six above change no files, as expected.
+- **Everything else:** identical to the originals.
+
+---
+
