@@ -100950,3 +100950,57 @@ d415c3bebbb2 pickman: Record pipeline fix for cherry-6b4b1c8dc464      (v6 tip)
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-5ddc3158591e
+
+Commits:
+- 5ddc3158591e CI: Dockerfile: Lock the version of swtpm to v0.10.1
+- 68c978fe5c57 CI: Dockerfile: Add LoongArch64 support
+- a9263fc03210 Merge patch series "Add LoongArch support for CI image"
+
+### Conversation log
+The working tree was mid-rebase on another branch (cherry-20209a62bc85) when I started. I'll check whether something else is actively using this tree before going further.
+
+No process is driving that rebase; it is a stale stop on an edit. I'll record the detached HEAD it was sitting on so that work isn't lost, then continue.
+
+HEAD was on branch cherry-6b4b1c8dc464 (754bce97370b), not detached, so the rebase state is a stale leftover and nothing is lost. Continuing.
+
+Split-check made no changes. Building, then picking the second commit.
+
+The build dir is stale (it points at a deleted worktree). I'll do a clean rebuild.
+
+Both conflicts are simple: keep the target's edk2/chmod block and its 'make all install' line, and take only the LoongArch additions (the new comment and loongarch64-softmmu).
+
+The GRUB comment update didn't apply (no trailing newline at the split point), so I'll fix it by hand.
+
+The delta matches the original (18+, 3-). I'll add a fix-up note to the commit message.
+
+'--allow-empty' isn't accepted on '--continue', so I'll commit the empty pick directly using the prepared message.
+
+All 3 commits are now on branch cherry-5ddc3158591e, based on ci/master, and the sandbox build passes with no warnings or errors.
+
+```
+037a40bd894e Merge patch series "Add LoongArch support for CI image"
+80d1bdce91fe CI: Dockerfile: Add LoongArch64 support
+e72d7723b048 CI: Dockerfile: Lock the version of swtpm to v0.10.1
+```
+
+`split-check` changed nothing in any of them, since they only touch `tools/docker/Dockerfile`.
+
+**Per commit:**
+- **swtpm v0.10.1 lock:** applied cleanly. Same size as the original (1+, 1-).
+- **LoongArch64 support:** two conflicts, both resolved, and the size matches the original (18+, 3-).
+  - The target has an extra block before the GRUB section that installs edk2 packages and makes the kernels readable. I kept it and applied the new GRUB comment after it.
+  - In the QEMU build, the target runs `make all install` where upstream has `make -j$(nproc) all install`. I added `loongarch64-softmmu` to the target list and left the target's `make` line alone, because the original commit didn't change that line.
+  - I added a one-line note about this to the end of the commit message.
+- **Merge commit:** it conflicted on the same two places, because its diff contains both series commits again. I kept the target's version, so it is an empty commit, as expected. I added a note to its message saying so.
+
+No commits have worrying size differences.
+
+**Problem with the repository state:** the tree was not clean when I started. A rebase of branch cherry-20209a62bc85 had been left stopped, while HEAD was actually on cherry-6b4b1c8dc464. I only spotted this after the first pick, because `git status`, branch creation and the first cherry-pick ran as one command. Nothing was running it, and no commits were lost, but `.git/rebase-merge/` is still there. You'll probably want to run `git rebase --abort` or `git rebase --quit` before anything else runs `git rebase --continue` in this tree. There are also untracked directories `tools/binman/home/` and `tools/binman/usr/`.
+
+**Build note:** the first build failed because `/tmp/pickman` held stale output pointing at a worktree that no longer exists, `/tmp/wt-cherry-6b4b1c8dc464`. I deleted `/tmp/pickman`, and every build after that passed.
+
+---
+
