@@ -17,9 +17,9 @@ Description
 -----------
 
 The zip command compresses a region of memory with zlib's deflate method,
-writing a gzip stream somewhere else in memory. The *unzip* command expands
-such a stream again, and *gzwrite* writes one to a block device as it
-decompresses it.
+writing a gzip stream somewhere else in memory. The :doc:`unzip<unzip>`
+command expands such a stream again, and *gzwrite* writes one to a block
+device as it decompresses it.
 
 Compression uses the Z_BEST_SPEED level, the quickest setting, since the point
 is to move data about on a board rather than to produce the smallest file.
@@ -76,7 +76,8 @@ It selects CONFIG_GZIP_COMPRESSED=y for the compression code itself.
 
 The stream carries a gzip header where CONFIG_GZIP=y, which is the default and
 is what the decompression side of U-Boot needs. A board which turns that off
-keeps zip but writes a bare zlib stream instead, which *unzip* cannot read.
+keeps zip but writes a bare zlib stream instead, which
+:doc:`unzip<unzip>` cannot read.
 
 Return value
 ------------
@@ -88,7 +89,7 @@ the command is given fewer than three or more than four arguments.
 See also
 --------
 
-* *unzip* for expanding a gzip stream held in memory
+* :doc:`unzip<unzip>` for expanding a gzip stream held in memory
 * *gzwrite* for writing one to a block device
 * :doc:`lzmadec<lzmadec>` and :doc:`unlz4<unlz4>` for decompressing other
   formats, neither of which U-Boot can compress

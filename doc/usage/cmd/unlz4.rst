@@ -98,5 +98,5 @@ See also
 * :doc:`load<load>` for reading a compressed file into memory first
 * :doc:`md<md>` for looking at the result
 * :doc:`bootm<bootm>` for booting an image, which decompresses it as a step
-* *unzip* for decompressing a gzip-compressed region
+* :doc:`unzip<unzip>` for decompressing a gzip-compressed region
 * :doc:`zip<zip>` for compressing a region with gzip
