@@ -101244,3 +101244,49 @@ If you'd rather restart the pipeline to retry those boards, I can push with `./t
 
 ---
 
+### Review: 2026-10-31
+
+Branch: cherry-6b917b413d31
+
+Comments addressed:
+
+
+### Conversation log
+I'll start by checking the repository state, since earlier runs reported a leftover rebase.
+
+Now the rebase, with a sandbox build after every commit (the `exec` stops the rebase at the first build failure):
+
+The rebase is running in the background. I'll pick it up when it finishes.
+
+It stopped after the first build, which suggests that build failed. I'll check the output:
+
+The build is still running; git just shows the exec step as "editing". I'll wait for the background task to finish.
+
+The background rebase will notify me when it finishes, so I don't need a monitor. I'll wait for it.
+
+As expected, there's a conflict in .pickman-history: both sides append records. I'll look at the conflict:
+
+Both sides only append a history entry, so the fix is to keep both: the ci/master entry (cherry-5ddc3158591e) first, then this branch's. I'll check the boundary lines before removing the markers:
+
+The trailing `---` separator after the markers belongs to both entries. So I'll keep HEAD's entry, put a `---` separator before this branch's entry, and drop the markers:
+
+The rebase is done and every commit built. Next I'll compare per-commit stats before and after, run the final buildman check, and confirm the merge commit is still present:
+
+The MR branch is now rebased onto ci/master (085d4649fadd) and force-pushed to ci, which should start a new MR pipeline. The remote branch is at e055fe99b406, the same commit as the new local branch cherry-6b917b413d31-v2.
+
+**The rebase**
+- **Upstream changes:** ci/master gained five commits: two Dockerfile changes, their merge, and a pickman record with its merge. None of them touch Rockchip code.
+- **One conflict, in .pickman-history:** the record commit 292ea83f1f83 and the new ci/master record both added an entry at the end of the file. I kept both entries, putting ci/master's (cherry-5ddc3158591e) first and adding the usual `---` separator. Nothing else conflicted.
+- **Commits unchanged:** all 19 commits are there (14 code commits, the empty merge commit 51ee2d4ccb2b kept with `--keep-empty`, and 4 pickman record commits). Every one has the same `git show --stat` output as before the rebase.
+- **Builds:** buildman built sandbox after every commit, and once more at the end. All builds passed.
+- **What the push carried:** besides the rebase, it included three pickman record commits that had only been local until now. Like the rest of the series, they only touch .pickman-history.
+
+**Repository state**
+- The leftover rebase of cherry-20209a62bc85 from Oct 30 is still in .git/rebase-merge, so git can't start a new rebase in the main tree. So that I wouldn't abort someone else's work, I did the rebase in a temporary worktree at /tmp/wt-cherry-6b917b413d31, which I've since removed. The stale rebase should still be finished or aborted with `git rebase --abort` before more work is done in this tree.
+- The backup branch pickman-records-f0dcb8959308 is still there.
+
+**Suggested reply for the MR**
+> Rebased onto the latest master (085d4649fadd). The only conflict was in .pickman-history, where both sides added a history entry; I kept both. All 19 commits have the same changes as before, including the empty merge commit, and sandbox builds after each one. The new pipeline should also retry the lab boards that failed earlier (samus_tpl, samus, bpif3, snow, pine64, opi_pc). Those failures weren't related to this Rockchip-only series.
+
+---
+
