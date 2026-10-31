@@ -2087,6 +2087,7 @@ class TestGetPickmanMrs(unittest.TestCase):
         mock_mr1.has_conflicts = False
         mock_mr1.detailed_merge_status = 'mergeable'
         mock_mr1.diverged_commits_count = 0
+        mock_mr1.sha = 'abc123'
 
         mock_mr2 = mock.MagicMock()
         mock_mr2.iid = 2
@@ -2116,6 +2117,7 @@ class TestGetPickmanMrs(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].iid, 1)
         self.assertEqual(result[1].iid, 2)
+        self.assertEqual('abc123', result[0].sha)
 
 
 class TestCreateMr(unittest.TestCase):
@@ -6479,6 +6481,7 @@ class TestPickmanMrPipelineFields(unittest.TestCase):
         )
         self.assertIsNone(pmr.pipeline_status)
         self.assertIsNone(pmr.pipeline_id)
+        self.assertIsNone(pmr.sha)
 
     def test_with_pipeline(self):
         """Test creating PickmanMr with pipeline fields"""
@@ -9066,6 +9069,122 @@ class TestGetSharedFailures(unittest.TestCase):
             'refs/merge-requests/42/head'))
         self.assertIsNone(gitlab.mr_iid_of_ref('cherry-abc'))
         self.assertIsNone(gitlab.mr_iid_of_ref(None))
+
+
+class TestOnlyJobsPipeline(unittest.TestCase):
+    """Tests for pipelines which run only some jobs"""
+
+    @staticmethod
+    def _job(name, status):
+        """Build a mock job"""
+        job = mock.Mock(status=status)
+        job.name = name
+        return job
+
+    def test_get_project(self):
+        """Test that a missing module, token or URL gives no project"""
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=False):
+            self.assertIsNone(gitlab.get_project('ci'))
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value=None):
+            self.assertIsNone(gitlab.get_project('ci'))
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value='tok'), \
+             mock.patch.object(gitlab, 'get_remote_url',
+                               return_value='not-a-url'):
+            self.assertIsNone(gitlab.get_project('ci'))
+
+        glab = mock.Mock()
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value='tok'), \
+             mock.patch.object(gitlab, 'get_remote_url',
+                               return_value=TEST_SSH_URL), \
+             mock.patch('gitlab.Gitlab', return_value=glab) as mock_glab:
+            project = gitlab.get_project('ci')
+        self.assertIs(glab.projects.get.return_value, project)
+        mock_glab.assert_called_once_with('https://gitlab.com',
+                                          private_token='tok')
+        glab.projects.get.assert_called_once_with('group/project')
+
+    def test_get_pipeline_jobs(self):
+        """Test reading the jobs in a pipeline"""
+        project = mock.Mock()
+        pipeline = project.pipelines.get.return_value
+        pipeline.sha = 'abc'
+        pipeline.status = 'failed'
+        pipeline.jobs.list.return_value = [self._job('rpi3', 'success'),
+                                           self._job('samus', 'failed')]
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            result = gitlab.get_pipeline_jobs('ci', 7)
+        self.assertEqual(gitlab.PipelineJobs(
+            'abc', 'failed', {'rpi3': 'success', 'samus': 'failed'}), result)
+        project.pipelines.get.assert_called_once_with(7)
+
+        with mock.patch.object(gitlab, 'get_project', return_value=None):
+            self.assertIsNone(gitlab.get_pipeline_jobs('ci', 7))
+
+        project.pipelines.get.side_effect = \
+            gitlab.gitlab.exceptions.GitlabError('gone')
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            with terminal.capture() as (_, err):
+                self.assertIsNone(gitlab.get_pipeline_jobs('ci', 7))
+        self.assertIn('Could not read pipeline 7: gone', err.getvalue())
+
+    def test_only_jobs_regex(self):
+        """Test that job names are matched exactly"""
+        self.assertEqual(
+            r'/^(rpi3|BeagleBone Black \(lwIP\)|sandbox test\.py|a\/b)$/',
+            gitlab.only_jobs_regex(['rpi3', 'BeagleBone Black (lwIP)',
+                                    'sandbox test.py', 'a/b']))
+
+    def test_start_only_jobs_pipeline(self):
+        """Test starting a pipeline which runs only some jobs"""
+        project = mock.Mock()
+        project.pipelines.create.return_value = mock.Mock(id=99)
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            self.assertEqual(99, gitlab.start_only_jobs_pipeline(
+                'ci', 'cherry-abc', ['rpi3', 'samus']))
+        project.pipelines.create.assert_called_once_with({
+            'ref': 'cherry-abc',
+            'variables': [{'key': 'ONLY_JOBS',
+                           'value': '/^(rpi3|samus)$/'}]})
+
+        with mock.patch.object(gitlab, 'get_project', return_value=None):
+            self.assertIsNone(gitlab.start_only_jobs_pipeline(
+                'ci', 'cherry-abc', ['rpi3']))
+
+        project.pipelines.create.side_effect = \
+            gitlab.gitlab.exceptions.GitlabError('filtered out')
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            with terminal.capture() as (_, err):
+                self.assertIsNone(gitlab.start_only_jobs_pipeline(
+                    'ci', 'cherry-abc', ['rpi3']))
+        self.assertIn('Could not start a pipeline with only some jobs',
+                      err.getvalue())
+
+    def test_start_mr_pipeline(self):
+        """Test starting a full pipeline for a merge request"""
+        project = mock.Mock()
+        merge_req = project.mergerequests.get.return_value
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            self.assertTrue(gitlab.start_mr_pipeline('ci', 42))
+        project.mergerequests.get.assert_called_once_with(42)
+        merge_req.pipelines.create.assert_called_once_with({})
+
+        with mock.patch.object(gitlab, 'get_project', return_value=None):
+            self.assertFalse(gitlab.start_mr_pipeline('ci', 42))
+
+        merge_req.pipelines.create.side_effect = \
+            gitlab.gitlab.exceptions.GitlabError('nope')
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            with terminal.capture() as (_, err):
+                self.assertFalse(gitlab.start_mr_pipeline('ci', 42))
+        self.assertIn('MR !42: could not start a pipeline: nope',
+                      err.getvalue())
 
 
 class TestRemovedIdentifiers(unittest.TestCase):

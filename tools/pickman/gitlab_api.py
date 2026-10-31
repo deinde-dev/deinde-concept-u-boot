@@ -44,8 +44,8 @@ class MrCreateError(Exception):
 # Use defaults for new fields so existing code doesn't break
 PickmanMr = namedtuple('PickmanMr', [
     'iid', 'title', 'web_url', 'source_branch', 'description',
-    'has_conflicts', 'needs_rebase', 'pipeline_status', 'pipeline_id'
-], defaults=[False, False, None, None])
+    'has_conflicts', 'needs_rebase', 'pipeline_status', 'pipeline_id', 'sha'
+], defaults=[False, False, None, None, None])
 
 # Comment info returned by get_mr_comments()
 MrComment = namedtuple('MrComment', [
@@ -58,6 +58,16 @@ PipelineInfo = namedtuple('PipelineInfo', ['id', 'status', 'web_url'])
 # Failed job info from a pipeline
 FailedJob = namedtuple('FailedJob',
                         ['id', 'name', 'stage', 'web_url', 'log_tail'])
+
+# The jobs in a pipeline: the commit it runs on, its status and a dict of
+# job name -> job status
+PipelineJobs = namedtuple('PipelineJobs', ['sha', 'status', 'jobs'])
+
+# Pipeline variable holding a regex of the jobs to run, see .gitlab-ci.yml
+ONLY_JOBS = 'ONLY_JOBS'
+
+# Characters with a special meaning in a regex held in a GitLab variable
+RE_SPECIAL = re.compile(r'([\\.^$|?*+()\[\]{}/])')
 
 
 def check_available():
@@ -334,10 +344,12 @@ def get_pickman_mrs(remote, state='opened'):
                 # include accurate merge status fields
                 pipeline_status = None
                 pipeline_id = None
+                sha = None
 
                 if state == 'opened':
                     full_mr = project.mergerequests.get(merge_req.iid)
                     has_conflicts = getattr(full_mr, 'has_conflicts', False)
+                    sha = getattr(full_mr, 'sha', None)
 
                     # Check merge status - detailed_merge_status is newer API
                     detailed_status = getattr(full_mr,
@@ -364,6 +376,7 @@ def get_pickman_mrs(remote, state='opened'):
                     needs_rebase=needs_rebase,
                     pipeline_status=pipeline_status,
                     pipeline_id=pipeline_id,
+                    sha=sha,
                 ))
         return pickman_mrs
     except gitlab.exceptions.GitlabError as exc:
@@ -800,6 +813,121 @@ def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
         return False
     except Exception as exc:  # pylint: disable=broad-except
         tout.warning(f'Could not check the pipeline for MR !{mr_iid}: {exc}')
+        return False
+
+
+def get_project(remote):
+    """Get the GitLab project which a remote points to
+
+    Args:
+        remote (str): Remote name
+
+    Returns:
+        python-gitlab project, or None if there is no module, token or
+            usable URL
+
+    Raises:
+        gitlab.exceptions.GitlabError: if the project cannot be read
+    """
+    if not check_available():
+        return None
+    token = get_token()
+    if not token:
+        return None
+    host, proj_path = parse_url(get_remote_url(remote))
+    if not host or not proj_path:
+        return None
+    glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+    return glab.projects.get(proj_path)
+
+
+def get_pipeline_jobs(remote, pipeline_id):
+    """Get the status of each job in a pipeline
+
+    Only the latest run of a retried job is included.
+
+    Args:
+        remote (str): Remote name
+        pipeline_id (int): Pipeline ID
+
+    Returns:
+        PipelineJobs: the pipeline's jobs, or None if it cannot be read
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return None
+        pipeline = project.pipelines.get(pipeline_id)
+        jobs = {job.name: job.status
+                for job in pipeline.jobs.list(get_all=True)}
+        return PipelineJobs(pipeline.sha, pipeline.status, jobs)
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'Could not read pipeline {pipeline_id}: {exc}')
+        return None
+
+
+def only_jobs_regex(names):
+    """Make a regex for ONLY_JOBS which matches just the given job names
+
+    Args:
+        names (list of str): Job names, e.g. 'BeagleBone Black (lwIP)'
+
+    Returns:
+        str: Regex in GitLab's /.../ form
+    """
+    return '/^(' + '|'.join(RE_SPECIAL.sub(r'\\\1', name)
+                            for name in names) + ')$/'
+
+
+def start_only_jobs_pipeline(remote, branch, names):
+    """Start a pipeline on a branch which runs only the given jobs
+
+    This relies on the ONLY_JOBS support in .gitlab-ci.yml. The pipeline is
+    a branch pipeline, not a merge request's, so it does not become the
+    merge request's head pipeline: the caller has to keep track of it.
+
+    Args:
+        remote (str): Remote name
+        branch (str): Branch to run on
+        names (list of str): Names of the jobs to run, which must not be
+            empty, since GitLab refuses a pipeline with no jobs
+
+    Returns:
+        int: Pipeline ID, or None if it could not be started
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return None
+        pipeline = project.pipelines.create({
+            'ref': branch,
+            'variables': [{'key': ONLY_JOBS,
+                           'value': only_jobs_regex(names)}]})
+        return pipeline.id
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'Could not start a pipeline with only some jobs: '
+                     f'{exc}')
+        return None
+
+
+def start_mr_pipeline(remote, mr_iid):
+    """Start a full pipeline for a merge request
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request IID
+
+    Returns:
+        bool: True if it was started
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return False
+        project.mergerequests.get(mr_iid).pipelines.create({})
+        return True
+    except gitlab.exceptions.GitlabError as exc:
+        tout.error(f'MR !{mr_iid}: could not start a pipeline: {exc}')
         return False
 
 
