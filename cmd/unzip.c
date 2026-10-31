@@ -6,14 +6,16 @@
 
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <gzip.h>
 #include <mapmem.h>
 #include <part.h>
 #include <vsprintf.h>
 
-static int do_unzip(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_unzip(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	unsigned long src, dst;
 	unsigned long src_len = ~0UL, dst_len = ~0UL;
 	void *srcp, *dstp;
@@ -48,15 +50,16 @@ static int do_unzip(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	unzip,	4,	1,	do_unzip,
 	"unzip a memory region",
 	"srcaddr dstaddr [dstsize]"
 );
 
-static int do_gzwrite(struct cmd_tbl *cmdtp, int flag,
-		      int argc, char *const argv[])
+static int do_gzwrite(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct blk_desc *bdev;
 	int ret;
 	unsigned long addr;
@@ -94,7 +97,7 @@ static int do_gzwrite(struct cmd_tbl *cmdtp, int flag,
 	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	gzwrite, 8, 0, do_gzwrite,
 	"unzip and write memory to block device",
 	"<interface> <dev> <addr> length [wbuf=1M [offs=0 [outsize=0]]]\n"

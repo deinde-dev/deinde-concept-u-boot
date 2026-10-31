@@ -1202,12 +1202,14 @@ config CMD_UNLZ4
 config CMD_UNZIP
 	bool "unzip"
 	default y if CMD_BOOTI
+	select GETOPT
 	select GZIP
 	help
 	  Uncompress a zip-compressed memory region.
 
 config CMD_ZIP
 	bool "zip"
+	select GETOPT
 	select GZIP_COMPRESSED
 	help
 	  Compress a memory region with zlib deflate method.

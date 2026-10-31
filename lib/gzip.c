@@ -52,8 +52,10 @@ int zzip(void *dst, unsigned long *lenp, unsigned char *src,
 	int r, flush, orig, window;
 	unsigned long comp_len, left_len;
 
-	if (!srclen)
+	if (!srclen) {
+		*lenp = 0;
 		return 0;
+	}
 
 #ifndef CONFIG_GZIP
 	window = MAX_WBITS;

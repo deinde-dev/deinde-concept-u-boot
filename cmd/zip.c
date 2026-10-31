@@ -6,12 +6,15 @@
 
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <gzip.h>
 #include <mapmem.h>
 #include <vsprintf.h>
 
-static int do_zip(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_zip(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	unsigned long src, dst;
 	unsigned long src_len, dst_len = ~0UL;
 	void *srcp, *dstp;
@@ -27,7 +30,7 @@ static int do_zip(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			dst = hextoul(argv[3], NULL);
 			break;
 		default:
-			return cmd_usage(cmdtp);
+			return CMD_RET_USAGE;
 	}
 
 	srcp = map_sysmem(src, src_len);
@@ -47,7 +50,7 @@ static int do_zip(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	zip,	5,	1,	do_zip,
 	"zip a memory region",
 	"srcaddr srcsize dstaddr [dstsize]"

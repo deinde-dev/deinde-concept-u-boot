@@ -81,5 +81,5 @@ See also
 * :doc:`cramfsls<cramfsls>` for listing what the image holds
 * :doc:`load<load>` for reading a file from a filesystem on a block device
   rather than from an image in memory
-* *unzip* for expanding a compressed region of memory, which is the other way
-  of getting data out of an image already in RAM
+* :doc:`unzip<unzip>` for expanding a compressed region of memory, which is
+  the other way of getting data out of an image already in RAM
