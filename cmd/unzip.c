@@ -56,9 +56,10 @@ U_BOOT_CMD_NOOPTS(
 	"srcaddr dstaddr [dstsize]"
 );
 
-static int do_gzwrite(struct cmd_tbl *cmdtp, int flag,
-		      int argc, char *const argv[])
+static int do_gzwrite(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct blk_desc *bdev;
 	int ret;
 	unsigned long addr;
@@ -96,7 +97,7 @@ static int do_gzwrite(struct cmd_tbl *cmdtp, int flag,
 	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	gzwrite, 8, 0, do_gzwrite,
 	"unzip and write memory to block device",
 	"<interface> <dev> <addr> length [wbuf=1M [offs=0 [outsize=0]]]\n"
