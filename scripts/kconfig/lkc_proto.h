@@ -11,18 +11,18 @@ int conf_write(const char *name);
 /**
  * conf_write_autoconf() - Write out the autoconf files
  *
- * @support_spl: Support generation of files for additional secondary
+ * @support_xpl: Support generation of files for additional secondary
  *	program-loader builds, as used by U-Boot
  *
  * Writes out:
  *    auto.conf which contains CONFIG definitions for inclusion by make
  *    autoconf.h which contains CONFIG definitions for inclusion by C code
  *
- * if @support_spl then separate files are also created for SPL builds (spl,
+ * if @support_xpl then separate files are also created for xPL builds (spl,
  * tpl, vpl, tools), with symbols like SPL_FOO being written to the SPL file
  * as just FOO
  */
-int conf_write_autoconf(bool support_spl);
+int conf_write_autoconf(bool support_xpl);
 
 bool conf_get_changed(void);
 void conf_set_changed_callback(void (*fn)(void));
