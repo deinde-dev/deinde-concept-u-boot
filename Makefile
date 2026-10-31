@@ -755,16 +755,9 @@ endif # KBUILD_EXTMOD
 
 ifeq ($(dot-config),1)
 # Modified for U-Boot
-# Read in the config for this phase
-ifdef CONFIG_TPL_BUILD
--include include/config/auto_tpl.conf
-else ifdef CONFIG_VPL_BUILD
--include include/config/auto_vpl.conf
-else ifdef CONFIG_SPL_BUILD
--include include/config/auto_spl.conf
-else
--include include/config/auto.conf
-endif
+# Read in the config for this phase, and the list of xPL phases
+-include include/config/auto$(if $(XPL_NAME),_$(XPL_NAME)).conf
+-include include/config/xpl.conf
 endif
 
 # The all: target is the default when no target is given on the
@@ -831,6 +824,10 @@ include/config/%.conf: $(KCONFIG_CONFIG) #include/config/auto.conf.cmd
 	$(Q)touch include/config/auto.conf
 
 u-boot.cfg spl/u-boot.cfg tpl/u-boot.cfg vpl/u-boot.cfg:
+# syncconfig writes xpl.conf along with auto.conf, so make sure that the rule
+# above runs only once, rather than once for each file
+include/config/xpl.conf: include/config/auto.conf ;
+
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.autoconf $(@)
 
 -include include/autoconf.mk

@@ -23,39 +23,22 @@ include scripts/Makefile.compiler
 
 -include $(obj)/include/autoconf.mk
 
-# Read in the config for this SPL phase
-ifdef CONFIG_TPL_BUILD
--include include/config/auto_tpl.conf
-else ifdef CONFIG_VPL_BUILD
--include include/config/auto_vpl.conf
-else
--include include/config/auto_spl.conf
+# The phase being built is named after its directory, e.g. tpl
+XPL_NAME := $(obj)
+XPL_BIN := u-boot-$(XPL_NAME)
+
+-include include/config/xpl.conf
+ifeq ($(XPL_UPPER_$(XPL_NAME)),)
+$(error Unknown xPL phase '$(XPL_NAME)': see scripts/xpl_phases)
 endif
+
+# Read in the config for this phase
+-include include/config/auto_$(XPL_NAME).conf
 
 UBOOTINCLUDE := -I$(obj)/include $(UBOOTINCLUDE)
 
 KBUILD_CPPFLAGS += -DCONFIG_XPL_BUILD
-ifeq ($(CONFIG_SPL_BUILD),y)
-KBUILD_CPPFLAGS += -DCONFIG_SPL_BUILD
-endif
-ifeq ($(CONFIG_TPL_BUILD),y)
-KBUILD_CPPFLAGS += -DCONFIG_TPL_BUILD
-else ifeq ($(CONFIG_VPL_BUILD),y)
-KBUILD_CPPFLAGS += -DCONFIG_VPL_BUILD
-endif
-
-ifeq ($(CONFIG_VPL_BUILD),y)
-XPL_BIN := u-boot-vpl
-XPL_NAME := vpl
-else
-ifeq ($(CONFIG_TPL_BUILD),y)
-XPL_BIN := u-boot-tpl
-XPL_NAME := tpl
-else
-XPL_BIN := u-boot-spl
-XPL_NAME := spl
-endif
-endif
+KBUILD_CPPFLAGS += -DCONFIG_$(XPL_UPPER_$(XPL_NAME))_BUILD
 
 export XPL_NAME
 
