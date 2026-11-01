@@ -78,6 +78,19 @@ static int cmd_test_bootd_base(struct unit_test_state *uts)
 	ut_assert_nextline("second");
 	ut_assert_console_end();
 
+	/*
+	 * the return value is the one of the commands which run; 'true' and
+	 * 'false' are hush builtins, so only the hush parsers have them
+	 */
+	if (IS_ENABLED(CONFIG_HUSH_PARSER)) {
+		ut_assertok(env_set("bootcmd", "true"));
+		ut_assertok(run_command("bootd", 0));
+
+		ut_assertok(env_set("bootcmd", "false"));
+		ut_asserteq(1, run_command("bootd", 0));
+		ut_assert_console_end();
+	}
+
 	ut_assertok(restore_bootcmd(uts, saved));
 
 	return 0;
@@ -139,46 +152,27 @@ static int cmd_test_bootd_usage(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_bootd_usage, UTF_CONSOLE);
 
-static int cmd_bootd_test(struct unit_test_state *uts)
+/* Test that a bootd reached from bootd is refused rather than recursing */
+static int cmd_test_bootd_recursion(struct unit_test_state *uts)
 {
 	char *const argv[] = { "bootd", NULL };
-	const char *old = env_get("bootcmd");
-	char *saved = NULL;
 	int repeatable = 0;
+	char *saved;
 
-	if (old) {
-		saved = strdup(old);
-		ut_assertnonnull(saved);
-	}
+	/* the 'bootcmd' below is an 'echo', so the command must be present */
+	if (!IS_ENABLED(CONFIG_CMD_ECHO))
+		return -EAGAIN;
 
-	/* bootd runs the command held in bootcmd */
-	ut_assertok(env_set("bootcmd", "echo hello bootd"));
-	ut_assertok(run_command("bootd", 0));
-	ut_assert_nextline("hello bootd");
-	ut_assert_console_end();
-
-	/* the "boot" alias does the same */
-	ut_assertok(run_command("boot", 0));
-	ut_assert_nextline("hello bootd");
-	ut_assert_console_end();
-
-	/* the return value is the one of the command in bootcmd */
-	if (IS_ENABLED(CONFIG_HUSH_PARSER)) {
-		ut_assertok(env_set("bootcmd", "false"));
-		ut_asserteq(1, run_command("bootd", 0));
-		ut_assert_console_end();
-	}
-
-	/* a bootd reached from bootd is refused rather than recursing */
+	ut_assertok(save_bootcmd(uts, &saved));
 	ut_assertok(env_set("bootcmd", "echo bootcmd must not run"));
+
 	ut_asserteq(CMD_RET_FAILURE,
 		    cmd_process(CMD_FLAG_BOOTD, 1, argv, &repeatable, NULL));
 	ut_assert_nextline("'bootd' recursion detected");
 	ut_assert_console_end();
 
-	ut_assertok(env_set("bootcmd", saved));
-	free(saved);
+	ut_assertok(restore_bootcmd(uts, saved));
 
 	return 0;
 }
-CMD_TEST(cmd_bootd_test, UTF_CONSOLE);
+CMD_TEST(cmd_test_bootd_recursion, UTF_CONSOLE);
