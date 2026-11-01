@@ -1709,6 +1709,32 @@ class TestInProgressOps(unittest.TestCase):
         self.assertFalse([a for a in seen if a[:2] == ['git', 'cherry-pick']])
 
 
+class TestMrSubtree(unittest.TestCase):
+    """Tests for working out which subtree an MR updates"""
+
+    def _subtree(self, title):
+        """Get the subtree update for an MR with the given title"""
+        return control.mr_subtree(gitlab.PickmanMr(
+            iid=1, title=title, web_url='', source_branch='cherry-abc',
+            description=''))
+
+    def test_subtree(self):
+        """Test the name and tag of a subtree update"""
+        self.assertEqual(('dts', 'v7.2-dts'), self._subtree(
+            "[pickman] Subtree merge tag 'v7.2-dts' of dts repo [1] "
+            'into dts/upstream'))
+        self.assertEqual(('lwip', 'STABLE-2_2_0'), self._subtree(
+            "[skipped] [pickman] Subtree merge tag 'STABLE-2_2_0' of "
+            'lwip repo [1] into lib/lwip/lwip'))
+
+    def test_not_subtree(self):
+        """Test MRs which do not update a known subtree"""
+        self.assertIsNone(self._subtree(
+            "[pickman] Merge tag 'v2026.10-rc3' into next"))
+        self.assertIsNone(self._subtree(
+            "[pickman] Subtree merge tag 'v1.0' of foo repo [1] into foo"))
+
+
 class TestCommitSource(unittest.TestCase):
     """Tests for commit-source command."""
 
@@ -2856,6 +2882,71 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
         self.assertFalse(control._rebase_in_progress())
         self.assertEqual('main', control.run_git(
             ['rev-parse', '--abbrev-ref', 'HEAD']))
+
+    def _review_subtree(self, comments=(), pulled=True):
+        """Process a subtree MR which has conflicts
+
+        Args:
+            comments (list of MrComment): Unresolved comments on the MR
+            pulled (bool): Whether pulling the subtree update succeeds
+
+        Returns:
+            tuple: (Mock, Mock) for the agent and for pushes
+        """
+        mrs = [gitlab.PickmanMr(
+            iid=100,
+            title=("[pickman] Subtree merge tag 'v7.2-dts' of dts repo [1] "
+                   'into dts/upstream'),
+            source_branch='cherry-test',
+            description='Test',
+            web_url='https://gitlab.com/mr/100',
+            has_conflicts=True,
+            needs_rebase=True,
+        )]
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_mr_comments',
+                                   return_value=list(comments)), \
+                 mock.patch.object(control, '_subtree_pull',
+                                   return_value=pulled) as pull, \
+                 mock.patch.object(agent, 'handle_mr_comments',
+                                   return_value=(True, 'Done')) as m_agent, \
+                 mock.patch.object(gitlab, 'update_mr_desc'), \
+                 mock.patch.object(control, 'update_history'), \
+                 mock.patch.object(control, '_push_with_ci',
+                                   return_value=''), \
+                 mock.patch.object(gitlab, 'push_branch') as push:
+                self.assertEqual(
+                    1, control.process_mr_reviews('ci', mrs, dbs))
+            pull.assert_called_once_with('dts', 'v7.2-dts')
+            dbs.close()
+        return m_agent, push
+
+    def test_review_recreates_subtree(self):
+        """Test that a subtree MR is pulled again, not rebased by the agent"""
+        m_agent, push = self._review_subtree()
+        m_agent.assert_not_called()
+        push.assert_called_once_with('ci', 'cherry-test', force=True,
+                                     skip_ci=False)
+
+    def test_review_subtree_with_comments(self):
+        """Test that the agent handles comments on a recreated subtree MR"""
+        comment = gitlab.MrComment(id=1, author='reviewer', body='Fix this',
+                                   created_at='2025-01-01', resolvable=True,
+                                   resolved=False)
+        m_agent, push = self._review_subtree([comment])
+        call_kwargs = m_agent.call_args[1]
+        self.assertFalse(call_kwargs.get('needs_rebase'))
+        self.assertFalse(call_kwargs.get('has_conflicts'))
+        push.assert_not_called()
+
+    def test_review_subtree_fails(self):
+        """Test that a failed subtree update leaves the MR alone"""
+        m_agent, push = self._review_subtree(pulled=False)
+        m_agent.assert_not_called()
+        push.assert_not_called()
 
     def test_skips_mr_no_rebase_no_comments(self):
         """Test that MRs without rebase need or comments are skipped."""
@@ -7336,6 +7427,58 @@ class TestProcessPipelineFailures(unittest.TestCase):
             self.assertEqual(result, 0)
             mock_fix.assert_not_called()
             dbs.close()
+
+    def _recreate_subtree(self, pulled):
+        """Process a failed subtree MR which needs a rebase
+
+        Args:
+            pulled (bool): Whether pulling the subtree update succeeds
+
+        Returns:
+            tuple: (result, git_calls, mock for pushes, mock for the fixer)
+        """
+        git_calls = []
+
+        def run_git(args):
+            git_calls.append(args)
+            return ''
+
+        mrs = [self._make_mr(needs_rebase=True)._replace(title=(
+            "[pickman] Subtree merge tag 'v7.2-dts' of dts repo [1] "
+            'into dts/upstream'))]
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(control, 'run_git', side_effect=run_git), \
+                 mock.patch.object(control, '_subtree_run_update',
+                                   return_value=control.SUBTREE_OK if pulled
+                                   else control.SUBTREE_FAIL) as pull, \
+                 mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(agent, 'fix_pipeline') as fix:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+            pull.assert_called_once_with('dts', 'v7.2-dts')
+            self.assertEqual(pulled, dbs.pfix_has(1, 100))
+            dbs.close()
+        return result, git_calls, push, fix
+
+    def test_recreates_subtree(self):
+        """Test that a subtree update is pulled again rather than rebased"""
+        result, git_calls, push, fix = self._recreate_subtree(True)
+        self.assertEqual(1, result)
+        self.assertIn(['checkout', '-B', 'cherry-test-1', 'ci/master'],
+                      git_calls)
+        self.assertFalse([a for a in git_calls if a[0] == 'rebase'])
+        push.assert_called_once_with('ci', 'cherry-test-1', force=True,
+                                     skip_ci=False)
+        fix.assert_not_called()
+
+    def test_recreate_subtree_fails(self):
+        """Test that nothing is pushed if the subtree update fails"""
+        result, _, push, fix = self._recreate_subtree(False)
+        self.assertEqual(0, result)
+        push.assert_not_called()
+        fix.assert_not_called()
 
     def test_disabled_with_zero(self):
         """Test that fix_retries=0 is handled in do_step (not called)"""

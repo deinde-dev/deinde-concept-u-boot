@@ -3963,6 +3963,81 @@ def _subtree_run_update(name, tag):
     return SUBTREE_OK
 
 
+def _subtree_pull(name, tag):
+    """Pull a subtree update, using the agent to resolve any conflicts
+
+    Args:
+        name (str): Subtree name ('dts', 'mbedtls', 'lwip')
+        tag (str): Tag to pull (e.g. 'v6.15-dts')
+
+    Returns:
+        bool: True on success, False on failure
+    """
+    ret = _subtree_run_update(name, tag)
+    if ret == SUBTREE_FAIL:
+        return False
+    if ret == SUBTREE_CONFLICT:
+        # Resolve via reverse lookup of subtree path
+        subtree_path = next(
+            (p for p, n in SUBTREE_NAMES.items() if n == name), None)
+        tout.info('Merge conflicts detected, invoking agent...')
+        success, _ = agent.resolve_subtree_conflicts(
+            name, tag, subtree_path)
+        if not success:
+            tout.error('Agent could not resolve subtree conflicts')
+            try:
+                run_git(['merge', '--abort'])
+            except command.CommandExc:
+                pass
+            return False
+    return True
+
+
+def mr_subtree(merge_req):
+    """Get the subtree update which an MR makes, if any
+
+    Args:
+        merge_req (PickmanMr): Merge request
+
+    Returns:
+        tuple: (name, tag) of the update, e.g. ('dts', 'v6.15-dts'), or
+            None if the MR does not update a subtree
+    """
+    mat = RE_SUBTREE_MERGE.search(merge_req.title)
+    if not mat:
+        return None
+    name = SUBTREE_NAMES.get(mat.group(2).strip())
+    if not name:
+        return None
+    return name, mat.group(1)
+
+
+def _recreate_subtree(remote, merge_req, target, subtree):
+    """Pull a subtree update again, replacing the MR's branch
+
+    A subtree update merges a squash commit which has the subtree's files at
+    the top level. Rebasing drops the merge and replays the squash commit as
+    it is, which puts those files over the top of U-Boot's, so it can never
+    work. Instead, start the branch again from the target and pull the
+    update onto it.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): MR which updates a subtree
+        target (str): Target branch
+        subtree (tuple): (name, tag) from mr_subtree()
+
+    Returns:
+        bool: True if the branch is recreated, ready to push
+    """
+    name, tag = subtree
+    tout.info(f'MR !{merge_req.iid}: pulling subtree update {name} -> '
+              f'{tag} again on {remote}/{target}')
+    run_git(['checkout', '-B', merge_req.source_branch,
+             f'{remote}/{target}'])
+    return _subtree_pull(name, tag)
+
+
 def _subtree_record(dbs, source, squash_hash, merge_hash):
     """Mark subtree commits as applied and advance the source position."""
     source_id = dbs.source_get_id(source)
@@ -4032,23 +4107,8 @@ def apply_subtree_update(dbs, source, name, tag, merge_hash, remote,  # pylint: 
         run_git(['branch', '-D', branch_name])
     run_git(['checkout', '-b', branch_name])
 
-    ret = _subtree_run_update(name, tag)
-    if ret == SUBTREE_FAIL:
+    if not _subtree_pull(name, tag):
         return 1
-    if ret == SUBTREE_CONFLICT:
-        # Resolve via reverse lookup of subtree path
-        subtree_path = next(
-            (p for p, n in SUBTREE_NAMES.items() if n == name), None)
-        tout.info('Merge conflicts detected, invoking agent...')
-        success, _ = agent.resolve_subtree_conflicts(
-            name, tag, subtree_path)
-        if not success:
-            tout.error('Agent could not resolve subtree conflicts')
-            try:
-                run_git(['merge', '--abort'])
-            except command.CommandExc:
-                pass
-            return 1
 
     if push:
         title = f'Subtree update: {name} -> {tag}'
@@ -4928,6 +4988,18 @@ def process_single_mr(remote, merge_req, dbs, target):
         for comment in unresolved:
             tout.info(f'  [{comment.author}]: {comment.body[:80]}...')
 
+    # The agent cannot rebase a subtree update, so pull it again instead
+    subtree = mr_subtree(merge_req) if needs_rebase else None
+    if subtree:
+        if not _recreate_subtree(remote, merge_req, target, subtree):
+            tout.error(f'Failed to update the subtree for MR !{mr_iid}')
+            return processed + 1
+        if not unresolved:
+            gitlab_api.push_branch(remote, merge_req.source_branch,
+                                   force=True, skip_ci=False)
+            return processed + 1
+        needs_rebase = False
+
     # Run agent to handle comments and/or rebase
     success, conversation_log = agent.handle_mr_comments(
         mr_iid,
@@ -4936,7 +5008,7 @@ def process_single_mr(remote, merge_req, dbs, target):
         remote,
         target,
         needs_rebase=needs_rebase,
-        has_conflicts=merge_req.has_conflicts,
+        has_conflicts=merge_req.has_conflicts and needs_rebase,
         mr_description=merge_req.description,
     )
 
@@ -5036,16 +5108,22 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
     else:
         tout.info(f'MR !{mr_iid}: needs rebase, rebasing before '
                   f'pipeline fix...')
-    run_git(['checkout', branch])
-    try:
-        run_git(['rebase', f'{remote}/{target}'])
-    except command.CommandExc:
-        tout.warning(f'MR !{mr_iid}: rebase failed, aborting')
+    subtree = mr_subtree(merge_req)
+    if subtree:
+        if not _recreate_subtree(remote, merge_req, target, subtree):
+            tout.warning(f'MR !{mr_iid}: subtree update failed')
+            return False
+    else:
+        run_git(['checkout', branch])
         try:
-            run_git(['rebase', '--abort'])
+            run_git(['rebase', f'{remote}/{target}'])
         except command.CommandExc:
-            pass
-        return False
+            tout.warning(f'MR !{mr_iid}: rebase failed, aborting')
+            try:
+                run_git(['rebase', '--abort'])
+            except command.CommandExc:
+                pass
+            return False
     gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
     dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebased')
     dbs.commit()

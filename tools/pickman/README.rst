@@ -144,6 +144,12 @@ Path                               Name
 ``lib/lwip/lwip``                  ``lwip``
 =================================  ===========
 
+A subtree update cannot be rebased either: rebasing drops the merge and replays
+the squash commit, whose files are at the top level of the subtree's repo, onto
+the top level of U-Boot. So when an MR for a subtree update needs rebasing,
+whether to fix its pipeline or because it has conflicts, pickman starts its
+branch again from the target and runs ``update-subtree.sh`` once more.
+
 Tools Maintained Elsewhere
 --------------------------
 
