@@ -102077,3 +102077,34 @@ The note lines over 72 columns on the MT8195 commit and the merge commit, from t
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10957 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+No overlapping files, so the rebase should be clean. I'm saving the per-commit stats and then rebasing with a build after each commit.
+
+The rebase is running and builds sandbox after each of the 29 commits. I'll compare the per-commit stats when it finishes.
+
+I rebased the branch onto ci/master as `cherry-5fa1de058293-v3`. It is checked out and not pushed. The review comment needed no code change. Sandbox built with no warnings or errors after every one of the 29 commits.
+
+**Rebase**
+- I started from `cherry-5fa1de058293-v2` (71c70438f8b4) rather than the local `cherry-5fa1de058293`. The local branch is out of date: it stops at c980be492654 and is missing the "Record review handling" commit that is already on ci/cherry-5fa1de058293. Starting from it would have dropped that `.pickman-history` entry.
+- ci/master only moved on by 2 commits (c640c9c1c6ba "pickman: Pull a subtree update again rather than rebasing it", plus its merge). They only touch `tools/pickman/`, which this branch doesn't change, so there were no conflicts.
+- I ran `git rebase --keep-empty ci/master`, with `buildman -L --board sandbox -w -o /tmp/pickman` after each commit.
+- All 29 commits came through, including the empty MT8195 PSCI commit and the empty merge commit (now 790f6b3f04d5). The new top is ba378536ac3d.
+- Each commit's `git show --stat` output is the same before and after the rebase.
+- The only difference between the v2 and v3 trees is the upstream pickman change (3 files, +252/−25).
+
+**Review comment**
+The bot comment only says pipeline 10957 was started to re-run the jobs that failed. Nothing in it asks for a change, so I made no edits. The failing boards aren't MediaTek and the series doesn't touch them. The earlier run already found that opi_pc, samus, samus_tpl and snow also fail in many other merge requests. I haven't checked the new RPi, BeagleBone, Pine64 and Hummingboard jobs.
+
+**Suggested reply for the MR**
+
+> Thanks. I've rebased onto the latest master, which only adds a pickman change unrelated to this series, so no code changes. Every commit has the same file changes as before, and sandbox builds cleanly at each one. The jobs being re-run (the RPi, BeagleBone, Pine64 and Hummingboard lwIP variants, opi_pc, samus, samus_tpl, snow) are all non-MediaTek boards that this series doesn't touch, so any remaining failures there look like lab or infrastructure problems rather than this series.
+
+---
+
