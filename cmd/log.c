@@ -315,7 +315,8 @@ static int do_log_format(struct cmd_tbl *cmdtp, int flag, int argc,
 		} else if (!strcmp(str, "all")) {
 			gd->log_fmt = LOGF_ALL;
 		} else {
-			gd->log_fmt = 0;
+			int fmt = 0;
+
 			for (; *str; str++) {
 				char *ptr = strchr(log_fmt_chars, *str);
 
@@ -323,8 +324,9 @@ static int do_log_format(struct cmd_tbl *cmdtp, int flag, int argc,
 					printf("Invalid log char '%c'\n", *str);
 					return CMD_RET_FAILURE;
 				}
-				gd->log_fmt |= 1 << (ptr - log_fmt_chars);
+				fmt |= 1 << (ptr - log_fmt_chars);
 			}
+			gd->log_fmt = fmt;
 		}
 	} else {
 		printf("Log format: ");
