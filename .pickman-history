@@ -101768,3 +101768,82 @@ All 3 commits are on the `cherry-ec5843cd7846` branch (based on ci/master), and 
 
 ---
 
+## 2026-11-01: us/main
+
+Branch: cherry-83a35efca58c
+
+Commits:
+- 83a35efca58c toradex: verdin-am62: Set WiFI DTB as default for new PIDs
+- 54efe43bf873 toradex: verdin-am62p: Set WiFi DTB as default for new PIDs
+- 951f0d802a9b toradex: verdin-imx95: Set WiFi DTB as default for new PIDs
+- 330d967aab8d toradex: verdin-imx8mp: Set WiFi DTB as default for new PIDs
+- 0d95b64ceb46 toradex: verdin-imx8mm: Set WiFi DTB as default for new PIDs
+- c19981ab9acb toradex: common: Decouple board sysinfo from the product ID table
+- 073d55b2ad79 toradex: tdx-cfg-block: Remove validation against PID table
+- 7239c5a6b5e4 toradex: tdx-cfg-block: Remove product ID limitation
+- 44b9100012ee Merge patch series "toradex: Decouple from Toradex product ID table"
+
+### Conversation log
+The failure comes from stale Rust build output in /tmp/pickman that points at an old worktree path. I'll delete the stale Rust example output and rebuild.
+
+Build passes. Next commits:
+
+The conflict is simple. The target has no CONFIG_SPL_MAX_SIZE line at this spot, and the commit removes CONFIG_BOARD_LATE_INIT, so I'll drop that line.
+
+All six went in cleanly. Now the merge commit:
+
+Using -m 1 for the merge reapplies the whole series diff, so the same am62p defconfig conflict comes up again. The series is already applied, so I'll keep the current (HEAD) version.
+
+The empty cherry-pick did not commit, and the amend failed without touching HEAD. I'll commit it directly with the prepared message.
+
+All 9 commits are on the `cherry-83a35efca58c` branch, based on ci/master, and the final sandbox build passes with no warnings or errors.
+
+**Build:** sandbox doesn't compile any of the Toradex board code, so the builds only show the tree as a whole still builds. They don't test the changed files.
+
+The first build failed because `/tmp/pickman/examples/rust` held stale output from an old worktree (`/tmp/wt-cherry-1454960a7f3e`), so the build looked for a linker script that no longer exists. I deleted that directory and the build passed; it has nothing to do with these commits.
+
+**pickman split-check:** it found nothing to convert in any of the commits.
+
+**Fix-ups (each has a note line added to its commit message):**
+- **9517b44ade78** (verdin-am62p): `configs/verdin-am62p_a53_defconfig` conflicted. ci/master has no `CONFIG_SPL_MAX_SIZE` line next to `CONFIG_BOARD_LATE_INIT` (it only has the one at line 30), so I just removed `CONFIG_BOARD_LATE_INIT=y` as the commit intends. The `PREBOOT` change applied cleanly.
+- **c7608fc0e26a** (merge commit): cherry-picking it with `-m 1` reapplied the series and hit the same defconfig conflict. Since the series was already in place, I kept the current version, so this is an empty commit that preserves the merge message.
+
+**Deltas:** every commit's file list and line counts match the original exactly, so none are a concern.
+
+The branch hasn't been pushed or merged anywhere.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-83a35efca58c
+
+Comments addressed:
+
+
+### Conversation log
+The commit deltas match exactly. Now the build:
+
+The tip builds. To cover the per-commit check, I'll build every commit with buildman's branch mode:
+
+All 10 commits build. Next, the -v2 branch and the push:
+
+That commit is pickman's standard history record. It only adds to `.pickman-history`, and ci/master has the same kind of commit from earlier merged MRs, so it belongs in the MR.
+
+I rebased MR !1520 (`cherry-83a35efca58c`) onto the latest ci/master and force-pushed it with no conflicts. Every commit builds for sandbox.
+
+**What was done**
+- **Rebase:** `git rebase --keep-empty ci/master` moved the branch from base e26f839c0c18 to ca2a054cd83f, which is 10 commits further on. All 10 commits applied cleanly, including the empty merge commit.
+- **Deltas:** the `git show --stat` output for every commit is identical before and after the rebase.
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes at the tip. I also built each of the 10 commits on its own with buildman's branch mode, with no errors or warnings. Sandbox doesn't compile the Toradex board code, so this only shows the tree as a whole still builds.
+- **Local branch:** `cherry-83a35efca58c-v2` points at a3b8546c2393.
+- **Push:** `pickman push-branch cherry-83a35efca58c -r ci -f` updated the remote from c7608fc0e26a to a3b8546c2393, so GitLab should start an MR pipeline.
+
+**Note:** the remote branch used to end at the merge commit c7608fc0e26a. The local branch also had pickman's record commit ("pickman: Record cherry-pick of 9 commits from us/main"), which only adds to `.pickman-history` and had never been pushed. This push included it, so the MR now has 10 commits instead of 9. That matches how earlier pickman MRs landed in ci/master.
+
+**Suggested MR reply:**
+
+> Rebased onto latest master (ca2a054cd83f). The rebase was clean with no conflicts, and every commit's diffstat is the same as before. Each of the 10 commits builds for sandbox with no errors or warnings. The branch now also includes the pickman history record commit, which only updates `.pickman-history`.
+
+---
+
