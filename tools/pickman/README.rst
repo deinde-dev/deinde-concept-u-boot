@@ -193,6 +193,23 @@ and the MR description links to the pull requests. If every change in the set
 is in these projects, there is nothing to cherry-pick, so pickman creates no MR
 and moves on to the next set.
 
+To check that pickman can open a pull request in each project::
+
+    ./tools/pickman/pickman check-external
+
+For each project this checks that:
+
+- the clone exists and its remote can be fetched, with the branch to target
+- the remote is a GitHub repository which the ``gh`` user can push to
+- ``gh`` opens pull requests for the clone in that repository. With several
+  remotes, ``gh`` may pick another one, or refuse to choose; running
+  ``gh repo set-default <owner>/<repo>`` in the clone fixes this
+
+It also reports each tool which has moved out of the tree but has no section in
+the config file. With ``--push``, ``apply`` (and so ``step`` and ``poll``) runs
+the same checks on the projects which a set changes, and stops before recording
+anything if one fails, so the set is tried again once the problem is fixed.
+
 Skipping MRs
 ------------
 
@@ -505,6 +522,8 @@ To check GitLab permissions for the configured token::
 
 This verifies that the GitLab token has the required permissions to push
 branches and create merge requests. Use ``-r`` to specify a different remote.
+Similarly, ``check-external`` checks that pickman can open pull requests in
+the projects listed in the config file (see `Tools Maintained Elsewhere`_).
 
 To show the next set of commits to cherry-pick from a source branch::
 
@@ -992,7 +1011,8 @@ appear as coming from the bot account rather than individual users.
 
 To send changes to tools which are maintained elsewhere (see
 `Tools Maintained Elsewhere`_), install the GitHub CLI (``gh``) and log in with
-``gh auth login``.
+``gh auth login``, using an account which can push to each project. Run
+``check-external`` to make sure everything is in place.
 
 Database
 --------
