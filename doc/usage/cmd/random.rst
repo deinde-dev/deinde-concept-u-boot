@@ -33,8 +33,8 @@ against. Without a seed the command picks one from the timer, and the data
 differs from one run to the next.
 
 address
-    address to fill, hexadecimal. Note that, unlike *mw*, the offset set by the
-    :doc:`base` command is *not* added to it
+    address to fill, hexadecimal. Note that, unlike :doc:`mw<mw>`, the offset
+    set by the :doc:`base` command is *not* added to it
 
 len
     number of **bytes** to fill, hexadecimal. Unlike the count taken by
@@ -88,7 +88,7 @@ address or the length is missing, or if more than three arguments are given.
 See also
 --------
 
-* *mw* for filling a region with a constant value
+* :doc:`mw<mw>` for filling a region with a constant value
 * :doc:`md<md>` for displaying the result
 * :doc:`rng<rng>` for reading a hardware random number generator
 * :doc:`mtest<mtest>` for checking that memory holds what is written to it

@@ -48,7 +48,7 @@ Example
 Sandbox has no ROM, so this builds a very small CBFS in memory by hand. The
 master header lies at the start of the ROM, the two files at 0x40 and 0x80, and
 the offset back to the header in the last four bytes. All the fields of the
-CBFS are big-endian, so the values given to *mw* read backwards::
+CBFS are big-endian, so the values given to :doc:`mw<mw>` read backwards::
 
     => mw.b 1000000 0 100
     => mw.l 1000000 4342524f

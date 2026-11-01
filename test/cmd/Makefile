@@ -112,7 +112,7 @@ endif
 obj-$(CONFIG_CMD_MEMORY) += mem_copy.o
 obj-$(CONFIG_CMD_MEM_SEARCH) += mem_search.o
 ifdef CONFIG_CONSOLE_RECORD
-obj-$(CONFIG_CMD_MEMORY) += loop.o mm.o nm.o
+obj-$(CONFIG_CMD_MEMORY) += loop.o mm.o mw.o nm.o
 obj-$(CONFIG_LOOPW) += loopw.o
 ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_MEMORY) += base.o

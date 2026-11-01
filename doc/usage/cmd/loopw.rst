@@ -36,8 +36,8 @@ When count is 1 the command uses a tighter loop which writes to the same address
 over and over, without the work of stepping through a range.
 
 address
-    address to write to, hexadecimal. Note that, unlike *mw*, the offset set by
-    the :doc:`base` command is *not* added to it
+    address to write to, hexadecimal. Note that, unlike :doc:`mw<mw>`, the
+    offset set by the :doc:`base` command is *not* added to it
 
 count
     number of values to write in each pass, hexadecimal. Note that this is not
@@ -82,6 +82,6 @@ See also
 --------
 
 * :doc:`loop<loop>` for reading memory in the same way
-* *mw* for writing a value to memory once, or filling a region
+* :doc:`mw<mw>` for writing a value to memory once, or filling a region
 * :doc:`mwc<mwc>` for writing to memory repeatedly, which stops on Ctrl-C
 * :doc:`mtest<mtest>` for checking that memory holds what is written to it

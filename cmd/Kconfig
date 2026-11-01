@@ -1079,6 +1079,7 @@ config CMD_MEMORY
 
 config CMD_MEM_SEARCH
 	bool "ms - Memory search"
+	select GETOPT
 	help
 	  Memory-search command
 

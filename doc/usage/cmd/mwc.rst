@@ -79,6 +79,6 @@ See also
 --------
 
 * :doc:`mdc<mdc>` for displaying memory repeatedly
-* *mw* for writing a value to memory once, or filling a region
+* :doc:`mw<mw>` for writing a value to memory once, or filling a region
 * :doc:`mm<mm>`, :doc:`nm<nm>` for modifying memory interactively
 * :doc:`base<base>` for the address offset applied to these commands

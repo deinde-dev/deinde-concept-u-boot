@@ -190,6 +190,46 @@ static int mem_test_ms_cont_end(struct unit_test_state *uts)
 }
 MEM_TEST(mem_test_ms_cont_end, UTF_CONSOLE);
 
+/* Test that a repeated 'ms' with a size above a byte carries on correctly */
+static int mem_test_ms_cont_size(struct unit_test_state *uts)
+{
+	char *const args[] = {"ms.l", "0", "40", "12345678"};
+	int repeatable;
+	u32 *buf;
+
+	buf = map_sysmem(0, BUF_SIZE);
+	memset(buf, '\0', BUF_SIZE);
+	buf[0x4] = 0x12345678;
+	buf[0x19] = 0x12345678;
+
+	/* stop at the first match, which is at offset 0x10 */
+	run_command("ms.l -l1 0 40 12345678", 0);
+	ut_assert_nextline("00000010: 12345678 00000000 00000000 00000000  xV4.............");
+	ut_assert_nextline("1 match (repeat command to check for more)");
+	ut_assert_console_end();
+
+	ut_asserteq(1, env_get_hex("memmatches", 0));
+	ut_asserteq(0x10, env_get_hex("memaddr", 0));
+
+	/*
+	 * The repeat must start just after the first match, at 0x14, and so
+	 * find the second one. run_command() ignores the repeatable flag when
+	 * using hush, so call cmd_process() directly
+	 */
+	cmd_process(CMD_FLAG_REPEAT, 4, args, &repeatable, NULL);
+	ut_assert_nextline("00000060: 00000000 12345678 00000000 00000000  ....xV4.........");
+	ut_assert_nextline("1 match");
+	ut_assert_console_end();
+
+	ut_asserteq(1, env_get_hex("memmatches", 0));
+	ut_asserteq(0x64, env_get_hex("memaddr", 0));
+
+	unmap_sysmem(buf);
+
+	return 0;
+}
+MEM_TEST(mem_test_ms_cont_size, UTF_CONSOLE);
+
 /* Test 'ms' command with multiple values */
 static int mem_test_ms_mult(struct unit_test_state *uts)
 {
@@ -310,3 +350,65 @@ static int mem_test_ms_quiet(struct unit_test_state *uts)
 	return 0;
 }
 MEM_TEST(mem_test_ms_quiet, UTF_CONSOLE);
+
+/* Test that 'ms' reports a search which finds nothing */
+static int mem_test_ms_none(struct unit_test_state *uts)
+{
+	u8 *buf;
+
+	buf = map_sysmem(0, BUF_SIZE);
+	memset(buf, '\0', BUF_SIZE);
+
+	/* the command fails when there is no match */
+	ut_asserteq(1, run_command("ms.b 0 100 99", 0));
+	ut_assert_nextline("0 matches");
+	ut_assert_console_end();
+
+	ut_asserteq(0, env_get_hex("memmatches", 1));
+	ut_asserteq(0, env_get_hex("memaddr", 1));
+	ut_asserteq(0, env_get_hex("mempos", 1));
+
+	/* quiet mode says nothing either way */
+	ut_asserteq(1, run_command("ms.b -q 0 100 99", 0));
+	ut_assert_console_end();
+	unmap_sysmem(buf);
+
+	return 0;
+}
+MEM_TEST(mem_test_ms_none, UTF_CONSOLE);
+
+/* Check the usage message which a bad 'ms' command line shows */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("ms - memory search");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_skip_to_linen("ms [.b, .w, .l");
+	ut_assert_nextlinen("    -q = quiet");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test 'ms' with a bad command line */
+static int mem_test_ms_usage(struct unit_test_state *uts)
+{
+	/* the address, the length and a value are all required */
+	ut_asserteq(1, run_command("ms 0 100", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an option does not make up for a missing argument */
+	ut_asserteq(1, run_command("ms.b -q 0", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an unknown option is refused */
+	ut_asserteq(1, run_command("ms.b -z 0 100 12", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an unknown size fails without a message */
+	ut_asserteq(1, run_command("ms.x 0 100 12", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+MEM_TEST(mem_test_ms_usage, UTF_CONSOLE);

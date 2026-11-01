@@ -107,6 +107,6 @@ See also
 * :doc:`nm<nm>` for modifying memory at a constant address
 * :doc:`mdc<mdc>` for displaying memory repeatedly
 * :doc:`md<md>` for displaying memory once
-* *mw* for writing a value to memory without prompting
+* :doc:`mw<mw>` for writing a value to memory without prompting
 * :doc:`base<base>` for the address offset applied to these commands
 * :doc:`aes<aes>` for encrypting memory with a key entered this way
