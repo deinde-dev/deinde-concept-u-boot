@@ -4867,10 +4867,14 @@ def process_single_mr(remote, merge_req, dbs, target):
     if SKIPPED_TAG in merge_req.title:
         return processed
 
-    # Check if rebase is needed
-    needs_rebase = merge_req.needs_rebase or merge_req.has_conflicts
+    # Rebase when there are conflicts, or when the agent is changing the
+    # branch anyway. A branch which is only behind its target is left alone:
+    # rebasing it each time the target moves would need a full pipeline each
+    # time, and it can be rebased when it is merged
+    needs_rebase = merge_req.has_conflicts or (
+        bool(unresolved) and merge_req.needs_rebase)
 
-    # Skip if no comments and no rebase needed
+    # Skip if there are no comments and no conflicts
     if not unresolved and not needs_rebase:
         return processed
 

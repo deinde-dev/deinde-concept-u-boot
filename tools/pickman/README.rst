@@ -686,6 +686,12 @@ for unresolved comments, and uses a Claude agent to address them. The agent will
 - Create a local branch with version suffix (e.g., ``cherry-abc123-v2``)
 - Use ``--keep-empty`` when rebasing to preserve empty merge commits
 
+The agent also rebases an MR which has merge conflicts, even if there are no
+comments. An MR which is only behind its target is rebased only while the agent
+is addressing comments: each rebase needs a full pipeline, so rebasing every
+open MR whenever the target moves would use a lot of CI time for little gain.
+Such an MR can be rebased when it is merged.
+
 After processing, pickman:
 
 - Marks comments as processed in the database (to avoid reprocessing)

@@ -2739,46 +2739,69 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
 
             dbs.close()
 
-    def test_rebase_without_comments(self):
-        """Test that MRs needing rebase trigger agent even without comments."""
+    def _review_rebase(self, has_conflicts, needs_rebase, comments=()):
+        """Process an MR which may need rebasing, returning the agent mock
+
+        Args:
+            has_conflicts (bool): Whether the MR has conflicts
+            needs_rebase (bool): Whether the MR is behind its target
+            comments (list of MrComment): Unresolved comments on the MR
+
+        Returns:
+            tuple: (Mock, Mock) for the agent and for replies to the MR
+        """
         with terminal.capture():
             dbs = database.Database(self.db_path)
             dbs.start()
-
-            # MR needs rebase but has no comments
             mrs = [gitlab.PickmanMr(
                 iid=100,
                 title='[pickman] Test MR',
                 source_branch='cherry-test',
                 description='Test',
                 web_url='https://gitlab.com/mr/100',
-                has_conflicts=False,
-                needs_rebase=True,
+                has_conflicts=has_conflicts,
+                needs_rebase=needs_rebase,
             )]
-
-            with mock.patch.object(control, 'run_git'):
-                with mock.patch.object(gitlab, 'get_mr_comments',
-                                       return_value=[]):
-                    with mock.patch.object(agent, 'handle_mr_comments',
-                                           return_value=(True, 'Rebased')) as m:
-                        with mock.patch.object(gitlab, 'update_mr_desc'), \
-                             mock.patch.object(control, 'update_history'), \
-                             mock.patch.object(
-                                 control, '_push_with_ci',
-                                 return_value='\n\nStarted pipeline 9'), \
-                             mock.patch.object(gitlab, 'reply_to_mr') as reply:
-                            control.process_mr_reviews('ci', mrs, dbs)
-
-            # The note about the pipeline goes on the MR
-            reply.assert_called_once_with('ci', 100, 'Started pipeline 9')
-
-            # Agent should be called with needs_rebase=True
-            m.assert_called_once()
-            call_kwargs = m.call_args[1]
-            self.assertTrue(call_kwargs.get('needs_rebase'))
-            self.assertFalse(call_kwargs.get('has_conflicts'))
-
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_mr_comments',
+                                   return_value=list(comments)), \
+                 mock.patch.object(agent, 'handle_mr_comments',
+                                   return_value=(True, 'Rebased')) as m_agent, \
+                 mock.patch.object(gitlab, 'update_mr_desc'), \
+                 mock.patch.object(control, 'update_history'), \
+                 mock.patch.object(control, '_push_with_ci',
+                                   return_value='\n\nStarted pipeline 9'), \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                control.process_mr_reviews('ci', mrs, dbs)
             dbs.close()
+        return m_agent, reply
+
+    def test_rebase_without_comments(self):
+        """Test that MRs with conflicts trigger the agent without comments"""
+        m_agent, reply = self._review_rebase(True, True)
+
+        # The note about the pipeline goes on the MR
+        reply.assert_called_once_with('ci', 100, 'Started pipeline 9')
+        m_agent.assert_called_once()
+        call_kwargs = m_agent.call_args[1]
+        self.assertTrue(call_kwargs.get('needs_rebase'))
+        self.assertTrue(call_kwargs.get('has_conflicts'))
+
+    def test_behind_without_comments(self):
+        """Test that an MR which is only behind its target is left alone"""
+        m_agent, reply = self._review_rebase(False, True)
+        m_agent.assert_not_called()
+        reply.assert_not_called()
+
+    def test_behind_with_comments(self):
+        """Test that an MR with comments is rebased while it is changed"""
+        comment = gitlab.MrComment(id=1, author='reviewer', body='Fix this',
+                                   created_at='2025-01-01', resolvable=True,
+                                   resolved=False)
+        m_agent, _ = self._review_rebase(False, True, [comment])
+        call_kwargs = m_agent.call_args[1]
+        self.assertTrue(call_kwargs.get('needs_rebase'))
+        self.assertFalse(call_kwargs.get('has_conflicts'))
 
     def test_skips_mr_no_rebase_no_comments(self):
         """Test that MRs without rebase need or comments are skipped."""
