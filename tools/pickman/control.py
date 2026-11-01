@@ -3871,12 +3871,37 @@ def _has_unresolved_conflict():
     return bool(run_git(['ls-files', '--unmerged']))
 
 
+def _rebase_in_progress():
+    """Check whether a rebase is in progress
+
+    A rebase which stops, whether at a conflict or to let a commit be
+    edited, leaves its state in a directory rather than in a *_HEAD ref
+
+    Return:
+        bool: True if a rebase is in progress
+    """
+    for name in ('rebase-merge', 'rebase-apply'):
+        res = command.run_one('git', 'rev-parse', '--git-path', name,
+                              capture=True, raise_on_error=False)
+        path = res.stdout.strip()
+        if not res.return_code and path and os.path.isdir(path):
+            return True
+    return False
+
+
 def _abort_in_progress():
-    """Abort any cherry-pick, merge or revert in progress
+    """Abort any rebase, cherry-pick, merge or revert in progress
 
     This leaves the working tree clean, so that pickman can move off the
     branch.  Errors are ignored, since this is a best-effort cleanup.
     """
+    # Abort the rebase first, since it may have stopped partway through a
+    # pick, which must not be aborted on its own
+    if _rebase_in_progress():
+        try:
+            run_git(['rebase', '--abort'])
+        except Exception:  # pylint: disable=broad-except
+            pass
     for ref, git_args in IN_PROGRESS_OPS.items():
         res = command.run_one('git', 'rev-parse', '--verify', '--quiet', ref,
                               capture=True, raise_on_error=False)
@@ -3885,6 +3910,20 @@ def _abort_in_progress():
                 run_git(git_args)
             except Exception:  # pylint: disable=broad-except
                 pass
+
+
+def _return_to(branch):
+    """Abandon any unfinished git operation and check out a branch
+
+    An agent can stop partway through a rebase, for example when it is
+    blocked, leaving the index conflicted so that the checkout fails
+
+    Args:
+        branch (str): Branch to check out
+    """
+    tout.info(f'Returning to {branch}')
+    _abort_in_progress()
+    run_git(['checkout', branch])
 
 
 def _subtree_run_update(name, tag):
@@ -4930,6 +4969,8 @@ def process_single_mr(remote, merge_req, dbs, target):
         tout.info(f'Updated MR !{mr_iid} description and history')
     else:
         tout.error(f"Failed to handle comments for MR !{mr_iid}")
+        # Don't leave a half-done rebase for the next MR to trip over
+        _abort_in_progress()
 
     return processed + 1
 
@@ -4962,8 +5003,7 @@ def process_mr_reviews(remote, mrs, dbs, target='master'):
 
     # Restore original branch
     if processed:
-        tout.info(f'Returning to {original_branch}')
-        run_git(['checkout', original_branch])
+        _return_to(original_branch)
 
     return processed
 
@@ -5290,6 +5330,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
             f'Agent output:\n\n{conversation_log[:1000]}{shared_note}')
         tout.error(f'MR !{mr_iid}: pipeline fix failed '
                    f'(attempt {attempt})')
+        _abort_in_progress()
 
     return True
 
@@ -5363,8 +5404,7 @@ def process_pipeline_failures(remote, mrs, dbs, target, max_retries):
 
     # Restore original branch
     if processed:
-        tout.info(f'Returning to {original_branch}')
-        run_git(['checkout', original_branch])
+        _return_to(original_branch)
 
     return processed
 

@@ -2803,6 +2803,60 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
         self.assertTrue(call_kwargs.get('needs_rebase'))
         self.assertFalse(call_kwargs.get('has_conflicts'))
 
+    def test_failed_review_abandons_rebase(self):
+        """Test that a rebase left by a failed agent does not stop pickman"""
+        def git(*args):
+            subprocess.run(['git'] + list(args), check=False,
+                           capture_output=True)
+
+        def write_and_commit(text, msg):
+            tools.write_file('file.txt', text, binary=False)
+            git('commit', '-qam', msg)
+
+        tools.write_file('file.txt', 'base', binary=False)
+        git('add', 'file.txt')
+        git('commit', '-qm', 'base')
+        git('branch', '-M', 'main')
+        git('checkout', '-qb', 'cherry-test')
+        write_and_commit('mr', 'mr change')
+        git('checkout', '-q', 'main')
+        write_and_commit('target', 'target change')
+
+        def blocked_agent(*_args, **_kwargs):
+            # The agent stops at a conflict partway through its rebase
+            git('checkout', '-q', 'cherry-test')
+            git('rebase', 'main')
+            self.assertTrue(control._rebase_in_progress())
+            return False, 'blocked'
+
+        real_run_git = control.run_git
+
+        def run_git(args):
+            # There is no remote to fetch from
+            if args[0] != 'fetch':
+                return real_run_git(args)
+            return ''
+
+        mrs = [gitlab.PickmanMr(
+            iid=100, title='[pickman] Test MR', source_branch='cherry-test',
+            description='Test', web_url='https://gitlab.com/mr/100',
+            has_conflicts=True, needs_rebase=True)]
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(control, 'run_git', side_effect=run_git), \
+                 mock.patch.object(gitlab, 'get_mr_comments',
+                                   return_value=[]), \
+                 mock.patch.object(agent, 'handle_mr_comments',
+                                   side_effect=blocked_agent):
+                self.assertEqual(
+                    1, control.process_mr_reviews('ci', mrs, dbs))
+            dbs.close()
+
+        self.assertFalse(control._rebase_in_progress())
+        self.assertEqual('main', control.run_git(
+            ['rev-parse', '--abbrev-ref', 'HEAD']))
+
     def test_skips_mr_no_rebase_no_comments(self):
         """Test that MRs without rebase need or comments are skipped."""
         with terminal.capture():
@@ -7204,11 +7258,16 @@ class TestProcessPipelineFailures(unittest.TestCase):
                                    return_value=(False, 'No luck')) \
                     as mock_fix, \
                  mock.patch.object(gitlab, 'reply_to_mr',
-                                   return_value=True) as mock_reply:
+                                   return_value=True) as mock_reply, \
+                 mock.patch.object(control, '_abort_in_progress') as abort:
                 result = control.process_pipeline_failures(
                     'ci', mrs, dbs, 'master', 3)
 
             self.assertEqual(result, 1)
+
+            # Anything the agent leaves unfinished is abandoned, once after
+            # the failure and once before returning to the original branch
+            self.assertEqual(2, abort.call_count)
             jobs = mock_fix.call_args[0][2]
             self.assertEqual(['sandbox'], [job.name for job in jobs])
             reply_msg = mock_reply.call_args[0][2]
