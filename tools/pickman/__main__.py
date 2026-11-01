@@ -65,6 +65,10 @@ def add_main_commands(subparsers):
                            help='Convert them in the working tree and add '
                                 'options to conf_nospl as needed')
 
+    subparsers.add_parser(
+        'check-external',
+        help='Check that pull requests can be opened in external projects')
+
     check_gl = subparsers.add_parser('check-gitlab',
                                       help='Check GitLab permissions')
     check_gl.add_argument('-r', '--remote', default='ci',

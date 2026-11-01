@@ -28,6 +28,7 @@ Optional 'remote' and 'branch' keys give the remote to push to (default
 from collections import namedtuple
 import configparser
 import os
+import re
 import shutil
 import tempfile
 
@@ -70,6 +71,10 @@ Project = namedtuple('Project', 'name path repo dest remote branch')
 # tree_needed (bool): True if any commit changes files outside the external
 #     projects, so still needs to be cherry-picked into the tree
 PortResult = namedtuple('PortResult', 'ok urls paths tree_needed')
+
+# A GitHub remote URL, in any of the forms git accepts, giving 'owner/repo'
+RE_GITHUB = re.compile(r'^(?:https://|ssh://git@|git@)github\.com[:/]'
+                       r'([^/]+/[^/]+?)(?:\.git)?/?$')
 
 
 def get_projects(config_file=None):
@@ -201,6 +206,144 @@ def find_unconfigured(commits, projects=None):
                 missing.update(name for name, path in paths.items()
                                if is_under(fname, path))
     return sorted(missing)
+
+
+def github_repo(url):
+    """Get the GitHub repository which a remote URL refers to
+
+    Args:
+        url (str): Remote URL, e.g. 'git@github.com:owner/repo.git'
+
+    Returns:
+        str: Repository as 'owner/repo', or None if the URL is not on GitHub
+    """
+    match = RE_GITHUB.match(url)
+    return match.group(1) if match else None
+
+
+def _gh(*args, cwd=None):
+    """Run a gh command
+
+    Args:
+        args (list of str): Arguments to gh
+        cwd (str): Directory to run in, or None for the current one
+
+    Returns:
+        CommandResult: Result of the command, with a non-zero return code if
+            it fails or gh is not installed
+    """
+    return command.run_one('gh', *args, cwd=cwd, capture=True,
+                           capture_stderr=True, raise_on_error=False)
+
+
+def _first_line(result):
+    """Get the first line of a failed command's error output, for a message
+
+    Args:
+        result (CommandResult): Result of the command
+
+    Returns:
+        str: First line of stderr, or of the exception if it did not run
+    """
+    text = result.stderr.strip() or str(result.exception or '')
+    return text.splitlines()[0] if text else 'unknown error'
+
+
+def check_gh():
+    """Check that gh is installed and logged in to GitHub
+
+    Returns:
+        str: Description of the problem, or None if gh is ready
+    """
+    result = _gh('auth', 'status')
+    if result.exception:
+        return 'gh is not installed (see the README)'
+    if result.return_code:
+        return "gh is not logged in to GitHub: run 'gh auth login'"
+    return None
+
+
+def check_project(proj, gh_ok=True):
+    """Check that pickman can send changes to a project as a pull request
+
+    This checks that the clone exists, that its remote can be fetched and is
+    a GitHub repository which the gh user can push to, and that gh opens pull
+    requests for the clone in that repository
+
+    Args:
+        proj (Project): Project to check
+        gh_ok (bool): True if gh is logged in, False to skip the checks which
+            need it
+
+    Returns:
+        list of str: Problems found, empty if there are none
+    """
+    if not os.path.isdir(proj.repo):
+        return [f'No repository at {proj.repo}']
+    result = _git(proj.repo, 'remote', 'get-url', proj.remote,
+                  raise_on_error=False)
+    if result.return_code:
+        return [f"{proj.repo} has no remote '{proj.remote}'"]
+    url = result.stdout.strip()
+
+    problems = []
+    result = _git(proj.repo, 'ls-remote', '--exit-code', proj.remote,
+                  f'refs/heads/{proj.branch}', raise_on_error=False)
+    if result.return_code:
+        problems.append(f"Cannot fetch branch '{proj.branch}' from {url}")
+
+    slug = github_repo(url)
+    if not slug:
+        problems.append(f'{url} is not a GitHub repository')
+    elif gh_ok:
+        result = _gh('api', f'repos/{slug}', '--jq', '.permissions.push')
+        if result.return_code:
+            problems.append(f'Cannot read {slug} with gh: '
+                            f'{_first_line(result)}')
+        elif result.stdout.strip() != 'true':
+            problems.append(f'The gh user cannot push to {slug}')
+
+        # gh picks the repository for a pull request from the clone's remotes
+        result = _gh('repo', 'view', '--json', 'nameWithOwner', '--jq',
+                     '.nameWithOwner', cwd=proj.repo)
+        found = result.stdout.strip()
+        fix = f"run 'gh repo set-default {slug}' in {proj.repo}"
+        if result.return_code:
+            problems.append('gh cannot tell which repository to open pull '
+                            f'requests in ({_first_line(result)}): {fix}')
+        elif found.lower() != slug.lower():
+            problems.append(f'gh would open pull requests in {found}, not '
+                            f'{slug}: {fix}')
+    return problems
+
+
+def check_commits(commits, projects=None):
+    """Check the projects which some commits change, before sending to them
+
+    Args:
+        commits (list): Commits to check, each with a 'hash' attribute
+        projects (list of Project): External projects, or None to read them
+            from the config file
+
+    Returns:
+        list of str: Problems found, each starting with the project name
+            unless it is a problem with gh itself, or an empty list if there
+            are none
+    """
+    if projects is None:
+        projects = get_projects()
+    if not projects:
+        return []
+    by_project, _ = split_commits(commits, projects)
+    touched = [proj for proj in projects if proj.name in by_project]
+    if not touched:
+        return []
+    gh_problem = check_gh()
+    problems = [gh_problem] if gh_problem else []
+    for proj in touched:
+        problems += [f'{proj.name}: {problem}'
+                     for problem in check_project(proj, not gh_problem)]
+    return problems
 
 
 def _git(repo, *args, raise_on_error=True):

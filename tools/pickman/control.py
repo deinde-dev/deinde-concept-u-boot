@@ -947,6 +947,47 @@ def do_check_gitlab(args, dbs):  # pylint: disable=unused-argument
     return 0
 
 
+def do_check_external(args, dbs):  # pylint: disable=unused-argument
+    """Check that pickman can send changes to each external project
+
+    Args:
+        args (Namespace): Parsed arguments (unused)
+        dbs (Database): Database instance (unused)
+
+    Returns:
+        int: 0 if pull requests can be opened in every project, 1 otherwise
+    """
+    try:
+        projects = extern.get_projects()
+    except ValueError as exc:
+        tout.error(str(exc))
+        return 1
+    bad = False
+    configured = {proj.path for proj in projects}
+    for name, path in sorted(extern.MOVED_OUT.items()):
+        if path not in configured:
+            tout.error(f'{name}: No [external:{name}] section in '
+                       f'{gitlab_api.CONFIG_FILE}')
+            bad = True
+    if not projects:
+        return 1 if bad else 0
+
+    gh_problem = extern.check_gh()
+    if gh_problem:
+        tout.error(gh_problem)
+        bad = True
+    for proj in projects:
+        problems = extern.check_project(proj, not gh_problem)
+        for problem in problems:
+            tout.error(f'{proj.name}: {problem}')
+        if problems:
+            bad = True
+        elif not gh_problem:
+            tout.info(f'{proj.name}: OK, using {proj.repo} and '
+                      f'{proj.remote}/{proj.branch}')
+    return 1 if bad else 0
+
+
 def drift_read_accepts():
     """Read the accept file, which records intentional deltas from upstream
 
@@ -4209,6 +4250,14 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
                        'section (see the README)')
         return 1, False, ''
 
+    # Likewise, stop if pickman cannot open a pull request in one of them
+    if args.push:
+        problems = extern.check_commits(commits)
+        for problem in problems:
+            tout.error(problem)
+        if problems:
+            return 1, False, ''
+
     # Check for already applied commits before proceeding
     applied_map = build_applied_map(commits)
 
@@ -5498,6 +5547,7 @@ COMMANDS = {
     'add-source': do_add_source,
     'apply': do_apply,
     'check': do_check,
+    'check-external': do_check_external,
     'check-gitlab': do_check_gitlab,
     'split-check': do_split_check,
     'commit-source': do_commit_source,
@@ -5522,6 +5572,13 @@ COMMANDS = {
 }
 
 
+# Commands which do not use the database, so need not create it
+NO_DB_COMMANDS = {
+    'check', 'check-external', 'check-gitlab', 'compare', 'drift-accept',
+    'pick', 'push-branch', 'split-check', 'test',
+}
+
+
 def do_pickman(args):
     """Main entry point for pickman commands.
 
@@ -5534,6 +5591,8 @@ def do_pickman(args):
     tout.init(tout.INFO)
 
     handler = COMMANDS.get(args.cmd)
+    if handler and args.cmd in NO_DB_COMMANDS:
+        return handler(args, None)
     if handler:
         dbs = database.Database(DB_FNAME)
         dbs.start()

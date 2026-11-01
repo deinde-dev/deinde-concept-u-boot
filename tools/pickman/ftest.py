@@ -8,6 +8,8 @@
 
 import asyncio
 import argparse
+import ast
+import inspect
 import json
 import os
 import shutil
@@ -3251,6 +3253,39 @@ class TestExecuteApply(unittest.TestCase):
             dbs.close()
         self.assertIn('has no [external:buildman] section', stderr.getvalue())
 
+    def test_execute_apply_no_pr_access(self):
+        """Test execute_apply when a pull request cannot be opened"""
+        with terminal.capture() as (_, stderr):
+            dbs = self._start_db()
+            commits = [control.CommitInfo('fff111', 'fff111f',
+                                          'binman: Change', 'Author')]
+            problems = ['binman: No push']
+            with mock.patch.object(control.extern, 'check_commits',
+                                   return_value=problems) as check, \
+                 mock.patch.object(control.extern,
+                                   'port_commits') as mock_port:
+                ret = control.execute_apply(
+                    dbs, 'us/next', commits, 'cherry-f',
+                    argparse.Namespace(push=True), 'aaa000')
+
+                # Nothing is recorded, so the commits are tried again later
+                self.assertEqual((1, False, ''), ret)
+                check.assert_called_once_with(commits)
+                mock_port.assert_not_called()
+                self.assertIsNone(dbs.commit_get('fff111'))
+                self.assertEqual('abc123', dbs.source_get('us/next'))
+
+                # Without --push nothing is sent, so there is no check
+                mock_port.return_value = extern.PortResult(
+                    False, [], ['tools/binman'], False)
+                control.execute_apply(dbs, 'us/next', commits, 'cherry-f',
+                                      argparse.Namespace(push=False),
+                                      'aaa000')
+                check.assert_called_once()
+                mock_port.assert_called_once()
+            dbs.close()
+        self.assertIn('binman: No push', stderr.getvalue())
+
     def test_execute_apply_external_only(self):
         """Test execute_apply when all changes are in external projects"""
         tout.init(tout.INFO)
@@ -5565,6 +5600,23 @@ class TestDoPickmanUnknownCommand(unittest.TestCase):
         with terminal.capture():
             ret = control.do_pickman(args)
         self.assertEqual(ret, 1)
+
+    def test_no_db(self):
+        """Test that a command which does not use the database skips it"""
+        handler = mock.Mock(return_value=0)
+        with mock.patch.dict(control.COMMANDS, {'check-external': handler}):
+            ret = control.do_pickman(argparse.Namespace(cmd='check-external'))
+        self.assertEqual(0, ret)
+        self.assertIsNone(handler.call_args[0][1])
+        self.assertFalse(os.path.exists(self.db_path))
+
+    def test_no_db_commands(self):
+        """Test that the commands which skip the database never use it"""
+        for cmd in sorted(control.NO_DB_COMMANDS):
+            tree = ast.parse(inspect.getsource(control.COMMANDS[cmd]))
+            names = {node.id for node in ast.walk(tree)
+                     if isinstance(node, ast.Name)}
+            self.assertNotIn('dbs', names, cmd)
 
 
 class TestDoReviewWithMrs(unittest.TestCase):
@@ -10065,6 +10117,206 @@ class TestExtern(unittest.TestCase):
                     self.proj, self.repo, 'cherry-x', 'title', 'body'))
         self.assertIn('Could not create a pull request for cherry-x',
                       stderr.getvalue())
+
+    def test_github_repo(self):
+        """Test finding the GitHub repository of a remote URL"""
+        for url in ['git@github.com:owner/repo.git',
+                    'git@github.com:owner/repo',
+                    'https://github.com/owner/repo.git',
+                    'https://github.com/owner/repo/',
+                    'ssh://git@github.com/owner/repo.git']:
+            self.assertEqual('owner/repo', extern.github_repo(url), url)
+        for url in ['git@gitlab.com:owner/repo.git', self.remote,
+                    'https://github.com/owner']:
+            self.assertIsNone(extern.github_repo(url), url)
+
+    def test_check_gh(self):
+        """Test checking that gh is installed and logged in"""
+        ok = command.CommandResult(return_code=0)
+        with mock.patch.object(extern.command, 'run_one',
+                               return_value=ok) as mock_run:
+            self.assertIsNone(extern.check_gh())
+        self.assertEqual(('gh', 'auth', 'status'), mock_run.call_args[0])
+
+        fail = command.CommandResult(stderr='not logged in', return_code=1)
+        with mock.patch.object(extern.command, 'run_one', return_value=fail):
+            self.assertIn('gh auth login', extern.check_gh())
+
+        missing = command.CommandResult(return_code=255,
+                                        exception=OSError('No such file'))
+        with mock.patch.object(extern.command, 'run_one',
+                               return_value=missing):
+            self.assertIn('not installed', extern.check_gh())
+
+    def test_check_project_local(self):
+        """Test checking a project with a real clone and a local remote"""
+        self.assertEqual([f'{self.remote} is not a GitHub repository'],
+                         extern.check_project(self.proj))
+        self.assertEqual(
+            [f"Cannot fetch branch 'main' from {self.remote}",
+             f'{self.remote} is not a GitHub repository'],
+            extern.check_project(self.proj._replace(branch='main')))
+        self.assertEqual([f"{self.repo} has no remote 'us'"],
+                         extern.check_project(self.proj._replace(remote='us')))
+        self.assertEqual(['No repository at /nonexistent/binman'],
+                         extern.check_project(
+                             self.proj._replace(repo='/nonexistent/binman')))
+
+    def _check_github(self, gh_ok=True, **results):
+        """Check a project whose remote is on GitHub, with git and gh mocked
+
+        Args:
+            gh_ok (bool): Value to pass to check_project()
+            results (dict): Results to return, overriding the defaults, keyed
+                by 'fetch' for 'git ls-remote', 'api' for 'gh api' and 'view'
+                for 'gh repo view'
+
+        Returns:
+            tuple: (list of str, list of tuple) giving the problems found and
+                the arguments of each gh command
+        """
+        res = {
+            'remote': command.CommandResult(
+                stdout='git@github.com:test/binman.git\n'),
+            'ls-remote': command.CommandResult(stdout='abc\trefs/heads/x\n'),
+            'api': command.CommandResult(stdout='true\n'),
+            'repo': command.CommandResult(stdout='test/binman\n'),
+        }
+        res.update({{'fetch': 'ls-remote', 'view': 'repo'}.get(key, key): val
+                    for key, val in results.items()})
+        gh_calls = []
+
+        def fake_git(_repo, *args, raise_on_error=True):
+            del raise_on_error
+            return res[args[0]]
+
+        def fake_gh(*args, cwd=None):
+            gh_calls.append((args, cwd))
+            return res[args[0]]
+
+        with mock.patch.object(extern, '_git', side_effect=fake_git), \
+             mock.patch.object(extern, '_gh', side_effect=fake_gh):
+            return extern.check_project(self.proj, gh_ok), gh_calls
+
+    def test_check_project_github(self):
+        """Test checking a project on GitHub which pickman can use"""
+        problems, calls = self._check_github()
+        self.assertEqual([], problems)
+        self.assertEqual(
+            [(('api', 'repos/test/binman', '--jq', '.permissions.push'),
+              None),
+             (('repo', 'view', '--json', 'nameWithOwner', '--jq',
+               '.nameWithOwner'), self.repo)], calls)
+
+        # Without gh, only the clone and its remote are checked
+        self.assertEqual(([], []), self._check_github(gh_ok=False))
+
+    def test_check_project_github_problems(self):
+        """Test the problems found with a project on GitHub"""
+        fail = command.CommandResult(stderr='HTTP 404: Not Found\nmore\n',
+                                     return_code=1)
+        problems, _ = self._check_github(fetch=fail, api=fail, view=fail)
+        fix = f"run 'gh repo set-default test/binman' in {self.repo}"
+        self.assertEqual(
+            ["Cannot fetch branch 'master' from "
+             'git@github.com:test/binman.git',
+             'Cannot read test/binman with gh: HTTP 404: Not Found',
+             'gh cannot tell which repository to open pull requests in '
+             f'(HTTP 404: Not Found): {fix}'], problems)
+
+        problems, _ = self._check_github(
+            api=command.CommandResult(stdout='false\n'),
+            view=command.CommandResult(stdout='other/binman\n'))
+        self.assertEqual(
+            ['The gh user cannot push to test/binman',
+             f'gh would open pull requests in other/binman, not test/binman: '
+             f'{fix}'], problems)
+
+        # A failure with no message still says something
+        problems, _ = self._check_github(
+            api=command.CommandResult(return_code=1),
+            view=command.CommandResult(stdout='TEST/Binman\n'))
+        self.assertEqual(['Cannot read test/binman with gh: unknown error'],
+                         problems)
+
+    def test_check_commits(self):
+        """Test checking the projects which some commits change"""
+        self.assertEqual([], extern.check_commits([self.binman_only], []))
+        self.assertEqual([], extern.check_commits([self.other], [self.proj]))
+        self.assertEqual([], extern.check_commits([self.binman_only]))
+
+        with mock.patch.object(extern, 'check_gh', return_value=None):
+            self.assertEqual(
+                [f'binman: {self.remote} is not a GitHub repository'],
+                extern.check_commits([self.both], [self.proj]))
+        with mock.patch.object(extern, 'check_gh', return_value='no gh'), \
+             mock.patch.object(extern, 'check_project',
+                               return_value=[]) as mock_check:
+            self.assertEqual(['no gh'], extern.check_commits([self.both],
+                                                             [self.proj]))
+        mock_check.assert_called_once_with(self.proj, False)
+
+    def _check_external(self, config):
+        """Run the check-external command with a config file
+
+        Args:
+            config (str): Contents of the config file
+
+        Returns:
+            tuple: (int, str, str) giving the return code, stdout and stderr
+        """
+        fname = self._config(config)
+        with mock.patch.object(gitlab, 'CONFIG_FILE', fname), \
+             terminal.capture() as (stdout, stderr):
+            ret = control.do_check_external(argparse.Namespace(), None)
+        return ret, stdout.getvalue(), stderr.getvalue()
+
+    def test_do_check_external(self):
+        """Test the check-external command"""
+        sections = ''.join(f'[external:{name}]\npath = {path}\n'
+                           f'repo = {self.repo}\n'
+                           for name, path in extern.MOVED_OUT.items())
+        with mock.patch.object(extern, 'check_gh', return_value=None), \
+             mock.patch.object(extern, 'check_project', return_value=[]):
+            ret, out, err = self._check_external(sections)
+        self.assertEqual(0, ret)
+        self.assertEqual('', err)
+        self.assertIn(f'binman: OK, using {self.repo} and origin/master', out)
+
+        # A problem with one project, and a tool with no section
+        def check(proj, gh_ok):
+            self.assertTrue(gh_ok)
+            return ['No push'] if proj.name == 'binman' else []
+
+        config = (f'[external:binman]\npath = tools/binman\n'
+                  f'repo = {self.repo}\n')
+        with mock.patch.object(extern, 'check_gh', return_value=None), \
+             mock.patch.object(extern, 'check_project', side_effect=check):
+            ret, out, err = self._check_external(config)
+        self.assertEqual(1, ret)
+        self.assertIn('binman: No push', err)
+        self.assertIn('buildman: No [external:buildman] section', err)
+        self.assertNotIn('binman: OK', out)
+
+        # Without gh, problems with the clone are still reported
+        with mock.patch.object(extern, 'check_gh', return_value='no gh'), \
+             mock.patch.object(extern, 'check_project', return_value=[]):
+            ret, out, err = self._check_external(sections)
+        self.assertEqual(1, ret)
+        self.assertEqual('no gh\n', err)
+        self.assertEqual('', out)
+
+    def test_do_check_external_no_projects(self):
+        """Test the check-external command without any projects"""
+        with mock.patch.object(extern, 'MOVED_OUT', {}):
+            self.assertEqual((0, '', ''), self._check_external(''))
+        ret, _, err = self._check_external('')
+        self.assertEqual(1, ret)
+        self.assertIn('dtoc: No [external:dtoc] section', err)
+
+        ret, _, err = self._check_external('[external:binman]\n')
+        self.assertEqual(1, ret)
+        self.assertIn("needs 'path' and 'repo' settings", err)
 
     def test_port_reads_config(self):
         """Test that porting reads the projects from the config file"""
