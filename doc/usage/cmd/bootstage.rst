@@ -84,3 +84,11 @@ Example
 
     => bootstage save
     => bootstage restore
+
+See also
+--------
+
+* :doc:`log<log>` for the messages U-Boot produces as it runs, which are
+  collected and reported separately from timing records
+* :doc:`trace<trace>` for the timing of individual functions, rather than of
+  the boot as a whole

@@ -211,7 +211,8 @@ The 'log' command provides access to several features:
 * format - access the console log format
 * rec - output a log record
 
-Type 'help log' for details.
+Type 'help log' for details, or see :doc:`../usage/cmd/log` for the full
+documentation.
 
 Log format
 ~~~~~~~~~~
@@ -249,11 +250,11 @@ To view active filters, use the 'log filter-list' command. Some example output
 is::
 
     => log filter-list
-    num policy level            categories files
-      2   deny >= DEBUG                    drivers/core/lists.c,drivers/core/ofnode.c
-      0   deny <= IO                   spi
-                                       mmc
-      1  allow <= INFO
+    2  : DENY >= DEBUG
+         Files: drivers/core/lists.c,drivers/core/ofnode.c
+    0  : DENY <= IO
+         Categories: spi mmc
+    1  : ALLOW <= INFO
 
 Note that filters are processed in-order from top to bottom, not in the order of
 their filter number. Filters are added to the top of the list if they deny when

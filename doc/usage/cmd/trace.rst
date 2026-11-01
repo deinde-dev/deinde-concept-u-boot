@@ -169,6 +169,8 @@ See also
 * :doc:`iotrace<iotrace>` for recording I/O accesses rather than function calls
 * :doc:`bootstage<bootstage>` for the timing of the boot as a whole, rather
   than of individual functions
+* :doc:`log<log>` for the messages U-Boot produces as it runs, rather than the
+  calls it makes
 * :doc:`/develop/trace` for the tracing system behind this command
 
 
