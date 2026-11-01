@@ -13,6 +13,10 @@
 #define BLOBLIST_TEST(_name, _flags) \
 		UNIT_TEST(_name, _flags, bloblist)
 
+/* Lines of the long help, too long to sit in the assertion */
+#define HELP_INFO	"bloblist info   - show information about the bloblist"
+#define HELP_LIST	"bloblist list   - list blobs in the bloblist"
+
 enum {
 	TEST_TAG		= BLOBLISTT_U_BOOT_SPL_HANDOFF,
 	TEST_TAG2		= BLOBLISTT_VBOOT_CTX,
@@ -301,6 +305,54 @@ static int bloblist_test_cmd_list(struct unit_test_state *uts)
 	return 0;
 }
 BLOBLIST_TEST(bloblist_test_cmd_list, UFT_BLOBLIST | UTF_CONSOLE);
+
+/**
+ * check_usage() - Check the usage message the bloblist command shows
+ *
+ * @uts: Test state
+ * Return: 0 if OK, other value on error
+ */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("bloblist - Bloblists");
+	ut_assert_nextline_empty();
+
+	/* the rest of the message is there only where the long help is */
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP)) {
+		ut_assert_nextline("Usage:");
+		ut_assert_nextline(HELP_INFO);
+		ut_assert_nextline(HELP_LIST);
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test the usage message the 'bloblist' command shows */
+static int bloblist_test_cmd_usage(struct unit_test_state *uts)
+{
+	clear_bloblist();
+	ut_assertok(bloblist_new(TEST_ADDR, TEST_BLOBLIST_SIZE, 0, 0));
+
+	/* no sub-command at all */
+	ut_asserteq(1, run_command("bloblist", 0));
+	ut_assertok(check_usage(uts));
+
+	/* a sub-command which does not exist */
+	ut_asserteq(1, run_command("bloblist wibble", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an option, which the command does not take */
+	ut_asserteq(1, run_command("bloblist -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an extra argument after a sub-command which does exist */
+	ut_asserteq(1, run_command("bloblist info extra", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+BLOBLIST_TEST(bloblist_test_cmd_usage, UFT_BLOBLIST | UTF_CONSOLE);
 
 /* Test alignment of bloblist blobs */
 static int bloblist_test_align(struct unit_test_state *uts)
