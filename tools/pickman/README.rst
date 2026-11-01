@@ -170,6 +170,11 @@ Optional ``remote`` and ``branch`` settings give the remote to push to
 (default ``origin``) and the branch to work from and target (default
 ``master``).
 
+Binman, buildman and dtoc have all moved out of the tree. If a set of commits
+changes one of them and the config file has no section for it, pickman stops
+before applying the set, rather than cherry-pick a change whose files are no
+longer here.
+
 Before cherry-picking a set of commits, pickman finds those which change a
 listed project. For each project it:
 

@@ -4198,6 +4198,17 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
         tuple: (ret, success, conv_log) where ret is 0 on success,
             1 on failure
     """
+    # A change to a tool which has moved out of the tree has to go to its own
+    # project, so stop before recording anything if pickman does not know
+    # where that is
+    missing = extern.find_unconfigured(commits)
+    if missing:
+        for name in missing:
+            tout.error(f'{name} is maintained as a separate project, but '
+                       f'{gitlab_api.CONFIG_FILE} has no [external:{name}] '
+                       'section (see the README)')
+        return 1, False, ''
+
     # Check for already applied commits before proceeding
     applied_map = build_applied_map(commits)
 

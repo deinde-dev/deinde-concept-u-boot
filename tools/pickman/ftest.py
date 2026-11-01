@@ -1497,6 +1497,12 @@ class TestApply(unittest.TestCase):
         control.DB_FNAME = self.db_path
         database.Database.instances.clear()
 
+        # The commits here are made up, so do not look at what they change
+        patcher = mock.patch.object(control.extern, 'find_unconfigured',
+                                    return_value=[])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def tearDown(self):
         """Clean up test fixtures."""
         control.DB_FNAME = self.old_db_fname
@@ -3146,6 +3152,12 @@ class TestExecuteApply(unittest.TestCase):
         control.DB_FNAME = self.db_path
         database.Database.instances.clear()
 
+        # The commits here are made up, so do not look at what they change
+        patcher = mock.patch.object(control.extern, 'find_unconfigured',
+                                    return_value=[])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def tearDown(self):
         """Clean up test fixtures."""
         control.DB_FNAME = self.old_db_fname
@@ -3212,6 +3224,32 @@ class TestExecuteApply(unittest.TestCase):
             self.assertEqual('conflict', dbs.commit_get('ccc333')[6])
             self.assertEqual('abc123', dbs.source_get('us/next'))
             dbs.close()
+
+    def test_execute_apply_unconfigured(self):
+        """Test execute_apply with a change to a tool which is not set up"""
+        with terminal.capture() as (_, stderr):
+            dbs = self._start_db()
+            commits = [control.CommitInfo('ddd999', 'ddd999d',
+                                          'buildman: Change', 'Author')]
+            args = argparse.Namespace(push=True)
+            with mock.patch.object(control.extern, 'find_unconfigured',
+                                   return_value=['buildman']), \
+                 mock.patch.object(control.extern,
+                                   'port_commits') as mock_port, \
+                 mock.patch.object(control.agent,
+                                   'cherry_pick_commits') as mock_agent:
+                ret, success, conv_log = control.execute_apply(
+                    dbs, 'us/next', commits, 'cherry-d', args, 'eee000')
+
+            # Nothing is recorded, so the commits are tried again once the
+            # config file is fixed
+            self.assertEqual((1, False, ''), (ret, success, conv_log))
+            mock_port.assert_not_called()
+            mock_agent.assert_not_called()
+            self.assertIsNone(dbs.commit_get('ddd999'))
+            self.assertEqual('abc123', dbs.source_get('us/next'))
+            dbs.close()
+        self.assertIn('has no [external:buildman] section', stderr.getvalue())
 
     def test_execute_apply_external_only(self):
         """Test execute_apply when all changes are in external projects"""
@@ -9853,6 +9891,16 @@ class TestExtern(unittest.TestCase):
                                                        [self.proj])
         self.assertEqual({'binman': [self.binman_only]}, by_project)
         self.assertFalse(tree_needed)
+
+    def test_find_unconfigured(self):
+        """Test finding changes to moved-out tools which are not set up"""
+        commits = [self.binman_only, self.both, self.other]
+        self.assertEqual(['binman'], extern.find_unconfigured(commits, []))
+        self.assertEqual([], extern.find_unconfigured(commits, [self.proj]))
+        self.assertEqual([], extern.find_unconfigured([self.other], []))
+
+        # With no config file, no tool is set up
+        self.assertEqual(['binman'], extern.find_unconfigured(commits))
 
     def test_port_no_projects(self):
         """Test porting when no external projects are configured"""
