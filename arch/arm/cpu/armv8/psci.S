@@ -224,7 +224,7 @@ WEAK(psci_get_cpu_id)
 ENDPROC(psci_get_cpu_id)
 
 /* CPU ID input in x0, stack top output in x0*/
-LENTRY(psci_get_cpu_stack_top)
+ENTRY(psci_get_cpu_stack_top)
 	adr	x9, __secure_stack_end
 	lsl	x0, x0, #ARM_PSCI_STACK_SHIFT
 	sub	x0, x9, x0

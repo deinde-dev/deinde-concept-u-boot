@@ -1710,7 +1710,7 @@ config SPL_ATF_LOAD_IMAGE_V2
 
 config SPL_ATF_NO_PLATFORM_PARAM
 	bool "Pass no platform parameter"
-	depends on SPL_ATF
+	depends on SPL_ATF && !MON_FDT
 	help
 	  While we expect to call a pointer to a valid FDT (or NULL)
 	  as the platform parameter to an ATF, some ATF versions are
@@ -1721,6 +1721,8 @@ config SPL_ATF_NO_PLATFORM_PARAM
 	  always pass NULL for the platform parameter.
 
 	  If your ATF is affected, say Y.
+
+	  This is not available with MON_FDT, where MON needs the devicetree.
 
 config SPL_AM33XX_ENABLE_RTC32K_OSC
 	bool "Enable the RTC32K OSC on AM33xx based platforms"

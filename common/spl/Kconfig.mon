@@ -16,6 +16,7 @@ config MON_MAX_SIZE
 
 config MON_LDSCRIPT
 	string "Linker script for MON"
+	default "arch/arm/cpu/armv8/u-boot-mon.lds" if ARM64
 	help
 	  Linker script used to link MON
 
@@ -25,5 +26,55 @@ config MON_CPUS
 	help
 	  MON sets aside a stack for each CPU, for use while it handles a
 	  request from that CPU
+
+choice
+	prompt "How MON finds the devices it sets up"
+	default MON_FDT
+	help
+	  MON sets up devices such as the interrupt controller before it
+	  starts U-Boot proper, so it needs to know where they are.
+
+config MON_FDT
+	bool "Devicetree"
+	help
+	  MON has no devicetree of its own, but SPL passes it the address of
+	  the one for U-Boot proper. MON looks up its devices there, using
+	  libfdt.
+
+config MON_BARE
+	bool "Kconfig options"
+	help
+	  MON takes the addresses of its devices from Kconfig options and does
+	  not use a devicetree. This is the smallest build, for use where the
+	  memory available to the monitor is very limited.
+
+endchoice
+
+config MON_LIBGENERIC_SUPPORT
+	bool
+	default y if MON_FDT
+	help
+	  MON uses a few of the functions in lib/, such as those of libfdt, so
+	  that directory is built for it.
+
+config MON_OF_LIBFDT
+	bool
+	default y if MON_FDT
+	help
+	  This builds libfdt for MON, so that it can read the devicetree which
+	  SPL passes to it.
+
+config MON_OF_LIBFDT_ASSUME_MASK
+	hex
+	depends on MON_OF_LIBFDT
+	default 0
+	help
+	  This is the mask of conditions which libfdt assumes about the
+	  devicetree in MON. With 0 it assumes nothing, so it checks everything
+	  it reads. See FDT_ASSUME_PERFECT, etc. in libfdt_internal.h
+
+if ARM64
+
+endif
 
 endmenu
