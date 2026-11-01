@@ -12,8 +12,18 @@
  */
 
 #include <asm/io.h>
+#include <asm/psci.h>
+#include <asm/secure.h>
+#include <asm/arch-rockchip/cru_rk3399.h>
 
+#define RK3399_CRU_BASE		0xff760000
 #define RK3399_SGRF_BASE	0xff330000
+
+/*
+ * Value which starts a first global reset when written to the CRU, as used in
+ * drivers/sysreset/sysreset_rockchip.c
+ */
+#define GLB_SRST_FST_VALUE	0xfdb9
 
 /* Secure GRF registers which say which masters and slaves are secure */
 #define SGRF_SOC_CON(n)		(0xe00c + ((n) - 3) * 4)
@@ -40,4 +50,13 @@ void mon_board_init(void)
 		writel(SGRF_WMSK, sgrf + SGRF_PMU_SLV_CON(i));
 	for (i = 0; i <= 4; i++)
 		writel(SGRF_WMSK, sgrf + SGRF_SLV_SECURE_CON(i));
+}
+
+void __secure __noreturn psci_system_reset(void)
+{
+	struct rockchip_cru *cru = (struct rockchip_cru *)RK3399_CRU_BASE;
+
+	writel(GLB_SRST_FST_VALUE, &cru->glb_srst_fst_value);
+	while (1)
+		;
 }
