@@ -1305,8 +1305,10 @@ T:	git https://git.u-boot-project.org/u-boot/u-boot.git
 F:	common/log*
 F:	cmd/log.c
 F:	doc/develop/logging.rst
+F:	doc/usage/cmd/log.rst
 F:	include/log.h
 F:	lib/getopt.c
+F:	test/cmd/log.c
 F:	test/log/
 F:	test/py/tests/test_log.py
 
