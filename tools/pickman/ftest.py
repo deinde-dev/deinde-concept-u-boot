@@ -1884,6 +1884,13 @@ class TestGetPushUrl(unittest.TestCase):
 class TestPushBranch(unittest.TestCase):
     """Tests for push_branch function."""
 
+    def setUp(self):
+        """Pretend that HEAD holds the work for the branch being pushed"""
+        patcher = mock.patch.object(gitlab, 'check_push_head',
+                                    return_value=None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_push_branch_force_with_remote_ref(self):
         """Test force push when remote branch exists uses --force-with-lease."""
         with mock.patch.object(gitlab, 'get_push_url',
@@ -1945,6 +1952,49 @@ class TestPushBranch(unittest.TestCase):
         push_args = calls[0][0]
         self.assertNotIn('--force', ' '.join(push_args))
         self.assertNotIn('fetch', ' '.join(push_args))
+
+
+class TestCheckPushHead(unittest.TestCase):
+    """Tests for checking that HEAD can be pushed to a branch"""
+
+    def setUp(self):
+        """Create a repo with a commit, on the branch 'cherry-abc'"""
+        self.test_dir = tempfile.mkdtemp()
+        self.orig_dir = os.getcwd()
+        _git_init(self.test_dir)
+        _git(self.test_dir, 'commit', '-q', '--allow-empty', '-m', 'first')
+        _git(self.test_dir, 'checkout', '-q', '-b', 'cherry-abc')
+        os.chdir(self.test_dir)
+
+    def tearDown(self):
+        """Remove the repo"""
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_check(self):
+        """Test the branches which HEAD may be on"""
+        self.assertIsNone(gitlab.check_push_head('cherry-abc'))
+        _git(self.test_dir, 'checkout', '-q', '-b', 'cherry-abc-v2')
+        self.assertIsNone(gitlab.check_push_head('cherry-abc'))
+
+        # Another MR's branch, including one whose name starts the same way
+        self.assertEqual("HEAD is on 'cherry-abc-v2'",
+                         gitlab.check_push_head('cherry-ab'))
+        self.assertEqual("HEAD is on 'cherry-abc-v2'",
+                         gitlab.check_push_head('cherry-xyz'))
+
+        _git(self.test_dir, 'checkout', '-q', '--detach')
+        self.assertIn('detached', gitlab.check_push_head('cherry-abc'))
+
+    def test_push_refused(self):
+        """Test that push_branch() refuses to push the wrong HEAD"""
+        with mock.patch.object(gitlab, 'get_push_url') as push_url, \
+             terminal.capture() as (_, stderr):
+            with self.assertRaises(command.CommandExc):
+                gitlab.push_branch('ci', 'cherry-xyz', force=True)
+        push_url.assert_not_called()
+        self.assertIn("Refusing to push to 'cherry-xyz': HEAD is on "
+                      "'cherry-abc'", stderr.getvalue())
 
 
 class TestConfigFile(unittest.TestCase):

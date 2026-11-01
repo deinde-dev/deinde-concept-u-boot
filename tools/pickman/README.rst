@@ -746,6 +746,12 @@ To push a branch using the GitLab API token for authentication::
 This is useful when you want commits to appear as coming from the token owner
 (e.g., a pickman bot account) rather than the user's configured git credentials.
 
+It pushes ``HEAD``, since an agent may leave its work on a local branch named
+after the MR's, such as ``cherry-abc123-v2``. So that a checkout left on another
+branch, or part way through a rebase, does not send the wrong commits to an MR,
+pickman refuses to push unless ``HEAD`` is on the branch or one named after it.
+This applies to every push pickman makes.
+
 Options for the push-branch command:
 
 - ``-r, --remote``: Git remote (default: ci)

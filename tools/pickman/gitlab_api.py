@@ -191,6 +191,31 @@ def get_push_url(remote):
     return f'https://oauth2:{token}@{host}/{proj_path}.git'
 
 
+def check_push_head(branch):
+    """Check that HEAD holds the work for a branch, so it can be pushed there
+
+    pickman pushes HEAD rather than the branch itself, since an agent may
+    leave its work on a new local branch named after it, such as
+    'cherry-abc-v2' or 'cherry-abc-fix1'. A checkout left on another branch,
+    or with a detached HEAD from a rebase which never finished, would send
+    the wrong commits to the merge request.
+
+    Args:
+        branch (str): Branch to push to
+
+    Returns:
+        str: Description of the problem, or None if HEAD can be pushed
+    """
+    try:
+        head = command.output('git', 'symbolic-ref', '--short', 'HEAD',
+                              capture_stderr=True).strip()
+    except command.CommandExc:
+        return 'HEAD is detached, e.g. by a rebase which has not finished'
+    if head == branch or head.startswith(f'{branch}-'):
+        return None
+    return f"HEAD is on '{head}'"
+
+
 def push_branch(remote, branch, force=False, skip_ci=True):
     """Push a branch to a remote
 
@@ -210,9 +235,15 @@ def push_branch(remote, branch, force=False, skip_ci=True):
         bool: True on success
 
     Raises:
-        command.CommandExc: If the push fails
+        command.CommandExc: If the push fails, or HEAD does not hold the work
+            for the branch (see check_push_head())
     """
     try:
+        problem = check_push_head(branch)
+        if problem:
+            raise command.CommandExc(
+                f"Refusing to push to '{branch}': {problem}", None)
+
         # Use token-authenticated URL if available
         push_url = get_push_url(remote)
         push_target = push_url if push_url else remote
