@@ -3,6 +3,7 @@ menu "MON options"
 
 config MON_TEXT_BASE
 	hex "Address that MON is linked and runs at"
+	default 0x40000 if ROCKCHIP_RK3399
 	help
 	  MON runs at a fixed address, which must be out of the way of U-Boot
 	  proper and the OS, since it stays in memory while they run.
@@ -22,6 +23,7 @@ config MON_LDSCRIPT
 
 config MON_CPUS
 	int "Number of CPUs which MON supports"
+	default 6 if ROCKCHIP_RK3399
 	default 4
 	help
 	  MON sets aside a stack for each CPU, for use while it handles a
@@ -78,6 +80,7 @@ if ARM64
 config MON_GICD_BASE
 	hex "Address of the GICv3 distributor"
 	depends on MON_BARE
+	default 0xfee00000 if ROCKCHIP_RK3399
 	help
 	  MON sets up the secure side of the interrupt controller, so that
 	  U-Boot and the OS can use it from the non-secure side. With MON_FDT
@@ -86,6 +89,7 @@ config MON_GICD_BASE
 config MON_GICR_BASE
 	hex "Address of the GICv3 redistributors"
 	depends on MON_BARE
+	default 0xfef00000 if ROCKCHIP_RK3399
 	help
 	  MON finds the redistributor of each CPU from this address. With
 	  MON_FDT it comes from the devicetree.
