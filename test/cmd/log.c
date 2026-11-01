@@ -415,6 +415,37 @@ static int check_filters(struct unit_test_state *uts)
 	return 0;
 }
 
+/**
+ * check_dash_msg() - Check a 'log rec' message which begins with '-'
+ *
+ * @uts: Test state
+ * Return: 0 if OK, -ve on error
+ */
+static int check_dash_msg(struct unit_test_state *uts)
+{
+	ut_assertok(run_command("log format m", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("log rec arch notice file.c 1 fn -msg", 0));
+	ut_assert_nextline("-msg");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test a 'log rec' message which begins with '-' */
+static int cmd_test_log_rec_dash(struct unit_test_state *uts)
+{
+	int old_fmt = gd->log_fmt;
+	int ret;
+
+	ret = check_dash_msg(uts);
+	gd->log_fmt = old_fmt;
+
+	return ret;
+}
+CMD_TEST(cmd_test_log_rec_dash, UTF_CONSOLE);
+
 /* Test 'log filter-add', 'log filter-list' and 'log filter-remove' */
 static int cmd_test_log_filter(struct unit_test_state *uts)
 {
@@ -485,6 +516,19 @@ static int cmd_test_log_usage(struct unit_test_state *uts)
 
 	/* an argument a sub-command does not take */
 	ut_asserteq(1, run_command("log categories extra", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an option a sub-command does not take */
+	ut_asserteq(1, run_command("log level -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("log drivers -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("log format -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("log filter-list -x", 0));
 	ut_assertok(check_usage(uts));
 
 	return 0;

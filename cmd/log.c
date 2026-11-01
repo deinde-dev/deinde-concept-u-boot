@@ -33,13 +33,13 @@ static enum log_level_t parse_log_level(char *const arg)
 	return ret;
 }
 
-static int do_log_level(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_log_level(struct getopt_state *gs)
 {
+	char *arg = getopt_pop(gs);
 	enum log_level_t log_level;
 
-	if (argc > 1) {
-		log_level = parse_log_level(argv[1]);
+	if (arg) {
+		log_level = parse_log_level(arg);
 
 		if (log_level == LOGL_NONE)
 			return CMD_RET_FAILURE;
@@ -55,8 +55,7 @@ static int do_log_level(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_log_categories(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_log_categories(struct getopt_state *gs)
 {
 	enum log_category_t cat;
 	const char *name;
@@ -75,8 +74,7 @@ static int do_log_categories(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_log_drivers(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_log_drivers(struct getopt_state *gs)
 {
 	struct log_device *ldev;
 
@@ -86,27 +84,24 @@ static int do_log_drivers(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_log_filter_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_log_filter_list(struct getopt_state *gs)
 {
 	int opt;
 	const char *drv_name = "console";
-	struct getopt_state gs;
 	struct log_filter *filt;
 	struct log_device *ldev;
 
-	getopt_init_state(&gs, argc, argv);
-	while ((opt = getopt(&gs, "+d:")) > 0) {
+	while ((opt = getopt(gs, "+d:")) > 0) {
 		switch (opt) {
 		case 'd':
-			drv_name = gs.arg;
+			drv_name = gs->arg;
 			break;
 		default:
 			return CMD_RET_USAGE;
 		}
 	}
 
-	if (gs.index != argc)
+	if (gs->index != gs->argc)
 		return CMD_RET_USAGE;
 
 	ldev = log_device_find_by_name(drv_name);
@@ -141,8 +136,7 @@ static int do_log_filter_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_log_filter_add(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_log_filter_add(struct getopt_state *gs)
 {
 	bool level_set = false;
 	bool print_num = false;
@@ -155,10 +149,8 @@ static int do_log_filter_add(struct cmd_tbl *cmdtp, int flag, int argc,
 	int flags = 0;
 	enum log_category_t cat_list[LOGF_MAX_CATEGORIES + 1];
 	enum log_level_t level = LOGL_MAX;
-	struct getopt_state gs;
 
-	getopt_init_state(&gs, argc, argv);
-	while ((opt = getopt(&gs, "+Ac:d:Df:F:l:L:p")) > 0) {
+	while ((opt = getopt(gs, "+Ac:d:Df:F:l:L:p")) > 0) {
 		switch (opt) {
 		case 'A':
 #define do_type() do { \
@@ -178,9 +170,9 @@ static int do_log_filter_add(struct cmd_tbl *cmdtp, int flag, int argc,
 				return CMD_RET_FAILURE;
 			}
 
-			cat = log_get_cat_by_name(gs.arg);
+			cat = log_get_cat_by_name(gs->arg);
 			if (cat == LOGC_NONE) {
-				printf("Unknown category \"%s\"\n", gs.arg);
+				printf("Unknown category \"%s\"\n", gs->arg);
 				return CMD_RET_FAILURE;
 			}
 
@@ -188,17 +180,17 @@ static int do_log_filter_add(struct cmd_tbl *cmdtp, int flag, int argc,
 			break;
 		}
 		case 'd':
-			drv_name = gs.arg;
+			drv_name = gs->arg;
 			break;
 		case 'D':
 			do_type();
 			flags |= LOGFF_DENY;
 			break;
 		case 'f':
-			file_list = gs.arg;
+			file_list = gs->arg;
 			break;
 		case 'F':
-			func_list = gs.arg;
+			func_list = gs->arg;
 			break;
 		case 'l':
 #define do_level() do { \
@@ -206,7 +198,7 @@ static int do_log_filter_add(struct cmd_tbl *cmdtp, int flag, int argc,
 				printf("Log level set twice\n"); \
 				return CMD_RET_USAGE; \
 			} \
-			level = parse_log_level(gs.arg); \
+			level = parse_log_level(gs->arg); \
 			if (level == LOGL_NONE) \
 				return CMD_RET_FAILURE; \
 			level_set = true; \
@@ -225,7 +217,7 @@ static int do_log_filter_add(struct cmd_tbl *cmdtp, int flag, int argc,
 		}
 	}
 
-	if (gs.index != argc)
+	if (gs->index != gs->argc)
 		return CMD_RET_USAGE;
 
 	cat_list[cat_count] = LOGC_END;
@@ -241,23 +233,20 @@ static int do_log_filter_add(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_log_filter_remove(struct cmd_tbl *cmdtp, int flag, int argc,
-				char *const argv[])
+static int do_log_filter_remove(struct getopt_state *gs)
 {
 	bool all = false;
 	int opt, err;
 	ulong filter_num;
 	const char *drv_name = "console";
-	struct getopt_state gs;
 
-	getopt_init_state(&gs, argc, argv);
-	while ((opt = getopt(&gs, "+ad:")) > 0) {
+	while ((opt = getopt(gs, "+ad:")) > 0) {
 		switch (opt) {
 		case 'a':
 			all = true;
 			break;
 		case 'd':
-			drv_name = gs.arg;
+			drv_name = gs->arg;
 			break;
 		default:
 			return CMD_RET_USAGE;
@@ -268,7 +257,7 @@ static int do_log_filter_remove(struct cmd_tbl *cmdtp, int flag, int argc,
 		struct log_filter *filt, *tmp_filt;
 		struct log_device *ldev;
 
-		if (gs.index != argc)
+		if (gs->index != gs->argc)
 			return CMD_RET_USAGE;
 
 		ldev = log_device_find_by_name(drv_name);
@@ -284,11 +273,13 @@ static int do_log_filter_remove(struct cmd_tbl *cmdtp, int flag, int argc,
 			free(filt);
 		}
 	} else {
-		if (gs.index + 1 != argc)
+		char *arg = getopt_pop(gs);
+
+		if (!arg || gs->index != gs->argc)
 			return CMD_RET_USAGE;
 
-		if (strict_strtoul(argv[gs.index], 10, &filter_num)) {
-			printf("Invalid filter number \"%s\"\n", argv[gs.index]);
+		if (strict_strtoul(arg, 10, &filter_num)) {
+			printf("Invalid filter number \"%s\"\n", arg);
 			return CMD_RET_FAILURE;
 		}
 
@@ -302,14 +293,12 @@ static int do_log_filter_remove(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_log_format(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_log_format(struct getopt_state *gs)
 {
+	const char *str = getopt_pop(gs);
 	int i;
 
-	if (argc > 1) {
-		const char *str = argv[1];
-
+	if (str) {
 		if (!strcmp(str, "default")) {
 			gd->log_fmt = log_get_default_format();
 		} else if (!strcmp(str, "all")) {
@@ -340,9 +329,10 @@ static int do_log_format(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_log_rec(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_log_rec(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	enum log_category_t cat;
 	enum log_level_t level;
 	const char *file;
@@ -410,13 +400,14 @@ U_BOOT_LONGHELP(log,
 		"output a log record");
 
 U_BOOT_CMD_WITH_SUBCMDS(log, "log system", log_help_text,
-	U_BOOT_SUBCMD_MKENT(level, 2, 1, do_log_level),
-	U_BOOT_SUBCMD_MKENT(categories, 1, 1, do_log_categories),
-	U_BOOT_SUBCMD_MKENT(drivers, 1, 1, do_log_drivers),
-	U_BOOT_SUBCMD_MKENT(filter-list, 3, 1, do_log_filter_list),
-	U_BOOT_SUBCMD_MKENT(filter-add, CONFIG_SYS_MAXARGS, 1,
-			    do_log_filter_add),
-	U_BOOT_SUBCMD_MKENT(filter-remove, 4, 1, do_log_filter_remove),
-	U_BOOT_SUBCMD_MKENT(format, 2, 1, do_log_format),
-	U_BOOT_SUBCMD_MKENT(rec, 7, 1, do_log_rec),
+	U_BOOT_CMD_MKENT_NOOPTS(level, 2, 1, do_log_level, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(categories, 1, 1, do_log_categories, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(drivers, 1, 1, do_log_drivers, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(filter-list, 3, 1, do_log_filter_list, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(filter-add, CONFIG_SYS_MAXARGS, 1,
+				do_log_filter_add, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(filter-remove, 4, 1, do_log_filter_remove,
+				"", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(format, 2, 1, do_log_format, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(rec, 7, 1, do_log_rec, "", ""),
 );
