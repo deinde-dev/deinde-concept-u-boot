@@ -4,42 +4,12 @@
 # U-Boot Verified Boot Test
 
 """
-This tests U-Boot logging. It uses the 'log test' command with various options
-and checks that the output is correct.
+This tests U-Boot logging. The 'log format' and 'log rec' commands are checked
+by cmd_test_log_format in test/cmd/log.c; what is left here needs U-Boot to be
+restarted, which only a Python test can do.
 """
 
 import pytest
-
-@pytest.mark.buildconfigspec('cmd_log')
-def test_log_format(ubman):
-    """Test the 'log format' and 'log rec' commands"""
-    def run_with_format(fmt, expected_output):
-        """Set up the log format and then write a log record
-
-        Args:
-            fmt: Format to use for 'log format'
-            expected_output: Expected output from the 'log rec' command
-        """
-        output = ubman.run_command('log format %s' % fmt)
-        assert output == ''
-        output = ubman.run_command('log rec arch notice file.c 123 func msg')
-        assert output == expected_output
-
-    with ubman.log.section('format'):
-        pad = int(ubman.config.buildconfig.get('config_logf_func_pad'))
-        padding = ' ' * (pad - len('func'))
-
-        run_with_format('all', f'NOTICE.arch,file.c:123-{padding}func() msg')
-        output = ubman.run_command('log format')
-        assert output == 'Log format: clFLfm'
-
-        run_with_format('fm', f'{padding}func() msg')
-        run_with_format('clfm', f'NOTICE.arch,{padding}func() msg')
-        run_with_format('FLfm', f'file.c:123-{padding}func() msg')
-        run_with_format('lm', 'NOTICE. msg')
-        run_with_format('m', 'msg')
-
-        ubman.run_command('log format default')
 
 @pytest.mark.buildconfigspec('debug_uart')
 @pytest.mark.boardspec('sandbox')

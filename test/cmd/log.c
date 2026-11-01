@@ -156,6 +156,80 @@ static int cmd_test_log_lists(struct unit_test_state *uts)
 CMD_TEST(cmd_test_log_lists, UTF_CONSOLE);
 
 /**
+ * check_formats() - Check each 'log format' setting against a record
+ *
+ * @uts: Test state
+ * Return: 0 if OK, -ve on error
+ */
+static int check_formats(struct unit_test_state *uts)
+{
+	ut_assertok(run_command("log format all", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("log format", 0));
+	ut_assert_nextline("Log format: clFLfm");
+	ut_assert_console_end();
+
+	/* the function is right-aligned in CONFIG_LOGF_FUNC_PAD characters */
+	ut_assertok(run_command(LOG_REC, 0));
+	ut_assert_nextline("NOTICE.arch,file.c:123-%*s() msg",
+			   CONFIG_LOGF_FUNC_PAD, "func");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("log format fm", 0));
+	ut_assertok(run_command(LOG_REC, 0));
+	ut_assert_nextline("%*s() msg", CONFIG_LOGF_FUNC_PAD, "func");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("log format clfm", 0));
+	ut_assertok(run_command(LOG_REC, 0));
+	ut_assert_nextline("NOTICE.arch,%*s() msg", CONFIG_LOGF_FUNC_PAD,
+			   "func");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("log format FLfm", 0));
+	ut_assertok(run_command(LOG_REC, 0));
+	ut_assert_nextline("file.c:123-%*s() msg", CONFIG_LOGF_FUNC_PAD,
+			   "func");
+	ut_assert_console_end();
+
+	/* the fields keep their order whatever order the letters come in */
+	ut_assertok(run_command("log format ml", 0));
+	ut_assertok(run_command(LOG_REC, 0));
+	ut_assert_nextline("NOTICE. msg");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("log format m", 0));
+	ut_assertok(run_command(LOG_REC, 0));
+	ut_assert_nextline("msg");
+	ut_assert_console_end();
+
+	/* 'default' goes back to what the CONFIG_LOGF_* options ask for */
+	ut_assertok(run_command("log format default", 0));
+	ut_assertok(run_command("log format", 0));
+	ut_assert_nextline("Log format: %s%s%sm",
+			   IS_ENABLED(CONFIG_LOGF_FILE) ? "F" : "",
+			   IS_ENABLED(CONFIG_LOGF_LINE) ? "L" : "",
+			   IS_ENABLED(CONFIG_LOGF_FUNC) ? "f" : "");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test 'log format' */
+static int cmd_test_log_format(struct unit_test_state *uts)
+{
+	int old_fmt = gd->log_fmt;
+	int ret;
+
+	ret = check_formats(uts);
+	gd->log_fmt = old_fmt;
+
+	return ret;
+}
+CMD_TEST(cmd_test_log_format, UTF_CONSOLE);
+
+/**
  * check_format_err() - Check 'log format' with a letter it does not know
  *
  * @uts: Test state
