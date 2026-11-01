@@ -58,6 +58,7 @@ def most_generated_files():
         "**/*.srec",
         "u-boot*",
         "[svt]pl/u-boot*",
+        "mon/u-boot*",
     )
 
 

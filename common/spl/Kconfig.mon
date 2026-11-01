@@ -1,0 +1,29 @@
+menu "MON options"
+	depends on MON
+
+config MON_TEXT_BASE
+	hex "Address that MON is linked and runs at"
+	help
+	  MON runs at a fixed address, which must be out of the way of U-Boot
+	  proper and the OS, since it stays in memory while they run.
+
+config MON_MAX_SIZE
+	hex "Maximum size of MON, including its stacks"
+	default 0x20000
+	help
+	  The build fails if MON, including its BSS and the stack for each
+	  CPU, does not fit in this space from MON_TEXT_BASE
+
+config MON_LDSCRIPT
+	string "Linker script for MON"
+	help
+	  Linker script used to link MON
+
+config MON_CPUS
+	int "Number of CPUs which MON supports"
+	default 4
+	help
+	  MON sets aside a stack for each CPU, for use while it handles a
+	  request from that CPU
+
+endmenu
