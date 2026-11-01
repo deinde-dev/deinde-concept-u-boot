@@ -101847,3 +101847,65 @@ I rebased MR !1520 (`cherry-83a35efca58c`) onto the latest ci/master and force-p
 
 ---
 
+## 2026-11-01: us/main
+
+Branch: cherry-505a24d95c88
+
+Commits:
+- 505a24d95c88 cmd: allow bootd without bootm
+- 90520326a78c test: cmd: add a test for bootd
+- 2e8786920d2c Merge patch series "cmd: allow bootd without bootm"
+
+### Conversation log
+Conflicts. Let me check whether the commits already exist in ci/master.
+
+Not already applied. The target uses a different command API (getopt_state). Let me look at the original commit.
+
+The target's do_bootd() is static, takes a getopt_state, and contains its own recursion guard. I'll move that version into cmd/bootd.c instead.
+
+Now resolve: keep the target's getopt-style implementation, moved to cmd/bootd.c, and keep 'select GETOPT' in Kconfig.
+
+Split-check made no changes. Adding a fix-up note and building:
+
+Build OK. Next, the test commit:
+
+test/cmd/bootd.c already exists in the target. Let me compare.
+
+Build OK. Let me run the bootd tests to confirm they pass:
+
+All four bootd tests pass. Now the merge commit:
+
+The merge's first-parent diff is just the two series commits, which are already applied, so keep our side everywhere and check that nothing else is left:
+
+The commit message picked up the conflict comment lines. Let me look and clean up:
+
+All three commits are in place. Final build:
+
+All three commits are on branch cherry-505a24d95c88, based on ci/master. The final sandbox build passes with no warnings or errors. The first two commits needed conflict fixes, and I added a one-line note to the end of each commit message saying what changed.
+
+```
+948aad235739 Merge patch series "cmd: allow bootd without bootm"
+74894b9edbb3 test: cmd: add a test for bootd
+df232ecf61ed cmd: allow bootd without bootm
+```
+
+The series is not already in ci/master: neither subject turned up in a search. `pickman split-check` changed nothing in any of the three commits.
+
+**Fix-ups**
+
+1. **cmd: allow bootd without bootm:** this conflicted in `cmd/Kconfig` and `cmd/bootm.c`. In ci/master, `do_bootd()` is already a static function using the getopt command style (`struct getopt_state`, `U_BOOT_CMD_NOOPTS`), with the bootd recursion check inside it. The upstream commit moves an older version. So the new `cmd/bootd.c` contains the target's version rather than the upstream one, and `CMD_BOOTD` keeps `select GETOPT` while taking the upstream `default y if CMD_BOOTM`.
+   - Note: `[Keep the getopt-based do_bootd() with its recursion guard and select GETOPT]`
+2. **test: cmd: add a test for bootd:** ci/master already has its own `test/cmd/bootd.c` (from d48ad3dc0028) and the line that builds it in `test/cmd/Makefile`. I kept the existing file and Makefile and added the upstream test function `cmd_bootd_test()` to the end of the file, along with two `#include` lines. It adds checks the existing tests don't have: the return value from a failing `bootcmd` and the recursion check.
+   - Note: `[Add the test to the existing test/cmd/bootd.c, which is already built]`
+3. **Merge commit:** after resolving its conflicts it had no changes left, so it is an empty commit, as expected. I removed the `# Conflicts:` lines git had added to its message.
+
+**Concerning deltas**
+- **Commit 1:** about the same size as the original: 4 files, +38/−31 against +31/−25. The extra lines come from the target's recursion check.
+- **Commit 2:** only touches one file (+46) instead of two (+59), because the test file and Makefile line already existed. This is expected.
+
+**Tests:** all four bootd unit tests pass on sandbox: `cmd_bootd_test` plus the existing `bootd_base`, `bootd_unset` and `bootd_usage`. The upstream test is named `cmd_bootd_test`, which doesn't match the `cmd_test_` naming the other tests use, so it shows up under its full name in the test list. I left the name as it is upstream.
+
+The branch is ready to push; I haven't merged it anywhere.
+
+---
+
