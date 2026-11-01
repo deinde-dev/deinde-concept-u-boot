@@ -11062,8 +11062,10 @@ class TestSplitcfg(unittest.TestCase):
 
     def test_options(self):
         """Test working out which options need adding to conf_nospl"""
+        prefixes = splitcfg.get_prefixes('')
         variants = splitcfg.get_variants(
-            'config SPL_DM_MMC\nmenuconfig TPL_FOO\n  config VPL_BAR\n')
+            'config SPL_DM_MMC\nmenuconfig TPL_FOO\n  config VPL_BAR\n',
+            prefixes)
         self.assertEqual({'DM_MMC', 'FOO', 'BAR'}, variants)
         nospl = splitcfg.get_nospl(
             '# Options\n\nText here\nACPIGEN\nUTHREAD\n')
@@ -11083,7 +11085,29 @@ class TestSplitcfg(unittest.TestCase):
             finding('doc/a.rst', 'CONFIG_IS_ENABLED()', 'DOC'),
         ]
         self.assertEqual(['MK', 'NEW'],
-                         splitcfg.needs_nospl(found, variants, nospl))
+                         splitcfg.needs_nospl(found, variants, nospl,
+                                              prefixes))
+
+    def test_prefixes(self):
+        """Test reading the Kconfig prefixes from the table of xPL phases"""
+        self.assertEqual(('TPL_', 'VPL_', 'SPL_'), splitcfg.get_prefixes(''))
+        prefixes = splitcfg.get_prefixes(
+            '# Phases\n\ntpl\tbootph-pre-sram\nmpl\tbootph-x\nspl\ty\n')
+        self.assertEqual(('TPL_', 'MPL_', 'SPL_'), prefixes)
+        regex = splitcfg.kconfig_regex(prefixes)
+        self.assertEqual(r'^\s*(menu)?config\s+(TPL_|MPL_|SPL_)', regex)
+        self.assertEqual(
+            {'FOO', 'BAR'},
+            splitcfg.get_variants('config MPL_FOO\nconfig SPL_BAR\n'
+                                  'config VPL_BAZ\n', prefixes))
+
+        # An option with the prefix of a new phase is that phase's variant
+        found = [splitcfg.Finding('a.c', 1, 'CONFIG_IS_ENABLED()', 'MPL_X',
+                                  '')]
+        self.assertEqual([], splitcfg.needs_nospl(found, set(), set(),
+                                                  prefixes))
+        self.assertEqual(['MPL_X'], splitcfg.needs_nospl(
+            found, set(), set(), splitcfg.get_prefixes('')))
 
     def test_add_nospl(self):
         """Test adding options to conf_nospl"""
@@ -11255,6 +11279,18 @@ class TestSplitCheck(unittest.TestCase):
              'drivers/foo.c:1: CONFIG_IS_ENABLED() FOO',
              'Only enabled in U-Boot proper upstream, so need adding to '
              'scripts/conf_nospl: BAR'], lines)
+
+    def test_new_phase(self):
+        """Test a tree whose table of xPL phases adds a phase"""
+        self._write('scripts/xpl_phases', 'mpl\tbootph-x\nspl\ty\n')
+        self._write('Kconfig', 'config BAR\n\tbool\nconfig MPL_BAR\n\tbool\n')
+        self._commit('phases')
+        self._pick()
+        ret, lines = self._run('HEAD~1..HEAD')
+        self.assertEqual(1, ret)
+        self.assertEqual(
+            'Only enabled in U-Boot proper upstream, so need adding to '
+            'scripts/conf_nospl: FOO', lines[-1])
 
     def test_fix(self):
         """Test adapting the working tree"""

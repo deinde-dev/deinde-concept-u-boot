@@ -366,10 +366,12 @@ and running it again picks up where it left off.
 Split Config
 ------------
 
-The target may give each build phase (U-Boot proper, SPL, TPL and VPL) its own
-config, so that ``CONFIG_FOO`` means the value for the phase being built.
-Pickman detects this from ``include/linux/kconfig.h``, which then no longer
-defines ``CONFIG_IS_ENABLED()``.
+The target may give each build phase (U-Boot proper and each xPL phase, such as
+SPL) its own config, so that ``CONFIG_FOO`` means the value for the phase being
+built. Pickman detects this from ``include/linux/kconfig.h``, which then no
+longer defines ``CONFIG_IS_ENABLED()``. It reads the xPL phases from
+``scripts/xpl_phases``, or assumes TPL, VPL and SPL if that file is missing,
+so it knows the Kconfig prefix of each phase, e.g. ``SPL_``.
 
 Commits from a source without a split config may still use the macros which
 pick the phase's option: ``CONFIG_IS_ENABLED()``, ``CONFIG_VAL()``,

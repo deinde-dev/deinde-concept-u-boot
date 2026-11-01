@@ -48,9 +48,9 @@ QCONFIG_SUBJECTS = [
 # Guidance for a target with a separate config for each phase
 SPLIT_CONFIG_NOTE = '''
 
-IMPORTANT: The target gives each build phase (U-Boot proper, SPL, TPL, VPL)
-its own config, so CONFIG_FOO means the value for the phase being built.
-CONFIG_IS_ENABLED(), CONFIG_VAL(), CONFIG_IF_ENABLED_INT(),
+IMPORTANT: The target gives each build phase (U-Boot proper and each xPL
+phase, such as SPL) its own config, so CONFIG_FOO means the value for the
+phase being built. CONFIG_IS_ENABLED(), CONFIG_VAL(), CONFIG_IF_ENABLED_INT(),
 config_opt_enabled() and the $(PHASE_), $(XPL_), $(SPL_) and $(SPL_TPL_)
 Makefile variables do not exist there, but commits from the source may still
 use them. After each cherry-pick, before the build test, run:

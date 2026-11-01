@@ -729,7 +729,8 @@ def _read_tree_file(ref, path):
             return ''
         return tools.read_file(path, binary=False)
     try:
-        return command.output('git', 'show', f'{ref}:{path}')
+        return command.output('git', 'show', f'{ref}:{path}',
+                              capture_stderr=True)
     except command.CommandExc:
         return ''
 
@@ -760,15 +761,17 @@ def split_scan(base, head):
     """
     diff_args = ['diff', '-U0', base] + ([head] if head else [])
     found = splitcfg.find(splitcfg.parse_added(run_git(diff_args)))
-    grep_args = ['grep', '-h', '-E', r'^\s*(menu)?config\s+(SPL|TPL|VPL)_']
+    prefixes = splitcfg.get_prefixes(
+        _read_tree_file(head, splitcfg.XPL_PHASES))
+    grep_args = ['grep', '-h', '-E', splitcfg.kconfig_regex(prefixes)]
     grep_args += ([head] if head else []) + ['--', '*Kconfig*']
     try:
         kconfig = command.output('git', *grep_args)
     except command.CommandExc:
         kconfig = ''
-    variants = splitcfg.get_variants(kconfig)
+    variants = splitcfg.get_variants(kconfig, prefixes)
     nospl = splitcfg.get_nospl(_read_tree_file(head, splitcfg.CONF_NOSPL))
-    return found, splitcfg.needs_nospl(found, variants, nospl)
+    return found, splitcfg.needs_nospl(found, variants, nospl, prefixes)
 
 
 def split_fix(found, need):
