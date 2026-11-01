@@ -101814,3 +101814,36 @@ The branch hasn't been pushed or merged anywhere.
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-83a35efca58c
+
+Comments addressed:
+
+
+### Conversation log
+The commit deltas match exactly. Now the build:
+
+The tip builds. To cover the per-commit check, I'll build every commit with buildman's branch mode:
+
+All 10 commits build. Next, the -v2 branch and the push:
+
+That commit is pickman's standard history record. It only adds to `.pickman-history`, and ci/master has the same kind of commit from earlier merged MRs, so it belongs in the MR.
+
+I rebased MR !1520 (`cherry-83a35efca58c`) onto the latest ci/master and force-pushed it with no conflicts. Every commit builds for sandbox.
+
+**What was done**
+- **Rebase:** `git rebase --keep-empty ci/master` moved the branch from base e26f839c0c18 to ca2a054cd83f, which is 10 commits further on. All 10 commits applied cleanly, including the empty merge commit.
+- **Deltas:** the `git show --stat` output for every commit is identical before and after the rebase.
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes at the tip. I also built each of the 10 commits on its own with buildman's branch mode, with no errors or warnings. Sandbox doesn't compile the Toradex board code, so this only shows the tree as a whole still builds.
+- **Local branch:** `cherry-83a35efca58c-v2` points at a3b8546c2393.
+- **Push:** `pickman push-branch cherry-83a35efca58c -r ci -f` updated the remote from c7608fc0e26a to a3b8546c2393, so GitLab should start an MR pipeline.
+
+**Note:** the remote branch used to end at the merge commit c7608fc0e26a. The local branch also had pickman's record commit ("pickman: Record cherry-pick of 9 commits from us/main"), which only adds to `.pickman-history` and had never been pushed. This push included it, so the MR now has 10 commits instead of 9. That matches how earlier pickman MRs landed in ci/master.
+
+**Suggested MR reply:**
+
+> Rebased onto latest master (ca2a054cd83f). The rebase was clean with no conflicts, and every commit's diffstat is the same as before. Each of the 10 commits builds for sandbox with no errors or warnings. The branch now also includes the pickman history record commit, which only updates `.pickman-history`.
+
+---
+
