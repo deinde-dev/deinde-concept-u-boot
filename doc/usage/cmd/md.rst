@@ -122,4 +122,6 @@ See also
 * :doc:`hash<hash>` for a digest of a region of memory, rather than its
   contents
 * :doc:`crc32<crc32>` for a checksum of a region of memory
+* :doc:`bloblist<bloblist>` for the addresses of the blobs passed through from
+  an earlier phase of the boot, which md then shows
 * :doc:`md5sum<md5sum>` for the MD5 digest of a region of memory
