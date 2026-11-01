@@ -101661,3 +101661,64 @@ Two things in the environment need attention:
 
 ---
 
+## 2026-10-31: us/main
+
+Branch: cherry-8841b7b292c7
+
+Commits:
+- 8841b7b292c7 board: beagle: beagleplay: rm-cfg: resync with am62x
+- ba8c3a1f6ea9 gpio: vybrid: read and write the GPIO block, not the PORT block
+- 6a385d0d85c7 serial: lpuart: test the receive flag, not the FIFO counter
+- 42870704088f toradex: select EVENT for TDX_CFG_BLOCK
+- ff6696196bcc board: toradex: verdin-imx95: add SPL quick boot autosave support
+- 4ca344e2252c board: toradex: smarc-imx95: add SPL quick boot autosave support
+- d4be0a14bac3 board: toradex: aquila-imx95: add SPL quick boot autosave support
+- b5c61b03c029 arm: imx: hab: validate HAB M4 event length before memcpy()
+- 834b6bc0aee8 ARM: imx: Support detection of ECSPI recovery mode on i.MX6
+- 768053b2922c board: imx6dl-sielaff: Remove board_boot_order() workaround
+- f0ddc167f547 board: imx6dl-sielaff: Enable environment on SD card
+- 7ee9f267c72e toradex: apalis-imx8: select QP/QM device tree from OTP fuse
+- f6471f9792c4 colibri_vf: restore the pre-2017 text base, the BootROM refuses the low one
+- 26e89c626827 doc: board: toradex: add the Colibri VF50/VF61 page
+- 817664148ebd configs: toradex-smarc-imx8mp: enable SPL_SYS_MMCSD_RAW_MODE
+- 7581a12eb96c Merge tag 'u-boot-imx-next-20260814' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx into next
+
+### Conversation log
+A stale interactive rebase (of branch cherry-20209a62bc85) is left in .git/rebase-merge from an earlier session; I'll leave it alone and proceed. Let me look at the commits.
+
+Not already applied. Starting with the first commit.
+
+The failure is stale Rust build state in /tmp/pickman pointing at a deleted worktree path. Clearing it:
+
+Build passes. Now the remaining commits, one at a time with split-check, stat comparison and a build after each.
+
+Just my grep check tripping on carriage returns; the build was OK. Continuing with a fixed check:
+
+Simple conflict: the target renames CONFIG_TEXT_BASE to CONFIG_PPL_TEXT_BASE. Resolving by keeping the new name with the new value.
+
+Let me confirm that these options still exist in the target's Kconfig:
+
+Good. Now the merge commit:
+
+As expected, the merge's diff re-applies the imx commits that are already on the branch; the only conflict is the same TEXT_BASE line. Keeping HEAD's version:
+
+The comment lines leaked into the message; tidying it and adding a note:
+
+Final checks: the log, a full build, and a comparison of the overall branch diff with the upstream merge.
+
+All 16 commits are on `cherry-8841b7b292c7` (based on `ci/master`) and the final sandbox build passes with no warnings or errors. The branch is ready to push and hasn't been merged anywhere.
+
+**Fix-ups (two conflicts, both from the same rename):**
+- **f6471f9792c4 (colibri_vf text base):** `ci/master` calls the option `CONFIG_PPL_TEXT_BASE` where upstream uses `CONFIG_TEXT_BASE`. I kept the target's name with the new value, `CONFIG_PPL_TEXT_BASE=0x3f408000`. The `BOARD_SIZE_LIMIT` change applied cleanly. Note added: `[Resolved conflict: use CONFIG_PPL_TEXT_BASE instead of CONFIG_TEXT_BASE]`
+- **7581a12eb96c (merge):** the merge's diff re-applies the imx commits already picked one by one, so it hit the same line again. I kept the branch's version, which leaves the merge as an empty commit, as expected. I removed the `# Conflicts:` lines that leaked into its message and added a note.
+
+**Deltas:** every commit's file and line counts match the original. Comparing the whole branch against upstream (from the parent of 8841b7b292c7 to the merge), the only difference is the `TEXT_BASE` / `PPL_TEXT_BASE` naming.
+
+**split-check:** it made no changes on any commit. I also confirmed that `SPL_SYS_MMCSD_RAW_MODE` and `SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR` (from 817664148ebd) still exist in this tree's Kconfig.
+
+**Things to know:**
+- **Leftover rebase:** an earlier session left a rebase of `cherry-20209a62bc85` unfinished (the worktree was on `cherry-6b917b413d31`), so the tree wasn't fully clean at the start. I left that rebase state in `.git/rebase-merge` alone. You may want to run `git rebase --abort` or clean it up.
+- **Build failure on the first attempt:** `/tmp/pickman/examples/rust` held old build output that pointed at a deleted worktree (`/tmp/wt-cherry-6b917b413d31`), so the Rust example failed to link. Deleting that directory fixed it; it had nothing to do with these commits.
+
+---
+
