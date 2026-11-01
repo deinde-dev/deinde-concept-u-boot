@@ -101909,3 +101909,50 @@ The branch is ready to push; I haven't merged it anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-01 (attempt 3)
+
+Branch: cherry-d29122e0287a
+
+Failed jobs:
+- build all 64bit ARM platforms (world_build)
+- build all 32bit ARM platforms (world_build)
+
+### Conversation log
+Need the actual errors in the logs.
+
+The tree now differs from the failing branch only by the PRR hunk. Building:
+
+Both failing boards build cleanly. Now the full ARM build:
+
+The board list as given matched nothing in buildman, so I'll build by architecture instead:
+
+Waiting for the full ARM build to finish.
+
+The run reported 35 failures. Checking whether any are related to the change:
+
+My pipe kept only the end of the output, so I'll read the per-board error files instead:
+
+I've fixed the build failure by restoring a missing commit, and the result is on local branch `cherry-d29122e0287a-fix3` (not pushed).
+
+**Root cause:** This attempt of `cherry-d29122e0287a` contained only two of the three commits: the squashed `dts/upstream` update (7dc60986e403) and the v7.2 subtree merge (1bd75b31f288). The cherry-pick of d29122e0287a ("arm64: dts: renesas: Drop bootph-all from PRR node on R-Car Gen5 R8A78000 X5H") was missing. Linux v7.2 removes the `prr` node from `r8a78000.dtsi`, so the `&prr { bootph-all; }` reference in `arch/arm/dts/r8a78000-u-boot.dtsi` broke dtc:
+
+```
+Error: arch/arm/dts/r8a78000-u-boot.dtsi:81.1-5 Label or path prr not found
+```
+
+That failed `r8a78000_ironhide` (64-bit job) and `r8a78000_ironhide_cm33` (32-bit job). The merge commit was the one that broke the build.
+
+**Fix:** I rebuilt the branch in the order the MR intends:
+1. `f6da443f8b1c`: `git cherry-pick -x d29122e0287a`, which removes the 4-line `&prr` block.
+2. `f14fd94a98bd`: the subtree merge, redone with `-Xsubtree=dts/upstream` against the same squash commit 7dc60986e403. It keeps the original message, with `[pickman] Add the missing PRR cherry-pick before the merge` added at the end.
+
+The new tree differs from the failing branch only by those 4 removed lines. The rest of the 1058-file merge is unchanged.
+
+**Verification:**
+- `um build sandbox` builds cleanly.
+- `r8a78000_ironhide` and `r8a78000_ironhide_cm33` now build, with only LTO notes.
+- The board list from the instructions (`32bit,64bit,ARM,all,platforms,sandbox`) matched no boards in buildman, so I ran `buildman -o /tmp/pickman -W arm aarch64 sandbox` instead (1322 boards).
+- 35 boards in that run failed, all with "dtoc is no longer part of U-Boot … pip install dtoc". They are OF_PLATDATA boards (rockchip rk3288/rk3328/rv1126, imx28, sandbox_spl/vpl/noinst and others), and `dtoc` isn't installed on this machine. These failures are unrelated to this change and should not happen in CI.
+
+---
+
