@@ -26,6 +26,12 @@ class TestReadPhases(unittest.TestCase):
                            'mpl  bootph-monitor\nspl\tbootph-pre-ram\n')
             self.assertEqual(('tpl', 'mpl', 'spl'), xpl.read_phases(srcdir))
 
+    def test_parse(self):
+        """The phases are parsed from text, e.g. read from a git commit"""
+        self.assertEqual(('tpl', 'spl'),
+                         xpl.parse_phases('# comment\n\ntpl a\n  spl\tb\n'))
+        self.assertEqual((), xpl.parse_phases(''))
+
     def test_missing(self):
         """A tree without the file has the original phases"""
         with tempfile.TemporaryDirectory() as srcdir:
