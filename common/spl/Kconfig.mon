@@ -75,6 +75,21 @@ config MON_OF_LIBFDT_ASSUME_MASK
 
 if ARM64
 
+config MON_GICD_BASE
+	hex "Address of the GICv3 distributor"
+	depends on MON_BARE
+	help
+	  MON sets up the secure side of the interrupt controller, so that
+	  U-Boot and the OS can use it from the non-secure side. With MON_FDT
+	  this address comes from the devicetree.
+
+config MON_GICR_BASE
+	hex "Address of the GICv3 redistributors"
+	depends on MON_BARE
+	help
+	  MON finds the redistributor of each CPU from this address. With
+	  MON_FDT it comes from the devicetree.
+
 endif
 
 endmenu
