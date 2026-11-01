@@ -101956,3 +101956,34 @@ The new tree differs from the failing branch only by those 4 removed lines. The 
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-d29122e0287a
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 3): fixed failed job(s) build all 64bit ARM platforms, build all 32bit ARM pla...
+
+### Conversation log
+Sandbox builds cleanly. Next, the two boards that failed in CI:
+
+The PRR fix from attempt 3 is now on the local branch `cherry-d29122e0287a-v2`, which is checked out and not pushed. The sandbox build passes, and so do the two boards that failed in CI: `r8a78000_ironhide` and `r8a78000_ironhide_cm33`.
+
+**What the comment needed:** it is pickman's own attempt-3 report, not a request for new code. That fix was left on the local branch `cherry-d29122e0287a-fix3` and never pushed. So `cherry-d29122e0287a` still has only the squash commit 7dc60986e403 and the merge 1bd75b31f288, without the PRR cherry-pick. It would fail CI in the same way, with `Label or path prr not found` in `r8a78000-u-boot.dtsi`.
+
+**What I did:** I created `cherry-d29122e0287a-v2` from `-fix3`, unchanged:
+- `f6da443f8b1c`: the cherry-pick of d29122e0287a, which removes the `&prr { bootph-all; }` block.
+- `f14fd94a98bd`: the v7.2-dts subtree merge (squash commit 7dc60986e403 as second parent). Its tree differs from the current MR head only by those 4 deleted lines.
+- `ed72e079a537`: pickman's history record for the pipeline fix, kept because ci/master merges these `.pickman-history` commits as normal.
+
+I made no other code changes.
+
+**Suggested MR reply:**
+
+> Addressed the pipeline fix from attempt 3. The previous push of this branch was missing the cherry-pick of d29122e0287a ("arm64: dts: renesas: Drop bootph-all from PRR node on R-Car Gen5 R8A78000 X5H"). Linux v7.2 drops the `prr` node, so the `&prr` reference in `arch/arm/dts/r8a78000-u-boot.dtsi` broke dtc for `r8a78000_ironhide` and `r8a78000_ironhide_cm33`.
+>
+> The branch now has the PRR cherry-pick first, followed by the v7.2-dts subtree merge (redone with `-Xsubtree=dts/upstream` against the same squash commit). Apart from the 4 removed lines, the merge is unchanged. sandbox, `r8a78000_ironhide` and `r8a78000_ironhide_cm33` all build cleanly.
+>
+> opi_pc, samus, samus_tpl and snow also fail in other MRs (!1516–!1527), so they are not addressed here.
+
+---
+
