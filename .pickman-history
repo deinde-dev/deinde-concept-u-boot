@@ -102052,3 +102052,28 @@ All 27 commits are cherry-picked onto `cherry-5fa1de058293` (based on ci/master)
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline 10951: every failed job also fails in other merge requests, so this looks like a lab or inf...
+
+### Conversation log
+The comment reports infra failures only, so there's likely nothing to change. I'll check the branch and build anyway.
+
+I made no code changes: nothing in the comment needs one. The sandbox build passes, and `cherry-5fa1de058293-v2` is checked out.
+
+**What I did**
+- The bot comment only says that pipeline 10951's failures (opi_pc, samus, samus_tpl, snow) also fail in 13 other merge requests (!1509, !1514–!1525). It points to a lab or infrastructure problem, not to this series. None of those four boards is a MediaTek board.
+- I checked out `cherry-5fa1de058293` and ran `buildman -L --board sandbox -w -o /tmp/pickman`. It built with no warnings or errors.
+- I created `cherry-5fa1de058293-v2` at the same commit (c980be492654), with no changes, and left it checked out. I have not pushed it.
+
+**Suggested reply for the MR**
+
+> Thanks. All four failing jobs (opi_pc, samus, samus_tpl, snow) also fail in many other merge requests, so this looks like a lab or infrastructure problem, not this series. None of these boards is MediaTek, and the series doesn't touch them. I have made no code changes. The sandbox build still passes. I'll re-run the pipeline once the lab issue is fixed.
+
+The note lines over 72 columns on the MT8195 commit and the merge commit, from the earlier run, are still unchanged. Nobody asked for them to be shortened in this round.
+
+---
+
