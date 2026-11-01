@@ -101987,3 +101987,68 @@ I made no other code changes.
 
 ---
 
+## 2026-11-01: us/main
+
+Branch: cherry-5fa1de058293
+
+Commits:
+- 5fa1de058293 edid: add default EDID_ADDR macro
+- 71142b57cd1a i2c: mtk_mt8195_i2c_ddc: add new driver
+- f9cb14dd25e6 phy: phy-mtk-hdmi: add new driver
+- 4a6f93a28dae clk: mediatek: mt8189: add missing qualifiers
+- 81fdcc79c467 arm: mediatek: use phase-aware PSCI reset on MT8365
+- 0bd564f4bbad arm: mediatek: use phase-aware PSCI reset on MT8195
+- 7979d7a6f129 phy: mtk-tphy: add v3 hardware support
+- 04845af8b08e net: dwc_eth_qos_mtk: support platform-specific PERI_ETH_BASE
+- 66e793bc9373 net: dwc_eth_qos_mtk: add mt8366 support
+- 34b86a6741e7 net: dwc_eth_qos: add mt8366 support
+- ca1cf823fa1e spi: mtk_snor: combine mt8188 and mt8189 into mediatek,mt8186-nor
+- 669d102dd712 power: regulator: add MT6358 driver with MT6366 support
+- 8362d7784d24 power: pmic: mtk-pwrap: fix clock names
+- b237f66ab050 power: pmic: mtk-pwrap: use mt8195 fallback for mt8188/9
+- a5f55ef45499 power: pmic: mtk-pwrap: add mt6358 PMIC
+- 9829a49d1490 arm: dts: add mt6366 PMIC include
+- 186a142207e7 pinctrl: mediatek: select PINCONF
+- fd017c4974ae pinctrl: mediatek: remove PINCONF conditional compilation
+- 86ae242f246d pinctrl: mediatek: simplify Kconfig
+- f807d57664ae configs: mediatek: drop no longer needed PINCTRL options
+- 572c19d3161b dt-bindings: pinctrl: add MT8366 pin function header
+- b02465887e7b pinctrl: mediatek: add new mt8366 driver
+- 50c148cfcaa3 serial: mtk: use ulong for clk_rate
+- a2ffe8d63a2b serial: mtk: guard clk_get_rate() with clk_valid()
+- 8a5ddf6cd349 serial: mtk: return error value from clk_get_rate()
+- 01834e2273b9 serial: mtk: drop check before clk_bus enable
+- 640cd54caede Merge tag 'mediatek-for-next-2026-08-24' of https://git.u-boot-project.org/u-boot/custodians/u-boot-mediatek into next
+
+### Conversation log
+I'm amending the MT8365 PSCI commit with the split-check fix-up, then continuing with the remaining picks.
+
+This one ends up empty, because PSCI_RESET is already in conf_nospl from the previous commit. I'm keeping it as an empty commit.
+
+Conflict in the pinctrl PINCONF removal; inspecting it.
+
+Simple conflict: the target uses IS_ENABLED(CONFIG_PINCONF) where upstream uses CONFIG_IS_ENABLED(PINCONF). I'll resolve it by dropping the conditionals as upstream does.
+
+Resolved cleanly (same 19 deletions as upstream). Adding the fix-up note, then building.
+
+Now the merge commit.
+
+The merge re-introduces the two CONFIG_IS_ENABLED(PSCI_RESET) lines that were converted earlier, and split-check reverts them. Checking that this leaves the merge empty:
+
+All 27 commits are there. Running the final build, and checking the new pinctrl Kconfig for SPL-specific symbols:
+
+All 27 commits are cherry-picked onto `cherry-5fa1de058293` (based on ci/master). The sandbox build passes with no warnings or errors, both after every pick and at the end. The branch has not been pushed.
+
+**Commit sizes:** every picked commit changes the same files and line counts as the original, except the four with fix-ups below, where the changes come from split-check or the conflict fix.
+
+**Fix-ups** (each has a `[pickman]` note at the end of its commit message):
+
+1. **4947723d6d34 arm: mediatek: use phase-aware PSCI reset on MT8365**: split-check changed CONFIG_IS_ENABLED(PSCI_RESET) back to IS_ENABLED(CONFIG_PSCI_RESET) and added PSCI_RESET to `scripts/conf_nospl`. The commit is now just the one-line `conf_nospl` addition. That still does what upstream intended: PSCI reset is off in SPL.
+2. **80f893ea41aa arm: mediatek: use phase-aware PSCI reset on MT8195**: the same conversion left this commit empty, because the MT8365 commit already added PSCI_RESET to `conf_nospl`. I kept it as an empty commit with a note saying so.
+3. **99315bb5be6b pinctrl: mediatek: remove PINCONF conditional compilation**: this had conflicts in `pinctrl-mtk-common.c` and `.h`, because ci/master uses `#if IS_ENABLED(CONFIG_PINCONF)` where upstream has CONFIG_IS_ENABLED(PINCONF). I fixed it by removing the conditionals as upstream does, giving the same 19 deletions as the original.
+4. **a635b48ce87f Merge tag 'mediatek-for-next-2026-08-24'**: the merge brought back the two CONFIG_IS_ENABLED(PSCI_RESET) lines in the mt8195 and mt8365 `init.c` files. Split-check converted them, so the merge is an empty commit, kept to preserve the history.
+
+**Note:** the note lines on the MT8195 commit and the merge commit are longer than 72 columns. I can shorten them if you want.
+
+---
+
