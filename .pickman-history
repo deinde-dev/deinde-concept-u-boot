@@ -102132,3 +102132,30 @@ The note lines over 72 columns in the MT8195 commit and the merge commit are sti
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10963 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+The comment only says that pipeline 10963 was started to re-run the failed jobs, so I don't expect any code change. I'll check the branch state, build, and create the next version branch.
+
+The pushed tip, 8ae6c8e33134, is the same commit as the local `-v4` and already contains ci/master, so it doesn't need a rebase. I'll create `-v5` from it and build.
+
+I made no code changes, because the comment doesn't ask for any. The sandbox build passes with no warnings or errors, and `cherry-5fa1de058293-v5` is checked out. I have not pushed it.
+
+- **The comment:** it only says that pipeline 10963 was started to re-run the jobs that didn't pass in pipeline 10959: the RPi 3/4, BeagleBone Black, Pine64+ and Hummingboard 2 jobs, plus opi_pc, samus, samus_tpl and snow. None of these is a MediaTek board, and the series doesn't touch any of them.
+- **Starting point:** I created `-v5` from the pushed tip `ci/cherry-5fa1de058293` (8ae6c8e33134, the same commit as the local `-v4`). It already contains the latest ci/master, so it didn't need a rebase. The local `cherry-5fa1de058293` is still at the old c980be492654, so I didn't use it.
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` built with no warnings or errors.
+- **Your other branch:** the working tree was on `cherry-d29122e0287a` and has untracked `tools/binman/home/` and `tools/binman/usr/` directories. I left those alone; they carried over when I switched branches.
+
+**Suggested reply for the MR**
+
+> Thanks. No code changes: the branch is the same as in pipeline 10959 and the sandbox build still passes. The jobs being re-run are all non-MediaTek boards that this series doesn't touch. In earlier pipelines opi_pc, samus, samus_tpl and snow also failed in many other merge requests, so any failures there look like a lab or infrastructure problem, not this series.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still unchanged, since this comment didn't ask about them.
+
+---
+
