@@ -48,9 +48,9 @@ QCONFIG_SUBJECTS = [
 # Guidance for a target with a separate config for each phase
 SPLIT_CONFIG_NOTE = '''
 
-IMPORTANT: The target gives each build phase (U-Boot proper, SPL, TPL, VPL)
-its own config, so CONFIG_FOO means the value for the phase being built.
-CONFIG_IS_ENABLED(), CONFIG_VAL(), CONFIG_IF_ENABLED_INT(),
+IMPORTANT: The target gives each build phase (U-Boot proper and each xPL
+phase, such as SPL) its own config, so CONFIG_FOO means the value for the
+phase being built. CONFIG_IS_ENABLED(), CONFIG_VAL(), CONFIG_IF_ENABLED_INT(),
 config_opt_enabled() and the $(PHASE_), $(XPL_), $(SPL_) and $(SPL_TPL_)
 Makefile variables do not exist there, but commits from the source may still
 use them. After each cherry-pick, before the build test, run:
@@ -429,16 +429,15 @@ Steps to follow:
 {comment_steps}
 4. Run 'buildman -L --board sandbox -w -o /tmp/pickman' to verify the build passes
 5. Create a local branch with suffix '-v2' (or increment: -v3, -v4, etc.)
-6. Force push to the ORIGINAL remote branch to update the MR:
-   ./tools/pickman/pickman push-branch {branch_name} -r {remote} -f
-   (GitLab automatically triggers an MR pipeline when the branch is updated)
+   and leave it checked out
+6. Do NOT push the branch: pickman pushes it to '{branch_name}' once it has
+   recorded the review, and starts the CI pipeline which it needs
 7. Report what was done and what reply should be posted to the MR
 
 Important:
 - Keep changes minimal and focused
 - If a comment is unclear or cannot be addressed, note this in your report
 - Local branch: {branch_name}-v2 (or -v3, -v4 etc.)
-- Remote push: always to '{branch_name}' to update the existing MR
 - Do NOT update the MR title - it should remain as originally set
 """
 

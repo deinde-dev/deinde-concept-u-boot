@@ -13,6 +13,24 @@ import os
 DEFAULT_PHASES = ('tpl', 'vpl', 'spl')
 
 
+def parse_phases(text):
+    """Parse the names of the xPL phases from scripts/xpl_phases
+
+    Args:
+        text (str): Contents of the file
+
+    Returns:
+        tuple of str: Lower-case name of each phase, in the order in which
+            they run, e.g. ('tpl', 'vpl', 'spl')
+    """
+    phases = []
+    for line in text.splitlines():
+        fields = line.split()
+        if fields and not fields[0].startswith('#'):
+            phases.append(fields[0])
+    return tuple(phases)
+
+
 @functools.lru_cache
 def read_phases(srcdir):
     """Read the names of the xPL phases from a U-Boot source tree
@@ -27,10 +45,5 @@ def read_phases(srcdir):
     fname = os.path.join(srcdir, 'scripts', 'xpl_phases')
     if not os.path.exists(fname):
         return DEFAULT_PHASES
-    phases = []
     with open(fname, encoding='utf-8') as inf:
-        for line in inf:
-            fields = line.split()
-            if fields and not fields[0].startswith('#'):
-                phases.append(fields[0])
-    return tuple(phases)
+        return parse_phases(inf.read())

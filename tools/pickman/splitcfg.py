@@ -4,8 +4,8 @@
 #
 """Adapt picked commits to a tree with a separate config for each phase
 
-When each build phase (U-Boot proper, SPL, TPL, VPL) has its own config,
-CONFIG_FOO means the value for the phase being built, so plain
+When each build phase (U-Boot proper and each xPL phase, such as SPL) has its
+own config, CONFIG_FOO means the value for the phase being built, so plain
 IS_ENABLED(CONFIG_FOO) and obj-$(CONFIG_FOO) do the right thing everywhere.
 The macros which used to pick the phase's option no longer exist:
 CONFIG_IS_ENABLED(), CONFIG_VAL(), CONFIG_IF_ENABLED_INT(),
@@ -26,14 +26,16 @@ from collections import namedtuple
 import os
 import re
 
+from u_boot_pylib import xpl
+
 # The header which defines (or no longer defines) CONFIG_IS_ENABLED()
 KCONFIG_H = 'include/linux/kconfig.h'
 
 # Options which are never enabled in xPL, despite having no xPL variant
 CONF_NOSPL = 'scripts/conf_nospl'
 
-# Prefixes of the Kconfig options for each xPL phase
-XPL_PREFIXES = ('SPL_', 'TPL_', 'VPL_')
+# The table of xPL phases, which gives the Kconfig prefix of each
+XPL_PHASES = 'scripts/xpl_phases'
 
 # Files which mention the old macros on purpose, so are left alone
 SKIP_PATHS = (
@@ -167,20 +169,47 @@ def find(added):
     return found
 
 
-def get_variants(kconfig_grep):
+def get_prefixes(text):
+    """Get the prefixes of the Kconfig options for each xPL phase
+
+    Args:
+        text (str): Contents of scripts/xpl_phases, or '' if the tree does not
+            have it, in which case it has the original three phases
+
+    Returns:
+        tuple of str: Prefix of each phase, e.g. ('TPL_', 'VPL_', 'SPL_')
+    """
+    phases = xpl.parse_phases(text) if text else xpl.DEFAULT_PHASES
+    return tuple(f'{phase.upper()}_' for phase in phases)
+
+
+def kconfig_regex(prefixes):
+    """Get a regex matching the Kconfig lines which define xPL options
+
+    Args:
+        prefixes (tuple of str): Prefix of each phase, from get_prefixes()
+
+    Returns:
+        str: Extended regex, e.g. matching 'config SPL_FOO'
+    """
+    return rf"^\s*(menu)?config\s+({'|'.join(prefixes)})"
+
+
+def get_variants(kconfig_grep, prefixes):
     """Get the options which have an xPL variant
 
     Args:
-        kconfig_grep (str): Output of grepping the Kconfig files for
-            'config SPL_...', 'config TPL_...' and 'config VPL_...' lines
+        kconfig_grep (str): Output of grepping the Kconfig files with
+            kconfig_regex(), e.g. 'config SPL_...' lines
+        prefixes (tuple of str): Prefix of each phase, from get_prefixes()
 
     Returns:
         set of str: Option names (without the phase prefix) which have a
             variant for at least one xPL phase
     """
     variants = set()
-    for match in re.finditer(r'config\s+(?:SPL|TPL|VPL)_([A-Z0-9_]+)',
-                             kconfig_grep):
+    for match in re.finditer(rf"config\s+(?:{'|'.join(prefixes)})"
+                             r'([A-Z0-9_]+)', kconfig_grep):
         variants.add(match.group(1))
     return variants
 
@@ -197,7 +226,7 @@ def get_nospl(text):
     return set(re.findall(r'^([A-Z0-9_]+)$', text, re.M))
 
 
-def needs_nospl(found, variants, nospl):
+def needs_nospl(found, variants, nospl, prefixes):
     """Find options which need adding to conf_nospl
 
     Upstream, these are only enabled in U-Boot proper, since the code or
@@ -208,6 +237,7 @@ def needs_nospl(found, variants, nospl):
         found (list of Finding): Constructs found
         variants (set of str): Options with an xPL variant
         nospl (set of str): Options already in conf_nospl
+        prefixes (tuple of str): Prefix of each phase, from get_prefixes()
 
     Returns:
         list of str: Sorted option names
@@ -215,7 +245,7 @@ def needs_nospl(found, variants, nospl):
     need = set()
     for item in found:
         if (item.kind in PHASE_KINDS and item.option and is_code(item.path)
-                and not item.option.startswith(XPL_PREFIXES) and
+                and not item.option.startswith(prefixes) and
                 item.option not in variants and item.option not in nospl):
             need.add(item.option)
     return sorted(need)

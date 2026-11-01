@@ -7,6 +7,7 @@
 
 from collections import namedtuple
 import configparser
+from datetime import datetime, timedelta, timezone
 import os
 import re
 import sys
@@ -43,8 +44,8 @@ class MrCreateError(Exception):
 # Use defaults for new fields so existing code doesn't break
 PickmanMr = namedtuple('PickmanMr', [
     'iid', 'title', 'web_url', 'source_branch', 'description',
-    'has_conflicts', 'needs_rebase', 'pipeline_status', 'pipeline_id'
-], defaults=[False, False, None, None])
+    'has_conflicts', 'needs_rebase', 'pipeline_status', 'pipeline_id', 'sha'
+], defaults=[False, False, None, None, None])
 
 # Comment info returned by get_mr_comments()
 MrComment = namedtuple('MrComment', [
@@ -57,6 +58,16 @@ PipelineInfo = namedtuple('PipelineInfo', ['id', 'status', 'web_url'])
 # Failed job info from a pipeline
 FailedJob = namedtuple('FailedJob',
                         ['id', 'name', 'stage', 'web_url', 'log_tail'])
+
+# The jobs in a pipeline: the commit it runs on, its status and a dict of
+# job name -> job status
+PipelineJobs = namedtuple('PipelineJobs', ['sha', 'status', 'jobs'])
+
+# Pipeline variable holding a regex of the jobs to run, see .gitlab-ci.yml
+ONLY_JOBS = 'ONLY_JOBS'
+
+# Characters with a special meaning in a regex held in a GitLab variable
+RE_SPECIAL = re.compile(r'([\\.^$|?*+()\[\]{}/])')
 
 
 def check_available():
@@ -180,6 +191,31 @@ def get_push_url(remote):
     return f'https://oauth2:{token}@{host}/{proj_path}.git'
 
 
+def check_push_head(branch):
+    """Check that HEAD holds the work for a branch, so it can be pushed there
+
+    pickman pushes HEAD rather than the branch itself, since an agent may
+    leave its work on a new local branch named after it, such as
+    'cherry-abc-v2' or 'cherry-abc-fix1'. A checkout left on another branch,
+    or with a detached HEAD from a rebase which never finished, would send
+    the wrong commits to the merge request.
+
+    Args:
+        branch (str): Branch to push to
+
+    Returns:
+        str: Description of the problem, or None if HEAD can be pushed
+    """
+    try:
+        head = command.output('git', 'symbolic-ref', '--short', 'HEAD',
+                              capture_stderr=True).strip()
+    except command.CommandExc:
+        return 'HEAD is detached, e.g. by a rebase which has not finished'
+    if head == branch or head.startswith(f'{branch}-'):
+        return None
+    return f"HEAD is on '{head}'"
+
+
 def push_branch(remote, branch, force=False, skip_ci=True):
     """Push a branch to a remote
 
@@ -199,9 +235,15 @@ def push_branch(remote, branch, force=False, skip_ci=True):
         bool: True on success
 
     Raises:
-        command.CommandExc: If the push fails
+        command.CommandExc: If the push fails, or HEAD does not hold the work
+            for the branch (see check_push_head())
     """
     try:
+        problem = check_push_head(branch)
+        if problem:
+            raise command.CommandExc(
+                f"Refusing to push to '{branch}': {problem}", None)
+
         # Use token-authenticated URL if available
         push_url = get_push_url(remote)
         push_target = push_url if push_url else remote
@@ -333,10 +375,12 @@ def get_pickman_mrs(remote, state='opened'):
                 # include accurate merge status fields
                 pipeline_status = None
                 pipeline_id = None
+                sha = None
 
                 if state == 'opened':
                     full_mr = project.mergerequests.get(merge_req.iid)
                     has_conflicts = getattr(full_mr, 'has_conflicts', False)
+                    sha = getattr(full_mr, 'sha', None)
 
                     # Check merge status - detailed_merge_status is newer API
                     detailed_status = getattr(full_mr,
@@ -363,6 +407,7 @@ def get_pickman_mrs(remote, state='opened'):
                     needs_rebase=needs_rebase,
                     pipeline_status=pipeline_status,
                     pipeline_id=pipeline_id,
+                    sha=sha,
                 ))
         return pickman_mrs
     except gitlab.exceptions.GitlabError as exc:
@@ -499,6 +544,79 @@ def get_failed_jobs(remote, pipeline_id, max_log_lines=200):
     except gitlab.exceptions.GitlabError as exc:
         tout.error(f'GitLab API error: {exc}')
         return None
+
+
+def mr_iid_of_ref(ref):
+    """Get the merge request which a pipeline ref belongs to
+
+    Args:
+        ref (str): Pipeline ref, e.g. 'refs/merge-requests/42/head'
+
+    Returns:
+        int: Merge request IID, or None if the ref is not a merge request's
+    """
+    match = re.match(r'refs/merge-requests/(\d+)/', ref or '')
+    return int(match.group(1)) if match else None
+
+
+def get_shared_failures(remote, mr_iid, job_names, min_mrs=2, days=2,
+                        max_pipelines=40):
+    """Find which jobs also fail in other merge requests' pipelines
+
+    Some jobs fail whatever a merge request changes, e.g. when a lab board is
+    broken. Such a failure is no reason to change the series, and a new
+    pipeline would only fail again. Look at the newest finished pipeline of
+    each other merge request in the last few days and report the jobs which
+    fail in enough of them.
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request whose failures are being checked
+        job_names (list of str): Names of the jobs which failed
+        min_mrs (int): How many other merge requests a job must fail in
+        days (int): How far back to look
+        max_pipelines (int): Most pipelines to look at
+
+    Returns:
+        dict: Job name -> sorted list of IIDs of the other merge requests
+            where it fails, holding only the jobs which fail in at least
+            min_mrs of them; empty if none do or the pipelines cannot be read
+    """
+    if not job_names or not check_available():
+        return {}
+    token = get_token()
+    if not token:
+        return {}
+    host, proj_path = parse_url(get_remote_url(remote))
+    if not host or not proj_path:
+        return {}
+
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    failed_in = {name: set() for name in job_names}
+    try:
+        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        project = glab.projects.get(proj_path)
+        seen = set()
+        for pipe in project.pipelines.list(
+                source='merge_request_event', updated_after=since,
+                order_by='id', sort='desc', per_page=max_pipelines,
+                get_all=False):
+            iid = mr_iid_of_ref(pipe.ref)
+            if iid in (None, mr_iid) or iid in seen:
+                continue
+            if pipe.status not in ('success', 'failed'):
+                continue
+            seen.add(iid)
+            if pipe.status == 'success':
+                continue
+            for job in pipe.jobs.list(scope='failed', get_all=True):
+                if job.name in failed_in:
+                    failed_in[job.name].add(iid)
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'Could not check other pipelines: {exc}')
+        return {}
+    return {name: sorted(iids) for name, iids in failed_in.items()
+            if len(iids) >= min_mrs}
 
 
 def reply_to_mr(remote, mr_iid, message):
@@ -726,6 +844,121 @@ def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
         return False
     except Exception as exc:  # pylint: disable=broad-except
         tout.warning(f'Could not check the pipeline for MR !{mr_iid}: {exc}')
+        return False
+
+
+def get_project(remote):
+    """Get the GitLab project which a remote points to
+
+    Args:
+        remote (str): Remote name
+
+    Returns:
+        python-gitlab project, or None if there is no module, token or
+            usable URL
+
+    Raises:
+        gitlab.exceptions.GitlabError: if the project cannot be read
+    """
+    if not check_available():
+        return None
+    token = get_token()
+    if not token:
+        return None
+    host, proj_path = parse_url(get_remote_url(remote))
+    if not host or not proj_path:
+        return None
+    glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+    return glab.projects.get(proj_path)
+
+
+def get_pipeline_jobs(remote, pipeline_id):
+    """Get the status of each job in a pipeline
+
+    Only the latest run of a retried job is included.
+
+    Args:
+        remote (str): Remote name
+        pipeline_id (int): Pipeline ID
+
+    Returns:
+        PipelineJobs: the pipeline's jobs, or None if it cannot be read
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return None
+        pipeline = project.pipelines.get(pipeline_id)
+        jobs = {job.name: job.status
+                for job in pipeline.jobs.list(get_all=True)}
+        return PipelineJobs(pipeline.sha, pipeline.status, jobs)
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'Could not read pipeline {pipeline_id}: {exc}')
+        return None
+
+
+def only_jobs_regex(names):
+    """Make a regex for ONLY_JOBS which matches just the given job names
+
+    Args:
+        names (list of str): Job names, e.g. 'BeagleBone Black (lwIP)'
+
+    Returns:
+        str: Regex in GitLab's /.../ form
+    """
+    return '/^(' + '|'.join(RE_SPECIAL.sub(r'\\\1', name)
+                            for name in names) + ')$/'
+
+
+def start_only_jobs_pipeline(remote, branch, names):
+    """Start a pipeline on a branch which runs only the given jobs
+
+    This relies on the ONLY_JOBS support in .gitlab-ci.yml. The pipeline is
+    a branch pipeline, not a merge request's, so it does not become the
+    merge request's head pipeline: the caller has to keep track of it.
+
+    Args:
+        remote (str): Remote name
+        branch (str): Branch to run on
+        names (list of str): Names of the jobs to run, which must not be
+            empty, since GitLab refuses a pipeline with no jobs
+
+    Returns:
+        int: Pipeline ID, or None if it could not be started
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return None
+        pipeline = project.pipelines.create({
+            'ref': branch,
+            'variables': [{'key': ONLY_JOBS,
+                           'value': only_jobs_regex(names)}]})
+        return pipeline.id
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'Could not start a pipeline with only some jobs: '
+                     f'{exc}')
+        return None
+
+
+def start_mr_pipeline(remote, mr_iid):
+    """Start a full pipeline for a merge request
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request IID
+
+    Returns:
+        bool: True if it was started
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return False
+        project.mergerequests.get(mr_iid).pipelines.create({})
+        return True
+    except gitlab.exceptions.GitlabError as exc:
+        tout.error(f'MR !{mr_iid}: could not start a pipeline: {exc}')
         return False
 
 

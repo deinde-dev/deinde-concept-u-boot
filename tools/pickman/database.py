@@ -11,6 +11,7 @@ To adjust the schema, increment LATEST, create a _migrate_to_v<x>() function
 and add code in migrate_to() to call it.
 """
 
+from collections import namedtuple
 from datetime import datetime
 import os
 import sqlite3
@@ -19,7 +20,16 @@ from u_boot_pylib import tools
 from u_boot_pylib import tout
 
 # Schema version (version 0 means there is no database yet)
-LATEST = 4
+LATEST = 5
+
+# A pipeline which pickman starts with only some jobs:
+#   pipeline_id: Pipeline ID
+#   sha: Commit it runs on
+#   base_id: Pipeline whose results it carries over for the other jobs
+#   jobs: List of the names of the jobs it runs
+#   reported: True once its result is reported on the merge request
+CiRun = namedtuple('CiRun',
+                   ['pipeline_id', 'sha', 'base_id', 'jobs', 'reported'])
 
 # Default database filename
 DB_FNAME = '.pickman.db'
@@ -154,6 +164,20 @@ class Database:  # pylint: disable=too-many-public-methods
             'created_at TEXT, '
             'UNIQUE(mr_iid, pipeline_id))')
 
+    def _create_v5(self):
+        """Migrate database to v5 schema - add ci_run table"""
+        # Table for pipelines which pickman starts with only some jobs
+        self.cur.execute(
+            'CREATE TABLE ci_run ('
+            'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+            'mr_iid INTEGER, '
+            'pipeline_id INTEGER UNIQUE, '
+            'sha TEXT, '
+            'base_id INTEGER, '
+            'jobs TEXT, '
+            'reported INTEGER DEFAULT 0, '
+            'created_at TEXT)')
+
     def migrate_to(self, dest_version):
         """Migrate the database to the selected version
 
@@ -180,6 +204,8 @@ class Database:  # pylint: disable=too-many-public-methods
                 self._create_v3()
             elif version == 4:
                 self._create_v4()
+            elif version == 5:
+                self._create_v5()
 
             self.cur.execute('DELETE FROM schema_version')
             self.cur.execute(
@@ -512,6 +538,9 @@ class Database:  # pylint: disable=too-many-public-methods
     def pfix_count(self, mr_iid):
         """Count fix attempts for an MR
 
+        A pipeline left alone because its failures also happen in other
+        merge requests is not an attempt, so it does not count.
+
         Args:
             mr_iid (int): Merge request IID
 
@@ -519,7 +548,8 @@ class Database:  # pylint: disable=too-many-public-methods
             int: Number of fix attempts
         """
         res = self.execute(
-            'SELECT COUNT(*) FROM pipeline_fix WHERE mr_iid = ?',
+            'SELECT COUNT(*) FROM pipeline_fix '
+            "WHERE mr_iid = ? AND status != 'shared'",
             (mr_iid,))
         return res.fetchone()[0]
 
@@ -554,3 +584,73 @@ class Database:  # pylint: disable=too-many-public-methods
             'WHERE mr_iid = ? AND pipeline_id = ?',
             (mr_iid, pipeline_id))
         return res.fetchone() is not None
+
+    # ci_run functions
+
+    def cirun_add(self, mr_iid, pipeline_id, sha, base_id, jobs):
+        """Record a pipeline which runs only some jobs
+
+        Args:
+            mr_iid (int): Merge request IID
+            pipeline_id (int): Pipeline ID
+            sha (str): Commit it runs on
+            base_id (int): Pipeline whose results it carries over for the
+                other jobs
+            jobs (list of str): Names of the jobs it runs
+        """
+        self.execute(
+            'INSERT INTO ci_run '
+            '(mr_iid, pipeline_id, sha, base_id, jobs, created_at) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            (mr_iid, pipeline_id, sha, base_id, '\n'.join(jobs),
+             datetime.now().isoformat()))
+
+    def _cirun_select(self, where, args):
+        """Read pipelines which run only some jobs
+
+        Args:
+            where (str): SQL condition
+            args (tuple): Values for the condition
+
+        Return:
+            list of CiRun: Matching pipelines, oldest first
+        """
+        res = self.execute(
+            'SELECT pipeline_id, sha, base_id, jobs, reported FROM ci_run '
+            f'WHERE {where} ORDER BY id', args)
+        return [CiRun(pid, sha, base_id, jobs.split('\n'), bool(reported))
+                for pid, sha, base_id, jobs, reported in res.fetchall()]
+
+    def cirun_latest(self, mr_iid):
+        """Get the newest pipeline with only some jobs for a merge request
+
+        Args:
+            mr_iid (int): Merge request IID
+
+        Return:
+            CiRun: The pipeline, or None if there is none
+        """
+        runs = self._cirun_select('mr_iid = ?', (mr_iid,))
+        return runs[-1] if runs else None
+
+    def cirun_since(self, mr_iid, base_id):
+        """Get the pipelines which carry over results from a pipeline
+
+        Args:
+            mr_iid (int): Merge request IID
+            base_id (int): Pipeline whose results they carry over
+
+        Return:
+            list of CiRun: The pipelines, oldest first
+        """
+        return self._cirun_select('mr_iid = ? AND base_id = ?',
+                                  (mr_iid, base_id))
+
+    def cirun_set_reported(self, pipeline_id):
+        """Note that the result of a pipeline is reported
+
+        Args:
+            pipeline_id (int): Pipeline ID
+        """
+        self.execute('UPDATE ci_run SET reported = 1 WHERE pipeline_id = ?',
+                     (pipeline_id,))

@@ -366,10 +366,12 @@ and running it again picks up where it left off.
 Split Config
 ------------
 
-The target may give each build phase (U-Boot proper, SPL, TPL and VPL) its own
-config, so that ``CONFIG_FOO`` means the value for the phase being built.
-Pickman detects this from ``include/linux/kconfig.h``, which then no longer
-defines ``CONFIG_IS_ENABLED()``.
+The target may give each build phase (U-Boot proper and each xPL phase, such as
+SPL) its own config, so that ``CONFIG_FOO`` means the value for the phase being
+built. Pickman detects this from ``include/linux/kconfig.h``, which then no
+longer defines ``CONFIG_IS_ENABLED()``. It reads the xPL phases from
+``scripts/xpl_phases``, or assumes TPL, VPL and SPL if that file is missing,
+so it knows the Kconfig prefix of each phase, e.g. ``SPL_``.
 
 Commits from a source without a split config may still use the macros which
 pick the phase's option: ``CONFIG_IS_ENABLED()``, ``CONFIG_VAL()``,
@@ -417,10 +419,16 @@ During each step, after processing review comments, pickman checks active MRs
 for failed pipelines. For each failed pipeline:
 
 1. Pickman fetches the failed job logs from GitLab
-2. A Claude agent analyses the logs, diagnoses the root cause, and makes
+2. Pickman leaves out jobs which also fail in the newest pipelines of at least
+   two other MRs from the last two days, e.g. because a lab board is broken,
+   since the series cannot be the cause. If no other failures remain, it says
+   so on the MR and stops there
+3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
-3. The fix is pushed to the MR branch, triggering a new pipeline
-4. The attempt is recorded in the database to avoid reprocessing
+4. The fix is pushed to the MR branch, triggering a new pipeline. If the fix
+   cannot affect the jobs which passed, the pipeline runs only the others (see
+   `CI Pipelines`_)
+5. The attempt is recorded in the database to avoid reprocessing
 
 **Retry behaviour**
 
@@ -429,7 +437,8 @@ reached, pickman posts a comment on the MR indicating that manual intervention
 is required. Set ``--fix-retries 0`` to disable automatic pipeline fixing.
 
 Each attempt is tracked per pipeline ID, so a new pipeline triggered by a rebase
-or comment fix is treated independently.
+or comment fix is treated independently. A pipeline whose failures all happen
+in other MRs too does not count as an attempt.
 
 **Options**
 
@@ -439,16 +448,31 @@ or comment fix is treated independently.
 CI Pipelines
 ------------
 
-Pickman manages CI pipelines to avoid unnecessary duplicate runs. GitLab
-automatically triggers an MR pipeline whenever the source branch is updated,
-so pickman skips the push pipeline to avoid running two pipelines.
+Pickman manages CI pipelines to avoid unnecessary runs.
 
 **How it works**
 
-When pushing a branch (for new MRs or updates), pickman uses ``-o ci.skip``
-to skip the push pipeline. GitLab then triggers an MR pipeline when it
-detects the branch update on the merge request. This ensures exactly one
-pipeline runs for each push.
+A push with ``-o ci.skip`` starts no pipeline at all, not even a merge-request
+pipeline for an open MR. Pickman uses this when pushing the branch for a new
+MR, since creating the MR starts its pipeline. When pushing a pipeline fix or
+changes for review comments it leaves out ``ci.skip``, so that the MR's
+pipeline runs, unless it starts a pipeline itself as below.
+
+**Pipelines with only some jobs**
+
+A full pipeline runs about 140 jobs and takes one to two hours. When a pipeline
+fix or a review only changes files which no job reads (for now just
+``.pickman-history``), or changes nothing at all, pickman pushes with
+``ci.skip`` and starts a pipeline with only the jobs which did not pass, apart
+from any which also fail in other MRs. It does this with the ``ONLY_JOBS``
+pipeline variable, which holds a regex of job names (see ``.gitlab-ci.yml``).
+If that pipeline cannot be started, pickman starts a full MR pipeline instead.
+
+Such a pipeline is a branch pipeline, so GitLab does not show it as the MR's
+pipeline. Pickman records it in its database and treats it as the MR's pipeline
+while it is the newest for the MR's commit. When it passes, pickman says so on
+the MR, naming the pipeline whose results it carries over for the other jobs.
+Pickman never merges an MR itself.
 
 **Summary**
 
@@ -456,7 +480,9 @@ pipeline runs for each push.
 Action                           Pipeline Skipped  Reason
 ===============================  ================  ==============================
 Initial branch push for new MR   Yes               MR creation triggers pipeline
-Push after rebase/review         Yes               MR update triggers pipeline
+Push after rebase                No                MR pipeline runs
+Push of a pipeline fix           Sometimes         Only some jobs may need to run
+Push after review                Sometimes         Only some jobs may need to run
 ===============================  ================  ==============================
 
 Usage
@@ -658,14 +684,21 @@ for unresolved comments, and uses a Claude agent to address them. The agent will
 
 - Make code changes based on the feedback
 - Create a local branch with version suffix (e.g., ``cherry-abc123-v2``)
-- Force push to the original remote branch to update the existing MR
 - Use ``--keep-empty`` when rebasing to preserve empty merge commits
+
+The agent also rebases an MR which has merge conflicts, even if there are no
+comments. An MR which is only behind its target is rebased only while the agent
+is addressing comments: each rebase needs a full pipeline, so rebasing every
+open MR whenever the target moves would use a lot of CI time for little gain.
+Such an MR can be rebased when it is merged.
 
 After processing, pickman:
 
 - Marks comments as processed in the database (to avoid reprocessing)
 - Updates the MR description with the agent's conversation log
 - Appends the review handling to ``.pickman-history``
+- Force pushes the result to the original remote branch to update the existing
+  MR, and runs CI on it (see `CI Pipelines`_)
 
 Options for the review command:
 
@@ -718,7 +751,12 @@ To push a branch using the GitLab API token for authentication::
 
 This is useful when you want commits to appear as coming from the token owner
 (e.g., a pickman bot account) rather than the user's configured git credentials.
-The agent uses this command automatically when pushing review changes.
+
+It pushes ``HEAD``, since an agent may leave its work on a local branch named
+after the MR's, such as ``cherry-abc123-v2``. So that a checkout left on another
+branch, or part way through a rebase, does not send the wrong commits to an MR,
+pickman refuses to push unless ``HEAD`` is on the branch or one named after it.
+This applies to every push pickman makes.
 
 Options for the push-branch command:
 
