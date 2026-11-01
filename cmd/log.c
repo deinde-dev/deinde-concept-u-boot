@@ -361,7 +361,7 @@ static int do_log_rec(struct cmd_tbl *cmdtp, int flag, int argc,
 			return CMD_RET_USAGE;
 		}
 	}
-	if (level >= LOGL_MAX) {
+	if (level > LOGL_MAX) {
 		printf("Invalid log level %u\n", level);
 		return CMD_RET_USAGE;
 	}
