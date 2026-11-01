@@ -38,7 +38,7 @@ int abrec_read_priv(ofnode node, struct abrec_priv *priv)
 	ofnode_read_u32(node, "version-size", &priv->version_size);
 
 	/* only U-Boot proper reads the slot info; VPL finds slots with binman */
-	if (xpl_phase() >= PHASE_BOARD_F) {
+	if (not_xpl()) {
 		ofnode_read_u32(node, "slot-a-offset", &priv->slot_a);
 		ofnode_read_u32(node, "slot-b-offset", &priv->slot_b);
 		priv->has_recovery = !ofnode_read_u32(node,

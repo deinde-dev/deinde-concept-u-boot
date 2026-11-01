@@ -224,7 +224,7 @@ static int sandbox_cmdline_cb_test_fdt(struct sandbox_state *state,
 	char *relname;
 	int len;
 
-	if (xpl_phase() <= PHASE_SPL)
+	if (is_xpl())
 		relname = "../arch/sandbox/dts/test.dtb";
 	else
 		relname = "arch/sandbox/dts/test.dtb";

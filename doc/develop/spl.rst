@@ -252,6 +252,16 @@ Checking the boot phase
 Use `xpl_phase()` to find the current U-Boot phase, e.g. `PHASE_SPL`. You can
 also find the previous and next phase and get the phase name.
 
+Use `is_xpl()` and `not_xpl()` to tell xPL apart from U-Boot proper, rather
+than comparing with `PHASE_SPL`, since SPL need not be the last xPL phase. To
+check for a particular phase, compare with it directly, e.g.
+`xpl_phase() != PHASE_TPL`.
+
+The values of `enum xpl_phase_t` follow the order in which the phases run, so
+`xpl_phase() < PHASE_BOARD_R` means 'before U-Boot relocates'. Only use such a
+comparison when the order is what matters, since it also covers any phase added
+later.
+
 
 .. _fdtgrep_filter:
 

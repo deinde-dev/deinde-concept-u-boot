@@ -67,6 +67,11 @@ static inline bool xpl_is_first_phase(void)
 /* Gives PHASE_TPL for TPL, etc. */
 #define XPL_PHASE_ENUM(upper, lower)	PHASE_##upper
 
+/*
+ * The phases are in the order in which they run. Use is_xpl() and not_xpl()
+ * rather than comparing with PHASE_SPL, since SPL need not be the last xPL
+ * phase
+ */
 enum xpl_phase_t {
 	PHASE_NONE,	/* Invalid phase, signifying before U-Boot */
 	/* Running in each xPL phase, in order, e.g. PHASE_TPL for TPL */

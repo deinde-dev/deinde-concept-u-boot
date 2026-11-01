@@ -143,7 +143,7 @@ int fsp_locate_fsp(enum fsp_type_t type, struct binman_entry *entry,
 			return log_msg_ret("Could not get flash mmap", ret);
 	}
 
-	if (xpl_phase() >= PHASE_BOARD_F) {
+	if (not_xpl()) {
 		if (type != FSP_S && type != FSP_M)
 			return -EPROTONOSUPPORT;
 		ret = binman_entry_find(type == FSP_S ? "intel-fsp-s" :

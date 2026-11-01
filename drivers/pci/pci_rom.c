@@ -347,7 +347,7 @@ int vesa_setup_video(struct udevice *dev, int (*int15_handler)(void))
 	}
 
 	/* In U-Boot proper, collect the information added by SPL (see below) */
-	if (IS_ENABLED(CONFIG_SPL_VIDEO) && xpl_phase() > PHASE_SPL &&
+	if (IS_ENABLED(CONFIG_SPL_VIDEO) && not_xpl() &&
 	    IS_ENABLED(CONFIG_BLOBLIST)) {
 		struct video_handoff *ho;
 

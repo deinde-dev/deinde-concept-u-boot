@@ -1174,7 +1174,7 @@ static int truetype_get_cursor_info(struct udevice *dev, void *vctx)
 	int x, y, index;
 	uint height;
 
-	if (xpl_phase() <= PHASE_SPL)
+	if (is_xpl())
 		return -ENOSYS;
 
 	/*

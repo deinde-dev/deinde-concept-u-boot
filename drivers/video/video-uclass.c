@@ -617,7 +617,7 @@ bool video_is_active(void)
 	struct uclass *uc;
 
 	/* Assume video to be active if SPL passed video hand-off to U-boot */
-	if (IS_ENABLED(CONFIG_SPL_VIDEO_HANDOFF) && xpl_phase() > PHASE_SPL)
+	if (IS_ENABLED(CONFIG_SPL_VIDEO_HANDOFF) && not_xpl())
 		return true;
 
 	uclass_id_foreach_dev(UCLASS_VIDEO, dev, uc) {

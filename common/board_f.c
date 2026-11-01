@@ -436,7 +436,7 @@ __weak int arch_reserve_mmu(void)
 
 static int reserve_video_from_videoblob(void)
 {
-	if (IS_ENABLED(CONFIG_SPL_VIDEO_HANDOFF) && xpl_phase() > PHASE_SPL) {
+	if (IS_ENABLED(CONFIG_SPL_VIDEO_HANDOFF) && not_xpl()) {
 		struct video_handoff *ho;
 		int ret = 0;
 

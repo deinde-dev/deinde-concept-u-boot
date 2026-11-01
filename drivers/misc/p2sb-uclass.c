@@ -198,7 +198,7 @@ static int p2sb_child_post_bind(struct udevice *dev)
 
 static int p2sb_post_bind(struct udevice *dev)
 {
-	if (xpl_phase() > PHASE_TPL && !IS_ENABLED(CONFIG_OF_PLATDATA))
+	if (xpl_phase() != PHASE_TPL && !IS_ENABLED(CONFIG_OF_PLATDATA))
 		return dm_scan_fdt_dev(dev);
 
 	return 0;

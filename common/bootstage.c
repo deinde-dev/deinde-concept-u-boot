@@ -122,6 +122,9 @@ static notrace int bootstage_phase(void)
 	return phase == PHASE_BOARD_R ? PHASE_BOARD_F : phase;
 }
 
+/* Make sure that every phase which can make a record fits in its flags */
+static_assert(BOOTSTAGEF_PHASE_MASK >> BOOTSTAGEF_PHASE_SHIFT >= PHASE_BOARD_F);
+
 /**
  * bootstage_phase_flags() - Get the flag bits for the current phase
  *
