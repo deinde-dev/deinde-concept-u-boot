@@ -409,6 +409,8 @@ same new uImage::
 See also
 --------
 
+* :doc:`boot<boot>` for booting the way *bootcmd* describes, which often ends
+  up in this command
 * :doc:`iminfo<iminfo>` for checking an image before booting it
 * :doc:`booti<booti>` for booting a bare Linux Image, which has no header to
   say where it should go or how it is compressed

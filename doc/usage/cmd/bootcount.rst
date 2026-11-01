@@ -77,6 +77,6 @@ reports a count of zero and still succeeds.
 See also
 --------
 
-* :doc:`bootd<bootd>` for running *bootcmd*, which is what the counter guards
+* :doc:`boot<boot>` for running *bootcmd*, which is what the counter guards
 * :doc:`reset<reset>` for the reset which steps the counter on
 * :doc:`env<env>` for setting *bootlimit* and *altbootcmd*
