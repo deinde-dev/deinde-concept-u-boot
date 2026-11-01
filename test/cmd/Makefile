@@ -101,6 +101,7 @@ endif
 obj-$(CONFIG_CMD_LOADM) += loadm.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_LOADS) += loads.o
+obj-$(CONFIG_CMD_LOG) += log.o
 endif
 obj-$(CONFIG_CMD_MALLOC) += malloc.o
 ifdef CONFIG_CONSOLE_RECORD
