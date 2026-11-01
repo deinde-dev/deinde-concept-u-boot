@@ -41,6 +41,15 @@ from pickman import gitlab_api
 # Prefix of config sections which describe an external project
 SECTION_PREFIX = 'external:'
 
+# Tools which have moved out of the U-Boot tree, with their old directories. A
+# change to one of these cannot be cherry-picked, so the tool needs a section
+# in the config file to say where to send it
+MOVED_OUT = {
+    'binman': 'tools/binman',
+    'buildman': 'tools/buildman',
+    'dtoc': 'tools/dtoc',
+}
+
 # An external project
 #
 # name (str): Name of the project, e.g. 'binman'
@@ -162,6 +171,36 @@ def split_commits(commits, projects):
         if outside:
             tree_needed = True
     return by_project, tree_needed
+
+
+def find_unconfigured(commits, projects=None):
+    """Find tools changed by commits which have moved out but are not set up
+
+    Without a section in the config file, a change to a tool which has moved
+    out of the tree would be cherry-picked here, where its files no longer
+    exist
+
+    Args:
+        commits (list): Commits to check, each with a 'hash' attribute
+        projects (list of Project): External projects, or None to read them
+            from the config file
+
+    Returns:
+        list of str: Names of the tools which the commits change and which
+            have no project, sorted
+    """
+    if projects is None:
+        projects = get_projects()
+    configured = {proj.path for proj in projects}
+    paths = {name: path for name, path in MOVED_OUT.items()
+             if path not in configured}
+    missing = set()
+    if paths:
+        for commit in commits:
+            for fname in changed_files(commit.hash):
+                missing.update(name for name, path in paths.items()
+                               if is_under(fname, path))
+    return sorted(missing)
 
 
 def _git(repo, *args, raise_on_error=True):
