@@ -8,6 +8,8 @@
 
 import asyncio
 import argparse
+import ast
+import inspect
 import json
 import os
 import shutil
@@ -5598,6 +5600,23 @@ class TestDoPickmanUnknownCommand(unittest.TestCase):
         with terminal.capture():
             ret = control.do_pickman(args)
         self.assertEqual(ret, 1)
+
+    def test_no_db(self):
+        """Test that a command which does not use the database skips it"""
+        handler = mock.Mock(return_value=0)
+        with mock.patch.dict(control.COMMANDS, {'check-external': handler}):
+            ret = control.do_pickman(argparse.Namespace(cmd='check-external'))
+        self.assertEqual(0, ret)
+        self.assertIsNone(handler.call_args[0][1])
+        self.assertFalse(os.path.exists(self.db_path))
+
+    def test_no_db_commands(self):
+        """Test that the commands which skip the database never use it"""
+        for cmd in sorted(control.NO_DB_COMMANDS):
+            tree = ast.parse(inspect.getsource(control.COMMANDS[cmd]))
+            names = {node.id for node in ast.walk(tree)
+                     if isinstance(node, ast.Name)}
+            self.assertNotIn('dbs', names, cmd)
 
 
 class TestDoReviewWithMrs(unittest.TestCase):

@@ -5572,6 +5572,13 @@ COMMANDS = {
 }
 
 
+# Commands which do not use the database, so need not create it
+NO_DB_COMMANDS = {
+    'check', 'check-external', 'check-gitlab', 'compare', 'drift-accept',
+    'pick', 'push-branch', 'split-check', 'test',
+}
+
+
 def do_pickman(args):
     """Main entry point for pickman commands.
 
@@ -5584,6 +5591,8 @@ def do_pickman(args):
     tout.init(tout.INFO)
 
     handler = COMMANDS.get(args.cmd)
+    if handler and args.cmd in NO_DB_COMMANDS:
+        return handler(args, None)
     if handler:
         dbs = database.Database(DB_FNAME)
         dbs.start()
