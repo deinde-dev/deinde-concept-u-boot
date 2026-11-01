@@ -228,6 +228,18 @@ For SoCs whose TF-A code is not available as open source, use BL31 binary provid
 
         git clone --depth 1 https://github.com/rockchip-linux/rkbin
 
+On the RK3399, U-Boot can instead provide the secure monitor itself, as its MON
+phase. Enable CONFIG_MON and leave out BL31; the FIT then holds MON in its
+place. MON does not yet start the secondary CPUs, so the OS runs on the boot CPU
+only. See :doc:`/develop/mon` for more information.
+
+.. code-block:: bash
+
+        make firefly-rk3399_defconfig
+        ./scripts/config --enable MON
+        make olddefconfig
+        make CROSS_COMPILE=aarch64-linux-gnu-
+
 TPL
 ^^^
 
