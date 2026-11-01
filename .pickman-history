@@ -102159,3 +102159,50 @@ The note lines over 72 columns in the MT8195 commit and the merge commit are sti
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+
+
+### Conversation log
+The pushed tip (a061dcf68d41, the same as local `-v5`) is behind ci/master by a dts/upstream subtree update and some pickman records. I'll check whether the changes overlap.
+
+Only `.pickman-history` overlaps, and it is an append-only log, so any conflicts should be trivial. I'll save the per-commit stats, then rebase from the pushed tip and build after each commit.
+
+The rebase is running in the background and builds sandbox after each of the 32 commits. I'll be notified when it finishes, and if `.pickman-history` conflicts it will stop.
+
+I'm waiting for the rebase to finish or stop.
+
+The expected `.pickman-history` conflict has come up. I'll look at it.
+
+Both sides only append entries at the same place in the log. I'll keep both: the master entries first, then this branch's.
+
+The line count is 3 short of 78+65, so I'll check that nothing was lost.
+
+Those differences look like diff alignment noise around shared `---` separator lines. I'll check directly that the result is the master file followed by this branch's additions.
+
+The rest applied cleanly. Now I'll compare the per-commit stats and the tree.
+
+All 32 commits have the same stats as before. The only tree differences from the old tip are master's own changes. I'll run one final build to confirm.
+
+I rebased the branch onto ci/master as `cherry-5fa1de058293-v6` and left it checked out. I haven't pushed it. Sandbox built with no warnings or errors after every one of the 32 commits and again at the end.
+
+**Rebase**
+- **Starting point:** I started from the pushed tip `ci/cherry-5fa1de058293` (a061dcf68d41, the same as local `-v5`). The local `cherry-5fa1de058293` is still at the old c980be492654 and is missing all the "Record review handling" commits, so I didn't use it.
+- **What master added:** the v7.2-dts subtree update into `dts/upstream`, an R-Car Gen5 dtsi fix, and pickman records for `cherry-d29122e0287a`. The only file both sides touch is `.pickman-history`.
+- **Conflict:** one, in "pickman: Record cherry-pick of 27 commits from us/main". Both sides only add entries to the end of `.pickman-history`, so I kept master's entries first, then this branch's. I checked that the result is exactly master's file plus this commit's 65 added lines. My first try at removing the conflict markers had dropped a shared `---` separator line, so I replaced it with that version. The later review-handling commits applied without conflicts.
+- **Commits:** all 32 came through, including the empty MT8195 PSCI commit and the empty merge commit (now 5b250333ed59). The new top is 47cedc967952.
+- **Checks:** each commit's `git show --stat` output is the same before and after the rebase. Apart from master's own changes, the new tree differs from the old tip only in `.pickman-history` (+78) and `arch/arm/dts/r8a78000-u-boot.dtsi` (−4).
+
+Your untracked `tools/binman/home/` and `tools/binman/usr/` directories are still there; I left them alone.
+
+**Suggested reply for the MR**
+
+> Rebased onto the latest master, which adds a dts/upstream subtree update, an R-Car dtsi fix and pickman records, none of which touch this series. The only conflict was in the append-only .pickman-history log, and I kept both sides' entries. Every commit has the same file changes as before, and sandbox builds cleanly at each one.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still unchanged.
+
+---
+
