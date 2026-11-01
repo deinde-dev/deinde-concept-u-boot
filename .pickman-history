@@ -102108,3 +102108,27 @@ The bot comment only says pipeline 10957 was started to re-run the jobs that fai
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline 10959: every failed job also fails in other merge requests, so this looks like a lab or inf...
+
+### Conversation log
+I made no code changes, because the comment doesn't ask for any. The sandbox build passes with no warnings or errors, and `cherry-5fa1de058293-v4` is checked out. I have not pushed it.
+
+**What I did**
+- **The comment:** it only says that the four jobs still failing in pipeline 10959 (opi_pc, samus, samus_tpl, snow) also fail in 12 other merge requests (!1509, !1515–!1525). That points to a lab or infrastructure problem. The previous round's run of pipeline 10957 also re-ran the RPi, BeagleBone, Pine64 and Hummingboard jobs, and none of those are in this failure list, so they appear to have passed.
+- **Starting point:** I built `-v4` from the pushed tip `ci/cherry-5fa1de058293` (4fef21691cf1, the same commit as the local `-v3`). I didn't use the local `cherry-5fa1de058293`, because it is still at the old c980be492654 and is missing both "Record review handling" commits. The branch already includes the latest ci/master, so it didn't need a rebase.
+- **Build:** I ran `buildman -L --board sandbox -w -o /tmp/pickman` and it built cleanly.
+- **Other branch:** your working tree was on `cherry-d29122e0287a`, with untracked `tools/binman/home/` and `tools/binman/usr/` directories. I left those alone.
+
+**Suggested reply for the MR**
+
+> Thanks. The only jobs still failing (opi_pc, samus, samus_tpl, snow) also fail in many other merge requests, so this looks like a lab or infrastructure problem, not this series. None of these boards is MediaTek, and the series doesn't touch them. The other jobs that were re-run in the previous pipeline now pass. I have made no code changes. The sandbox build still passes.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still as they were; this comment didn't ask about them.
+
+---
+
