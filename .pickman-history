@@ -102695,3 +102695,54 @@ bpif3 is the only one of these boards that runs this code, and its results don't
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10989 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+**No code changes were needed for MR !1529: the comment only says pickman started pipeline 10989. bpif3, the only board in that pipeline that runs this code, passed all 42 tests on its first attempt.** `cherry-cfe0012e12d7-v7` is checked out at `6b2612b137ff`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10989 so far
+It was still running when I checked, on the same driver code as `dec4cb7077af`; only `.pickman-history` has changed.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738109) | passed | 42 passed, 777 skipped, no `USB loader not ready` retries |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+## What this changes
+- **bpif3 figures:** with this run the series has 3 of 6 first-attempt passes and 2 of 6 failed jobs, and 14 of 18 upload attempts were bad. I didn't refresh the other MRs' figures (9 of 26, 3 of 26, 71%).
+- **What it can't show:** the failure in pipeline 10986 was on `ba80360faa5b`, which has the same driver code, so this looks intermittent. Six runs still can't rule out a small effect, and capturing the serial console during a failed attempt would settle it.
+- **Correction to my `-v6` report:** I said the next push would run all 142 jobs, but it ran only 14. The previous pipeline, 10986, was a full run that finished at 06:34, before this 06:50 push, so pickman could narrow it.
+- **Full and narrowed runs alternate:** a narrowed pipeline never finishes because its Raspberry Pi jobs don't start, so the next push runs in full. If `sage-lab` is still not running them, expect a full run if you push while 10989 is unfinished.
+- **The four failing boards:** they were re-run this time instead of being left out as failures shared with other MRs. I didn't look into why, and it didn't change the result.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1` locally, but this bpif3 job built that defconfig from `6b2612b137ff`.
+
+## Before pushing
+- **Branch base:** `-v7` is based on `-v6`, not the local `cherry-cfe0012e12d7`, which is several commits behind the MR. Branching from that would have dropped pickman's record commits.
+- **Repo state:** this run started with `cherry-5fa1de058293` checked out, and that branch is unchanged. `tools/binman/home/` and `tools/binman/usr/` were already untracked, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces are in `/tmp/pickman-q7`.
+
+## Still open
+1. **Merge decision:** I'd still merge once commit 2 is reviewed, as bpif3 has now passed all 42 tests in 10976, 10984 and 10989. The other four failing boards don't run this code.
+2. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+3. **Lab problems, separate from this MR:**
+   - the bpif3 FSBL failures
+   - the four boards that fail before any test runs
+   - the `sage-lab` queue
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 10989 has started. bpif3 passed all 42 tests there on its first attempt, on the same driver code that failed with `BootROM did not start the FSBL` in 10986, so that failure looks intermittent, although six runs can't rule out a small effect. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran. The nine Raspberry Pi and lwIP jobs have not started. The sandbox build passes. This still needs a merge decision and a closer review of commit 2.
+
+---
+
