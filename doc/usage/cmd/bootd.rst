@@ -2,7 +2,6 @@
 
 .. index::
    single: bootd (command)
-   single: boot (command)
 
 bootd command
 =============
@@ -13,7 +12,6 @@ Synopsis
 ::
 
     bootd
-    boot
 
 Description
 -----------
@@ -22,8 +20,9 @@ The bootd command executes the command stored in the environment variable
 *bootcmd*, i.e. it does the same thing as *run bootcmd*. It takes no
 arguments and has no options.
 
-The same command is also called *boot*, which is the name U-Boot itself uses;
-*bootd* is kept for backward compatibility.
+It is the same command as *boot*, which is the name U-Boot itself uses and
+where :doc:`boot<boot>` describes the behaviour in full; *bootd* is kept for
+backward compatibility.
 
 Example
 -------
@@ -50,6 +49,7 @@ there is then nothing to boot.
 See also
 --------
 
+* :doc:`boot<boot>` for the name this command is normally used by
 * :doc:`run<run>` for running the commands held in any environment variable
 * :doc:`bootflow<bootflow>` for the standard-boot scan which *bootcmd* starts
   on a board using standard boot

@@ -792,6 +792,7 @@ See also
 
 * :doc:`../luks` - LUKS encryption support
 * :doc:`../tkey-fde` - TKey full disk encryption
+* :doc:`boot` - Boot using *bootcmd*, which normally starts this scan
 * :doc:`bootdev` - Boot device documentation
 * :doc:`bootctl` - Boot control, which offers these bootflows in a menu
 * :doc:`/develop/bootstd/index` - Standard boot documentation

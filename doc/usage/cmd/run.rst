@@ -82,7 +82,7 @@ See also
 * :doc:`exit<exit>` for leaving a script before its end
 * :doc:`source<source>` for running a script held in an image rather than in
   a variable
-* :doc:`bootd<bootd>` for running *bootcmd*, which is what U-Boot does when
+* :doc:`boot<boot>` for running *bootcmd*, which is what U-Boot does when
   it boots on its own
 * :doc:`spawn<spawn>` for running the commands in a variable as a background
   job
