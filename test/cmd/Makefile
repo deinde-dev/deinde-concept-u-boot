@@ -25,6 +25,7 @@ obj-$(CONFIG_APIC) += ioapic.o
 obj-$(CONFIG_ARCH_AMD_TURIN) += turin.o
 obj-$(CONFIG_CMD_ADDR_FIND) += addr_find.o
 obj-$(CONFIG_CMD_ADDRMAP) += addrmap.o
+obj-$(CONFIG_CMD_BINOP) += binop.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_2048) += 2048.o
 obj-$(CONFIG_CMD_ABOOTIMG) += abootimg.o
