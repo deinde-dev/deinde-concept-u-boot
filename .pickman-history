@@ -102629,3 +102629,69 @@ I read the job data through the GitLab API without a token, so `pickman.conf` wa
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+bpif3 has failed again, this time in the latest full pipeline (10986). It's the only K1 board in the list, so its trace matters most. I'll fetch all five traces.
+
+The API refuses job traces without authentication. The last run got its traces without a token, so I'll check how it did that.
+
+The project's public `raw` job URL works without a token, so I'll use that.
+
+**No code changes for MR !1529: the retry limit only means pickman has stopped trying, and nothing in the CI results points to this series.** It now needs your decision on merging. `cherry-cfe0012e12d7-v6` is checked out at `ba80360faa5b`, the MR tip, with no new commits and not pushed. The local `cherry-cfe0012e12d7` is several commits behind, so branching from it would have dropped pickman's record commits.
+
+## Pipeline 10986 failures
+Pipeline 10986 is the latest full run, with 123 jobs passing and 5 failing. All 5 failures are in the lab, before any test runs:
+
+| Job | Error | History over the last 150 pipelines (all MRs) |
+|---|---|---|
+| bpif3 | `BootROM did not start the FSBL`, all 5 attempts | intermittent, see below |
+| opi_pc, samus, samus_tpl | timeout waiting for login | 35 failures, no passes |
+| snow | place held by `labgrid` | 35 failures, no passes |
+
+- **The four boards that never pass:** no MR can get a green pipeline until they are fixed, yet !1523, !1524 and !1525 had the same failures and were merged anyway.
+- **Same code:** the driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs.
+
+## Is bpif3 caused by this series?
+bpif3 is the only one of these boards that runs this code, and its results don't show the series causing the failure. I counted 31 real runs, leaving out two that failed on the board lock:
+
+| | With series | Other MRs |
+|---|---|---|
+| Passed on first attempt | 2 of 5 | 9 of 26 |
+| Job failed | 2 of 5 | 3 of 26 |
+| Bad upload attempts | 14 of 17 (82%) | 56 of 79 (71%) |
+
+- **What it shows:** the problem is common without this series, and the first-attempt rate is about the same. The same code has also both passed all 42 tests and failed (`238dc5a8bea9` and `ba80360faa5b`).
+- **What it can't show:** the job failure rate looks higher, but five runs is too few to tell (p≈0.17), so a small effect is still possible. An SPL hang before its USB gadget starts would also give the same error.
+- **How to settle it:** capture the serial console during a failed attempt, or run bpif3 repeatedly with and without the series. I didn't run anything on hardware.
+
+## Why every push runs all 142 jobs
+- **Raspberry Pi jobs never start:** in pipeline 10983 they sat from 04:13 to 06:00, failed with `stuck_or_timeout_failure`, and were requeued. None passed in those 150 pipelines, which suggests the `sage-lab` runner is down, but I can't see its state.
+- **Effect on narrowing:** 10979, 10983 and 10985 therefore never finish, and `_push_with_ci` only narrows once a pipeline has finished. 10982, 10984 and 10986 were each pushed during one of those and ran all 142 jobs, which supports the `-v4` prediction.
+- **Next push:** expect another full pipeline. It will re-run bpif3, but pickman won't attempt any more fixes on this MR.
+
+## Decisions for you
+1. **Merge or not:** I'd merge once commit 2 is reviewed, because bpif3 passed all 42 tests on this code in 10976 and 10984. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs that closer review.
+2. **Lab fixes, separate from this MR:**
+   - the bpif3 FSBL failures
+   - the four boards that never pass
+   - the `sage-lab` queue
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Checks
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1` because the code is unchanged.
+- **Data access:** I didn't use a token. Job logs came from the public `raw` URLs. MR notes need a login, so I worked from the comment you gave me. Traces and scripts are in `/tmp/pickman-q6`.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+
+## Suggested MR reply
+
+> No code changes for this one; the retry limit was reached because the remaining failures are lab problems, and none of them points to this series. In pipeline 10986, opi_pc, samus, samus_tpl and snow failed before any test ran, and they have not passed on any MR in the last 150 pipelines. bpif3 failed with `BootROM did not start the FSBL` on all 5 attempts, but the same code passed all 42 tests in 10976 and 10984. That error affects other MRs too: 71% of their upload attempts fail, against 82% here, and first-attempt passes are similar (9 of 26 against 2 of 5). Five runs can't rule out a small effect, and an early SPL hang would look the same. The Raspberry Pi jobs never start, so the narrowed pipelines never finish. The sandbox build passes. This needs a merge decision and a closer review of commit 2.
+
+---
+
