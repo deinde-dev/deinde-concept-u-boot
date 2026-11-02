@@ -468,13 +468,16 @@ def get_mr_comments(remote, mr_iid):
 
     try:
         glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab.auth()
         project = glab.projects.get(proj_path)
         merge_req = project.mergerequests.get(mr_iid)
 
         comments = []
         for note in merge_req.notes.list(get_all=True):
-            # Skip system notes (merge status, etc.)
-            if note.system:
+            # Skip system notes (merge status, etc.) and pickman's own notes,
+            # which report what it did: taking one as a review comment would
+            # start another review, and so another note, without end
+            if note.system or note.author['id'] == glab.user.id:
                 continue
             comments.append(MrComment(
                 id=note.id,

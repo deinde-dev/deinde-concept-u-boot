@@ -470,7 +470,9 @@ A full pipeline runs about 140 jobs and takes one to two hours. When a pipeline
 fix or a review only changes files which no job reads (for now just
 ``.pickman-history``), or changes nothing at all, pickman pushes with
 ``ci.skip`` and starts a pipeline with only the jobs which did not pass, apart
-from any which also fail in other MRs. It does this with the ``ONLY_JOBS``
+from any which also fail in other MRs. Jobs which are manual, or skipped because
+they need a manual job, do not run in a full pipeline either, so they are left
+out too. It does this with the ``ONLY_JOBS``
 pipeline variable, which holds a regex of job names (see ``.gitlab-ci.yml``).
 If that pipeline cannot be started, pickman starts a full MR pipeline instead.
 
@@ -686,7 +688,9 @@ To check open MRs for comments and address them::
     ./tools/pickman/pickman review
 
 This lists open pickman MRs (those with ``[pickman]`` in the title), checks each
-for unresolved comments, and uses a Claude agent to address them. The agent will:
+for unresolved comments, and uses a Claude agent to address them. Comments which
+pickman posts itself, such as a note about a pipeline it starts, are not review
+comments, so they are ignored. The agent will:
 
 - Make code changes based on the feedback
 - Create a local branch with version suffix (e.g., ``cherry-abc123-v2``)

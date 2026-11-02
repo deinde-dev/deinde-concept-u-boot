@@ -9345,10 +9345,12 @@ class TestNarrowPipelines(unittest.TestCase):
             return ''
         return run
 
-    # Results of the full pipeline 100 on commit aaa
+    # Results of the full pipeline 100 on commit aaa. A job which needs a
+    # manual one is skipped
     BASE = gitlab.PipelineJobs('aaa', 'failed', {
         'sandbox': 'success', 'rpi3': 'failed', 'samus': 'failed',
-        'snow': 'canceled', 'manual-job': 'manual'})
+        'snow': 'canceled', 'manual-job': 'manual',
+        'manual-job (variant)': 'skipped'})
 
     def test_narrow_jobs(self):
         """Test working out which jobs a new commit needs"""
@@ -9396,7 +9398,8 @@ class TestNarrowPipelines(unittest.TestCase):
             self.assertEqual(
                 (100, 'aaa', {'sandbox': 'success', 'rpi3': 'success',
                               'samus': 'failed', 'snow': 'success',
-                              'manual-job': 'manual'}),
+                              'manual-job': 'manual',
+                              'manual-job (variant)': 'skipped'}),
                 control._job_view('ci', self._mr(102), self.dbs))
 
             # A pipeline which cannot be read
@@ -9572,6 +9575,34 @@ class TestNarrowPipelines(unittest.TestCase):
                     'ci', [self._mr(98, 'skipped')], self.dbs, 'master', 3))
         get_failed.assert_called_once_with('ci', 101)
         self.assertTrue(self.dbs.pfix_has(1, 101))
+
+
+class TestGetMrComments(unittest.TestCase):
+    """Tests for reading the review comments on a merge request"""
+
+    def test_own_notes_skipped(self):
+        """Test that system notes and pickman's own notes are left out"""
+        def note(note_id, user_id, system=False):
+            return mock.Mock(id=note_id, system=system, body=f'note {note_id}',
+                             author={'id': user_id, 'username': f'u{user_id}'},
+                             created_at='2026-11-02', resolvable=True,
+                             resolved=False)
+
+        glab = mock.Mock()
+        glab.user.id = 7
+        project = glab.projects.get.return_value
+        project.mergerequests.get.return_value.notes.list.return_value = [
+            note(1, 3), note(2, 7), note(3, 3, system=True), note(4, 5)]
+        with mock.patch.object(gitlab, 'check_available',
+                               return_value=True), \
+             mock.patch.object(gitlab, 'get_token', return_value='tok'), \
+             mock.patch.object(gitlab, 'get_remote_url',
+                               return_value=TEST_SSH_URL), \
+             mock.patch('gitlab.Gitlab', return_value=glab):
+            comments = gitlab.get_mr_comments('ci', 42)
+        glab.auth.assert_called_once()
+        self.assertEqual([(1, 'u3'), (4, 'u5')],
+                         [(c.id, c.author) for c in comments])
 
 
 class TestGetSharedFailures(unittest.TestCase):

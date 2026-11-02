@@ -5135,8 +5135,11 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
 # Files which no CI job reads, so a change to them cannot affect a result
 NO_JOBS_READ = {HISTORY_FILE}
 
-# Job statuses which need no re-run: passed, or never started in a full run
-JOB_DONE = ('success', 'manual')
+# Job statuses which need no re-run: passed, or never started in a full run.
+# A job is skipped when it needs a manual one, such as the variants of a sage
+# lab board; naming it in ONLY_JOBS would make it run, and wait for a runner
+# which this project may not have
+JOB_DONE = ('success', 'manual', 'skipped')
 
 # Pipeline statuses whose job results can be carried over
 PIPELINE_DONE = ('success', 'failed', 'canceled')
