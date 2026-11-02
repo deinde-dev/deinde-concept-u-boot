@@ -101987,3 +101987,291 @@ I made no other code changes.
 
 ---
 
+## 2026-11-01: us/main
+
+Branch: cherry-5fa1de058293
+
+Commits:
+- 5fa1de058293 edid: add default EDID_ADDR macro
+- 71142b57cd1a i2c: mtk_mt8195_i2c_ddc: add new driver
+- f9cb14dd25e6 phy: phy-mtk-hdmi: add new driver
+- 4a6f93a28dae clk: mediatek: mt8189: add missing qualifiers
+- 81fdcc79c467 arm: mediatek: use phase-aware PSCI reset on MT8365
+- 0bd564f4bbad arm: mediatek: use phase-aware PSCI reset on MT8195
+- 7979d7a6f129 phy: mtk-tphy: add v3 hardware support
+- 04845af8b08e net: dwc_eth_qos_mtk: support platform-specific PERI_ETH_BASE
+- 66e793bc9373 net: dwc_eth_qos_mtk: add mt8366 support
+- 34b86a6741e7 net: dwc_eth_qos: add mt8366 support
+- ca1cf823fa1e spi: mtk_snor: combine mt8188 and mt8189 into mediatek,mt8186-nor
+- 669d102dd712 power: regulator: add MT6358 driver with MT6366 support
+- 8362d7784d24 power: pmic: mtk-pwrap: fix clock names
+- b237f66ab050 power: pmic: mtk-pwrap: use mt8195 fallback for mt8188/9
+- a5f55ef45499 power: pmic: mtk-pwrap: add mt6358 PMIC
+- 9829a49d1490 arm: dts: add mt6366 PMIC include
+- 186a142207e7 pinctrl: mediatek: select PINCONF
+- fd017c4974ae pinctrl: mediatek: remove PINCONF conditional compilation
+- 86ae242f246d pinctrl: mediatek: simplify Kconfig
+- f807d57664ae configs: mediatek: drop no longer needed PINCTRL options
+- 572c19d3161b dt-bindings: pinctrl: add MT8366 pin function header
+- b02465887e7b pinctrl: mediatek: add new mt8366 driver
+- 50c148cfcaa3 serial: mtk: use ulong for clk_rate
+- a2ffe8d63a2b serial: mtk: guard clk_get_rate() with clk_valid()
+- 8a5ddf6cd349 serial: mtk: return error value from clk_get_rate()
+- 01834e2273b9 serial: mtk: drop check before clk_bus enable
+- 640cd54caede Merge tag 'mediatek-for-next-2026-08-24' of https://git.u-boot-project.org/u-boot/custodians/u-boot-mediatek into next
+
+### Conversation log
+I'm amending the MT8365 PSCI commit with the split-check fix-up, then continuing with the remaining picks.
+
+This one ends up empty, because PSCI_RESET is already in conf_nospl from the previous commit. I'm keeping it as an empty commit.
+
+Conflict in the pinctrl PINCONF removal; inspecting it.
+
+Simple conflict: the target uses IS_ENABLED(CONFIG_PINCONF) where upstream uses CONFIG_IS_ENABLED(PINCONF). I'll resolve it by dropping the conditionals as upstream does.
+
+Resolved cleanly (same 19 deletions as upstream). Adding the fix-up note, then building.
+
+Now the merge commit.
+
+The merge re-introduces the two CONFIG_IS_ENABLED(PSCI_RESET) lines that were converted earlier, and split-check reverts them. Checking that this leaves the merge empty:
+
+All 27 commits are there. Running the final build, and checking the new pinctrl Kconfig for SPL-specific symbols:
+
+All 27 commits are cherry-picked onto `cherry-5fa1de058293` (based on ci/master). The sandbox build passes with no warnings or errors, both after every pick and at the end. The branch has not been pushed.
+
+**Commit sizes:** every picked commit changes the same files and line counts as the original, except the four with fix-ups below, where the changes come from split-check or the conflict fix.
+
+**Fix-ups** (each has a `[pickman]` note at the end of its commit message):
+
+1. **4947723d6d34 arm: mediatek: use phase-aware PSCI reset on MT8365**: split-check changed CONFIG_IS_ENABLED(PSCI_RESET) back to IS_ENABLED(CONFIG_PSCI_RESET) and added PSCI_RESET to `scripts/conf_nospl`. The commit is now just the one-line `conf_nospl` addition. That still does what upstream intended: PSCI reset is off in SPL.
+2. **80f893ea41aa arm: mediatek: use phase-aware PSCI reset on MT8195**: the same conversion left this commit empty, because the MT8365 commit already added PSCI_RESET to `conf_nospl`. I kept it as an empty commit with a note saying so.
+3. **99315bb5be6b pinctrl: mediatek: remove PINCONF conditional compilation**: this had conflicts in `pinctrl-mtk-common.c` and `.h`, because ci/master uses `#if IS_ENABLED(CONFIG_PINCONF)` where upstream has CONFIG_IS_ENABLED(PINCONF). I fixed it by removing the conditionals as upstream does, giving the same 19 deletions as the original.
+4. **a635b48ce87f Merge tag 'mediatek-for-next-2026-08-24'**: the merge brought back the two CONFIG_IS_ENABLED(PSCI_RESET) lines in the mt8195 and mt8365 `init.c` files. Split-check converted them, so the merge is an empty commit, kept to preserve the history.
+
+**Note:** the note lines on the MT8195 commit and the merge commit are longer than 72 columns. I can shorten them if you want.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline 10951: every failed job also fails in other merge requests, so this looks like a lab or inf...
+
+### Conversation log
+The comment reports infra failures only, so there's likely nothing to change. I'll check the branch and build anyway.
+
+I made no code changes: nothing in the comment needs one. The sandbox build passes, and `cherry-5fa1de058293-v2` is checked out.
+
+**What I did**
+- The bot comment only says that pipeline 10951's failures (opi_pc, samus, samus_tpl, snow) also fail in 13 other merge requests (!1509, !1514–!1525). It points to a lab or infrastructure problem, not to this series. None of those four boards is a MediaTek board.
+- I checked out `cherry-5fa1de058293` and ran `buildman -L --board sandbox -w -o /tmp/pickman`. It built with no warnings or errors.
+- I created `cherry-5fa1de058293-v2` at the same commit (c980be492654), with no changes, and left it checked out. I have not pushed it.
+
+**Suggested reply for the MR**
+
+> Thanks. All four failing jobs (opi_pc, samus, samus_tpl, snow) also fail in many other merge requests, so this looks like a lab or infrastructure problem, not this series. None of these boards is MediaTek, and the series doesn't touch them. I have made no code changes. The sandbox build still passes. I'll re-run the pipeline once the lab issue is fixed.
+
+The note lines over 72 columns on the MT8195 commit and the merge commit, from the earlier run, are still unchanged. Nobody asked for them to be shortened in this round.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10957 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+No overlapping files, so the rebase should be clean. I'm saving the per-commit stats and then rebasing with a build after each commit.
+
+The rebase is running and builds sandbox after each of the 29 commits. I'll compare the per-commit stats when it finishes.
+
+I rebased the branch onto ci/master as `cherry-5fa1de058293-v3`. It is checked out and not pushed. The review comment needed no code change. Sandbox built with no warnings or errors after every one of the 29 commits.
+
+**Rebase**
+- I started from `cherry-5fa1de058293-v2` (71c70438f8b4) rather than the local `cherry-5fa1de058293`. The local branch is out of date: it stops at c980be492654 and is missing the "Record review handling" commit that is already on ci/cherry-5fa1de058293. Starting from it would have dropped that `.pickman-history` entry.
+- ci/master only moved on by 2 commits (c640c9c1c6ba "pickman: Pull a subtree update again rather than rebasing it", plus its merge). They only touch `tools/pickman/`, which this branch doesn't change, so there were no conflicts.
+- I ran `git rebase --keep-empty ci/master`, with `buildman -L --board sandbox -w -o /tmp/pickman` after each commit.
+- All 29 commits came through, including the empty MT8195 PSCI commit and the empty merge commit (now 790f6b3f04d5). The new top is ba378536ac3d.
+- Each commit's `git show --stat` output is the same before and after the rebase.
+- The only difference between the v2 and v3 trees is the upstream pickman change (3 files, +252/−25).
+
+**Review comment**
+The bot comment only says pipeline 10957 was started to re-run the jobs that failed. Nothing in it asks for a change, so I made no edits. The failing boards aren't MediaTek and the series doesn't touch them. The earlier run already found that opi_pc, samus, samus_tpl and snow also fail in many other merge requests. I haven't checked the new RPi, BeagleBone, Pine64 and Hummingboard jobs.
+
+**Suggested reply for the MR**
+
+> Thanks. I've rebased onto the latest master, which only adds a pickman change unrelated to this series, so no code changes. Every commit has the same file changes as before, and sandbox builds cleanly at each one. The jobs being re-run (the RPi, BeagleBone, Pine64 and Hummingboard lwIP variants, opi_pc, samus, samus_tpl, snow) are all non-MediaTek boards that this series doesn't touch, so any remaining failures there look like lab or infrastructure problems rather than this series.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline 10959: every failed job also fails in other merge requests, so this looks like a lab or inf...
+
+### Conversation log
+I made no code changes, because the comment doesn't ask for any. The sandbox build passes with no warnings or errors, and `cherry-5fa1de058293-v4` is checked out. I have not pushed it.
+
+**What I did**
+- **The comment:** it only says that the four jobs still failing in pipeline 10959 (opi_pc, samus, samus_tpl, snow) also fail in 12 other merge requests (!1509, !1515–!1525). That points to a lab or infrastructure problem. The previous round's run of pipeline 10957 also re-ran the RPi, BeagleBone, Pine64 and Hummingboard jobs, and none of those are in this failure list, so they appear to have passed.
+- **Starting point:** I built `-v4` from the pushed tip `ci/cherry-5fa1de058293` (4fef21691cf1, the same commit as the local `-v3`). I didn't use the local `cherry-5fa1de058293`, because it is still at the old c980be492654 and is missing both "Record review handling" commits. The branch already includes the latest ci/master, so it didn't need a rebase.
+- **Build:** I ran `buildman -L --board sandbox -w -o /tmp/pickman` and it built cleanly.
+- **Other branch:** your working tree was on `cherry-d29122e0287a`, with untracked `tools/binman/home/` and `tools/binman/usr/` directories. I left those alone.
+
+**Suggested reply for the MR**
+
+> Thanks. The only jobs still failing (opi_pc, samus, samus_tpl, snow) also fail in many other merge requests, so this looks like a lab or infrastructure problem, not this series. None of these boards is MediaTek, and the series doesn't touch them. The other jobs that were re-run in the previous pipeline now pass. I have made no code changes. The sandbox build still passes.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still as they were; this comment didn't ask about them.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10963 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+The comment only says that pipeline 10963 was started to re-run the failed jobs, so I don't expect any code change. I'll check the branch state, build, and create the next version branch.
+
+The pushed tip, 8ae6c8e33134, is the same commit as the local `-v4` and already contains ci/master, so it doesn't need a rebase. I'll create `-v5` from it and build.
+
+I made no code changes, because the comment doesn't ask for any. The sandbox build passes with no warnings or errors, and `cherry-5fa1de058293-v5` is checked out. I have not pushed it.
+
+- **The comment:** it only says that pipeline 10963 was started to re-run the jobs that didn't pass in pipeline 10959: the RPi 3/4, BeagleBone Black, Pine64+ and Hummingboard 2 jobs, plus opi_pc, samus, samus_tpl and snow. None of these is a MediaTek board, and the series doesn't touch any of them.
+- **Starting point:** I created `-v5` from the pushed tip `ci/cherry-5fa1de058293` (8ae6c8e33134, the same commit as the local `-v4`). It already contains the latest ci/master, so it didn't need a rebase. The local `cherry-5fa1de058293` is still at the old c980be492654, so I didn't use it.
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` built with no warnings or errors.
+- **Your other branch:** the working tree was on `cherry-d29122e0287a` and has untracked `tools/binman/home/` and `tools/binman/usr/` directories. I left those alone; they carried over when I switched branches.
+
+**Suggested reply for the MR**
+
+> Thanks. No code changes: the branch is the same as in pipeline 10959 and the sandbox build still passes. The jobs being re-run are all non-MediaTek boards that this series doesn't touch. In earlier pipelines opi_pc, samus, samus_tpl and snow also failed in many other merge requests, so any failures there look like a lab or infrastructure problem, not this series.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still unchanged, since this comment didn't ask about them.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+
+
+### Conversation log
+The pushed tip (a061dcf68d41, the same as local `-v5`) is behind ci/master by a dts/upstream subtree update and some pickman records. I'll check whether the changes overlap.
+
+Only `.pickman-history` overlaps, and it is an append-only log, so any conflicts should be trivial. I'll save the per-commit stats, then rebase from the pushed tip and build after each commit.
+
+The rebase is running in the background and builds sandbox after each of the 32 commits. I'll be notified when it finishes, and if `.pickman-history` conflicts it will stop.
+
+I'm waiting for the rebase to finish or stop.
+
+The expected `.pickman-history` conflict has come up. I'll look at it.
+
+Both sides only append entries at the same place in the log. I'll keep both: the master entries first, then this branch's.
+
+The line count is 3 short of 78+65, so I'll check that nothing was lost.
+
+Those differences look like diff alignment noise around shared `---` separator lines. I'll check directly that the result is the master file followed by this branch's additions.
+
+The rest applied cleanly. Now I'll compare the per-commit stats and the tree.
+
+All 32 commits have the same stats as before. The only tree differences from the old tip are master's own changes. I'll run one final build to confirm.
+
+I rebased the branch onto ci/master as `cherry-5fa1de058293-v6` and left it checked out. I haven't pushed it. Sandbox built with no warnings or errors after every one of the 32 commits and again at the end.
+
+**Rebase**
+- **Starting point:** I started from the pushed tip `ci/cherry-5fa1de058293` (a061dcf68d41, the same as local `-v5`). The local `cherry-5fa1de058293` is still at the old c980be492654 and is missing all the "Record review handling" commits, so I didn't use it.
+- **What master added:** the v7.2-dts subtree update into `dts/upstream`, an R-Car Gen5 dtsi fix, and pickman records for `cherry-d29122e0287a`. The only file both sides touch is `.pickman-history`.
+- **Conflict:** one, in "pickman: Record cherry-pick of 27 commits from us/main". Both sides only add entries to the end of `.pickman-history`, so I kept master's entries first, then this branch's. I checked that the result is exactly master's file plus this commit's 65 added lines. My first try at removing the conflict markers had dropped a shared `---` separator line, so I replaced it with that version. The later review-handling commits applied without conflicts.
+- **Commits:** all 32 came through, including the empty MT8195 PSCI commit and the empty merge commit (now 5b250333ed59). The new top is 47cedc967952.
+- **Checks:** each commit's `git show --stat` output is the same before and after the rebase. Apart from master's own changes, the new tree differs from the old tip only in `.pickman-history` (+78) and `arch/arm/dts/r8a78000-u-boot.dtsi` (−4).
+
+Your untracked `tools/binman/home/` and `tools/binman/usr/` directories are still there; I left them alone.
+
+**Suggested reply for the MR**
+
+> Rebased onto the latest master, which adds a dts/upstream subtree update, an R-Car dtsi fix and pickman records, none of which touch this series. The only conflict was in the append-only .pickman-history log, and I kept both sides' entries. Every commit has the same file changes as before, and sandbox builds cleanly at each one.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still unchanged.
+
+---
+
+### Pipeline fix: 2026-11-01 (attempt 2)
+
+Branch: cherry-5fa1de058293
+
+Failed jobs:
+- qemu-x86_64 (sjg-lab)
+
+### Conversation log
+Checking whether the qemu-x86_64 failure comes from the series. First I'll build qemu-x86_64 and sandbox at the pushed tip.
+
+Both boards build cleanly. Now I'll check whether the series changes the qemu-x86_64 build at all, by comparing it with ci/master.
+
+This qemu-x86_64 failure is a lab or infrastructure problem, not a bug in the series. I made no code changes and did not create `cherry-5fa1de058293-fix2`.
+
+**What the log shows**
+- The pytest run on the lab board stopped with `Lab failure: Timeout executing 'dm drivers': Marking connection bad - no other tests will run`.
+- That is the lab harness losing the console: the full driver table had already printed, but the prompt never came back in time.
+- No test assertion failed: 6 passed and 49 were skipped before the harness gave up.
+
+**Why the series can't be the cause**
+- I built qemu-x86_64 at the pushed tip (`ci/cherry-5fa1de058293`, 036b1889a576) and at `ci/master`. The `.config` and `u-boot.dtb` are identical, and so are the text, data and bss sizes. The two `u-boot-nodtb.bin` files differ in 25 bytes, which matches the size of the build hash and timestamp in the version string. I didn't confirm byte by byte that this is the only difference.
+- The only non-MediaTek code the series touches is new Kconfig/Makefile entries for drivers qemu-x86_64 doesn't enable, a small `dwc_eth_qos.c` change, a default macro in `include/edid.h`, one line in `scripts/conf_nospl`, and MediaTek defconfigs.
+- `buildman -o /tmp/pickman --boards qemu-x86_64,sandbox` built cleanly with no warnings or errors.
+
+**Notes**
+- The local `cherry-5fa1de058293` is still the stale c980be492654, so I checked the pushed tip instead.
+- I left the working tree on `cherry-5fa1de058293-v6`, where it started. The untracked `tools/binman/home/` and `tools/binman/usr/` directories are untouched.
+- Re-running the qemu-x86_64 job once the lab is healthy should be enough.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 2): fixed failed job(s) qemu-x86_64.
+
+Checking whether the qemu-x86_64 failure...
+
+### Conversation log
+The comment is a bot status update: it re-runs pipeline 10971 after the qemu-x86_64 lab timeout. I'll check the branch state and build.
+
+The local `-v6` (07749f53561c) differs from the pushed tip (036b1889a576). I'll check how they relate.
+
+I made no code changes, because the comment doesn't ask for any. The sandbox build passes with no warnings or errors. I created `cherry-5fa1de058293-v7` and left it checked out; I haven't pushed it.
+
+**The comment**
+- It repeats last round's conclusion: the qemu-x86_64 failure was a lab timeout on 'dm drivers', not a problem in the series.
+- It says pipeline 10971 has started, re-running only the jobs that didn't pass: the RPi 3/4, BeagleBone Black, Pine64+ and Hummingboard 2 jobs, and qemu-x86_64.
+- It skips opi_pc, samus, samus_tpl and snow, because they also fail in 10 other merge requests (!1516–!1525).
+- None of these boards is MediaTek, and the series doesn't touch them.
+- I haven't seen the results of pipeline 10971 yet.
+
+**Branch**
+- I based `-v7` on the local `-v6` (07749f53561c) rather than the pushed tip `ci/cherry-5fa1de058293` (036b1889a576).
+- `-v6` is the pushed tip plus one commit, "pickman: Record pipeline fix for cherry-5fa1de058293", which adds 31 lines to `.pickman-history`. Starting from the pushed tip would have dropped that record.
+- The branch already contains the latest ci/master, so it didn't need a rebase.
+- The local `cherry-5fa1de058293` is still at the old c980be492654, so I didn't use it.
+- Your untracked `tools/binman/home/` and `tools/binman/usr/` directories are untouched.
+
+**Suggested reply for the MR**
+
+> Thanks. No code changes: the series is the same as in pipeline 10968 and the sandbox build still passes. The qemu-x86_64 failure was a lab timeout on 'dm drivers', with no test failing. The other jobs being re-run are non-MediaTek boards that this series doesn't touch. opi_pc, samus, samus_tpl and snow also fail in many other merge requests, so those look like a lab or infrastructure problem, not this series.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still as they were, since this comment didn't ask about them.
+
+---
+
