@@ -102465,3 +102465,52 @@ Job 737727 never got as far as running a test. The board took the FSBL upload an
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 2): fixed failed job(s) bpif3.
+
+**The bpif3 failure on MR !1529 looks like an ...
+
+### Conversation log
+**No code changes were needed for MR !1529: the comment only reports the earlier bpif3 analysis and that pipeline 10983 has started.** However, bpif3 has already failed again in 10983, and that re-run tested nothing because the board was held by someone else. `cherry-cfe0012e12d7-v4` is created and checked out at `95b45e4f85f6`, with no new commits, and is not pushed.
+
+## Pipeline 10983
+This pipeline runs on `d7be97cf18d0` and is still going:
+- **bpif3 (job 737785):** failed within seconds, before any board access:
+  ```
+  labgrid-client: Error: place bpif3 is not acquired by your user, acquired by labgrid.
+  labgrid-client: Error: place bpif3 is acquired by a different user (kea/labgrid), use --kick if you are sure
+  ```
+- **The other 9 jobs:** still pending or created, so there are no results yet.
+
+**What this means for bpif3:**
+- **Different failure:** this isn't the `BootROM did not start the FSBL` error from job 737727, and U-Boot never ran. It doesn't count for or against the series.
+- **Earlier diagnosis still unproven:** the "intermittent lab problem" conclusion still rests on the job comparison, because bpif3 hasn't had a real run on this code since job 737727.
+- **The lock:** I didn't kick it, because `kea/labgrid` may be using the board. I also couldn't see who holds it now, because `labgrid-client` can't reach the coordinator from this session.
+
+## Other points from the comment
+- **"Fixed failed job(s) bpif3" is wrong:** nothing was fixed. Pickman posts that wording whenever the fix agent reports success, even if it changed nothing.
+- **Nine jobs not in the failure report:** the Raspberry Pi and lwIP jobs were `skipped` in pipeline 10982, not failed. Pickman re-runs them because it only treats `success` and `manual` as done. That answers the question left open in the `-v3` report.
+- **Other failures:** opi_pc, samus, samus_tpl and snow also failed in 10982. They also fail in other MRs, so pickman left them out of 10983.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes on `-v4` (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1`, because only `.pickman-history` has changed since `dec4cb7077af`.
+
+## Before pushing
+- **Branch base:** `-v4` is based on `cherry-cfe0012e12d7-fix2`, not the local `cherry-cfe0012e12d7`, which is two commits behind the MR.
+    - `95b45e4f85f6` is the pipeline-fix record, which pickman commits after pushing, so it never reached the MR. Basing on it keeps that record.
+    - It's a fast-forward from the MR tip, and it only touches `.pickman-history`.
+- **Risk of a full pipeline:** from reading `_push_with_ci`, a push while 10983 is still running starts every job rather than a narrowed set, because it only narrows when the pipeline has finished. Wait for 10983 to finish first if you want to avoid that; I didn't test this.
+- **Next step:** bpif3 needs another run once the board is free. If `kea/labgrid` is a stale lock, someone needs to release it.
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+
+## Suggested reply for the MR
+
+> No code changes for this one, and despite the wording above, nothing was fixed for bpif3. Its re-run in pipeline 10983 (job 737785) failed before any test ran, because the bpif3 place was held by kea/labgrid, so it tells us nothing about this series. The `BootROM did not start the FSBL` failure in job 737727 still looks like an intermittent lab problem, but bpif3 needs a real run once the board is free to confirm that. The other nine jobs in 10983 are still waiting; they were skipped in 10982, not failed. The sandbox build passes.
+
+---
+
