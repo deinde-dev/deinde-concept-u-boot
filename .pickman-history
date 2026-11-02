@@ -102275,3 +102275,958 @@ The note lines over 72 columns in the MT8195 commit and the merge commit are sti
 
 ---
 
+## 2026-11-01: us/main
+
+Branch: cherry-cfe0012e12d7
+
+Commits:
+- cfe0012e12d7 i2c: k1: fix wrong bus speed setting
+- 0b47f7237e44 clk: spacemit: k1: add TWSI bus clocks to SPL
+- febfffd338e0 i2c: k1: enable both functional and bus clocks
+- 35c2947b5b21 clk: spacemit: k1: remove bus gate from TWSI functional clocks
+- 12d7a1e89c2b Merge tag 'i2c-updates-for-2026.10-next' of https://git.u-boot-project.org/u-boot/custodians/hs/u-boot-i2c into next
+
+### Conversation log
+Commit 2 hits a conflict in clk-k1.c. I'm checking how the target's SPL clock tree differs from upstream's.
+
+The conflict comes from a missing prerequisite, 853fdea1fe2b ("prune SPL clock tree"). I'm checking what the ci/master SPL clock tree already has.
+
+ci/master doesn't have the pruned SPL tree; it keeps the full set of PLL1 dividers in SPL. apb_clk and the TWSI bus clocks are still under '#if !SPL', so I'll port the change by hand to that layout.
+
+I'll rebuild the file from the ci/master version: move apb_clk and the TWSI2/TWSI8 bus clocks out of the '#if !SPL' blocks and add them to the SPL clock lists.
+
+The port matches the original's intent. Committing it with a note, then running split-check and the builds.
+
+spacemit_k1 compiles. The only failure is the missing external OpenSBI blob, which isn't caused by this change; I'll use -M for later K1 builds. Next, commits 3 and 4.
+
+Two hunks: the reset code auto-merged in the target's favour. The struct conflict exists only because the target has an extra 'resets' member, so I'll keep that and drop just 'clk'.
+
+The resolved diff matches the original. Checking that the target's K1 device tree supplies "func" and "bus" clock names before committing.
+
+Same cause: upstream's separate SPL block isn't in the target. Keeping the target side, then checking that every TWSI functional clock got the BIT(1)-only gate.
+
+That gives 7 changes against the original's 8: upstream defines TWSI2 twice (once for SPL, once not) but the target has one shared definition. TWSI8 keeps both bits on purpose, as in the original.
+
+Now the merge commit.
+
+The merge conflicts because its content is the four commits already picked. Confirming the merged range is exactly those four, then recording the merge as an empty commit.
+
+'--continue' didn't create the empty commit, so I'll commit it directly, reusing the merge's message and adding the -x line.
+
+All 5 commits are in place. Running the final sandbox and spacemit_k1 builds (-M allows the missing OpenSBI blob) and comparing the i2c driver with upstream.
+
+I cherry-picked all 5 commits onto a new branch, cherry-cfe0012e12d7, based on ci/master. Three of them needed fix-ups, and the sandbox build passes after each one and at the end.
+
+**Builds**
+- **sandbox:** passes with no warnings or errors.
+- **spacemit_k1:** I built this as well, since sandbox doesn't compile these K1 drivers. The code compiles cleanly. The only problem is the OpenSBI firmware file (fw_dynamic.bin), which is missing on this machine; with -M the build fills in a placeholder and counts it as a warning.
+
+**Commits** (`git log --oneline -n 7`)
+```
+70f5aabee25d Merge tag 'i2c-updates-for-2026.10-next' ... (empty)
+73733f8b36b0 clk: spacemit: k1: remove bus gate from TWSI functional clocks
+837f332eaf65 i2c: k1: enable both functional and bus clocks
+d99a28283146 clk: spacemit: k1: add TWSI bus clocks to SPL
+a356ed1cf1da i2c: k1: fix wrong bus speed setting
+```
+
+**Fix-ups** (each one has a note at the end of its commit message)
+1. **cfe0012e12d7 (bus speed):** applied cleanly, same delta as the original.
+2. **0b47f7237e44 (TWSI bus clocks in SPL): ported by hand, so this one needs a closer review.**
+   - It depends on 853fdea1fe2b ("clk: spacemit: k1: prune SPL clock tree"), which is not in ci/master. Upstream has a separate, smaller set of SPL clock definitions; ci/master keeps all the PLL1 dividers in SPL.
+   - So instead of adding new SPL definitions, I moved the existing apb_clk (with its parent list) and the TWSI2/TWSI8 bus clocks out of their `#if !IS_ENABLED(CONFIG_SPL_BUILD)` blocks. I then added them to the SPL clock lists.
+   - The delta is +16/-13 against +23 in the original, because definitions move rather than being added.
+3. **febfffd338e0 (func + bus clocks):** a conflict in `struct k1_i2c_priv`, because the target has an extra `resets` member. I kept it and removed only `clk`. The change itself matches the original exactly (+12/-6), and the K1 device tree has the "func" and "bus" clock names it looks up.
+4. **35c2947b5b21 (remove bus gate from TWSI functional clocks):** the conflict came from upstream's separate SPL block again, so I kept the target's version. The delta is 7/7 against 8/8 in the original: upstream defines TWSI2 twice (once for SPL, once not) and the target has one shared definition. TWSI8 keeps both gate bits, as in the original.
+5. **12d7a1e89c2b (merge):** its content is exactly the four commits above, so I kept it as an empty commit with the original message, Tom Rini as author and the cherry-picked-from line.
+
+The split-check script changed nothing in any of the commits.
+
+**Deltas to check:** commit 2 is the one to look at closely. Commit 4's smaller delta is expected. The branch is not pushed or merged anywhere.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline 10976: every failed job also fails in other merge requests, so this looks like a lab or inf...
+
+### Conversation log
+I'll check out the branch and see its current state first.
+
+The comment only reports failures that also occur in other MRs, so it asks for no code change. I'll still run the required build and check whether this series could affect those boards at all.
+
+The sandbox build passes. My defconfig grep used guessed symbol names, so its empty result proves little. I'll check the real symbols while creating the branch.
+
+No code changes were needed for MR !1529: the only review comment is the bot's CI report, and it asks for nothing to be fixed. `cherry-cfe0012e12d7-v2` is created and checked out, at the same commit as `cherry-cfe0012e12d7` (`dec4cb7077af`), and is not pushed.
+
+**The comment:** the bot says the failures in pipeline 10976 (opi_pc, samus, samus_tpl, snow) also occur in other MRs, and it didn't attempt to fix them.
+
+**Why this series is unlikely to be the cause:**
+- It only changes `drivers/clk/spacemit/clk-k1.c`, `drivers/i2c/k1_i2c.c` and `.pickman-history`.
+- The two drivers build only with `CONFIG_SYS_I2C_SPACEMIT_K1` and `CONFIG_CLK_SPACEMIT`, and neither is set in the defconfigs for those four boards.
+
+I didn't read the pipeline logs or check the boards' final configs, so the "lab or infrastructure problem" diagnosis is still the bot's. The failed jobs still need a re-run once the lab problem is fixed.
+
+**Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1` because the code is unchanged since the earlier build.
+
+**Still open:**
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand, so it still needs the closer review flagged in the MR description. This comment doesn't touch it.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already in the working tree before I started. I left them alone and they aren't in any commit.
+
+**Suggested reply for the MR:**
+
+> No code changes for this one. The failures in pipeline 10976 (opi_pc, samus, samus_tpl, snow) also occur in other merge requests, and this series only touches the SpacemiT K1 clock and I2C drivers, which those boards' defconfigs do not enable. The sandbox build passes. This needs a CI re-run once the lab problem is resolved.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10979 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+No code changes were needed for MR !1529: the only comment is the bot's notice that it started pipeline 10979, so there is nothing to fix. `cherry-cfe0012e12d7-v3` is created and checked out at `15d71aa20ee3`, with no new commits, and is not pushed.
+
+**The comment:** the bot re-ran the 13 jobs that did not pass in pipeline 10976 and kept the passes from that pipeline. I don't have the results of 10979, because `glab` isn't installed here and I didn't query the pipeline another way.
+
+**Branch base:** I based `-v3` on `-v2`, not on `cherry-cfe0012e12d7` as step 1 implies.
+- The local `cherry-cfe0012e12d7` is one commit behind, at `dec4cb7077af`.
+- The MR branch on `ci` is at `15d71aa20ee3`, the same as `-v2`, because it includes pickman's review record.
+- Branching from the local copy would have left that record out of `-v3`, and pushing it would have needed a force.
+
+**Can this series affect those jobs?** It is very unlikely, based on the code rather than on any job logs:
+- **Files changed:** the series only touches `drivers/clk/spacemit/clk-k1.c`, `drivers/i2c/k1_i2c.c` and `.pickman-history`.
+- **Who builds the drivers:** `CONFIG_SYS_I2C_SPACEMIT_K1` and `CONFIG_CLK_SPACEMIT` are set only in `configs/spacemit_k1_defconfig`. Neither has a default in the Kconfig entries I read, and nothing selects or implies them. This replaces the earlier check of just four boards, which didn't look at their final configs.
+
+**Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes on `-v3` (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1`, because only `.pickman-history` has changed since the earlier build.
+
+**Still open:**
+- **New jobs in the list:** the earlier bot report named only opi_pc, samus, samus_tpl and snow as failing. The other nine jobs (the Raspberry Pi 3 and 4 jobs, plus the lwIP jobs for BeagleBone Black, Pine64+ and Hummingboard 2) are new to me, and I don't know why they did not pass. They may be skipped or cancelled rather than failed, so check them in 10979.
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone. They aren't in any commit.
+
+**Suggested reply for the MR:**
+
+> No code changes for this one, as this comment only reports that pipeline 10979 has started. This series touches only the SpacemiT K1 clock and I2C drivers, which only spacemit_k1_defconfig enables, so it is very unlikely to affect the re-run jobs. The sandbox build passes. I have not seen the results of 10979 yet, so any job that still fails there needs checking, particularly the Raspberry Pi and lwIP jobs, which were not in the earlier failure report.
+
+---
+
+### Pipeline fix: 2026-11-01 (attempt 2)
+
+Branch: cherry-cfe0012e12d7
+
+Failed jobs:
+- bpif3 (sjg-lab)
+
+### Conversation log
+**The bpif3 failure on MR !1529 looks like an intermittent lab problem, not this series, so I made no code changes.** No commit is responsible. `cherry-cfe0012e12d7-fix2` is checked out at `d7be97cf18d0`, the current MR tip, and is not pushed.
+
+## What failed
+Job 737727 never got as far as running a test. The board took the FSBL upload and acknowledged `continue`, but no new USB device appeared, and this happened on all 5 attempts. `k1-deploy.py` then reported `BootROM did not start the FSBL`, and pytest stopped with `Lab failure`.
+
+## Why it isn't this series
+- **Same code passed:** bpif3 passed job 737424 (pipeline 10976, commit `dec4cb7077af`, 42 tests) with no USB retries. The failing commit differs from that one only in `.pickman-history`.
+- **Same failure without this series:** other MRs hit the same error on all 5 attempts, and none of them contains the K1 I2C change:
+
+| Job | MR | Pipeline | Result |
+|---|---|---|---|
+| 737137 | !1527 | 10972 | failed, about two hours earlier |
+| 732898 | !1518 | 10893 | failed |
+| 730899 | !1513 | 10851 | failed |
+
+- **Flaky around the same time:** job 737566 (!1530) failed 3 attempts about an hour earlier, then passed.
+- **Already known:** a comment in `k1-deploy.py` says the BootROM sometimes acks `continue` without starting the FSBL, and that a fresh reset usually clears it.
+
+## What this doesn't rule out
+- **Early SPL hang:** the error only means no new USB device appeared within 15 seconds, so an SPL hanging early would look the same. That's why I'm relying on the job comparison, not the message.
+- **Higher failure rate:** the series has one failure and one pass on identical code, plus a pass on an earlier rebase (`70f5aabee25d`). That can't show whether commit 2, which adds clocks to SPL, makes failures slightly more likely, but nothing suggests it does.
+
+## Builds
+- **sandbox:** `um build sandbox` and buildman both pass.
+- **spacemit_k1:** this is the defconfig behind the `bpif3` lab role, which isn't a buildman board name. It compiles, with one warning because the OpenSBI blob is missing here (`-M` fakes it), so the image can't boot.
+- **SPL size:** `u-boot-spl.bin` is 142,215 bytes, well under the 200,704-byte limit.
+- **Commit built:** these ran on `dec4cb7077af`, which has the same code as the MR tip. I didn't run anything on hardware.
+
+## Before pushing
+- **Branch base:** `-fix2` is based on the MR tip, not the local `cherry-cfe0012e12d7`, which is two commits behind. `_push_with_ci` force-pushes HEAD, so pushing from the old branch would have dropped the two `pickman: Record review handling` commits.
+- **Misleading MR comment:** if pickman counts this run as a success, it will post `fixed failed job(s) bpif3`, but nothing was fixed. Please change that comment or replace it with the reply below.
+- **Next step:** bpif3 needs a re-run, and if it keeps failing, the board needs checking. A push with no code change only re-runs the jobs that didn't pass, which should include bpif3.
+- **Shared-failure check:** pickman didn't filter this job out as a shared failure, even though !1527 failed the same way. I didn't look into why.
+- **Commit 2 review:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+
+**Suggested MR reply:**
+
+> No code changes for this one. bpif3 failed because the board never came up after the FSBL upload, on all 5 attempts (`BootROM did not start the FSBL`). The same code passed bpif3 in pipeline 10976, and the same error occurs on MRs without this series (e.g. job 737137 on !1527), so this looks like an intermittent lab problem. bpif3 needs a re-run.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 2): fixed failed job(s) bpif3.
+
+**The bpif3 failure on MR !1529 looks like an ...
+
+### Conversation log
+**No code changes were needed for MR !1529: the comment only reports the earlier bpif3 analysis and that pipeline 10983 has started.** However, bpif3 has already failed again in 10983, and that re-run tested nothing because the board was held by someone else. `cherry-cfe0012e12d7-v4` is created and checked out at `95b45e4f85f6`, with no new commits, and is not pushed.
+
+## Pipeline 10983
+This pipeline runs on `d7be97cf18d0` and is still going:
+- **bpif3 (job 737785):** failed within seconds, before any board access:
+  ```
+  labgrid-client: Error: place bpif3 is not acquired by your user, acquired by labgrid.
+  labgrid-client: Error: place bpif3 is acquired by a different user (kea/labgrid), use --kick if you are sure
+  ```
+- **The other 9 jobs:** still pending or created, so there are no results yet.
+
+**What this means for bpif3:**
+- **Different failure:** this isn't the `BootROM did not start the FSBL` error from job 737727, and U-Boot never ran. It doesn't count for or against the series.
+- **Earlier diagnosis still unproven:** the "intermittent lab problem" conclusion still rests on the job comparison, because bpif3 hasn't had a real run on this code since job 737727.
+- **The lock:** I didn't kick it, because `kea/labgrid` may be using the board. I also couldn't see who holds it now, because `labgrid-client` can't reach the coordinator from this session.
+
+## Other points from the comment
+- **"Fixed failed job(s) bpif3" is wrong:** nothing was fixed. Pickman posts that wording whenever the fix agent reports success, even if it changed nothing.
+- **Nine jobs not in the failure report:** the Raspberry Pi and lwIP jobs were `skipped` in pipeline 10982, not failed. Pickman re-runs them because it only treats `success` and `manual` as done. That answers the question left open in the `-v3` report.
+- **Other failures:** opi_pc, samus, samus_tpl and snow also failed in 10982. They also fail in other MRs, so pickman left them out of 10983.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes on `-v4` (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1`, because only `.pickman-history` has changed since `dec4cb7077af`.
+
+## Before pushing
+- **Branch base:** `-v4` is based on `cherry-cfe0012e12d7-fix2`, not the local `cherry-cfe0012e12d7`, which is two commits behind the MR.
+    - `95b45e4f85f6` is the pipeline-fix record, which pickman commits after pushing, so it never reached the MR. Basing on it keeps that record.
+    - It's a fast-forward from the MR tip, and it only touches `.pickman-history`.
+- **Risk of a full pipeline:** from reading `_push_with_ci`, a push while 10983 is still running starts every job rather than a narrowed set, because it only narrows when the pipeline has finished. Wait for 10983 to finish first if you want to avoid that; I didn't test this.
+- **Next step:** bpif3 needs another run once the board is free. If `kea/labgrid` is a stale lock, someone needs to release it.
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+
+## Suggested reply for the MR
+
+> No code changes for this one, and despite the wording above, nothing was fixed for bpif3. Its re-run in pipeline 10983 (job 737785) failed before any test ran, because the bpif3 place was held by kea/labgrid, so it tells us nothing about this series. The `BootROM did not start the FSBL` failure in job 737727 still looks like an intermittent lab problem, but bpif3 needs a real run once the board is free to confirm that. The other nine jobs in 10983 are still waiting; they were skipped in 10982, not failed. The sandbox build passes.
+
+---
+
+### Pipeline fix: 2026-11-01 (attempt 3)
+
+Branch: cherry-cfe0012e12d7
+
+Failed jobs:
+- zybo (sjg-lab)
+- colibrimx8 (sjg-lab)
+
+### Conversation log
+Both jobs passed on identical driver code in earlier pipelines, so this looks intermittent. I'm now checking the full job traces to confirm that.
+
+**Neither failure on MR !1529 comes from this series, so I made no code changes and no commit is responsible.** Both jobs should pass on a re-run, but each exposes a real intermittent bug outside the series. `cherry-cfe0012e12d7-fix3` is checked out at `238dc5a8bea9`, the current MR tip, and is not pushed.
+
+## Why it isn't this series
+- **Same code passed:** both boards passed on `d7be97cf18d0` (jobs 737721 and 737746), and the only difference from the failing commit is `.pickman-history`.
+- **Drivers not built:** `CONFIG_CLK_SPACEMIT` and `CONFIG_SYS_I2C_SPACEMIT_K1` are not set in the final `.config` for either board, so the K1 code isn't compiled.
+
+## zybo (job 737916): test bug
+`test_saveenv` builds a random 300-character string and wraps it in double quotes. This time the string ended in a backslash, which escaped the closing quote:
+```
+setenv str_var "...mEuh4UU\"
+> Lab failure: Timeout executing ...
+```
+- **What happens:** U-Boot's shell shows its `> ` continuation prompt and waits for more input, so the test times out after 30s. "Lab failure" is misleading, as the board was fine.
+- **Reproduced on sandbox:** `"abc\"` gives the `> ` prompt, while `"abc\\"` works normally.
+- **How often:** a string ends in an odd number of backslashes about 1% of the time, since the character pool has 92 characters. This is the first failure in the 19 recent zybo runs I listed.
+
+## colibrimx8 (job 737891): stray echo on the lab console
+The first command after the board came up was echoed twice, and that command happened to be `dm tree`:
+```
+Colibri iMX8X # dm tree
+dm tree
+ Class     Seq    Probed  Driver                Name
+```
+- **Why the test failed:** `test_dm_compat` works out the Driver column from the response, and the extra line shifts it from 26 to 34, so it reads the tree-drawing characters instead.
+- **Confirmed by replay:** running the test's parser on the log gives exactly `` {'`--', '|', '|--'} ``. With the extra line removed, nothing is flagged.
+- **Not new:** the double echo appears in 4 of the last 11 colibrimx8 traces that ran tests, always on the first command after `lab ready`. In the other three (737721, 737418 and 735940) that command was `version`, so those jobs still passed. Job 735940 is from !1527, not this series.
+- **Not found:** I don't know what causes the double echo; a race on the console connection is only my guess. Job 736237 also failed, but with an unrelated pytest `INTERNALERROR` before any tests ran.
+
+## Builds
+`zybo` and `colibrimx8` are lab role names, so I built their defconfigs, `xilinx_zynq_virt` and `colibri-imx8x`. I ran nothing on hardware.
+- **sandbox:** `um build sandbox` and buildman both pass.
+- **xilinx_zynq_virt:** builds cleanly.
+- **colibri-imx8x:** compiles, but buildman exits with 101 because the `mx8qx-ahab-container.img` blob is missing here. The binary from this build can't boot.
+
+## Suggested follow-ups
+I left these out of this MR because they have nothing to do with it, and I haven't tested either:
+1. **`test_saveenv`:** remove the backslash from the character pool, or make sure the string can't end in one.
+2. **Double echo:** find the cause in the lab console connection. Separately, `test_dm_compat` could take the column from the header line only, so a stray line can't shift it.
+
+## Before pushing
+- **Re-run:** zybo and colibrimx8 need a re-run. Until the double echo is fixed, colibrimx8 will fail again if it lands on `dm tree`.
+- **Branch base:** `-fix3` is based on `-v4`, not the local `cherry-cfe0012e12d7`, which is several commits behind the MR and would drop pickman's record commits.
+- **Misleading comment:** pickman may post "fixed failed job(s) zybo, colibrimx8" again, but nothing was fixed. Please use the reply below instead.
+- **GitLab access:** I used the token from `pickman.conf`, via pickman's `gitlab_api` helpers, for read-only job and trace queries. The scripts and traces are in `/tmp/pickman-q`.
+- **Still open:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+
+## Suggested MR reply
+
+> No code changes for this one; neither failure comes from this series, and neither board builds the K1 drivers. Both jobs passed on the same code in pipeline 10982. zybo hit a `test_saveenv` bug: about 1% of its random strings end in a backslash, which escapes the closing quote and hangs the shell at the `> ` prompt. On colibrimx8 the first command after boot was echoed twice, which shifted the column that `test_dm_compat` reads; the same double echo appears in other jobs, including one on !1527. Both jobs need a re-run, and both bugs need separate fixes.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 3): fixed failed job(s) zybo, colibrimx8.
+
+Both jobs passed on identical drive...
+
+### Conversation log
+The only comment is the bot's notice about attempt 3 and pipeline 10985. Next I'll check how the branches relate and whether the 10985 results are available through pickman.
+
+**No code changes were needed for MR !1529, and zybo and colibrimx8 both passed on the re-run.** The comment only repeats the attempt 3 analysis and reports that pipeline 10985 has started. `cherry-cfe0012e12d7-v5` is created and checked out at `875ab19e4211`, with no new commits, and is not pushed.
+
+## Pipeline results
+Pipeline 10985 runs on `238dc5a8bea9` and was still running when I checked:
+
+| Job | Pipeline | Result |
+|---|---|---|
+| zybo (737940) | 10985 | passed: 48 passed, 1 expected failure, 770 skipped |
+| colibrimx8 (737939) | 10985 | passed: 43 passed, 776 skipped |
+| bpif3 (737897) | 10984 | passed: 42 passed, 777 skipped, no FSBL error |
+| 9 Raspberry Pi and lwIP jobs | 10985 | still pending or created |
+| opi_pc, samus, samus_tpl, snow | 10984 | failed; they also fail in other MRs, so pickman didn't re-run them |
+
+- **zybo and colibrimx8:** this fits the earlier view that both failures were intermittent, but it doesn't show the two bugs are gone. In this colibrimx8 run the first command was `version`, and it wasn't echoed twice.
+- **bpif3:** this is its first real run since the `BootROM did not start the FSBL` failure in job 737727, which answers the question left open in the `-v4` report. One pass still can't rule out a slightly higher failure rate.
+- **The four shared failures:** I only checked their status, not their logs, so the shared-cause diagnosis is still the bot's.
+- **"Fixed failed job(s) zybo, colibrimx8" is wrong:** nothing was fixed, because pickman uses that wording even when no code changed.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes on `-v5` (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1`, because only `.pickman-history` has changed since `dec4cb7077af`.
+
+## Before pushing
+- **Branch base:** `-v5` is based on `cherry-cfe0012e12d7-fix3`, not the local `cherry-cfe0012e12d7`, which is several commits behind the MR. `875ab19e4211` is the pipeline-fix record that hasn't reached the MR yet. It only touches `.pickman-history` and is a fast-forward from the MR tip.
+- **Risk of a full pipeline:** the `-v4` report found that pushing while a pipeline is still running starts every job, though that hasn't been tested. It's safer to wait for 10985 to finish.
+
+## Still open
+- **Remaining jobs:** the nine pending jobs in 10985 still need to finish. They were skipped in 10984, not failed.
+- **`test_saveenv` backslash bug:** this needs a separate fix outside this MR.
+- **Double echo on the colibrimx8 console:** this also needs a separate fix, and the job can fail again until then.
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+
+I read the job data through the GitLab API without a token, so `pickman.conf` wasn't used this time. The traces are in `/tmp/pickman-q5`, and the pipeline JSON is in `/tmp/p10985.json` and `/tmp/p10985-jobs.json`.
+
+## Suggested MR reply
+
+> No code changes for this one, and despite the wording above, nothing was fixed. zybo and colibrimx8 both passed on the re-run in pipeline 10985, and bpif3 passed in 10984 (42 tests), so none of the three points to this series. The `test_saveenv` backslash bug and the colibrimx8 double echo are still there and need separate fixes. The nine Raspberry Pi and lwIP jobs in 10985 are still waiting. opi_pc, samus, samus_tpl and snow failed again in 10984 and also fail in other merge requests. The sandbox build passes.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+bpif3 has failed again, this time in the latest full pipeline (10986). It's the only K1 board in the list, so its trace matters most. I'll fetch all five traces.
+
+The API refuses job traces without authentication. The last run got its traces without a token, so I'll check how it did that.
+
+The project's public `raw` job URL works without a token, so I'll use that.
+
+**No code changes for MR !1529: the retry limit only means pickman has stopped trying, and nothing in the CI results points to this series.** It now needs your decision on merging. `cherry-cfe0012e12d7-v6` is checked out at `ba80360faa5b`, the MR tip, with no new commits and not pushed. The local `cherry-cfe0012e12d7` is several commits behind, so branching from it would have dropped pickman's record commits.
+
+## Pipeline 10986 failures
+Pipeline 10986 is the latest full run, with 123 jobs passing and 5 failing. All 5 failures are in the lab, before any test runs:
+
+| Job | Error | History over the last 150 pipelines (all MRs) |
+|---|---|---|
+| bpif3 | `BootROM did not start the FSBL`, all 5 attempts | intermittent, see below |
+| opi_pc, samus, samus_tpl | timeout waiting for login | 35 failures, no passes |
+| snow | place held by `labgrid` | 35 failures, no passes |
+
+- **The four boards that never pass:** no MR can get a green pipeline until they are fixed, yet !1523, !1524 and !1525 had the same failures and were merged anyway.
+- **Same code:** the driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs.
+
+## Is bpif3 caused by this series?
+bpif3 is the only one of these boards that runs this code, and its results don't show the series causing the failure. I counted 31 real runs, leaving out two that failed on the board lock:
+
+| | With series | Other MRs |
+|---|---|---|
+| Passed on first attempt | 2 of 5 | 9 of 26 |
+| Job failed | 2 of 5 | 3 of 26 |
+| Bad upload attempts | 14 of 17 (82%) | 56 of 79 (71%) |
+
+- **What it shows:** the problem is common without this series, and the first-attempt rate is about the same. The same code has also both passed all 42 tests and failed (`238dc5a8bea9` and `ba80360faa5b`).
+- **What it can't show:** the job failure rate looks higher, but five runs is too few to tell (p≈0.17), so a small effect is still possible. An SPL hang before its USB gadget starts would also give the same error.
+- **How to settle it:** capture the serial console during a failed attempt, or run bpif3 repeatedly with and without the series. I didn't run anything on hardware.
+
+## Why every push runs all 142 jobs
+- **Raspberry Pi jobs never start:** in pipeline 10983 they sat from 04:13 to 06:00, failed with `stuck_or_timeout_failure`, and were requeued. None passed in those 150 pipelines, which suggests the `sage-lab` runner is down, but I can't see its state.
+- **Effect on narrowing:** 10979, 10983 and 10985 therefore never finish, and `_push_with_ci` only narrows once a pipeline has finished. 10982, 10984 and 10986 were each pushed during one of those and ran all 142 jobs, which supports the `-v4` prediction.
+- **Next push:** expect another full pipeline. It will re-run bpif3, but pickman won't attempt any more fixes on this MR.
+
+## Decisions for you
+1. **Merge or not:** I'd merge once commit 2 is reviewed, because bpif3 passed all 42 tests on this code in 10976 and 10984. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs that closer review.
+2. **Lab fixes, separate from this MR:**
+   - the bpif3 FSBL failures
+   - the four boards that never pass
+   - the `sage-lab` queue
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Checks
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1` because the code is unchanged.
+- **Data access:** I didn't use a token. Job logs came from the public `raw` URLs. MR notes need a login, so I worked from the comment you gave me. Traces and scripts are in `/tmp/pickman-q6`.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+
+## Suggested MR reply
+
+> No code changes for this one; the retry limit was reached because the remaining failures are lab problems, and none of them points to this series. In pipeline 10986, opi_pc, samus, samus_tpl and snow failed before any test ran, and they have not passed on any MR in the last 150 pipelines. bpif3 failed with `BootROM did not start the FSBL` on all 5 attempts, but the same code passed all 42 tests in 10976 and 10984. That error affects other MRs too: 71% of their upload attempts fail, against 82% here, and first-attempt passes are similar (9 of 26 against 2 of 5). Five runs can't rule out a small effect, and an early SPL hang would look the same. The Raspberry Pi jobs never start, so the narrowed pipelines never finish. The sandbox build passes. This needs a merge decision and a closer review of commit 2.
+
+---
+
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10989 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+**No code changes were needed for MR !1529: the comment only says pickman started pipeline 10989. bpif3, the only board in that pipeline that runs this code, passed all 42 tests on its first attempt.** `cherry-cfe0012e12d7-v7` is checked out at `6b2612b137ff`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10989 so far
+It was still running when I checked, on the same driver code as `dec4cb7077af`; only `.pickman-history` has changed.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738109) | passed | 42 passed, 777 skipped, no `USB loader not ready` retries |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+## What this changes
+- **bpif3 figures:** with this run the series has 3 of 6 first-attempt passes and 2 of 6 failed jobs, and 14 of 18 upload attempts were bad. I didn't refresh the other MRs' figures (9 of 26, 3 of 26, 71%).
+- **What it can't show:** the failure in pipeline 10986 was on `ba80360faa5b`, which has the same driver code, so this looks intermittent. Six runs still can't rule out a small effect, and capturing the serial console during a failed attempt would settle it.
+- **Correction to my `-v6` report:** I said the next push would run all 142 jobs, but it ran only 14. The previous pipeline, 10986, was a full run that finished at 06:34, before this 06:50 push, so pickman could narrow it.
+- **Full and narrowed runs alternate:** a narrowed pipeline never finishes because its Raspberry Pi jobs don't start, so the next push runs in full. If `sage-lab` is still not running them, expect a full run if you push while 10989 is unfinished.
+- **The four failing boards:** they were re-run this time instead of being left out as failures shared with other MRs. I didn't look into why, and it didn't change the result.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1` locally, but this bpif3 job built that defconfig from `6b2612b137ff`.
+
+## Before pushing
+- **Branch base:** `-v7` is based on `-v6`, not the local `cherry-cfe0012e12d7`, which is several commits behind the MR. Branching from that would have dropped pickman's record commits.
+- **Repo state:** this run started with `cherry-5fa1de058293` checked out, and that branch is unchanged. `tools/binman/home/` and `tools/binman/usr/` were already untracked, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces are in `/tmp/pickman-q7`.
+
+## Still open
+1. **Merge decision:** I'd still merge once commit 2 is reviewed, as bpif3 has now passed all 42 tests in 10976, 10984 and 10989. The other four failing boards don't run this code.
+2. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+3. **Lab problems, separate from this MR:**
+   - the bpif3 FSBL failures
+   - the four boards that fail before any test runs
+   - the `sage-lab` queue
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 10989 has started. bpif3 passed all 42 tests there on its first attempt, on the same driver code that failed with `BootROM did not start the FSBL` in 10986, so that failure looks intermittent, although six runs can't rule out a small effect. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran. The nine Raspberry Pi and lwIP jobs have not started. The sandbox build passes. This still needs a merge decision and a closer review of commit 2.
+
+---
+
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+I'll check the branch state and how the MR tip relates to the local branches first.
+
+The MR tip is `2243aa5dc5bb`, the same as `-v7`, so the new branch will be `-v8`. Next I'll check what the pipelines on this branch have done since the last report.
+
+In 10990 bpif3 passed and only the four boards that always fail still fail. I'll read those traces rather than assume the cause is unchanged.
+
+Those failures match the earlier ones. This is the second time this retry-limit comment has come through, so I'll check whether pickman will keep reposting it and starting new pipelines.
+
+**No code changes for MR !1529: this comment is pickman's retry-limit notice, which it has now repeated, and nothing in the CI results points to this series.** It still needs your merge decision. `cherry-cfe0012e12d7-v8` is checked out at `2243aa5dc5bb`, the MR tip, with no new commits and not pushed.
+
+## Pipeline results
+Pipeline 10990 is the latest full run, on `2243aa5dc5bb`, and it ran all 142 jobs: 124 passed, 4 failed, 9 skipped and 5 are manual. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738223) | passed | 42 passed, 777 skipped, but only on its 5th and last upload attempt |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | skipped | same as in earlier full runs |
+
+The MR is open, with no conflicts, and GitLab reports it as mergeable.
+
+## bpif3 and the series
+bpif3 is the only one of these boards that runs this code. It has now passed all 42 tests in four pipelines: 10976, 10984, 10989 and 10990.
+
+Attempts 1-4 in 10990 all hit `BootROM did not start the FSBL`, so one more bad attempt would have failed the job. The series' totals are now:
+- **First-attempt passes:** 3 of 7 runs
+- **Failed jobs:** 2 of 7 runs
+- **Bad upload attempts:** 18 of 23
+
+I didn't refresh the other MRs' figures from the `-v6` report (9 of 26, 3 of 26, 71%). A small effect from commit 2 still can't be ruled out, and capturing the serial console during a bad attempt is what would settle it.
+
+## Why this comment keeps coming back
+This cycle will repeat until the MR is merged or those four boards pass. This comes from reading the code and the pipeline order; I can't read the MR notes without logging in.
+
+1. A full pipeline fails on the four boards.
+2. `process_pipeline_failures()` checks the retry limit before `_attempt_pipeline_fix()` runs the shared-failure check, so it posts "reached retry limit" even if every failure also occurs in other MRs.
+3. Pickman passes that comment on as a review comment, records the handling and pushes.
+4. The push starts another pipeline, which fails the same way.
+
+Pipeline 10986 led to the `-v6` run in this way, and 10990 appears to have led to this one. A push will probably start another full run too, because 10989 is still unfinished: its Raspberry Pi and lwIP jobs still haven't started, and 10990 ran in full for the same reason. Running the shared-failure check first would stop the repeat comment for failures that also occur in other MRs. I haven't changed or tested that, as it's outside this MR.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, but bpif3 built `spacemit_k1` in CI as part of its passing job.
+
+## Before pushing
+- **Branch base:** `-v8` is based on `-v7`, which matches the MR tip. The local `cherry-cfe0012e12d7` is many commits behind, and branching from it would drop pickman's record commits.
+- **Repo state:** this run started with `cherry-5fa1de058293` checked out, and that branch is unchanged. `tools/binman/home/` and `tools/binman/usr/` were already untracked, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces are in `/tmp/pickman-q8`.
+
+## Decisions for you
+1. **Merge or not:** I'd merge once commit 2 is reviewed, and more CI runs won't add much. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+2. **Lab and tool fixes, separate from this MR:**
+   - the bpif3 FSBL failures
+   - the login timeouts on opi_pc, samus and samus_tpl
+   - the `kea/labgrid` lock on snow
+   - the Raspberry Pi and lwIP jobs that never start
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+   - the order of pickman's retry-limit and shared-failure checks
+
+## Suggested MR reply
+
+> No code changes for this one; the retry limit only means pickman has stopped attempting fixes. In pipeline 10990 bpif3 passed all 42 tests, though only on its 5th upload attempt, so the `BootROM did not start the FSBL` problem is still there. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of them runs this code. The sandbox build passes. More CI runs won't add much, so this needs a closer review of commit 2 and a merge decision.
+
+---
+
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10992 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+The MR tip `47c2a2445568` is the same as `-v8`, so the new branch will be `-v9`. Next I'll check pipeline 10992 and confirm the code hasn't changed.
+
+**No code changes for MR !1529: the comment only says pickman started pipeline 10992, and nothing in that pipeline tests this series.** It still needs your merge decision, and each further review run costs more CI, as explained below. `cherry-cfe0012e12d7-v9` is checked out at `47c2a2445568`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10992 so far
+It runs on `47c2a2445568`, and was still running about 6 minutes after it started. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs.
+
+| Job | Result | Detail |
+|---|---|---|
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+bpif3 isn't in this pipeline because it passed in 10990. The earlier bpif3 figures therefore still stand: 3 of 7 first-attempt passes, 2 of 7 failed jobs and 18 of 23 bad upload attempts. A small effect from commit 2 still can't be ruled out.
+
+GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+## Corrections to earlier reports
+- **Wrong prediction in `-v8`:** I said the next push would probably run all jobs because 10989 was unfinished, but it ran only 13. Pipeline 10990 was the MR's head pipeline, and it finished at 08:07, before the 08:15 push. Pickman ignores 10989 at that point because it's for an older commit.
+- **Four failing boards (open since `-v7`):** they get re-run because the review path calls `_push_with_ci()` with an empty `leave_out`. Only the pipeline-fix path passes the shared failures.
+
+## Why this keeps repeating
+These runs are costing lab time without producing new information:
+
+1. **Own comments count as reviews:** `get_mr_comments()` says it excludes bot notes, but it only skips system notes. Pickman's own "Started pipeline" and "reached retry limit" comments therefore come back as review comments, which is what triggered this run.
+2. **Every review run pushes:** each one adds a `.pickman-history` commit and pushes it, which starts another pipeline.
+3. **Full and narrowed runs alternate:** so far that's 10986 full, 10989 narrowed, 10990 full and 10992 narrowed. Pushing this run should give a full 142-job pipeline, because 10992 can't finish while its Raspberry Pi jobs don't start.
+4. **The full run restarts the cycle:** it fails on the four boards, pickman posts the retry-limit comment, and the cycle starts again.
+
+This comes from reading the code and the pipeline order, and I haven't changed or tested any of it. Filtering out the bot's own notes in `get_mr_comments()` should break the loop. Until that's done, merging or pausing this MR is the only way I can see to stop it.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1`, because the bpif3 job in 10990 built it with the same driver code.
+
+## Repo state
+- **Branch base:** `-v9` is based on `-v8`, which matches the MR tip. The local `cherry-cfe0012e12d7` is many commits behind, and branching from it would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces are in `/tmp/pickman-q9`.
+
+## Decisions for you
+1. **Merge or not:** I'd still merge once commit 2 is reviewed, as more CI runs won't add much. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+2. **Pickman fixes, separate from this MR:**
+   - filter out the bot's own notes in `get_mr_comments()`
+   - pass the shared failures on the review path
+   - run the shared-failure check before the retry-limit check
+3. **Lab and test fixes, separate from this MR:**
+   - the bpif3 FSBL failures
+   - the login timeouts on opi_pc, samus and samus_tpl
+   - the `kea/labgrid` lock on snow
+   - the Raspberry Pi and lwIP jobs that never start
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 10992 has started. So far opi_pc, samus and samus_tpl have timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of them runs this code. The nine Raspberry Pi and lwIP jobs have not started. bpif3 is not in this pipeline because it passed all 42 tests in 10990. The sandbox build passes. pickman treats its own notes as review comments, so each one causes another push and pipeline without adding any information. This needs a closer review of commit 2 and a merge decision.
+
+---
+
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+The MR tip `6031aa69f84a` matches `-v9`, so the new branch will be `-v10`. Next I'll check the latest pipelines, confirm the code is unchanged, and create the branch.
+
+There's a new failure here, `efi-x86_64-uboot-iso`, which hasn't appeared before. I'll read that trace first, then check the others.
+
+The sandbox build passes and `-v10` is in place. I'm now waiting for the job history scan, which will show whether the `efi-x86_64-uboot-iso` initramfs failure happens elsewhere. I'll send the report once it finishes.
+
+**No code changes for MR !1529: this is pickman's retry-limit notice again, and nothing in the CI results points to this series.** It still needs your merge decision. `cherry-cfe0012e12d7-v10` is checked out at `6031aa69f84a`, the MR tip, with no new commits and not pushed.
+
+## Pipeline results
+Pipeline 10994 is the latest full run, on `6031aa69f84a`, and it ran all 142 jobs: 123 passed, 5 failed, 9 skipped and 5 are manual. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738400) | passed | 42 passed, 777 skipped, no upload retries |
+| efi-x86_64-uboot-iso (738413) | failed | **new to this MR**, see below |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | skipped | same as in earlier full runs |
+
+## New failure: efi-x86_64-uboot-iso
+U-Boot found the ISO, loaded the kernel and initrd, and started the kernel. The kernel then reported this, and the test timed out after 120s waiting for `Started gdm.service`:
+```
+[    1.026022] Initramfs unpacking failed: invalid magic at start of compressed archive
+```
+
+**It looks intermittent and unrelated to this series:**
+- **Same driver code passed:** this job passed in 10984, 10986 and 10990.
+- **Same error elsewhere:** !1498 (job 724462) and !1499 (job 725089) hit the same error on 30 October, before this MR existed.
+- **Drivers not enabled:** the job builds `efi-x86_app64`, whose defconfig doesn't set the K1 options, and earlier checks found only `spacemit_k1_defconfig` enables them.
+- **How often:** 5 of the 75 completed runs since 24 October failed, 3 of them with this error. None of the 30 passing traces I checked has it.
+
+**Still unknown:**
+- **Cause:** the failing and passing runs (738236) report the same initrd size, 75104318 bytes, so the contents look wrong rather than the file being cut short. I can't tell whether the fault is in U-Boot's loading or in the lab's rewritten ISO.
+- **The other two failures:** jobs 730622 and 724197 don't show this error, and I didn't look into them.
+
+## bpif3 and the series
+bpif3 is the only one of these boards that runs this code, and it has now passed all 42 tests in five pipelines: 10976, 10984, 10989, 10990 and 10994.
+
+The series' totals are now:
+- **First-attempt passes:** 4 of 8 runs
+- **Failed jobs:** 2 of 8 runs
+- **Bad upload attempts:** 18 of 24
+
+I didn't refresh the other MRs' figures from the `-v6` report (9 of 26, 3 of 26, 71%). A small effect from commit 2 still can't be ruled out; capturing the serial console during a bad attempt would settle it.
+
+## The loop is still running
+- **Prediction confirmed:** the `-v9` report predicted that its push would run all 142 jobs and bring this comment back, and it did. This is the third retry-limit notice to reach a review run, after `-v6` and `-v8`.
+- **Next push:** 10994 has finished and is the head pipeline, so I expect a narrowed run of about 14 jobs, including `efi-x86_64-uboot-iso`. The push after that would be full again.
+- **Stuck pipelines:** 10989 and 10992 still show as running, because their Raspberry Pi and lwIP jobs never start.
+
+I still haven't changed or tested anything in pickman. Merging or pausing this MR is the only way I can see to stop the loop until that's fixed.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, but the bpif3 job built `spacemit_k1` from `6031aa69f84a`.
+- **Branch base:** `-v10` is based on `-v9`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces and scripts are in `/tmp/pickman-q10`.
+
+## Decisions for you
+1. **Merge or not:** I'd still merge once commit 2 is reviewed, as more CI runs won't add much. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+2. **Pickman fixes, separate from this MR:**
+   - filter out the bot's own notes in `get_mr_comments()`
+   - pass the shared failures on the review path
+   - run the shared-failure check before the retry-limit check
+3. **Lab and test fixes, separate from this MR:**
+   - the intermittent initramfs failure on `efi-x86_64-uboot-iso` (new)
+   - the bpif3 FSBL failures
+   - the login timeouts on opi_pc, samus and samus_tpl
+   - the `kea/labgrid` lock on snow
+   - the Raspberry Pi and lwIP jobs that never start
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Suggested MR reply
+
+> No code changes for this one; the retry limit only means pickman has stopped attempting fixes. In pipeline 10994 bpif3 passed all 42 tests with no upload retries. efi-x86_64-uboot-iso failed with `Initramfs unpacking failed: invalid magic`, which is new on this MR, but it passed on the same driver code in 10984, 10986 and 10990, and the same error occurred on !1498 and !1499 before this MR existed. Its cause isn't known yet. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of these boards runs this code. The sandbox build passes. More CI runs won't add much, so this needs a closer review of commit 2 and a merge decision.
+
+---
+
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10996 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+The MR tip `0b011a6321c6` matches `-v10`, so the new branch will be `-v11`. I'll create it, check that the code is unchanged, and look at pipeline 10996.
+
+Build passes. Now I'll read the traces from this pipeline rather than assume the failures have the same cause as before, including the efi-x86_64-uboot-iso pass.
+
+The previous reports got their next-push predictions wrong more than once, so I'll check that logic in the code before repeating it.
+
+**No code changes for MR !1529: this comment only says pickman started pipeline 10996, and the only result there that's new is efi-x86_64-uboot-iso passing on its re-run.** The series still needs your merge decision. `cherry-cfe0012e12d7-v11` is checked out at `0b011a6321c6`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10996 so far
+It runs on `0b011a6321c6` and was still running about 6 minutes after it started. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| efi-x86_64-uboot-iso (738452) | passed | 1 passed, no initramfs error in the trace |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+- **efi-x86_64-uboot-iso:** this fits the failure in 10994 being intermittent, but one pass doesn't explain it, and the cause of the initramfs error is still unknown.
+- **bpif3:** it isn't in this pipeline because it passed in 10994, so the earlier figures stand: 4 of 8 first-attempt passes, 2 of 8 failed jobs and 18 of 24 bad upload attempts. A small effect from commit 2 still can't be ruled out.
+
+## Correction to earlier reports
+I said a narrowed pipeline leads to a full one because it never finishes. That's only part of the reason, based on reading `_current_pipeline()` and the pipeline IDs:
+
+- **Skipped pipeline takes over:** each push also creates a skipped merge-request pipeline, which becomes the MR's head pipeline. Here that's 10997, one above the narrowed 10996.
+- **Effect:** pickman ignores its own narrowed run when the head pipeline has a higher ID. It then sees `skipped`, which isn't in `PIPELINE_DONE`, so it runs every job.
+- **Order varies:** the same thing happened with 10993 and 10992. With 10988 and 10989 the order was reversed, so there the cause was 10989 still running.
+
+So fixing the `sage-lab` queue wouldn't reliably stop the full runs. I haven't changed or tested anything in pickman.
+
+## What to expect next
+Pushing this run should start a full 142-job pipeline, because the head pipeline is `skipped`. If it fails on the four boards again, the retry-limit comment comes back and the loop continues. Merging or pausing this MR is still the only way I can see to stop that.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1`, because the bpif3 job in 10994 built it with the same driver code.
+- **Branch base:** `-v11` is based on `-v10`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces are in `/tmp/pickman-q11`.
+
+## Decisions for you
+1. **Merge or not:** I'd still merge once commit 2 is reviewed, as more CI runs won't add much. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+2. **Pickman fixes, separate from this MR:**
+   - filter out the bot's own notes in `get_mr_comments()`
+   - stop the skipped merge-request pipeline from hiding the narrowed run in `_current_pipeline()` (new)
+   - pass the shared failures on the review path
+   - run the shared-failure check before the retry-limit check
+3. **Lab and test fixes, separate from this MR:** the list from the `-v10` report is unchanged, including the intermittent initramfs failure and the bpif3 FSBL failures.
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 10996 has started. efi-x86_64-uboot-iso passed on the re-run, so its failure in 10994 looks intermittent, although the cause is still unknown. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of them runs this code. The nine Raspberry Pi and lwIP jobs have not started. bpif3 is not in this pipeline because it passed all 42 tests in 10994. The sandbox build passes. More CI runs won't add much, so this needs a closer review of commit 2 and a merge decision.
+
+---
+
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+The MR tip `6b4a380c6880` matches `-v11`, so the new branch will be `-v12`. I'll create it from there, confirm the code is unchanged, and look at the latest pipelines.
+
+Recomputing now: this MR's pipelines use the `refs/merge-requests/1529/head` ref, so my first split put most of them under other MRs.
+
+**No code changes for MR !1529, but I'm changing my merge advice: hold the merge until the bpif3 question below is settled.** The comment is pickman's retry-limit notice again. bpif3 failed again in pipeline 10998, and with up-to-date figures I can no longer say that nothing points to this series.
+
+`cherry-cfe0012e12d7-v12` is checked out at `6b4a380c6880`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10998
+This is the latest full run, on `6b4a380c6880`, with all 142 jobs: 123 passed, 5 failed, 9 skipped and 5 manual. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738564) | failed | `BootROM did not start the FSBL` on all 5 attempts |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| zybo, colibrimx8, efi-x86_64-uboot-iso | passed | the earlier intermittent failures didn't recur |
+| 9 Raspberry Pi and lwIP jobs | skipped | same as in earlier full runs |
+
+## bpif3: updated figures
+Earlier reports kept reusing the other-MR figures from `-v6`. This time I rescanned every bpif3 job in pipelines 10600 to 10998, leaving out 3 lock failures, one unclassified job and jobs that never ran.
+
+| | This MR | Other MRs (47 refs) |
+|---|---|---|
+| Passed on first attempt | 4 of 9 (44%) | 36 of 75 (48%) |
+| Job failed | 3 of 9 (33%) | 7 of 75 (9%) |
+| Bad upload attempts | 23 of 29 (79%) | 125 of 193 (65%) |
+| Reached 4 or more bad attempts, once the first failed | 5 of 5 | 18 of 39 |
+
+- **What points away from the series:** the first-attempt rate is about the same, and other MRs hit the same error often. The same driver code has also passed all 42 tests in five pipelines.
+- **What points towards it:** when the first upload fails on this MR, it hasn't recovered early once. Other MRs often recover after 1-3 retries. Job failures also look higher (p≈0.07), and the recovery difference is about p≈0.05.
+- **How far to trust that:** I picked these comparisons after seeing the data, and all nine runs fall within about 10 hours, so the board's condition could explain them. Using only pipelines from 10900 on, job failures are 3 of 9 against 1 of 15 (p≈0.13). This is a reason to check, not evidence of a bug.
+- **What could be behind it:** commit 2 changes the SPL clocks, and a hang early in SPL would produce this same error. I haven't reviewed that commit or found a mechanism.
+
+The CI logs can't answer this: `test-log.html` from job 738564 has no SPL or U-Boot output.
+
+## How to settle it
+Capture the serial console on bpif3 during bad upload attempts, with and without this series. Most attempts fail, so this should only take a few tries, and it shows directly whether SPL starts. I didn't run anything on hardware.
+
+## The loop is still running
+- **Prediction confirmed:** the `-v11` push ran all 142 jobs, as predicted, and the retry-limit notice came back. This is the fourth one to reach a review run, after `-v6`, `-v8` and `-v10`.
+- **Next push:** I expect a narrowed run of about 14 jobs, including bpif3, because 10998 has finished and is the head pipeline. The push after that would be full again.
+- **Stopping it:** pausing the MR is now the only option I'd suggest, since I no longer recommend merging yet. I haven't changed or tested anything in pickman, or rechecked the fixes listed in the `-v11` report.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1` locally; job 738564 built it in CI before failing at upload.
+- **Branch base:** `-v12` is based on `-v11`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces and scan script are in `/tmp/pickman-q12`.
+
+## Decisions for you
+1. **Pause the MR:** this stops the repeat pipelines while bpif3 is checked.
+2. **Serial capture on bpif3:** I'd do this before merging, and it replaces my earlier advice that more runs wouldn't add much and that merging was fine after review.
+3. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review. It's also the most likely place to look if the capture shows SPL hanging.
+4. **Other fixes, separate from this MR:** the pickman and lab lists from the `-v11` report still stand.
+
+## Suggested MR reply
+
+> No code changes for this one; the retry limit only means pickman has stopped attempting fixes. In pipeline 10998 bpif3 failed with `BootROM did not start the FSBL` on all 5 attempts. With refreshed figures, bpif3 jobs have failed 3 of 9 times on this MR against 7 of 75 on other MRs, while first-attempt passes are similar (4 of 9 against 36 of 75). On this MR, a failed first upload has also not recovered early in any of 5 runs. This is not conclusive, since the comparison is after the fact and the runs are close together, but it no longer rules out an effect from this series, and an early SPL hang would give the same error. The CI logs have no SPL output, so this needs a serial capture during bad attempts, with and without the series, before merging. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of these boards runs this code. The sandbox build passes. Commit 2 still needs a closer review.
+
+---
+
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 11000 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+**No code changes for MR !1529: this comment only says pickman started pipeline 11000. bpif3 passed all 42 tests there on its first upload, but I'm still advising you to hold the merge until the serial capture is done.** `cherry-cfe0012e12d7-v13` is checked out at `9f26e6d5b39f`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 11000 so far
+It runs on `9f26e6d5b39f` and was still running when I last checked, about 6 minutes in. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738626) | passed | 42 passed, 777 skipped, no bad uploads |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+## bpif3: updated figures
+I rescanned all bpif3 jobs in pipelines 10601 to 11000, leaving out 3 lock failures, one unclassified job and jobs that never ran. P-values are one-sided.
+
+| | This MR | Other MRs, all | Other MRs, pipelines 10960+ |
+|---|---|---|---|
+| Passed on first attempt | 5 of 10 | 36 of 75 | 2 of 6 |
+| Job failed | 3 of 10 | 7 of 75 (p≈0.09) | 1 of 6 (p≈0.51) |
+| Reached 4+ bad attempts, once the first failed | 5 of 5 | 18 of 39 (p≈0.03) | 2 of 4 (p≈0.17) |
+| Bad upload attempts | 23 of 30 | 125 of 193 | 13 of 18 |
+
+- **Weaker signal:** this tests the -v12 caveat that the board's condition over that window could explain the gap. Against other MRs' recent runs, the gap in job failures mostly disappears, and the first-attempt rate here is no worse.
+- **Not settled:** six recent runs are too few to clear the series, and only one other MR's job has run since pipeline 10976. Early recovery is still the odd one out, as this MR has never recovered within 1-3 retries.
+- **Idea I tested and dropped:** this MR's runs strictly alternate between 0 and 4-5 bad uploads, which suggested each result depends on the previous job. The older data doesn't support that (68 job pairs, clean first upload 14 of 34 after a bad run and 20 of 34 after a clean one), so please don't chase it.
+
+## What to expect next
+- **Prediction confirmed:** the `-v12` push ran a narrowed set of 14 jobs including bpif3, as predicted.
+- **Next push:** it should run all 142 jobs, because skipped pipeline 11001 is now the head pipeline and hides 11000. If the four boards fail again, the retry-limit notice comes back and the loop continues.
+- **Fixes:** I haven't changed or tested anything in pickman.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, but job 738626 built `spacemit_k1` in CI from this commit.
+- **Branch base:** `-v13` is based on `-v12`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces and scripts are in `/tmp/pickman-q13`.
+
+## Decisions for you
+1. **Pause the MR:** this stops the repeat pipelines, which aren't settling the bpif3 question.
+2. **Serial capture on bpif3:** I'd still do this before merging, during bad uploads, with and without the series. Most recent uploads fail, so it should only take a few tries. I didn't run anything on hardware.
+3. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review. It's also the first place to look if the capture shows SPL hanging.
+4. **Other fixes, separate from this MR:** the pickman and lab lists from the `-v11` report still stand.
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 11000 has started. bpif3 passed all 42 tests there on its first upload, on the same driver code that failed with `BootROM did not start the FSBL` in 10998. bpif3 jobs have now failed 3 of 10 times on this MR, against 7 of 75 on other MRs overall and 1 of 6 on other MRs' recent runs, so the gap narrows when compared over a similar period, but there are too few runs to clear the series. A failed first upload on this MR has also never recovered within 1-3 retries (0 of 5). The CI logs have no SPL output, so this still needs a serial capture during bad attempts, with and without the series, before merging. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of these boards runs this code. The nine Raspberry Pi and lwIP jobs have not started. The sandbox build passes. Commit 2 still needs a closer review.
+
+---
+
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+
+
+### Conversation log
+I'll check the repo state and how the MR tip relates to the local branches and ci/master.
+
+While that runs, I'll read what the earlier pick actually said about skipping those commits, so the report describes it accurately.
+
+The conflict is resolved with no markers left, and 8 of 20 commits are done so far. The background task will tell me when the rest finish, and then I'll verify the final tree and history file.
+
+The monitor needs an approval that this non-interactive session can't give, and I don't need it anyway: the background rebase task will notify me when it exits. I'll do the final verification then.
+
+**MR !1529 is rebased onto ci/master (`10656703d3cf`), and all the code is unchanged.** There was one conflict, in `.pickman-history`, which I've resolved. `cherry-cfe0012e12d7-v14` is checked out at `a2d709b54332` and not pushed.
+
+My advice from the last report still stands: hold the merge until bpif3 has had a serial capture and commit 2 has had its closer review. I didn't recheck CI this run, so pipeline 11000's unfinished jobs are still unknown.
+
+## Rebase
+- **What moved:** ci/master gained 36 commits, mostly the MediaTek series plus pickman's records for `cherry-5fa1de058293`. None of them touch the K1 clock or I2C drivers, so `.pickman-history` was the only file in common.
+- **Conflict:** it was on the first record commit (`dec4cb7077af`), because both sides append to the end of the file. I kept both sides, and the other 14 record commits applied cleanly.
+- **Empty merge:** the merge commit is still empty (`486d7fdc2281`), with Tom Rini as author and its cherry-picked-from line intact.
+
+## Checks
+
+| Check | Result |
+|---|---|
+| Commits | all 20 kept, on top of ci/master |
+| Code deltas | same as before: +6/-3, +16/-13, +12/-6, +7/-7, plus the empty merge |
+| Driver diff against the base | identical to the series before the rebase |
+| `git range-diff` | only the conflicted record commit differs, and only in its `.pickman-history` context |
+| `.pickman-history` | byte-identical to ci/master's file plus this MR's entries, with no conflict markers |
+| Sandbox build | passes after each of the 20 commits and at the tip |
+| `spacemit_k1` build (`-M`, fresh directory) | compiles; buildman exits 101 only because the OpenSBI blob is missing and faked, so this image can't boot |
+| SPL size | 142,215 bytes, unchanged and under the 200,704-byte limit |
+
+I ran nothing on hardware.
+
+## Before pushing
+- **Branch base:** I started `-v14` from `-v13`, which matches the MR tip, rather than rebasing the local `cherry-cfe0012e12d7` as step 1 says. That branch is still at `dec4cb7077af`, so using it would have dropped 14 of pickman's record commits.
+- **Next pipeline:** expect all jobs to run, because the code now differs from the last pipeline by more than `.pickman-history`. This gives bpif3 a run on the new base, and the four boards that fail before any test runs will probably fail again and bring back the retry-limit notice.
+
+## Still open
+1. **bpif3 serial capture:** this is still the way to settle whether the series makes `BootROM did not start the FSBL` more likely. The rebase adds no evidence either way.
+2. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand. Two new details for that review:
+   - **Prerequisite skipped on purpose:** the earlier cherry-pick record lists `853fdea1fe2` ("prune SPL clock tree"), but its log says it skipped 19 K1 commits as already applied because ci/master has its own K1 code. So the gap isn't an accident.
+   - **SPL heap:** that upstream commit says the full clock tree doesn't fit in SPL's small pre-relocation heap, and ci/master registers a larger SPL tree than upstream. Commit 2 adds to that tree, so check it fits within `CONFIG_SYS_MALLOC_F_LEN=0x5000`. A shortage should fail every time, so it wouldn't obviously explain bpif3's intermittent failures, but I haven't tested this.
+3. **Other fixes:** the pickman and lab fixes from the `-v11` report are separate from this MR and still need doing. Pausing the MR is still the way to stop the repeat pipelines.
+
+## Repo state
+- **Untouched:** `cherry-5fa1de058293`, which this run started on, is unchanged. `tools/binman/home/` and `tools/binman/usr/` were already untracked, and I left them alone.
+- **Temporary files:** the per-commit log and the `spacemit_k1` build are in `/tmp/pickman-q14`. I also left a `spacemit_k1` build in `/tmp/pickman-k1`.
+
+## Suggested MR reply
+
+> Rebased onto ci/master (10656703d3cf). The only conflict was in `.pickman-history`, where both sides append, and both sides are kept. The driver changes are identical to before, and the sandbox build passes after each commit. spacemit_k1 compiles, though the OpenSBI blob is faked locally, so that image can't boot. Nothing has been run on hardware yet. This still needs a serial capture on bpif3 during bad uploads, with and without the series, and a closer review of commit 2 before merging.
+
+---
+
