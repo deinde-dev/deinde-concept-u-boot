@@ -103111,3 +103111,61 @@ Capture the serial console on bpif3 during bad upload attempts, with and without
 
 ---
 
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 11000 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+**No code changes for MR !1529: this comment only says pickman started pipeline 11000. bpif3 passed all 42 tests there on its first upload, but I'm still advising you to hold the merge until the serial capture is done.** `cherry-cfe0012e12d7-v13` is checked out at `9f26e6d5b39f`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 11000 so far
+It runs on `9f26e6d5b39f` and was still running when I last checked, about 6 minutes in. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738626) | passed | 42 passed, 777 skipped, no bad uploads |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+## bpif3: updated figures
+I rescanned all bpif3 jobs in pipelines 10601 to 11000, leaving out 3 lock failures, one unclassified job and jobs that never ran. P-values are one-sided.
+
+| | This MR | Other MRs, all | Other MRs, pipelines 10960+ |
+|---|---|---|---|
+| Passed on first attempt | 5 of 10 | 36 of 75 | 2 of 6 |
+| Job failed | 3 of 10 | 7 of 75 (p≈0.09) | 1 of 6 (p≈0.51) |
+| Reached 4+ bad attempts, once the first failed | 5 of 5 | 18 of 39 (p≈0.03) | 2 of 4 (p≈0.17) |
+| Bad upload attempts | 23 of 30 | 125 of 193 | 13 of 18 |
+
+- **Weaker signal:** this tests the -v12 caveat that the board's condition over that window could explain the gap. Against other MRs' recent runs, the gap in job failures mostly disappears, and the first-attempt rate here is no worse.
+- **Not settled:** six recent runs are too few to clear the series, and only one other MR's job has run since pipeline 10976. Early recovery is still the odd one out, as this MR has never recovered within 1-3 retries.
+- **Idea I tested and dropped:** this MR's runs strictly alternate between 0 and 4-5 bad uploads, which suggested each result depends on the previous job. The older data doesn't support that (68 job pairs, clean first upload 14 of 34 after a bad run and 20 of 34 after a clean one), so please don't chase it.
+
+## What to expect next
+- **Prediction confirmed:** the `-v12` push ran a narrowed set of 14 jobs including bpif3, as predicted.
+- **Next push:** it should run all 142 jobs, because skipped pipeline 11001 is now the head pipeline and hides 11000. If the four boards fail again, the retry-limit notice comes back and the loop continues.
+- **Fixes:** I haven't changed or tested anything in pickman.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, but job 738626 built `spacemit_k1` in CI from this commit.
+- **Branch base:** `-v13` is based on `-v12`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces and scripts are in `/tmp/pickman-q13`.
+
+## Decisions for you
+1. **Pause the MR:** this stops the repeat pipelines, which aren't settling the bpif3 question.
+2. **Serial capture on bpif3:** I'd still do this before merging, during bad uploads, with and without the series. Most recent uploads fail, so it should only take a few tries. I didn't run anything on hardware.
+3. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review. It's also the first place to look if the capture shows SPL hanging.
+4. **Other fixes, separate from this MR:** the pickman and lab lists from the `-v11` report still stand.
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 11000 has started. bpif3 passed all 42 tests there on its first upload, on the same driver code that failed with `BootROM did not start the FSBL` in 10998. bpif3 jobs have now failed 3 of 10 times on this MR, against 7 of 75 on other MRs overall and 1 of 6 on other MRs' recent runs, so the gap narrows when compared over a similar period, but there are too few runs to clear the series. A failed first upload on this MR has also never recovered within 1-3 retries (0 of 5). The CI logs have no SPL output, so this still needs a serial capture during bad attempts, with and without the series, before merging. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of these boards runs this code. The nine Raspberry Pi and lwIP jobs have not started. The sandbox build passes. Commit 2 still needs a closer review.
+
+---
+
