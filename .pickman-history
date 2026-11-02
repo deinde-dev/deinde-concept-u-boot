@@ -102275,3 +102275,74 @@ The note lines over 72 columns in the MT8195 commit and the merge commit are sti
 
 ---
 
+## 2026-11-01: us/main
+
+Branch: cherry-cfe0012e12d7
+
+Commits:
+- cfe0012e12d7 i2c: k1: fix wrong bus speed setting
+- 0b47f7237e44 clk: spacemit: k1: add TWSI bus clocks to SPL
+- febfffd338e0 i2c: k1: enable both functional and bus clocks
+- 35c2947b5b21 clk: spacemit: k1: remove bus gate from TWSI functional clocks
+- 12d7a1e89c2b Merge tag 'i2c-updates-for-2026.10-next' of https://git.u-boot-project.org/u-boot/custodians/hs/u-boot-i2c into next
+
+### Conversation log
+Commit 2 hits a conflict in clk-k1.c. I'm checking how the target's SPL clock tree differs from upstream's.
+
+The conflict comes from a missing prerequisite, 853fdea1fe2b ("prune SPL clock tree"). I'm checking what the ci/master SPL clock tree already has.
+
+ci/master doesn't have the pruned SPL tree; it keeps the full set of PLL1 dividers in SPL. apb_clk and the TWSI bus clocks are still under '#if !SPL', so I'll port the change by hand to that layout.
+
+I'll rebuild the file from the ci/master version: move apb_clk and the TWSI2/TWSI8 bus clocks out of the '#if !SPL' blocks and add them to the SPL clock lists.
+
+The port matches the original's intent. Committing it with a note, then running split-check and the builds.
+
+spacemit_k1 compiles. The only failure is the missing external OpenSBI blob, which isn't caused by this change; I'll use -M for later K1 builds. Next, commits 3 and 4.
+
+Two hunks: the reset code auto-merged in the target's favour. The struct conflict exists only because the target has an extra 'resets' member, so I'll keep that and drop just 'clk'.
+
+The resolved diff matches the original. Checking that the target's K1 device tree supplies "func" and "bus" clock names before committing.
+
+Same cause: upstream's separate SPL block isn't in the target. Keeping the target side, then checking that every TWSI functional clock got the BIT(1)-only gate.
+
+That gives 7 changes against the original's 8: upstream defines TWSI2 twice (once for SPL, once not) but the target has one shared definition. TWSI8 keeps both bits on purpose, as in the original.
+
+Now the merge commit.
+
+The merge conflicts because its content is the four commits already picked. Confirming the merged range is exactly those four, then recording the merge as an empty commit.
+
+'--continue' didn't create the empty commit, so I'll commit it directly, reusing the merge's message and adding the -x line.
+
+All 5 commits are in place. Running the final sandbox and spacemit_k1 builds (-M allows the missing OpenSBI blob) and comparing the i2c driver with upstream.
+
+I cherry-picked all 5 commits onto a new branch, cherry-cfe0012e12d7, based on ci/master. Three of them needed fix-ups, and the sandbox build passes after each one and at the end.
+
+**Builds**
+- **sandbox:** passes with no warnings or errors.
+- **spacemit_k1:** I built this as well, since sandbox doesn't compile these K1 drivers. The code compiles cleanly. The only problem is the OpenSBI firmware file (fw_dynamic.bin), which is missing on this machine; with -M the build fills in a placeholder and counts it as a warning.
+
+**Commits** (`git log --oneline -n 7`)
+```
+70f5aabee25d Merge tag 'i2c-updates-for-2026.10-next' ... (empty)
+73733f8b36b0 clk: spacemit: k1: remove bus gate from TWSI functional clocks
+837f332eaf65 i2c: k1: enable both functional and bus clocks
+d99a28283146 clk: spacemit: k1: add TWSI bus clocks to SPL
+a356ed1cf1da i2c: k1: fix wrong bus speed setting
+```
+
+**Fix-ups** (each one has a note at the end of its commit message)
+1. **cfe0012e12d7 (bus speed):** applied cleanly, same delta as the original.
+2. **0b47f7237e44 (TWSI bus clocks in SPL): ported by hand, so this one needs a closer review.**
+   - It depends on 853fdea1fe2b ("clk: spacemit: k1: prune SPL clock tree"), which is not in ci/master. Upstream has a separate, smaller set of SPL clock definitions; ci/master keeps all the PLL1 dividers in SPL.
+   - So instead of adding new SPL definitions, I moved the existing apb_clk (with its parent list) and the TWSI2/TWSI8 bus clocks out of their `#if !IS_ENABLED(CONFIG_SPL_BUILD)` blocks. I then added them to the SPL clock lists.
+   - The delta is +16/-13 against +23 in the original, because definitions move rather than being added.
+3. **febfffd338e0 (func + bus clocks):** a conflict in `struct k1_i2c_priv`, because the target has an extra `resets` member. I kept it and removed only `clk`. The change itself matches the original exactly (+12/-6), and the K1 device tree has the "func" and "bus" clock names it looks up.
+4. **35c2947b5b21 (remove bus gate from TWSI functional clocks):** the conflict came from upstream's separate SPL block again, so I kept the target's version. The delta is 7/7 against 8/8 in the original: upstream defines TWSI2 twice (once for SPL, once not) and the target has one shared definition. TWSI8 keeps both gate bits, as in the original.
+5. **12d7a1e89c2b (merge):** its content is exactly the four commits above, so I kept it as an empty commit with the original message, Tom Rini as author and the cherry-picked-from line.
+
+The split-check script changed nothing in any of the commits.
+
+**Deltas to check:** commit 2 is the one to look at closely. Commit 4's smaller delta is expected. The branch is not pushed or merged anywhere.
+
+---
+
