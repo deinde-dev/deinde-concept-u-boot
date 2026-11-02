@@ -102514,3 +102514,66 @@ This pipeline runs on `d7be97cf18d0` and is still going:
 
 ---
 
+### Pipeline fix: 2026-11-01 (attempt 3)
+
+Branch: cherry-cfe0012e12d7
+
+Failed jobs:
+- zybo (sjg-lab)
+- colibrimx8 (sjg-lab)
+
+### Conversation log
+Both jobs passed on identical driver code in earlier pipelines, so this looks intermittent. I'm now checking the full job traces to confirm that.
+
+**Neither failure on MR !1529 comes from this series, so I made no code changes and no commit is responsible.** Both jobs should pass on a re-run, but each exposes a real intermittent bug outside the series. `cherry-cfe0012e12d7-fix3` is checked out at `238dc5a8bea9`, the current MR tip, and is not pushed.
+
+## Why it isn't this series
+- **Same code passed:** both boards passed on `d7be97cf18d0` (jobs 737721 and 737746), and the only difference from the failing commit is `.pickman-history`.
+- **Drivers not built:** `CONFIG_CLK_SPACEMIT` and `CONFIG_SYS_I2C_SPACEMIT_K1` are not set in the final `.config` for either board, so the K1 code isn't compiled.
+
+## zybo (job 737916): test bug
+`test_saveenv` builds a random 300-character string and wraps it in double quotes. This time the string ended in a backslash, which escaped the closing quote:
+```
+setenv str_var "...mEuh4UU\"
+> Lab failure: Timeout executing ...
+```
+- **What happens:** U-Boot's shell shows its `> ` continuation prompt and waits for more input, so the test times out after 30s. "Lab failure" is misleading, as the board was fine.
+- **Reproduced on sandbox:** `"abc\"` gives the `> ` prompt, while `"abc\\"` works normally.
+- **How often:** a string ends in an odd number of backslashes about 1% of the time, since the character pool has 92 characters. This is the first failure in the 19 recent zybo runs I listed.
+
+## colibrimx8 (job 737891): stray echo on the lab console
+The first command after the board came up was echoed twice, and that command happened to be `dm tree`:
+```
+Colibri iMX8X # dm tree
+dm tree
+ Class     Seq    Probed  Driver                Name
+```
+- **Why the test failed:** `test_dm_compat` works out the Driver column from the response, and the extra line shifts it from 26 to 34, so it reads the tree-drawing characters instead.
+- **Confirmed by replay:** running the test's parser on the log gives exactly `` {'`--', '|', '|--'} ``. With the extra line removed, nothing is flagged.
+- **Not new:** the double echo appears in 4 of the last 11 colibrimx8 traces that ran tests, always on the first command after `lab ready`. In the other three (737721, 737418 and 735940) that command was `version`, so those jobs still passed. Job 735940 is from !1527, not this series.
+- **Not found:** I don't know what causes the double echo; a race on the console connection is only my guess. Job 736237 also failed, but with an unrelated pytest `INTERNALERROR` before any tests ran.
+
+## Builds
+`zybo` and `colibrimx8` are lab role names, so I built their defconfigs, `xilinx_zynq_virt` and `colibri-imx8x`. I ran nothing on hardware.
+- **sandbox:** `um build sandbox` and buildman both pass.
+- **xilinx_zynq_virt:** builds cleanly.
+- **colibri-imx8x:** compiles, but buildman exits with 101 because the `mx8qx-ahab-container.img` blob is missing here. The binary from this build can't boot.
+
+## Suggested follow-ups
+I left these out of this MR because they have nothing to do with it, and I haven't tested either:
+1. **`test_saveenv`:** remove the backslash from the character pool, or make sure the string can't end in one.
+2. **Double echo:** find the cause in the lab console connection. Separately, `test_dm_compat` could take the column from the header line only, so a stray line can't shift it.
+
+## Before pushing
+- **Re-run:** zybo and colibrimx8 need a re-run. Until the double echo is fixed, colibrimx8 will fail again if it lands on `dm tree`.
+- **Branch base:** `-fix3` is based on `-v4`, not the local `cherry-cfe0012e12d7`, which is several commits behind the MR and would drop pickman's record commits.
+- **Misleading comment:** pickman may post "fixed failed job(s) zybo, colibrimx8" again, but nothing was fixed. Please use the reply below instead.
+- **GitLab access:** I used the token from `pickman.conf`, via pickman's `gitlab_api` helpers, for read-only job and trace queries. The scripts and traces are in `/tmp/pickman-q`.
+- **Still open:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+
+## Suggested MR reply
+
+> No code changes for this one; neither failure comes from this series, and neither board builds the K1 drivers. Both jobs passed on the same code in pipeline 10982. zybo hit a `test_saveenv` bug: about 1% of its random strings end in a backslash, which escapes the closing quote and hangs the shell at the `> ` prompt. On colibrimx8 the first command after boot was echoed twice, which shifted the column that `test_dm_compat` reads; the same double echo appears in other jobs, including one on !1527. Both jobs need a re-run, and both bugs need separate fixes.
+
+---
+
