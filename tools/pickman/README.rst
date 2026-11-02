@@ -470,7 +470,9 @@ A full pipeline runs about 140 jobs and takes one to two hours. When a pipeline
 fix or a review only changes files which no job reads (for now just
 ``.pickman-history``), or changes nothing at all, pickman pushes with
 ``ci.skip`` and starts a pipeline with only the jobs which did not pass, apart
-from any which also fail in other MRs. It does this with the ``ONLY_JOBS``
+from any which also fail in other MRs. Jobs which are manual, or skipped because
+they need a manual job, do not run in a full pipeline either, so they are left
+out too. It does this with the ``ONLY_JOBS``
 pipeline variable, which holds a regex of job names (see ``.gitlab-ci.yml``).
 If that pipeline cannot be started, pickman starts a full MR pipeline instead.
 

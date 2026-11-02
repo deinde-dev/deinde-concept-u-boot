@@ -9345,10 +9345,12 @@ class TestNarrowPipelines(unittest.TestCase):
             return ''
         return run
 
-    # Results of the full pipeline 100 on commit aaa
+    # Results of the full pipeline 100 on commit aaa. A job which needs a
+    # manual one is skipped
     BASE = gitlab.PipelineJobs('aaa', 'failed', {
         'sandbox': 'success', 'rpi3': 'failed', 'samus': 'failed',
-        'snow': 'canceled', 'manual-job': 'manual'})
+        'snow': 'canceled', 'manual-job': 'manual',
+        'manual-job (variant)': 'skipped'})
 
     def test_narrow_jobs(self):
         """Test working out which jobs a new commit needs"""
@@ -9396,7 +9398,8 @@ class TestNarrowPipelines(unittest.TestCase):
             self.assertEqual(
                 (100, 'aaa', {'sandbox': 'success', 'rpi3': 'success',
                               'samus': 'failed', 'snow': 'success',
-                              'manual-job': 'manual'}),
+                              'manual-job': 'manual',
+                              'manual-job (variant)': 'skipped'}),
                 control._job_view('ci', self._mr(102), self.dbs))
 
             # A pipeline which cannot be read
