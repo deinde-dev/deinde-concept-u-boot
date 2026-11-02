@@ -103169,3 +103169,64 @@ I rescanned all bpif3 jobs in pipelines 10601 to 11000, leaving out 3 lock failu
 
 ---
 
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+
+
+### Conversation log
+I'll check the repo state and how the MR tip relates to the local branches and ci/master.
+
+While that runs, I'll read what the earlier pick actually said about skipping those commits, so the report describes it accurately.
+
+The conflict is resolved with no markers left, and 8 of 20 commits are done so far. The background task will tell me when the rest finish, and then I'll verify the final tree and history file.
+
+The monitor needs an approval that this non-interactive session can't give, and I don't need it anyway: the background rebase task will notify me when it exits. I'll do the final verification then.
+
+**MR !1529 is rebased onto ci/master (`10656703d3cf`), and all the code is unchanged.** There was one conflict, in `.pickman-history`, which I've resolved. `cherry-cfe0012e12d7-v14` is checked out at `a2d709b54332` and not pushed.
+
+My advice from the last report still stands: hold the merge until bpif3 has had a serial capture and commit 2 has had its closer review. I didn't recheck CI this run, so pipeline 11000's unfinished jobs are still unknown.
+
+## Rebase
+- **What moved:** ci/master gained 36 commits, mostly the MediaTek series plus pickman's records for `cherry-5fa1de058293`. None of them touch the K1 clock or I2C drivers, so `.pickman-history` was the only file in common.
+- **Conflict:** it was on the first record commit (`dec4cb7077af`), because both sides append to the end of the file. I kept both sides, and the other 14 record commits applied cleanly.
+- **Empty merge:** the merge commit is still empty (`486d7fdc2281`), with Tom Rini as author and its cherry-picked-from line intact.
+
+## Checks
+
+| Check | Result |
+|---|---|
+| Commits | all 20 kept, on top of ci/master |
+| Code deltas | same as before: +6/-3, +16/-13, +12/-6, +7/-7, plus the empty merge |
+| Driver diff against the base | identical to the series before the rebase |
+| `git range-diff` | only the conflicted record commit differs, and only in its `.pickman-history` context |
+| `.pickman-history` | byte-identical to ci/master's file plus this MR's entries, with no conflict markers |
+| Sandbox build | passes after each of the 20 commits and at the tip |
+| `spacemit_k1` build (`-M`, fresh directory) | compiles; buildman exits 101 only because the OpenSBI blob is missing and faked, so this image can't boot |
+| SPL size | 142,215 bytes, unchanged and under the 200,704-byte limit |
+
+I ran nothing on hardware.
+
+## Before pushing
+- **Branch base:** I started `-v14` from `-v13`, which matches the MR tip, rather than rebasing the local `cherry-cfe0012e12d7` as step 1 says. That branch is still at `dec4cb7077af`, so using it would have dropped 14 of pickman's record commits.
+- **Next pipeline:** expect all jobs to run, because the code now differs from the last pipeline by more than `.pickman-history`. This gives bpif3 a run on the new base, and the four boards that fail before any test runs will probably fail again and bring back the retry-limit notice.
+
+## Still open
+1. **bpif3 serial capture:** this is still the way to settle whether the series makes `BootROM did not start the FSBL` more likely. The rebase adds no evidence either way.
+2. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand. Two new details for that review:
+   - **Prerequisite skipped on purpose:** the earlier cherry-pick record lists `853fdea1fe2` ("prune SPL clock tree"), but its log says it skipped 19 K1 commits as already applied because ci/master has its own K1 code. So the gap isn't an accident.
+   - **SPL heap:** that upstream commit says the full clock tree doesn't fit in SPL's small pre-relocation heap, and ci/master registers a larger SPL tree than upstream. Commit 2 adds to that tree, so check it fits within `CONFIG_SYS_MALLOC_F_LEN=0x5000`. A shortage should fail every time, so it wouldn't obviously explain bpif3's intermittent failures, but I haven't tested this.
+3. **Other fixes:** the pickman and lab fixes from the `-v11` report are separate from this MR and still need doing. Pausing the MR is still the way to stop the repeat pipelines.
+
+## Repo state
+- **Untouched:** `cherry-5fa1de058293`, which this run started on, is unchanged. `tools/binman/home/` and `tools/binman/usr/` were already untracked, and I left them alone.
+- **Temporary files:** the per-commit log and the `spacemit_k1` build are in `/tmp/pickman-q14`. I also left a `spacemit_k1` build in `/tmp/pickman-k1`.
+
+## Suggested MR reply
+
+> Rebased onto ci/master (10656703d3cf). The only conflict was in `.pickman-history`, where both sides append, and both sides are kept. The driver changes are identical to before, and the sandbox build passes after each commit. spacemit_k1 compiles, though the OpenSBI blob is faked locally, so that image can't boot. Nothing has been run on hardware yet. This still needs a serial capture on bpif3 during bad uploads, with and without the series, and a closer review of commit 2 before merging.
+
+---
+
