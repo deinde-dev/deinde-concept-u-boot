@@ -103230,3 +103230,46 @@ I ran nothing on hardware.
 
 ---
 
+## 2026-11-02: us/main
+
+Branch: cherry-b8d9223a4543
+
+Commits:
+- b8d9223a4543 fdt: Fix phandles not copying when using templates
+- be1cf93cdb60 arm: dts: k3-am625: add template for tiboot3.bin
+- d200bb9b318c arm: dts: k3-am625: add template for tispl.bin
+- 87a5773d45e0 Merge patch series "Refactor binman nodes for boot binaries for TI AM625 into templates"
+
+### Conversation log
+The tree has no tracked changes. The only untracked items are two stray directories under `tools/binman/`, which I'll leave alone. Next I'll create the branch and pick the first commit.
+
+None of the commits are in ci/master, so this isn't the already-applied case. The first commit is now empty, so I'll skip it as instructed and move on to the next one.
+
+The stats match the original exactly. Now for split-check and the build.
+
+Now the merge commit, which should end up empty because its two sides have already been picked or dropped.
+
+The `cherry-b8d9223a4543` branch is ready for pushing, with 3 of the 4 commits on it, and the sandbox build passes with no warnings or errors. The fourth commit, `b8d9223a4543`, only touched dropped paths, so I skipped it as instructed.
+
+| Original | Result | Subject | Delta vs original |
+|---|---|---|---|
+| `b8d9223a4543` | **Skipped (empty)** | fdt: Fix phandles not copying when using templates | Only touched `tools/binman/` and `tools/dtoc/` |
+| `be1cf93cdb60` | `f24b90bc805f` | arm: dts: k3-am625: add template for tiboot3.bin | Identical (+136/-370, 6 files) |
+| `d200bb9b318c` | `bbf7524f944c` | arm: dts: k3-am625: add template for tispl.bin | Identical (+282/-789, 5 files) |
+| `87a5773d45e0` | `133f137dcb6c` | Merge patch series "Refactor binman nodes for boot binaries for TI AM625 into templates" | Empty, kept to preserve the history |
+
+- **Build:** sandbox also passed after each non-empty pick. I didn't rebuild right after the empty merge commit, but the final build ran on the same tree.
+- **Overall delta:** the branch's total change (+418/-1159, 6 files) matches the stat of the upstream merge. `k3-am625-binman.dtsi` and `k3-am625-r5-beagleplay.dts` are also identical to upstream; I didn't compare the other four files directly.
+- **Fix-ups:** no content changes were needed, and `split-check` found nothing to convert on any commit.
+- **First pick:** it hit modify/delete conflicts in `ftest.py`, `fdt.py` and `test_fdt.py`. I removed those files along with the new `template_phandle_copy.dts`, which left the commit empty.
+- **Already-applied check:** none of the four subjects are in `ci/master`, so I didn't write a signal file.
+- **Merge commit:** git stopped because the pick became empty, so I committed it with `git commit --allow-empty --no-edit`. The message and its `(cherry picked from...)` line are intact.
+
+**Before you push:**
+- **AM625 boards not built:** the sandbox build doesn't compile these `.dtsi` files, so it says nothing about this refactor. Building an AM625 board such as beagleplay or `am62x_evm` would test it.
+- **Dependency on the skipped fix:** these templates may rely on the phandle fix from `b8d9223a4543`, which now lives in the separate binman/dtoc project. I didn't check that the version used here includes it, and without it AM625 images could come out wrong.
+- **Stray directories:** `tools/binman/home/` and `tools/binman/usr/` were already untracked before I started. I left them alone and they aren't in any commit.
+- **No AI attribution tags:** I kept the original commit messages unchanged, as the earlier picks do.
+
+---
+
