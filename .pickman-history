@@ -102237,3 +102237,41 @@ This qemu-x86_64 failure is a lab or infrastructure problem, not a bug in the se
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-5fa1de058293
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 2): fixed failed job(s) qemu-x86_64.
+
+Checking whether the qemu-x86_64 failure...
+
+### Conversation log
+The comment is a bot status update: it re-runs pipeline 10971 after the qemu-x86_64 lab timeout. I'll check the branch state and build.
+
+The local `-v6` (07749f53561c) differs from the pushed tip (036b1889a576). I'll check how they relate.
+
+I made no code changes, because the comment doesn't ask for any. The sandbox build passes with no warnings or errors. I created `cherry-5fa1de058293-v7` and left it checked out; I haven't pushed it.
+
+**The comment**
+- It repeats last round's conclusion: the qemu-x86_64 failure was a lab timeout on 'dm drivers', not a problem in the series.
+- It says pipeline 10971 has started, re-running only the jobs that didn't pass: the RPi 3/4, BeagleBone Black, Pine64+ and Hummingboard 2 jobs, and qemu-x86_64.
+- It skips opi_pc, samus, samus_tpl and snow, because they also fail in 10 other merge requests (!1516–!1525).
+- None of these boards is MediaTek, and the series doesn't touch them.
+- I haven't seen the results of pipeline 10971 yet.
+
+**Branch**
+- I based `-v7` on the local `-v6` (07749f53561c) rather than the pushed tip `ci/cherry-5fa1de058293` (036b1889a576).
+- `-v6` is the pushed tip plus one commit, "pickman: Record pipeline fix for cherry-5fa1de058293", which adds 31 lines to `.pickman-history`. Starting from the pushed tip would have dropped that record.
+- The branch already contains the latest ci/master, so it didn't need a rebase.
+- The local `cherry-5fa1de058293` is still at the old c980be492654, so I didn't use it.
+- Your untracked `tools/binman/home/` and `tools/binman/usr/` directories are untouched.
+
+**Suggested reply for the MR**
+
+> Thanks. No code changes: the series is the same as in pipeline 10968 and the sandbox build still passes. The qemu-x86_64 failure was a lab timeout on 'dm drivers', with no test failing. The other jobs being re-run are non-MediaTek boards that this series doesn't touch. opi_pc, samus, samus_tpl and snow also fail in many other merge requests, so those look like a lab or infrastructure problem, not this series.
+
+The note lines over 72 columns in the MT8195 commit and the merge commit are still as they were, since this comment didn't ask about them.
+
+---
+
