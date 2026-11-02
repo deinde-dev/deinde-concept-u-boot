@@ -102382,3 +102382,37 @@ I didn't read the pipeline logs or check the boards' final configs, so the "lab 
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10979 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+No code changes were needed for MR !1529: the only comment is the bot's notice that it started pipeline 10979, so there is nothing to fix. `cherry-cfe0012e12d7-v3` is created and checked out at `15d71aa20ee3`, with no new commits, and is not pushed.
+
+**The comment:** the bot re-ran the 13 jobs that did not pass in pipeline 10976 and kept the passes from that pipeline. I don't have the results of 10979, because `glab` isn't installed here and I didn't query the pipeline another way.
+
+**Branch base:** I based `-v3` on `-v2`, not on `cherry-cfe0012e12d7` as step 1 implies.
+- The local `cherry-cfe0012e12d7` is one commit behind, at `dec4cb7077af`.
+- The MR branch on `ci` is at `15d71aa20ee3`, the same as `-v2`, because it includes pickman's review record.
+- Branching from the local copy would have left that record out of `-v3`, and pushing it would have needed a force.
+
+**Can this series affect those jobs?** It is very unlikely, based on the code rather than on any job logs:
+- **Files changed:** the series only touches `drivers/clk/spacemit/clk-k1.c`, `drivers/i2c/k1_i2c.c` and `.pickman-history`.
+- **Who builds the drivers:** `CONFIG_SYS_I2C_SPACEMIT_K1` and `CONFIG_CLK_SPACEMIT` are set only in `configs/spacemit_k1_defconfig`. Neither has a default in the Kconfig entries I read, and nothing selects or implies them. This replaces the earlier check of just four boards, which didn't look at their final configs.
+
+**Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes on `-v3` (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1`, because only `.pickman-history` has changed since the earlier build.
+
+**Still open:**
+- **New jobs in the list:** the earlier bot report named only opi_pc, samus, samus_tpl and snow as failing. The other nine jobs (the Raspberry Pi 3 and 4 jobs, plus the lwIP jobs for BeagleBone Black, Pine64+ and Hummingboard 2) are new to me, and I don't know why they did not pass. They may be skipped or cancelled rather than failed, so check them in 10979.
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone. They aren't in any commit.
+
+**Suggested reply for the MR:**
+
+> No code changes for this one, as this comment only reports that pipeline 10979 has started. This series touches only the SpacemiT K1 clock and I2C drivers, which only spacemit_k1_defconfig enables, so it is very unlikely to affect the re-run jobs. The sandbox build passes. I have not seen the results of 10979 yet, so any job that still fails there needs checking, particularly the Raspberry Pi and lwIP jobs, which were not in the earlier failure report.
+
+---
+
