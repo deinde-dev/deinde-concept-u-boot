@@ -102977,3 +102977,66 @@ I still haven't changed or tested anything in pickman. Merging or pausing this M
 
 ---
 
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10996 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+The MR tip `0b011a6321c6` matches `-v10`, so the new branch will be `-v11`. I'll create it, check that the code is unchanged, and look at pipeline 10996.
+
+Build passes. Now I'll read the traces from this pipeline rather than assume the failures have the same cause as before, including the efi-x86_64-uboot-iso pass.
+
+The previous reports got their next-push predictions wrong more than once, so I'll check that logic in the code before repeating it.
+
+**No code changes for MR !1529: this comment only says pickman started pipeline 10996, and the only result there that's new is efi-x86_64-uboot-iso passing on its re-run.** The series still needs your merge decision. `cherry-cfe0012e12d7-v11` is checked out at `0b011a6321c6`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10996 so far
+It runs on `0b011a6321c6` and was still running about 6 minutes after it started. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| efi-x86_64-uboot-iso (738452) | passed | 1 passed, no initramfs error in the trace |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+- **efi-x86_64-uboot-iso:** this fits the failure in 10994 being intermittent, but one pass doesn't explain it, and the cause of the initramfs error is still unknown.
+- **bpif3:** it isn't in this pipeline because it passed in 10994, so the earlier figures stand: 4 of 8 first-attempt passes, 2 of 8 failed jobs and 18 of 24 bad upload attempts. A small effect from commit 2 still can't be ruled out.
+
+## Correction to earlier reports
+I said a narrowed pipeline leads to a full one because it never finishes. That's only part of the reason, based on reading `_current_pipeline()` and the pipeline IDs:
+
+- **Skipped pipeline takes over:** each push also creates a skipped merge-request pipeline, which becomes the MR's head pipeline. Here that's 10997, one above the narrowed 10996.
+- **Effect:** pickman ignores its own narrowed run when the head pipeline has a higher ID. It then sees `skipped`, which isn't in `PIPELINE_DONE`, so it runs every job.
+- **Order varies:** the same thing happened with 10993 and 10992. With 10988 and 10989 the order was reversed, so there the cause was 10989 still running.
+
+So fixing the `sage-lab` queue wouldn't reliably stop the full runs. I haven't changed or tested anything in pickman.
+
+## What to expect next
+Pushing this run should start a full 142-job pipeline, because the head pipeline is `skipped`. If it fails on the four boards again, the retry-limit comment comes back and the loop continues. Merging or pausing this MR is still the only way I can see to stop that.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1`, because the bpif3 job in 10994 built it with the same driver code.
+- **Branch base:** `-v11` is based on `-v10`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces are in `/tmp/pickman-q11`.
+
+## Decisions for you
+1. **Merge or not:** I'd still merge once commit 2 is reviewed, as more CI runs won't add much. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+2. **Pickman fixes, separate from this MR:**
+   - filter out the bot's own notes in `get_mr_comments()`
+   - stop the skipped merge-request pipeline from hiding the narrowed run in `_current_pipeline()` (new)
+   - pass the shared failures on the review path
+   - run the shared-failure check before the retry-limit check
+3. **Lab and test fixes, separate from this MR:** the list from the `-v10` report is unchanged, including the intermittent initramfs failure and the bpif3 FSBL failures.
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 10996 has started. efi-x86_64-uboot-iso passed on the re-run, so its failure in 10994 looks intermittent, although the cause is still unknown. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of them runs this code. The nine Raspberry Pi and lwIP jobs have not started. bpif3 is not in this pipeline because it passed all 42 tests in 10994. The sandbox build passes. More CI runs won't add much, so this needs a closer review of commit 2 and a merge decision.
+
+---
+
