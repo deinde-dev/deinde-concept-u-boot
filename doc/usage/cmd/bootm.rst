@@ -423,6 +423,8 @@ See also
   it, which uses this command to start what it has downloaded
 * :doc:`nboot<nboot>` for loading an image from raw NAND and booting it,
   which uses this command once the image is in memory
+* :doc:`pxe<pxe>` for booting the images named by a PXELINUX configuration
+  file downloaded over TFTP
 
 .. sectionauthor:: Bartlomiej Sieka <tur@semihalf.com>
 .. sectionauthor:: Simon Glass <sjg@chromium.org>

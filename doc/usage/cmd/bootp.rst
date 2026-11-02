@@ -130,3 +130,5 @@ See also
 * :doc:`sntp<sntp>` for setting the clock from the time server the settings
   name
 * *tftpboot* for downloading a file over TFTP by hand
+* :doc:`pxe<pxe>` for downloading a PXELINUX configuration file over TFTP and
+  booting what it names
