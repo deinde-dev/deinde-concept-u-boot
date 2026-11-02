@@ -686,7 +686,9 @@ To check open MRs for comments and address them::
     ./tools/pickman/pickman review
 
 This lists open pickman MRs (those with ``[pickman]`` in the title), checks each
-for unresolved comments, and uses a Claude agent to address them. The agent will:
+for unresolved comments, and uses a Claude agent to address them. Comments which
+pickman posts itself, such as a note about a pipeline it starts, are not review
+comments, so they are ignored. The agent will:
 
 - Make code changes based on the feedback
 - Create a local branch with version suffix (e.g., ``cherry-abc123-v2``)
