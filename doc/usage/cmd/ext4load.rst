@@ -122,3 +122,5 @@ See also
 * :doc:`ext4write<ext4write>` for writing a file back to the filesystem
 * :doc:`load<load>` for reading a file from any supported filesystem
 * :doc:`fatload<fatload>` for the same operation on a FAT filesystem
+* :doc:`sysboot<sysboot>` for reading a syslinux configuration file from the
+  filesystem and booting what it names

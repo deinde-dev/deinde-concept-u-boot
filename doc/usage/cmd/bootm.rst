@@ -425,6 +425,8 @@ See also
   which uses this command once the image is in memory
 * :doc:`pxe<pxe>` for booting the images named by a PXELINUX configuration
   file downloaded over TFTP
+* :doc:`sysboot<sysboot>` for booting the images named by a syslinux
+  configuration file on a local filesystem
 
 .. sectionauthor:: Bartlomiej Sieka <tur@semihalf.com>
 .. sectionauthor:: Simon Glass <sjg@chromium.org>
