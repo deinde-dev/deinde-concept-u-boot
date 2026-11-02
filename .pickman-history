@@ -102821,3 +102821,71 @@ Pipeline 10986 led to the `-v6` run in this way, and 10990 appears to have led t
 
 ---
 
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Started pipeline 10992 with only the jobs which did not pass: BeagleBone Black (lwIP), Pine64+ (lwIP...
+
+### Conversation log
+The MR tip `47c2a2445568` is the same as `-v8`, so the new branch will be `-v9`. Next I'll check pipeline 10992 and confirm the code hasn't changed.
+
+**No code changes for MR !1529: the comment only says pickman started pipeline 10992, and nothing in that pipeline tests this series.** It still needs your merge decision, and each further review run costs more CI, as explained below. `cherry-cfe0012e12d7-v9` is checked out at `47c2a2445568`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10992 so far
+It runs on `47c2a2445568`, and was still running about 6 minutes after it started. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs.
+
+| Job | Result | Detail |
+|---|---|---|
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | not started | pending or created |
+
+bpif3 isn't in this pipeline because it passed in 10990. The earlier bpif3 figures therefore still stand: 3 of 7 first-attempt passes, 2 of 7 failed jobs and 18 of 23 bad upload attempts. A small effect from commit 2 still can't be ruled out.
+
+GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+## Corrections to earlier reports
+- **Wrong prediction in `-v8`:** I said the next push would probably run all jobs because 10989 was unfinished, but it ran only 13. Pipeline 10990 was the MR's head pipeline, and it finished at 08:07, before the 08:15 push. Pickman ignores 10989 at that point because it's for an older commit.
+- **Four failing boards (open since `-v7`):** they get re-run because the review path calls `_push_with_ci()` with an empty `leave_out`. Only the pipeline-fix path passes the shared failures.
+
+## Why this keeps repeating
+These runs are costing lab time without producing new information:
+
+1. **Own comments count as reviews:** `get_mr_comments()` says it excludes bot notes, but it only skips system notes. Pickman's own "Started pipeline" and "reached retry limit" comments therefore come back as review comments, which is what triggered this run.
+2. **Every review run pushes:** each one adds a `.pickman-history` commit and pushes it, which starts another pipeline.
+3. **Full and narrowed runs alternate:** so far that's 10986 full, 10989 narrowed, 10990 full and 10992 narrowed. Pushing this run should give a full 142-job pipeline, because 10992 can't finish while its Raspberry Pi jobs don't start.
+4. **The full run restarts the cycle:** it fails on the four boards, pickman posts the retry-limit comment, and the cycle starts again.
+
+This comes from reading the code and the pipeline order, and I haven't changed or tested any of it. Filtering out the bot's own notes in `get_mr_comments()` should break the loop. Until that's done, merging or pausing this MR is the only way I can see to stop it.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1`, because the bpif3 job in 10990 built it with the same driver code.
+
+## Repo state
+- **Branch base:** `-v9` is based on `-v8`, which matches the MR tip. The local `cherry-cfe0012e12d7` is many commits behind, and branching from it would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces are in `/tmp/pickman-q9`.
+
+## Decisions for you
+1. **Merge or not:** I'd still merge once commit 2 is reviewed, as more CI runs won't add much. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+2. **Pickman fixes, separate from this MR:**
+   - filter out the bot's own notes in `get_mr_comments()`
+   - pass the shared failures on the review path
+   - run the shared-failure check before the retry-limit check
+3. **Lab and test fixes, separate from this MR:**
+   - the bpif3 FSBL failures
+   - the login timeouts on opi_pc, samus and samus_tpl
+   - the `kea/labgrid` lock on snow
+   - the Raspberry Pi and lwIP jobs that never start
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Suggested MR reply
+
+> No code changes for this one, as this comment only reports that pipeline 10992 has started. So far opi_pc, samus and samus_tpl have timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of them runs this code. The nine Raspberry Pi and lwIP jobs have not started. bpif3 is not in this pipeline because it passed all 42 tests in 10990. The sandbox build passes. pickman treats its own notes as review comments, so each one causes another push and pipeline without adding any information. This needs a closer review of commit 2 and a merge decision.
+
+---
+
