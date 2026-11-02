@@ -102577,3 +102577,55 @@ I left these out of this MR because they have nothing to do with it, and I haven
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix (attempt 3): fixed failed job(s) zybo, colibrimx8.
+
+Both jobs passed on identical drive...
+
+### Conversation log
+The only comment is the bot's notice about attempt 3 and pipeline 10985. Next I'll check how the branches relate and whether the 10985 results are available through pickman.
+
+**No code changes were needed for MR !1529, and zybo and colibrimx8 both passed on the re-run.** The comment only repeats the attempt 3 analysis and reports that pipeline 10985 has started. `cherry-cfe0012e12d7-v5` is created and checked out at `875ab19e4211`, with no new commits, and is not pushed.
+
+## Pipeline results
+Pipeline 10985 runs on `238dc5a8bea9` and was still running when I checked:
+
+| Job | Pipeline | Result |
+|---|---|---|
+| zybo (737940) | 10985 | passed: 48 passed, 1 expected failure, 770 skipped |
+| colibrimx8 (737939) | 10985 | passed: 43 passed, 776 skipped |
+| bpif3 (737897) | 10984 | passed: 42 passed, 777 skipped, no FSBL error |
+| 9 Raspberry Pi and lwIP jobs | 10985 | still pending or created |
+| opi_pc, samus, samus_tpl, snow | 10984 | failed; they also fail in other MRs, so pickman didn't re-run them |
+
+- **zybo and colibrimx8:** this fits the earlier view that both failures were intermittent, but it doesn't show the two bugs are gone. In this colibrimx8 run the first command was `version`, and it wasn't echoed twice.
+- **bpif3:** this is its first real run since the `BootROM did not start the FSBL` failure in job 737727, which answers the question left open in the `-v4` report. One pass still can't rule out a slightly higher failure rate.
+- **The four shared failures:** I only checked their status, not their logs, so the shared-cause diagnosis is still the bot's.
+- **"Fixed failed job(s) zybo, colibrimx8" is wrong:** nothing was fixed, because pickman uses that wording even when no code changed.
+
+## Build
+`buildman -L --board sandbox -w -o /tmp/pickman` passes on `-v5` (exit code 0). Sandbox doesn't compile the K1 drivers. I didn't rebuild `spacemit_k1`, because only `.pickman-history` has changed since `dec4cb7077af`.
+
+## Before pushing
+- **Branch base:** `-v5` is based on `cherry-cfe0012e12d7-fix3`, not the local `cherry-cfe0012e12d7`, which is several commits behind the MR. `875ab19e4211` is the pipeline-fix record that hasn't reached the MR yet. It only touches `.pickman-history` and is a fast-forward from the MR tip.
+- **Risk of a full pipeline:** the `-v4` report found that pushing while a pipeline is still running starts every job, though that hasn't been tested. It's safer to wait for 10985 to finish.
+
+## Still open
+- **Remaining jobs:** the nine pending jobs in 10985 still need to finish. They were skipped in 10984, not failed.
+- **`test_saveenv` backslash bug:** this needs a separate fix outside this MR.
+- **Double echo on the colibrimx8 console:** this also needs a separate fix, and the job can fail again until then.
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+
+I read the job data through the GitLab API without a token, so `pickman.conf` wasn't used this time. The traces are in `/tmp/pickman-q5`, and the pipeline JSON is in `/tmp/p10985.json` and `/tmp/p10985-jobs.json`.
+
+## Suggested MR reply
+
+> No code changes for this one, and despite the wording above, nothing was fixed. zybo and colibrimx8 both passed on the re-run in pipeline 10985, and bpif3 passed in 10984 (42 tests), so none of the three points to this series. The `test_saveenv` backslash bug and the colibrimx8 double echo are still there and need separate fixes. The nine Raspberry Pi and lwIP jobs in 10985 are still waiting. opi_pc, samus, samus_tpl and snow failed again in 10984 and also fail in other merge requests. The sandbox build passes.
+
+---
+
