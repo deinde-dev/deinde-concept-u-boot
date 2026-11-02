@@ -29,8 +29,8 @@ def setup_rauc_image(config, log):
     utils.run_and_log_no_ubman(
         log, ['sh', '-c', f'printf "{spec}" | sfdisk {fname}'])
 
-    # Generate boot script
-    script = '# dummy boot script'
+    # Generate boot script, which runs a command set by the test
+    script = 'run rauc_test_script'
     bootdir = os.path.join(mnt, 'boot')
     utils.run_and_log_no_ubman(log, f'mkdir -p {bootdir}')
     cmd_fname = os.path.join(bootdir, 'boot.cmd')
