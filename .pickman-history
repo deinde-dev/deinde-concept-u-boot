@@ -103040,3 +103040,74 @@ Pushing this run should start a full 142-job pipeline, because the head pipeline
 
 ---
 
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+The MR tip `6b4a380c6880` matches `-v11`, so the new branch will be `-v12`. I'll create it from there, confirm the code is unchanged, and look at the latest pipelines.
+
+Recomputing now: this MR's pipelines use the `refs/merge-requests/1529/head` ref, so my first split put most of them under other MRs.
+
+**No code changes for MR !1529, but I'm changing my merge advice: hold the merge until the bpif3 question below is settled.** The comment is pickman's retry-limit notice again. bpif3 failed again in pipeline 10998, and with up-to-date figures I can no longer say that nothing points to this series.
+
+`cherry-cfe0012e12d7-v12` is checked out at `6b4a380c6880`, the MR tip, with no new commits and not pushed.
+
+## Pipeline 10998
+This is the latest full run, on `6b4a380c6880`, with all 142 jobs: 123 passed, 5 failed, 9 skipped and 5 manual. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738564) | failed | `BootROM did not start the FSBL` on all 5 attempts |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| zybo, colibrimx8, efi-x86_64-uboot-iso | passed | the earlier intermittent failures didn't recur |
+| 9 Raspberry Pi and lwIP jobs | skipped | same as in earlier full runs |
+
+## bpif3: updated figures
+Earlier reports kept reusing the other-MR figures from `-v6`. This time I rescanned every bpif3 job in pipelines 10600 to 10998, leaving out 3 lock failures, one unclassified job and jobs that never ran.
+
+| | This MR | Other MRs (47 refs) |
+|---|---|---|
+| Passed on first attempt | 4 of 9 (44%) | 36 of 75 (48%) |
+| Job failed | 3 of 9 (33%) | 7 of 75 (9%) |
+| Bad upload attempts | 23 of 29 (79%) | 125 of 193 (65%) |
+| Reached 4 or more bad attempts, once the first failed | 5 of 5 | 18 of 39 |
+
+- **What points away from the series:** the first-attempt rate is about the same, and other MRs hit the same error often. The same driver code has also passed all 42 tests in five pipelines.
+- **What points towards it:** when the first upload fails on this MR, it hasn't recovered early once. Other MRs often recover after 1-3 retries. Job failures also look higher (p≈0.07), and the recovery difference is about p≈0.05.
+- **How far to trust that:** I picked these comparisons after seeing the data, and all nine runs fall within about 10 hours, so the board's condition could explain them. Using only pipelines from 10900 on, job failures are 3 of 9 against 1 of 15 (p≈0.13). This is a reason to check, not evidence of a bug.
+- **What could be behind it:** commit 2 changes the SPL clocks, and a hang early in SPL would produce this same error. I haven't reviewed that commit or found a mechanism.
+
+The CI logs can't answer this: `test-log.html` from job 738564 has no SPL or U-Boot output.
+
+## How to settle it
+Capture the serial console on bpif3 during bad upload attempts, with and without this series. Most attempts fail, so this should only take a few tries, and it shows directly whether SPL starts. I didn't run anything on hardware.
+
+## The loop is still running
+- **Prediction confirmed:** the `-v11` push ran all 142 jobs, as predicted, and the retry-limit notice came back. This is the fourth one to reach a review run, after `-v6`, `-v8` and `-v10`.
+- **Next push:** I expect a narrowed run of about 14 jobs, including bpif3, because 10998 has finished and is the head pipeline. The push after that would be full again.
+- **Stopping it:** pausing the MR is now the only option I'd suggest, since I no longer recommend merging yet. I haven't changed or tested anything in pickman, or rechecked the fixes listed in the `-v11` report.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1` locally; job 738564 built it in CI before failing at upload.
+- **Branch base:** `-v12` is based on `-v11`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces and scan script are in `/tmp/pickman-q12`.
+
+## Decisions for you
+1. **Pause the MR:** this stops the repeat pipelines while bpif3 is checked.
+2. **Serial capture on bpif3:** I'd do this before merging, and it replaces my earlier advice that more runs wouldn't add much and that merging was fine after review.
+3. **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review. It's also the most likely place to look if the capture shows SPL hanging.
+4. **Other fixes, separate from this MR:** the pickman and lab lists from the `-v11` report still stand.
+
+## Suggested MR reply
+
+> No code changes for this one; the retry limit only means pickman has stopped attempting fixes. In pipeline 10998 bpif3 failed with `BootROM did not start the FSBL` on all 5 attempts. With refreshed figures, bpif3 jobs have failed 3 of 9 times on this MR against 7 of 75 on other MRs, while first-attempt passes are similar (4 of 9 against 36 of 75). On this MR, a failed first upload has also not recovered early in any of 5 runs. This is not conclusive, since the comparison is after the fact and the runs are close together, but it no longer rules out an effect from this series, and an early SPL hang would give the same error. The CI logs have no SPL output, so this needs a serial capture during bad attempts, with and without the series, before merging. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of these boards runs this code. The sandbox build passes. Commit 2 still needs a closer review.
+
+---
+
