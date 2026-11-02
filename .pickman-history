@@ -102889,3 +102889,91 @@ This comes from reading the code and the pipeline order, and I haven't changed o
 
 ---
 
+### Review: 2026-11-02
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline fix: reached retry limit (3 attempts). Manual intervention required....
+
+### Conversation log
+The MR tip `6031aa69f84a` matches `-v9`, so the new branch will be `-v10`. Next I'll check the latest pipelines, confirm the code is unchanged, and create the branch.
+
+There's a new failure here, `efi-x86_64-uboot-iso`, which hasn't appeared before. I'll read that trace first, then check the others.
+
+The sandbox build passes and `-v10` is in place. I'm now waiting for the job history scan, which will show whether the `efi-x86_64-uboot-iso` initramfs failure happens elsewhere. I'll send the report once it finishes.
+
+**No code changes for MR !1529: this is pickman's retry-limit notice again, and nothing in the CI results points to this series.** It still needs your merge decision. `cherry-cfe0012e12d7-v10` is checked out at `6031aa69f84a`, the MR tip, with no new commits and not pushed.
+
+## Pipeline results
+Pipeline 10994 is the latest full run, on `6031aa69f84a`, and it ran all 142 jobs: 123 passed, 5 failed, 9 skipped and 5 are manual. The driver code hasn't changed since `dec4cb7077af`; only `.pickman-history` differs. GitLab still reports the MR as open, with no conflicts, and mergeable.
+
+| Job | Result | Detail |
+|---|---|---|
+| bpif3 (738400) | passed | 42 passed, 777 skipped, no upload retries |
+| efi-x86_64-uboot-iso (738413) | failed | **new to this MR**, see below |
+| opi_pc, samus, samus_tpl | failed | timeout waiting for login, before any test ran |
+| snow | failed | place held by `kea/labgrid`, before any test ran |
+| 9 Raspberry Pi and lwIP jobs | skipped | same as in earlier full runs |
+
+## New failure: efi-x86_64-uboot-iso
+U-Boot found the ISO, loaded the kernel and initrd, and started the kernel. The kernel then reported this, and the test timed out after 120s waiting for `Started gdm.service`:
+```
+[    1.026022] Initramfs unpacking failed: invalid magic at start of compressed archive
+```
+
+**It looks intermittent and unrelated to this series:**
+- **Same driver code passed:** this job passed in 10984, 10986 and 10990.
+- **Same error elsewhere:** !1498 (job 724462) and !1499 (job 725089) hit the same error on 30 October, before this MR existed.
+- **Drivers not enabled:** the job builds `efi-x86_app64`, whose defconfig doesn't set the K1 options, and earlier checks found only `spacemit_k1_defconfig` enables them.
+- **How often:** 5 of the 75 completed runs since 24 October failed, 3 of them with this error. None of the 30 passing traces I checked has it.
+
+**Still unknown:**
+- **Cause:** the failing and passing runs (738236) report the same initrd size, 75104318 bytes, so the contents look wrong rather than the file being cut short. I can't tell whether the fault is in U-Boot's loading or in the lab's rewritten ISO.
+- **The other two failures:** jobs 730622 and 724197 don't show this error, and I didn't look into them.
+
+## bpif3 and the series
+bpif3 is the only one of these boards that runs this code, and it has now passed all 42 tests in five pipelines: 10976, 10984, 10989, 10990 and 10994.
+
+The series' totals are now:
+- **First-attempt passes:** 4 of 8 runs
+- **Failed jobs:** 2 of 8 runs
+- **Bad upload attempts:** 18 of 24
+
+I didn't refresh the other MRs' figures from the `-v6` report (9 of 26, 3 of 26, 71%). A small effect from commit 2 still can't be ruled out; capturing the serial console during a bad attempt would settle it.
+
+## The loop is still running
+- **Prediction confirmed:** the `-v9` report predicted that its push would run all 142 jobs and bring this comment back, and it did. This is the third retry-limit notice to reach a review run, after `-v6` and `-v8`.
+- **Next push:** 10994 has finished and is the head pipeline, so I expect a narrowed run of about 14 jobs, including `efi-x86_64-uboot-iso`. The push after that would be full again.
+- **Stuck pipelines:** 10989 and 10992 still show as running, because their Raspberry Pi and lwIP jobs never start.
+
+I still haven't changed or tested anything in pickman. Merging or pausing this MR is the only way I can see to stop the loop until that's fixed.
+
+## Checks and repo state
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, but the bpif3 job built `spacemit_k1` from `6031aa69f84a`.
+- **Branch base:** `-v10` is based on `-v9`, which matches the MR tip. I didn't use the local `cherry-cfe0012e12d7` from step 1, because it's many commits behind and would drop pickman's record commits.
+- **Starting point:** this run started with `cherry-5fa1de058293` checked out, and I didn't change that branch.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there, and I left them alone.
+- **Data access:** I used the public API and raw job URLs, with no token. The traces and scripts are in `/tmp/pickman-q10`.
+
+## Decisions for you
+1. **Merge or not:** I'd still merge once commit 2 is reviewed, as more CI runs won't add much. `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs its closer review.
+2. **Pickman fixes, separate from this MR:**
+   - filter out the bot's own notes in `get_mr_comments()`
+   - pass the shared failures on the review path
+   - run the shared-failure check before the retry-limit check
+3. **Lab and test fixes, separate from this MR:**
+   - the intermittent initramfs failure on `efi-x86_64-uboot-iso` (new)
+   - the bpif3 FSBL failures
+   - the login timeouts on opi_pc, samus and samus_tpl
+   - the `kea/labgrid` lock on snow
+   - the Raspberry Pi and lwIP jobs that never start
+   - the `test_saveenv` backslash bug
+   - the colibrimx8 double echo
+
+## Suggested MR reply
+
+> No code changes for this one; the retry limit only means pickman has stopped attempting fixes. In pipeline 10994 bpif3 passed all 42 tests with no upload retries. efi-x86_64-uboot-iso failed with `Initramfs unpacking failed: invalid magic`, which is new on this MR, but it passed on the same driver code in 10984, 10986 and 10990, and the same error occurred on !1498 and !1499 before this MR existed. Its cause isn't known yet. opi_pc, samus and samus_tpl timed out waiting for login, and snow's place was held by kea/labgrid, all before any test ran; none of these boards runs this code. The sandbox build passes. More CI runs won't add much, so this needs a closer review of commit 2 and a merge decision.
+
+---
+
