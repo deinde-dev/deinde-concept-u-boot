@@ -102346,3 +102346,39 @@ The split-check script changed nothing in any of the commits.
 
 ---
 
+### Review: 2026-11-01
+
+Branch: cherry-cfe0012e12d7
+
+Comments addressed:
+- [project_1_bot_2541d37e7146e9c25808a380e05ebef0]: Pipeline 10976: every failed job also fails in other merge requests, so this looks like a lab or inf...
+
+### Conversation log
+I'll check out the branch and see its current state first.
+
+The comment only reports failures that also occur in other MRs, so it asks for no code change. I'll still run the required build and check whether this series could affect those boards at all.
+
+The sandbox build passes. My defconfig grep used guessed symbol names, so its empty result proves little. I'll check the real symbols while creating the branch.
+
+No code changes were needed for MR !1529: the only review comment is the bot's CI report, and it asks for nothing to be fixed. `cherry-cfe0012e12d7-v2` is created and checked out, at the same commit as `cherry-cfe0012e12d7` (`dec4cb7077af`), and is not pushed.
+
+**The comment:** the bot says the failures in pipeline 10976 (opi_pc, samus, samus_tpl, snow) also occur in other MRs, and it didn't attempt to fix them.
+
+**Why this series is unlikely to be the cause:**
+- It only changes `drivers/clk/spacemit/clk-k1.c`, `drivers/i2c/k1_i2c.c` and `.pickman-history`.
+- The two drivers build only with `CONFIG_SYS_I2C_SPACEMIT_K1` and `CONFIG_CLK_SPACEMIT`, and neither is set in the defconfigs for those four boards.
+
+I didn't read the pipeline logs or check the boards' final configs, so the "lab or infrastructure problem" diagnosis is still the bot's. The failed jobs still need a re-run once the lab problem is fixed.
+
+**Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes (exit code 0). Sandbox doesn't compile the K1 drivers, and I didn't rebuild `spacemit_k1` because the code is unchanged since the earlier build.
+
+**Still open:**
+- **Review of commit 2:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand, so it still needs the closer review flagged in the MR description. This comment doesn't touch it.
+- **Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already in the working tree before I started. I left them alone and they aren't in any commit.
+
+**Suggested reply for the MR:**
+
+> No code changes for this one. The failures in pipeline 10976 (opi_pc, samus, samus_tpl, snow) also occur in other merge requests, and this series only touches the SpacemiT K1 clock and I2C drivers, which those boards' defconfigs do not enable. The sandbox build passes. This needs a CI re-run once the lab problem is resolved.
+
+---
+
