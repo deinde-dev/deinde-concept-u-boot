@@ -102416,3 +102416,52 @@ No code changes were needed for MR !1529: the only comment is the bot's notice t
 
 ---
 
+### Pipeline fix: 2026-11-01 (attempt 2)
+
+Branch: cherry-cfe0012e12d7
+
+Failed jobs:
+- bpif3 (sjg-lab)
+
+### Conversation log
+**The bpif3 failure on MR !1529 looks like an intermittent lab problem, not this series, so I made no code changes.** No commit is responsible. `cherry-cfe0012e12d7-fix2` is checked out at `d7be97cf18d0`, the current MR tip, and is not pushed.
+
+## What failed
+Job 737727 never got as far as running a test. The board took the FSBL upload and acknowledged `continue`, but no new USB device appeared, and this happened on all 5 attempts. `k1-deploy.py` then reported `BootROM did not start the FSBL`, and pytest stopped with `Lab failure`.
+
+## Why it isn't this series
+- **Same code passed:** bpif3 passed job 737424 (pipeline 10976, commit `dec4cb7077af`, 42 tests) with no USB retries. The failing commit differs from that one only in `.pickman-history`.
+- **Same failure without this series:** other MRs hit the same error on all 5 attempts, and none of them contains the K1 I2C change:
+
+| Job | MR | Pipeline | Result |
+|---|---|---|---|
+| 737137 | !1527 | 10972 | failed, about two hours earlier |
+| 732898 | !1518 | 10893 | failed |
+| 730899 | !1513 | 10851 | failed |
+
+- **Flaky around the same time:** job 737566 (!1530) failed 3 attempts about an hour earlier, then passed.
+- **Already known:** a comment in `k1-deploy.py` says the BootROM sometimes acks `continue` without starting the FSBL, and that a fresh reset usually clears it.
+
+## What this doesn't rule out
+- **Early SPL hang:** the error only means no new USB device appeared within 15 seconds, so an SPL hanging early would look the same. That's why I'm relying on the job comparison, not the message.
+- **Higher failure rate:** the series has one failure and one pass on identical code, plus a pass on an earlier rebase (`70f5aabee25d`). That can't show whether commit 2, which adds clocks to SPL, makes failures slightly more likely, but nothing suggests it does.
+
+## Builds
+- **sandbox:** `um build sandbox` and buildman both pass.
+- **spacemit_k1:** this is the defconfig behind the `bpif3` lab role, which isn't a buildman board name. It compiles, with one warning because the OpenSBI blob is missing here (`-M` fakes it), so the image can't boot.
+- **SPL size:** `u-boot-spl.bin` is 142,215 bytes, well under the 200,704-byte limit.
+- **Commit built:** these ran on `dec4cb7077af`, which has the same code as the MR tip. I didn't run anything on hardware.
+
+## Before pushing
+- **Branch base:** `-fix2` is based on the MR tip, not the local `cherry-cfe0012e12d7`, which is two commits behind. `_push_with_ci` force-pushes HEAD, so pushing from the old branch would have dropped the two `pickman: Record review handling` commits.
+- **Misleading MR comment:** if pickman counts this run as a success, it will post `fixed failed job(s) bpif3`, but nothing was fixed. Please change that comment or replace it with the reply below.
+- **Next step:** bpif3 needs a re-run, and if it keeps failing, the board needs checking. A push with no code change only re-runs the jobs that didn't pass, which should include bpif3.
+- **Shared-failure check:** pickman didn't filter this job out as a shared failure, even though !1527 failed the same way. I didn't look into why.
+- **Commit 2 review:** `clk: spacemit: k1: add TWSI bus clocks to SPL` was ported by hand and still needs the closer review flagged in the MR description.
+
+**Suggested MR reply:**
+
+> No code changes for this one. bpif3 failed because the board never came up after the FSBL upload, on all 5 attempts (`BootROM did not start the FSBL`). The same code passed bpif3 in pipeline 10976, and the same error occurs on MRs without this series (e.g. job 737137 on !1527), so this looks like an intermittent lab problem. bpif3 needs a re-run.
+
+---
+
