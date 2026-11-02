@@ -103273,3 +103273,65 @@ The `cherry-b8d9223a4543` branch is ready for pushing, with 3 of the 4 commits o
 
 ---
 
+### Pipeline fix: 2026-11-02 (attempt 1)
+
+Branch: cherry-b8d9223a4543
+
+Failed jobs:
+- build all 32bit ARM platforms (world_build)
+- play (sjg-lab)
+- ff3399 (sjg-lab)
+
+### Conversation log
+Reproduced locally with the pinned packages. Now I'll test the fixed dtoc in a clean venv, as the world build does, and look at why the ff3399 job failed.
+
+The sandbox build passes and the full ARM build is still running. My image comparison matched no files because the output paths were wrong, so I'm checking the directory layout.
+
+The fix is on local branch `cherry-b8d9223a4543-fix1`, but it isn't verified yet because the full ARM build is still running. Monitor needs an approval that this session can't grant, so I'll wait for the notification when the background build exits, then report the final result.
+
+The `build all 32bit ARM platforms` and `play` build failures are fixed on local branch `cherry-b8d9223a4543-fix1`, but **the fix is a temporary pin that must be replaced before merging**. The `ff3399` failure looks unrelated and I left it alone. Nothing is pushed.
+
+## Failures
+
+| Job | Cause | Status |
+|---|---|---|
+| `build all 32bit ARM platforms` | dtoc 0.1.0 lacks the phandle fix; 9 AM62x R5 boards failed | Fixed |
+| `play` | Same error while building `am62x_beagleplay_r5`, so no tests ran | Build fixed; lab not re-run |
+| `ff3399` | `test_distro_shim_arm64` timed out waiting for the login prompt | Not changed |
+
+## Root cause
+- **Error:** binman stops with `Cannot find node for phandle N`.
+- **Responsible commit:** `f24b90bc805f` (add template for tiboot3.bin) is the first to reference phandles from a template's top-level nodes. Those phandles only get copied with fix `b8d9223a4543`.
+- **Why the fix is missing:** that commit was dropped from this MR because it only touches `tools/binman` and `tools/dtoc`, which are now separate projects. The fix is in dtoc PR #1, which is still open, and 0.1.0 is the latest dtoc release.
+
+## The change
+I amended the responsible commit (now `aecaeafd86a8`) to pin `tools/dtoc/requirements.txt` to the fix:
+
+```
+dtoc @ git+https://github.com/deinde-dev/dtoc@7e981091cffe132f56022ec77d0b3d34c376470a
+```
+
+The commit message has the `[pickman]` note and a `Co-developed-by` tag. The other three commits are unchanged apart from their hashes.
+
+## Before merging
+- **Replace the pin:** merge dtoc PR #1, release dtoc, then set `dtoc==<new version>`.
+- **Why it can't stay:** it points master at an unmerged PR commit. It would also break PPA builds, because `debian/update-ppa.sh` only recognises `name==version` lines and would silently leave dtoc out. I didn't change that script.
+
+I didn't merge or release anything in the dtoc project, as that's outside this task.
+
+## Verification
+- **Reproduced:** `am62x_beagleplay_r5` fails the same way locally with the pinned 0.1.0.
+- **ARM boards:** all 1313 (32-bit and 64-bit) build with no failures, using a clean venv installed from the branch's requirements.
+- **Sandbox:** `um build sandbox` passes, and all 9 sandbox boards build. An earlier summary showed dtoc errors for three of them, but those were stale results in `/tmp/pickman`; a fresh rebuild was clean.
+- **Build command:** the `buildman` command you gave reports `No matching boards found`, because its list is made of words from the job names. I built `arm` and `sandbox` instead.
+- **Image comparison with the pre-MR tree (4 boards):**
+  - R5 image layouts are identical, though the files differ by a few hundred bytes that I didn't trace.
+  - Beagleplay A53 gains the `tifsstub` nodes its commit message describes.
+  - U-Boot images grow because the DTB now carries the template nodes (about 4 KB on `am62x_evm_a53`).
+- **Not tested:** nothing has been booted on hardware, so the `play` lab job is the real test.
+
+## The `ff3399` failure
+U-Boot reached `Starting kernel ...`, then nothing more appeared before the 200-second timeout. This MR only changes AM625 devicetree files, which firefly-rk3399 doesn't use, and the pin only adds the template phandle fix. I couldn't confirm it's a flake: `.pickman-history` doesn't mention this test, and the GitLab API needs a login to check earlier runs. If it fails again on the next pipeline, it needs its own investigation.
+
+---
+
