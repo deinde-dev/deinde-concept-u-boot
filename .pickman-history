@@ -102206,3 +102206,34 @@ The note lines over 72 columns in the MT8195 commit and the merge commit are sti
 
 ---
 
+### Pipeline fix: 2026-11-01 (attempt 2)
+
+Branch: cherry-5fa1de058293
+
+Failed jobs:
+- qemu-x86_64 (sjg-lab)
+
+### Conversation log
+Checking whether the qemu-x86_64 failure comes from the series. First I'll build qemu-x86_64 and sandbox at the pushed tip.
+
+Both boards build cleanly. Now I'll check whether the series changes the qemu-x86_64 build at all, by comparing it with ci/master.
+
+This qemu-x86_64 failure is a lab or infrastructure problem, not a bug in the series. I made no code changes and did not create `cherry-5fa1de058293-fix2`.
+
+**What the log shows**
+- The pytest run on the lab board stopped with `Lab failure: Timeout executing 'dm drivers': Marking connection bad - no other tests will run`.
+- That is the lab harness losing the console: the full driver table had already printed, but the prompt never came back in time.
+- No test assertion failed: 6 passed and 49 were skipped before the harness gave up.
+
+**Why the series can't be the cause**
+- I built qemu-x86_64 at the pushed tip (`ci/cherry-5fa1de058293`, 036b1889a576) and at `ci/master`. The `.config` and `u-boot.dtb` are identical, and so are the text, data and bss sizes. The two `u-boot-nodtb.bin` files differ in 25 bytes, which matches the size of the build hash and timestamp in the version string. I didn't confirm byte by byte that this is the only difference.
+- The only non-MediaTek code the series touches is new Kconfig/Makefile entries for drivers qemu-x86_64 doesn't enable, a small `dwc_eth_qos.c` change, a default macro in `include/edid.h`, one line in `scripts/conf_nospl`, and MediaTek defconfigs.
+- `buildman -o /tmp/pickman --boards qemu-x86_64,sandbox` built cleanly with no warnings or errors.
+
+**Notes**
+- The local `cherry-5fa1de058293` is still the stale c980be492654, so I checked the pushed tip instead.
+- I left the working tree on `cherry-5fa1de058293-v6`, where it started. The untracked `tools/binman/home/` and `tools/binman/usr/` directories are untouched.
+- Re-running the qemu-x86_64 job once the lab is healthy should be enough.
+
+---
+
