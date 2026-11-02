@@ -80,6 +80,12 @@ static int cmd_test_sysboot_args(struct unit_test_state *uts)
 	ut_assert_nextline("Invalid filesystem: ntfs");
 	ut_assert_console_end();
 
+	/* an option the command does not have is refused */
+	ut_asserteq(1, run_commandf("sysboot -pq host 0:0 any %lx cfg",
+				    (ulong)CONFIG_SYS_LOAD_ADDR));
+	ut_assert_nextline(SYSBOOT_USAGE);
+	console_record_reset();
+
 	ut_assertok(env_set("bootfile", NULL));
 
 	return 0;

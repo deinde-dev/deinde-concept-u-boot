@@ -2762,6 +2762,7 @@ config CMD_SOUND
 
 config CMD_SYSBOOT
 	bool "sysboot"
+	select GETOPT
 	select PXE_UTILS
 	help
 	  Boot image via local extlinux.conf file
