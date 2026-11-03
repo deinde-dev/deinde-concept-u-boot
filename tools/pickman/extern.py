@@ -23,6 +23,11 @@ clone of the project and 'dest' is where those files live in the project.
 Optional 'remote' and 'branch' keys give the remote to push to (default
 'origin') and the branch to base the work on and target with the pull request
 (default 'master').
+
+One project may depend on another, as binman does on dtoc. When a set of
+commits changes both, the pull request for the dependent project is opened as
+a draft, since it cannot be merged until the other project's changes are in a
+release.
 """
 
 from collections import namedtuple
@@ -31,6 +36,7 @@ import os
 import re
 import shutil
 import tempfile
+import tomllib
 
 from u_boot_pylib import command
 from u_boot_pylib import tools
@@ -70,11 +76,16 @@ Project = namedtuple('Project', 'name path repo dest remote branch')
 #     change, whose changes must be dropped when cherry-picking
 # tree_needed (bool): True if any commit changes files outside the external
 #     projects, so still needs to be cherry-picked into the tree
-PortResult = namedtuple('PortResult', 'ok urls paths tree_needed')
+# waiting (dict): For each pull request which waits for a release of other
+#     projects, opened as a draft, the names of those projects, keyed by URL
+PortResult = namedtuple('PortResult', 'ok urls paths tree_needed waiting')
 
 # A GitHub remote URL, in any of the forms git accepts, giving 'owner/repo'
 RE_GITHUB = re.compile(r'^(?:https://|ssh://git@|git@)github\.com[:/]'
                        r'([^/]+/[^/]+?)(?:\.git)?/?$')
+
+# The package name at the start of a line in a requirements.txt file
+RE_REQUIREMENT = re.compile(r'^\s*([A-Za-z0-9][A-Za-z0-9._-]*)')
 
 
 def get_projects(config_file=None):
@@ -413,7 +424,143 @@ def apply_commit(proj, commit, worktree, tmpdir):
     return True
 
 
-def create_pr(proj, worktree, branch_name, title, body):
+def norm_package(name):
+    """Normalise a Python package name, so that names can be compared
+
+    Args:
+        name (str): Package name, e.g. 'U_Boot.pylib'
+
+    Returns:
+        str: Name in lower case, with runs of '-', '_' and '.' replaced by a
+            single '-', e.g. 'u-boot-pylib'
+    """
+    return re.sub(r'[-_.]+', '-', name).lower()
+
+
+def _show(proj, fname):
+    """Read a file from the branch which a project's work is based on
+
+    This uses the clone's copy of the branch, as of its last fetch
+
+    Args:
+        proj (Project): Project to read from
+        fname (str): Filename relative to the top of the project
+
+    Returns:
+        str: Contents of the file, or None if it (or the clone) is missing
+    """
+    result = _git(proj.repo, 'show', f'{proj.remote}/{proj.branch}:{fname}',
+                  raise_on_error=False)
+    return None if result.return_code else result.stdout
+
+
+def package_name(proj):
+    """Get the name of the Python package which a project provides
+
+    Args:
+        proj (Project): Project to check
+
+    Returns:
+        str: Normalised name from the project's pyproject.toml, or the
+            project's name if that does not give one
+    """
+    data = _show(proj, 'pyproject.toml')
+    try:
+        name = tomllib.loads(data or '')['project']['name']
+    except (tomllib.TOMLDecodeError, KeyError, TypeError):
+        name = proj.name
+    return norm_package(name)
+
+
+def required_packages(proj):
+    """Get the Python packages which a project's requirements.txt lists
+
+    Args:
+        proj (Project): Project to check
+
+    Returns:
+        set of str: Normalised package names, empty if there is no
+            requirements.txt
+    """
+    names = set()
+    for line in (_show(proj, 'requirements.txt') or '').splitlines():
+        match = RE_REQUIREMENT.match(line)
+        if match:
+            names.add(norm_package(match.group(1)))
+    return names
+
+
+def find_depends(projects):
+    """Work out which projects depend on which others
+
+    A project depends on another if its requirements.txt lists the package
+    which the other provides. Such a project picks up changes to the other
+    only from a release of it.
+
+    Args:
+        projects (list of Project): Projects to check
+
+    Returns:
+        dict: For each project which depends on others in the list, the
+            names of those others, sorted, keyed by project name
+    """
+    providers = {package_name(proj): proj.name for proj in projects}
+    depends = {}
+    for proj in projects:
+        needs = sorted(providers[pkg] for pkg in required_packages(proj)
+                       if providers.get(pkg, proj.name) != proj.name)
+        if needs:
+            depends[proj.name] = needs
+    return depends
+
+
+def order_projects(projects, depends):
+    """Put each project after the projects which it depends on
+
+    Args:
+        projects (list of Project): Projects to order
+        depends (dict): Names of the projects each depends on, from
+            find_depends()
+
+    Returns:
+        list of Project: Projects in order, otherwise keeping the order
+            given. Where a dependency loop leaves no project ready, the first
+            one remaining goes next.
+    """
+    pending = list(projects)
+    ordered = []
+    while pending:
+        names = {proj.name for proj in pending}
+        ready = [proj for proj in pending
+                 if not names & set(depends.get(proj.name, []))]
+        proj = (ready or pending)[0]
+        ordered.append(proj)
+        pending.remove(proj)
+    return ordered
+
+
+def format_needs(proj, needs):
+    """Describe what a pull request needs before it can be merged
+
+    Args:
+        proj (Project): Project the pull request is for
+        needs (list of tuple): Each (name, url) of a project which this one
+            depends on and which the same commits change, with the URL of its
+            pull request, or None if there is none
+
+    Returns:
+        str: Description, as Markdown
+    """
+    parts = [f'{name} ({url})' if url else name for name, url in needs]
+    names = ' and '.join(name for name, _ in needs)
+    return (f'This needs the changes to {" and ".join(parts)} from the same '
+            f"commits, since {proj.name} uses {names} from a release. Once "
+            f'they are merged, release {names} and update the requirement in '
+            'requirements.txt and pyproject.toml here, before merging this '
+            'pull request.\n')
+
+
+def create_pr(proj, worktree, branch_name, title, body, *, draft=False):  # pylint: disable=too-many-arguments
     """Create a pull request for a branch, or find the existing one
 
     Args:
@@ -422,14 +569,16 @@ def create_pr(proj, worktree, branch_name, title, body):
         branch_name (str): Branch to create the pull request from
         title (str): Title of the pull request
         body (str): Description of the pull request
+        draft (bool): True to open the pull request as a draft
 
     Returns:
         str: URL of the pull request, or None on failure
     """
     result = command.run_one(
         'gh', 'pr', 'create', '--base', proj.branch, '--head', branch_name,
-        '--title', title, '--body', body, cwd=worktree, capture=True,
-        capture_stderr=True, raise_on_error=False)
+        '--title', title, '--body', body, *(['--draft'] if draft else []),
+        cwd=worktree, capture=True, capture_stderr=True,
+        raise_on_error=False)
     if not result.return_code:
         return result.stdout.strip().splitlines()[-1]
 
@@ -444,23 +593,28 @@ def create_pr(proj, worktree, branch_name, title, body):
     return None
 
 
-def format_body(proj, source, commits):
+def format_body(proj, source, commits, needs=None):
     """Format the description of a pull request
 
     Args:
         proj (Project): Project the pull request is for
         source (str): Source branch the commits come from
         commits (list): Commits ported
+        needs (list of tuple): Projects which this one waits for, as for
+            format_needs(), or None if there are none
 
     Returns:
         str: Description
     """
     commit_list = '\n'.join(f'- {c.chash} {c.subject}' for c in commits)
-    return (f'Changes to `{proj.path}/` from U-Boot ({source}), ported by '
+    body = (f'Changes to `{proj.path}/` from U-Boot ({source}), ported by '
             f'pickman.\n\nCommits:\n{commit_list}\n')
+    if needs:
+        body += '\n' + format_needs(proj, needs)
+    return body
 
 
-def port_project(proj, commits, branch_name, source, push):  # pylint: disable=too-many-arguments
+def port_project(proj, commits, branch_name, source, push, *, needs=None):  # pylint: disable=too-many-arguments
     """Port commits to an external project and open a pull request
 
     The work is done in a temporary worktree of the project, so the clone's
@@ -472,6 +626,9 @@ def port_project(proj, commits, branch_name, source, push):  # pylint: disable=t
         branch_name (str): Branch to create in the project
         source (str): Source branch the commits come from
         push (bool): True to push the branch and open a pull request
+        needs (list of tuple): Projects which this one depends on and which
+            the same commits change, as for format_needs(), or None if there
+            are none. The pull request is then opened as a draft.
 
     Returns:
         tuple:
@@ -500,13 +657,18 @@ def port_project(proj, commits, branch_name, source, push):  # pylint: disable=t
                  f'{branch_name}:{branch_name}')
             url = create_pr(proj, worktree, branch_name,
                             f'[pickman] {commits[-1].subject}',
-                            format_body(proj, source, commits))
+                            format_body(proj, source, commits, needs),
+                            draft=bool(needs))
             if not url:
                 return False, None
             tout.info(f'{proj.name}: {url}')
         else:
             tout.info(f'{proj.name}: Branch {branch_name} is ready in '
                       f'{proj.repo}')
+        if needs:
+            names = ' and '.join(name for name, _ in needs)
+            tout.warning(f'{proj.name}: This needs a release of {names} with '
+                         'these changes before it can be merged')
         return True, url
     finally:
         _git(proj.repo, 'worktree', 'remove', '--force', worktree,
@@ -531,17 +693,25 @@ def port_commits(commits, branch_name, source, push, projects=None):
     if projects is None:
         projects = get_projects()
     if not projects:
-        return PortResult(True, [], [], True)
+        return PortResult(True, [], [], True, {})
 
     by_project, tree_needed = split_commits(commits, projects)
     touched = [proj for proj in projects if proj.name in by_project]
     paths = [proj.path for proj in touched]
-    urls = []
-    for proj in touched:
+
+    # A project which depends on another picks up its changes only from a
+    # release, so port the other one first, to link to its pull request
+    depends = find_depends(touched) if len(touched) > 1 else {}
+    ok = True
+    urls = {}
+    for proj in order_projects(touched, depends):
+        needs = [(name, urls.get(name)) for name in depends.get(proj.name, [])]
         ok, url = port_project(proj, by_project[proj.name], branch_name,
-                               source, push)
+                               source, push, needs=needs)
         if not ok:
-            return PortResult(False, urls, paths, tree_needed)
+            break
         if url:
-            urls.append(url)
-    return PortResult(True, urls, paths, tree_needed)
+            urls[proj.name] = url
+    return PortResult(ok, list(urls.values()), paths, tree_needed,
+                      {url: depends[name] for name, url in urls.items()
+                       if name in depends})
