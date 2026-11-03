@@ -242,6 +242,33 @@ Do not write the check into the function instead. It is the same in every
 command, and doing it once in the framework is smaller as soon as a board has
 two or three such commands.
 
+The framework makes this check only with CONFIG_CMD_ARG_CHECK, described next.
+Without it, 'hello -x' says hello to '-x'.
+
+Strict argument checking
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Many commands have always accepted arguments they do not expect, reading an
+unknown option as an address, say, or ignoring a stray argument. Refusing
+these helps someone typing at the prompt but costs code on every board which
+has the command, while a board's own scripts never pass them. Such checks are
+therefore built only with CONFIG_CMD_ARG_CHECK. It is on by default, and a
+board which is short of space can turn it off:
+
+.. code-block:: c
+
+    if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->argc - gs->index > 2)
+        return CMD_RET_USAGE;
+
+Put a check under the option only when the command is harmless without it:
+the argument is ignored, or read as data which the command then handles like
+any other value. A check which stops a crash, a memory overrun, a leak or a
+wrong result is a bug fix, and is always built.
+
+A test which asserts that such an argument is refused relies on the option.
+Sandbox and the test boards keep it on, so such a test needs no guard of its
+own.
+
 Completion function
 -------------------
 

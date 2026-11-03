@@ -129,6 +129,19 @@ config SYS_LONGHELP
 	  Defined when you want long help messages included
 	  Do not set this option when short of memory.
 
+config CMD_ARG_CHECK
+	bool "Check command arguments strictly"
+	default y
+	help
+	  Refuse arguments which a command would otherwise accept quietly,
+	  showing the usage message instead, such as an option given to a
+	  command which takes none. Without this, such an argument reaches the
+	  command as data, as it always has in U-Boot.
+
+	  These checks only catch mistakes made at the command line, so a
+	  board which is short of space can turn them off. Keep them on for
+	  sandbox and the test boards, since the command tests expect them.
+
 config SYS_PROMPT
 	string "Shell prompt"
 	default "Zynq> " if ARCH_ZYNQ
