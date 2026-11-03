@@ -3510,7 +3510,7 @@ class TestExecuteApply(unittest.TestCase):
             commits = [control.CommitInfo('ccc333', 'ccc333c',
                                           'binman: Change', 'Author')]
             args = argparse.Namespace(push=True)
-            port = extern.PortResult(False, [], ['tools/binman'], False)
+            port = extern.PortResult(False, [], ['tools/binman'], False, {})
             with mock.patch.object(control.extern, 'port_commits',
                                    return_value=port), \
                  mock.patch.object(control.agent,
@@ -3574,7 +3574,7 @@ class TestExecuteApply(unittest.TestCase):
 
                 # Without --push nothing is sent, so there is no check
                 mock_port.return_value = extern.PortResult(
-                    False, [], ['tools/binman'], False)
+                    False, [], ['tools/binman'], False, {})
                 control.execute_apply(dbs, 'us/next', commits, 'cherry-f',
                                       argparse.Namespace(push=False),
                                       'aaa000')
@@ -3592,7 +3592,7 @@ class TestExecuteApply(unittest.TestCase):
                                           'binman: Change', 'Author')]
             args = argparse.Namespace(push=True)
             port = extern.PortResult(True, ['https://github.com/pr/1'],
-                                     ['tools/binman'], False)
+                                     ['tools/binman'], False, {})
             with mock.patch.object(control.extern, 'port_commits',
                                    return_value=port), \
                  mock.patch.object(control.agent,
@@ -3619,8 +3619,11 @@ class TestExecuteApply(unittest.TestCase):
             commits = [control.CommitInfo('aaa777', 'aaa777a',
                                           'binman: Change and doc', 'Author')]
             args = argparse.Namespace(push=True)
-            url = 'https://github.com/test/binman/pull/7'
-            port = extern.PortResult(True, [url], ['tools/binman'], True)
+            url = 'https://github.com/test/dtoc/pull/6'
+            url2 = 'https://github.com/test/binman/pull/7'
+            port = extern.PortResult(True, [url, url2],
+                                     ['tools/binman', 'tools/dtoc'], True,
+                                     {url2: ['dtoc']})
             with mock.patch.object(control.extern, 'port_commits',
                                    return_value=port), \
                  mock.patch.object(control.agent, 'cherry_pick_commits',
@@ -3635,11 +3638,14 @@ class TestExecuteApply(unittest.TestCase):
                     dbs, 'us/next', commits, 'cherry-s', args, 'bbb888')
 
             self.assertEqual((0, True), (ret, success))
-            self.assertEqual(['tools/binman'],
+            self.assertEqual(['tools/binman', 'tools/dtoc'],
                              mock_agent.call_args[1]['external_paths'])
+
+            # The binman pull request waits for a release of dtoc
             description = mock_push.call_args[0][3]
-            self.assertIn(f'Changes to separate projects:\n- {url}\n',
-                          description)
+            self.assertIn(f'Changes to separate projects:\n- {url}\n'
+                          f'- {url2} (draft: needs a release of dtoc with '
+                          'these changes)\n', description)
             dbs.close()
 
     def test_execute_apply_failure(self):
@@ -10925,7 +10931,7 @@ class TestExtern(unittest.TestCase):
 
     def test_port_no_projects(self):
         """Test porting when no external projects are configured"""
-        self.assertEqual(extern.PortResult(True, [], [], True),
+        self.assertEqual(extern.PortResult(True, [], [], True, {}),
                          extern.port_commits([self.both], 'cherry-x', 'us',
                                              False, []))
 
@@ -10934,7 +10940,7 @@ class TestExtern(unittest.TestCase):
         with terminal.capture():
             result = extern.port_commits([self.other], 'cherry-x', 'us',
                                          False, [self.proj])
-        self.assertEqual(extern.PortResult(True, [], [], True), result)
+        self.assertEqual(extern.PortResult(True, [], [], True, {}), result)
         self.assertEqual('', _git(self.repo, 'branch', '--list', 'cherry-x'))
 
     def test_port_local(self):
@@ -10943,8 +10949,8 @@ class TestExtern(unittest.TestCase):
         with terminal.capture() as (stdout, _):
             result = extern.port_commits(commits, 'cherry-abc', 'us', False,
                                          [self.proj])
-        self.assertEqual(extern.PortResult(True, [], ['tools/binman'], True),
-                         result)
+        self.assertEqual(
+            extern.PortResult(True, [], ['tools/binman'], True, {}), result)
         self.assertIn('Branch cherry-abc is ready', stdout.getvalue())
 
         # Both commits are applied, with only their binman changes, in
@@ -10987,10 +10993,11 @@ class TestExtern(unittest.TestCase):
                 result = extern.port_commits([self.binman_only], 'cherry-p',
                                              'us', True, [self.proj])
         self.assertEqual(extern.PortResult(True, [url], ['tools/binman'],
-                                           False), result)
+                                           False, {}), result)
         self.assertEqual(_git(self.repo, 'rev-parse', 'cherry-p'),
                          _git(self.remote, 'rev-parse', 'cherry-p'))
         args = mock_pr.call_args[0]
+        self.assertFalse(mock_pr.call_args[1]['draft'])
         self.assertEqual('cherry-p', args[2])
         self.assertEqual('[pickman] binman: Change foo', args[3])
         self.assertIn(f'- {self.binman_only.chash} binman: Change foo',
@@ -11066,6 +11073,188 @@ class TestExtern(unittest.TestCase):
                           'cherry-x', '--title', 'title', '--body', 'body'),
                          cmd)
         self.assertEqual(self.repo, mock_run.call_args[1]['cwd'])
+
+    def test_create_pr_draft(self):
+        """Test creating a pull request as a draft"""
+        ok = command.CommandResult(stdout='url\n', return_code=0)
+        with mock.patch.object(extern.command, 'run_one',
+                               return_value=ok) as mock_run:
+            extern.create_pr(self.proj, self.repo, 'cherry-x', 'title',
+                             'body', draft=True)
+        self.assertEqual('--draft', mock_run.call_args[0][-1])
+
+    def _add_dtoc(self):
+        """Add dtoc to the U-Boot tree, along with a project for it
+
+        Binman's project then requires dtoc's package
+
+        Returns:
+            Project: The dtoc project
+        """
+        self._write(self.uboot, 'tools/dtoc/fdt.py', 'fdt1\n')
+        self._commit(self.uboot, 'Add dtoc')
+
+        remote = os.path.join(self.test_dir, 'dtoc.git')
+        _git_init(remote, bare=True)
+        repo = os.path.join(self.test_dir, 'dtoc')
+        _git_init(repo)
+        self._write(repo, 'dtoc/fdt.py', 'fdt1\n')
+        self._write(repo, 'pyproject.toml', '[project]\nname = "dtoc"\n')
+        self._commit(repo, 'Initial')
+        _git(repo, 'remote', 'add', 'origin', remote)
+        _git(repo, 'push', '-q', 'origin', 'master')
+        _git(repo, 'fetch', '-q', 'origin')
+
+        self._write(self.repo, 'requirements.txt', '# Pins\ndtoc==0.1.0\n')
+        self._commit(self.repo, 'Use dtoc')
+        _git(self.repo, 'push', '-q', 'origin', 'master')
+        _git(self.repo, 'fetch', '-q', 'origin')
+        return extern.Project('dtoc', 'tools/dtoc', repo, 'dtoc', 'origin',
+                              'master')
+
+    def test_norm_package(self):
+        """Test normalising a Python package name"""
+        self.assertEqual('u-boot-pylib', extern.norm_package('U_Boot.pylib'))
+        self.assertEqual('u-boot-pylib', extern.norm_package('u-boot--pylib'))
+        self.assertEqual('dtoc', extern.norm_package('dtoc'))
+
+    def test_package_name(self):
+        """Test finding the package which a project provides"""
+        dtoc = self._add_dtoc()
+        self.assertEqual('dtoc', extern.package_name(dtoc))
+
+        # Without a pyproject.toml, the project's name is used
+        self.assertEqual('binman', extern.package_name(self.proj))
+
+        # The name is normalised
+        self._write(self.repo, 'pyproject.toml',
+                    '[project]\nname = "Binary_Manager"\n')
+        self._commit(self.repo, 'Package')
+        _git(self.repo, 'push', '-q', 'origin', 'master')
+        _git(self.repo, 'fetch', '-q', 'origin')
+        self.assertEqual('binary-manager', extern.package_name(self.proj))
+
+        # Neither a broken file, a file without a name nor a missing clone
+        # gives a name
+        for text in ['[project\n', '[tool]\nname = "x"\n']:
+            self._write(self.repo, 'pyproject.toml', text)
+            self._commit(self.repo, 'Change')
+            _git(self.repo, 'push', '-q', 'origin', 'master')
+            _git(self.repo, 'fetch', '-q', 'origin')
+            self.assertEqual('binman', extern.package_name(self.proj), text)
+        proj = self.proj._replace(repo='/nonexistent/binman')
+        self.assertEqual('binman', extern.package_name(proj))
+
+    def test_required_packages(self):
+        """Test finding the packages which a project requires"""
+        self.assertEqual(set(), extern.required_packages(self.proj))
+        self._write(self.repo, 'requirements.txt',
+                    '# Pins\n-r other.txt\n\nDtoc==0.1.0\n'
+                    'U_Boot.pylib >= 0.1 ; python_version > "3"\n'
+                    'pyelftools\n')
+        self._commit(self.repo, 'Pins')
+        _git(self.repo, 'push', '-q', 'origin', 'master')
+        _git(self.repo, 'fetch', '-q', 'origin')
+        self.assertEqual({'dtoc', 'u-boot-pylib', 'pyelftools'},
+                         extern.required_packages(self.proj))
+
+    def test_find_depends(self):
+        """Test working out which projects depend on which others"""
+        dtoc = self._add_dtoc()
+        self.assertEqual({'binman': ['dtoc']},
+                         extern.find_depends([self.proj, dtoc]))
+
+        # A project which is not in the list is not a dependency
+        self.assertEqual({}, extern.find_depends([self.proj]))
+
+        # Nor is a project which requires its own package
+        self._write(self.repo, 'pyproject.toml',
+                    '[project]\nname = "dtoc"\n')
+        self._commit(self.repo, 'Rename')
+        _git(self.repo, 'push', '-q', 'origin', 'master')
+        _git(self.repo, 'fetch', '-q', 'origin')
+        self.assertEqual({}, extern.find_depends([self.proj]))
+
+    def test_order_projects(self):
+        """Test putting projects after the ones they depend on"""
+        first = self.proj._replace(name='a')
+        second = self.proj._replace(name='b')
+        third = self.proj._replace(name='c')
+        projects = [first, second, third]
+        self.assertEqual(projects, extern.order_projects(projects, {}))
+        self.assertEqual(
+            [second, third, first],
+            extern.order_projects(projects, {'a': ['b', 'c'], 'c': ['b']}))
+
+        # Projects in a loop keep the order given, after the others
+        self.assertEqual(
+            [third, first, second],
+            extern.order_projects(projects, {'a': ['b'], 'b': ['a']}))
+
+    def test_format_needs(self):
+        """Test describing what a pull request needs before merging"""
+        url = 'https://github.com/test/dtoc/pull/1'
+        text = extern.format_needs(self.proj, [('dtoc', url)])
+        self.assertIn(f'changes to dtoc ({url}) from the same commits',
+                      text)
+        self.assertIn('binman uses dtoc from a release', text)
+        self.assertIn('release dtoc and update the requirement', text)
+
+        text = extern.format_needs(self.proj, [('dtoc', None), ('fdt', None)])
+        self.assertIn('changes to dtoc and fdt from the same commits', text)
+
+    def test_port_depends(self):
+        """Test porting to a project and to another which depends on it"""
+        dtoc = self._add_dtoc()
+        self._write(self.uboot, 'tools/binman/ftest.py', 'test\n')
+        self._write(self.uboot, 'tools/dtoc/fdt.py', 'fdt1\nfix\n')
+        commit = self._commit(self.uboot, 'fdt: Fix templates')
+
+        urls = {self.repo: 'https://github.com/test/binman/pull/2',
+                dtoc.repo: 'https://github.com/test/dtoc/pull/1'}
+        calls = []
+
+        def create(proj, *args, draft):
+            calls.append((proj.name, args[3], draft))
+            return urls[proj.repo]
+
+        with mock.patch.object(extern, 'create_pr', side_effect=create):
+            with terminal.capture() as (_, stderr):
+                result = extern.port_commits([commit], 'cherry-d', 'us', True,
+                                             [self.proj, dtoc])
+        binman_url = urls[self.repo]
+        dtoc_url = urls[dtoc.repo]
+        self.assertEqual(
+            extern.PortResult(True, [dtoc_url, binman_url],
+                              ['tools/binman', 'tools/dtoc'], False,
+                              {binman_url: ['dtoc']}), result)
+
+        # dtoc goes first, then binman as a draft which links to it
+        self.assertEqual(['dtoc', 'binman'], [name for name, _, _ in calls])
+        self.assertFalse(calls[0][2])
+        self.assertNotIn('This needs', calls[0][1])
+        self.assertTrue(calls[1][2])
+        self.assertIn(f'\n\nThis needs the changes to dtoc ({dtoc_url})',
+                      calls[1][1])
+        self.assertIn('binman: This needs a release of dtoc',
+                      stderr.getvalue())
+
+        # Without pushing, there is still a warning
+        with terminal.capture() as (_, stderr):
+            result = extern.port_commits([commit], 'cherry-l', 'us', False,
+                                         [self.proj, dtoc])
+        self.assertTrue(result.ok)
+        self.assertEqual({}, result.waiting)
+        self.assertIn('binman: This needs a release of dtoc',
+                      stderr.getvalue())
+
+        # A change to binman alone does not need dtoc
+        with mock.patch.object(extern, 'create_pr', side_effect=create):
+            with terminal.capture():
+                result = extern.port_commits([self.binman_only], 'cherry-b',
+                                             'us', True, [self.proj, dtoc])
+        self.assertEqual({}, result.waiting)
+        self.assertFalse(calls[-1][2])
 
     def test_create_pr_exists(self):
         """Test finding a pull request which already exists"""

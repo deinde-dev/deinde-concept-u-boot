@@ -4454,9 +4454,16 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
             note = parked_overlap_note(shared)
             ext_note = ''
             if port.urls:
-                ext_note = ('Changes to separate projects:\n' +
-                            ''.join(f'- {url}\n' for url in port.urls) +
-                            '\n')
+                ext_note = 'Changes to separate projects:\n'
+                for url in port.urls:
+                    needs = port.waiting.get(url)
+                    ext_note += f'- {url}'
+                    if needs:
+                        names = ' and '.join(needs)
+                        ext_note += (f' (draft: needs a release of {names} '
+                                     'with these changes)')
+                    ext_note += '\n'
+                ext_note += '\n'
             note += split_note(BRANCH_MASTER, branch_name)
             description = (f'{summary}\n\n{ext_note}{note}\n'
                            f'### Conversation log\n{conv_log}')

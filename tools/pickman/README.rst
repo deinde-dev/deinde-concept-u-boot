@@ -194,8 +194,20 @@ listed project. For each project it:
    ``gh`` tool, which must be logged in. Otherwise the branch is left in the
    clone
 
+One project may depend on another, as binman does on dtoc. Such a project
+installs the other as a package, so it picks up the other's changes only from
+a release. Pickman treats a project as depending on another when the
+``requirements.txt`` file on its branch lists the package named in the other's
+``pyproject.toml`` (or, failing that, the other project's name). When a set of
+commits changes both, pickman ports the other project first, then opens the
+pull request for the dependent one as a draft, with a note linking to the
+other pull request. Once that is merged, release the other project and update
+the requirement in the dependent project's ``requirements.txt`` and
+``pyproject.toml``, before merging the draft.
+
 The cherry-pick into the tree then drops the changes under these directories,
-and the MR description links to the pull requests. If every change in the set
+and the MR description links to the pull requests, marking any which are
+drafts waiting for a release. If every change in the set
 is in these projects, there is nothing to cherry-pick, so pickman creates no MR
 and moves on to the next set.
 
