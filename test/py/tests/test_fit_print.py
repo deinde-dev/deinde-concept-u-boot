@@ -403,7 +403,7 @@ Created:         {timestamp_str}
                  vendor,board
   Sign algo:     sha256,rsa2048:test-key
   Sign padding:  pkcs-1.5
-  Sign value:    c20f64d9bf79ddb0b1a69293b2375ad88e70536684705a9577f2156e6da4df6d
+  Sign value:    abbb7ab19aefac84e238edf13e87f88cf0578cf06155fe2c965a4f2385047a62
   Timestamp:     {timestamp_str}
  Configuration 1 (conf-2)
   Description:   Alternate configuration
