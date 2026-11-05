@@ -61,5 +61,6 @@ See also
 * :doc:`fatls<fatls>` for listing a FAT filesystem without mounting it
 * :doc:`cramfsls<cramfsls>` for listing a CRAMFS image held in memory,
   which has no block device to mount
+* :doc:`fstypes<fstypes>` for the filesystem types this command can read
 * :doc:`mount<mount>` for making a filesystem available to this command
 * :doc:`size<size>` for asking about one file rather than listing them all

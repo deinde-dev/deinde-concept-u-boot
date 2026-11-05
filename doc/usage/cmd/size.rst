@@ -83,5 +83,6 @@ See also
 * :doc:`ext4size<ext4size>` for the ext-only form of this command
 * :doc:`ext2ls<ext2ls>` for listing an ext filesystem, which shows sizes too
 * :doc:`ext2load<ext2load>` for reading a file, which also sets filesize
+* :doc:`fstypes<fstypes>` for the filesystem types this command can read
 * :doc:`load<load>` for reading a file into memory, which also sets filesize
 * :doc:`mount<mount>` for making a filesystem available to the VFS form

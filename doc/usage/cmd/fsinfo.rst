@@ -51,3 +51,9 @@ Return value
 The return value $? is set to 0 (true) if the command succeeded and to 1
 (false) otherwise. If the filesystem does not support statfs, an error
 message is displayed.
+
+See also
+--------
+
+* :doc:`fstypes<fstypes>` for the filesystem types this build can read
+* :doc:`ls<ls>` for listing a directory on the filesystem
