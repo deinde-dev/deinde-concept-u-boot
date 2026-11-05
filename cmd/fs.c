@@ -15,6 +15,7 @@
 #include <file.h>
 #include <fs.h>
 #include <fs_legacy.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <mapmem.h>
 #include <part.h>
@@ -22,8 +23,7 @@
 #include <dm/uclass.h>
 
 int do_load(int argc, char *const argv[], int fstype);
-int do_fs_types(struct cmd_tbl *cmdtp, int flag, int argc,
-		char *const argv[]);
+int do_fs_types(void);
 
 static int mount_handler(int argc, char *const argv[])
 {
@@ -749,13 +749,12 @@ static int do_load_vfs(struct cmd_tbl *cmdtp, int flag, int argc,
 	return do_vfs_load(cmdtp, flag, argc, argv);
 }
 
-static int do_fstypes(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_fstypes(struct getopt_state *gs)
 {
-	return do_fs_types(cmdtp, flag, argc, argv);
+	return do_fs_types();
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fstypes, 1, 1, do_fstypes,
 	"List supported filesystem types", ""
 );

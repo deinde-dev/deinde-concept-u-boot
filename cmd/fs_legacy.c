@@ -7,6 +7,7 @@
 
 #include <command.h>
 #include <fs_cmd.h>
+#include <getopt.h>
 
 static int do_size_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char *const argv[])
@@ -128,13 +129,12 @@ U_BOOT_CMD(
 	"- set environment variable to filesystem type\n"
 );
 
-static int do_fstypes_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char * const argv[])
+static int do_fstypes_wrapper(struct getopt_state *gs)
 {
-	return do_fs_types(cmdtp, flag, argc, argv);
+	return do_fs_types();
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fstypes, 1, 1, do_fstypes_wrapper,
 	"List supported filesystem types", ""
 );
