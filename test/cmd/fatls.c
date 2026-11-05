@@ -183,6 +183,10 @@ static int cmd_test_fatls_baddev_norun(struct unit_test_state *uts)
 CMD_TEST_ARGS(cmd_test_fatls_baddev_norun, UTF_CONSOLE | UTF_MANUAL,
 	      { "fs_image", UT_ARG_STR });
 
+/* the last line of the usage message, which several tests wait for */
+#define USAGE_LAST \
+	"    - list files from 'dev' on 'interface' in a 'directory'"
+
 /* Test that fatls shows its usage message when it cannot go on */
 static int cmd_test_fatls_usage_norun(struct unit_test_state *uts)
 {
@@ -194,15 +198,33 @@ static int cmd_test_fatls_usage_norun(struct unit_test_state *uts)
 	ut_assert_nextline("%s", "");
 	ut_assert_nextline("Usage:");
 	ut_assert_nextline("fatls <interface> [<dev[:part]>] [directory]");
-	ut_assert_nextline("    - list files from 'dev' on 'interface' in a 'directory'");
+	ut_assert_nextline(USAGE_LAST);
 	ut_assert_console_end();
 
 	/* and there is nothing to give beyond the directory */
 	ut_asserteq(1, run_command("fatls host 0 docs extra", 0));
-	ut_assert_skip_to_line("    - list files from 'dev' on 'interface' in a 'directory'");
+	ut_assert_skip_to_line(USAGE_LAST);
 	ut_assert_console_end();
 
 	return 0;
 }
 CMD_TEST_ARGS(cmd_test_fatls_usage_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that fatls refuses an option, since it has none */
+static int cmd_test_fatls_badopt_norun(struct unit_test_state *uts)
+{
+	ut_assertok(bind_image(uts));
+
+	ut_asserteq(1, run_command("fatls -l host 0", 0));
+	ut_assert_skip_to_line(USAGE_LAST);
+	ut_assert_console_end();
+
+	/* a directory which looks like an option is still a directory */
+	ut_asserteq(1, run_command("fatls host 0 -l", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_fatls_badopt_norun, UTF_CONSOLE | UTF_MANUAL,
 	      { "fs_image", UT_ARG_STR });

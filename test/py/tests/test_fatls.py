@@ -67,3 +67,7 @@ class TestFatls:
     def test_fatls_usage(self, ubman, fat_image):
         """Check that fatls shows its usage message when it cannot go on"""
         ubman.run_ut('cmd', 'cmd_test_fatls_usage', fs_image=fat_image)
+
+    def test_fatls_badopt(self, ubman, fat_image):
+        """Check that fatls refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_fatls_badopt', fs_image=fat_image)

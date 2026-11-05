@@ -48,13 +48,12 @@ U_BOOT_CMD_NOOPTS(
 	"      an aligned buffer and performance will suffer."
 );
 
-static int do_fat_ls(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+static int do_fat_ls(struct getopt_state *gs)
 {
-	return do_ls(argc, argv, FS_TYPE_FAT);
+	return do_ls(gs->argc, gs->argv, FS_TYPE_FAT);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fatls,	4,	1,	do_fat_ls,
 	"list files in a directory (default /)",
 	"<interface> [<dev[:part]>] [directory]\n"
