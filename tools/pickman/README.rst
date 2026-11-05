@@ -451,7 +451,9 @@ for failed pipelines. For each failed pipeline:
 If the MR's branch is behind its target or has conflicts, pickman rebases it
 and pushes it instead, since the failure may come from the old base, then
 looks at the new pipeline in turn. Both sides add entries at the end of
-``.pickman-history``, so the rebase keeps the entries from both.
+``.pickman-history``, so the rebase keeps the entries from both. If the rebase
+stops on a conflict elsewhere, pickman aborts it and says on the MR which files
+conflict, leaving the branch to be updated by hand.
 
 **Retry behaviour**
 
@@ -461,7 +463,8 @@ is required. Set ``--fix-retries 0`` to disable automatic pipeline fixing.
 
 Each attempt is tracked per pipeline ID, so a new pipeline triggered by a rebase
 or comment fix is treated independently. A pipeline whose failures all happen
-in other MRs too does not count as an attempt.
+in other MRs too does not count as an attempt, nor does one whose branch
+cannot be rebased.
 
 **Options**
 

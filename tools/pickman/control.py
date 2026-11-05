@@ -5156,16 +5156,29 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         tout.info(f'MR !{mr_iid}: needs rebase, rebasing before '
                   f'pipeline fix...')
     subtree = mr_subtree(merge_req)
+    problem = None
     if subtree:
         if not _recreate_subtree(remote, merge_req, target, subtree):
-            tout.warning(f'MR !{mr_iid}: subtree update failed')
-            return False
+            problem = 'the subtree update cannot be pulled again'
     else:
         run_git(['checkout', branch])
-        ok, _ = rebase_onto(f'{remote}/{target}')
+        ok, conflicts = rebase_onto(f'{remote}/{target}')
         if not ok:
-            tout.warning(f'MR !{mr_iid}: rebase failed, aborting')
-            return False
+            problem = 'it cannot be rebased'
+            if conflicts:
+                problem += f' (conflicts in {", ".join(conflicts)})'
+
+    # Record the failure, so that it is not tried again on every poll
+    if problem:
+        tout.warning(f'MR !{mr_iid}: {problem}')
+        gitlab_api.reply_to_mr(
+            remote, mr_iid,
+            f'Pipeline {merge_req.pipeline_id} failed, but the branch needs '
+            f'updating to {target} first and {problem}. Please update it by '
+            'hand.')
+        dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebase_failed')
+        dbs.commit()
+        return False
     gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
     dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebased')
     dbs.commit()

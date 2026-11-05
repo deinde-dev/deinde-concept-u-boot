@@ -7412,7 +7412,7 @@ class TestProcessPipelineFailures(unittest.TestCase):
             dbs.close()
 
     def test_rebase_with_conflicts_skips(self):
-        """Test that a failed rebase skips the pipeline fix"""
+        """Test that a failed rebase skips the pipeline fix and says so"""
         with terminal.capture():
             dbs = database.Database(self.db_path)
             dbs.start()
@@ -7422,16 +7422,28 @@ class TestProcessPipelineFailures(unittest.TestCase):
             def mock_run_git_fn(args):
                 if 'rebase' in args and '--abort' not in args:
                     raise command.CommandExc('conflict', None)
+                if args[0] == 'diff':
+                    return 'boot/a.c\nboot/b.c'
                 return ''
 
             with mock.patch.object(control, 'run_git',
-                                   side_effect=mock_run_git_fn):
-                with mock.patch.object(agent, 'fix_pipeline') as mock_fix:
-                    result = control.process_pipeline_failures(
-                        'ci', mrs, dbs, 'master', 3)
+                                   side_effect=mock_run_git_fn), \
+                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
 
             self.assertEqual(result, 0)
             mock_fix.assert_not_called()
+            self.assertIn('Pipeline 100 failed, but the branch needs '
+                          'updating to master first and it cannot be '
+                          'rebased (conflicts in boot/a.c, boot/b.c)',
+                          mock_reply.call_args[0][2])
+
+            # Recorded, so not tried again on the next poll
+            self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(0, dbs.pfix_count(1))
             dbs.close()
 
     def _recreate_subtree(self, pulled):
@@ -7441,7 +7453,8 @@ class TestProcessPipelineFailures(unittest.TestCase):
             pulled (bool): Whether pulling the subtree update succeeds
 
         Returns:
-            tuple: (result, git_calls, mock for pushes, mock for the fixer)
+            tuple: (result, git_calls, mock for pushes, mock for the fixer,
+                mock for replies)
         """
         git_calls = []
 
@@ -7460,17 +7473,21 @@ class TestProcessPipelineFailures(unittest.TestCase):
                                    return_value=control.SUBTREE_OK if pulled
                                    else control.SUBTREE_FAIL) as pull, \
                  mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as reply, \
                  mock.patch.object(agent, 'fix_pipeline') as fix:
                 result = control.process_pipeline_failures(
                     'ci', mrs, dbs, 'master', 3)
             pull.assert_called_once_with('dts', 'v7.2-dts')
-            self.assertEqual(pulled, dbs.pfix_has(1, 100))
+
+            # Either way, the pipeline is dealt with
+            self.assertTrue(dbs.pfix_has(1, 100))
             dbs.close()
-        return result, git_calls, push, fix
+        return result, git_calls, push, fix, reply
 
     def test_recreates_subtree(self):
         """Test that a subtree update is pulled again rather than rebased"""
-        result, git_calls, push, fix = self._recreate_subtree(True)
+        result, git_calls, push, fix, _ = self._recreate_subtree(True)
         self.assertEqual(1, result)
         self.assertIn(['checkout', '-B', 'cherry-test-1', 'ci/master'],
                       git_calls)
@@ -7481,10 +7498,12 @@ class TestProcessPipelineFailures(unittest.TestCase):
 
     def test_recreate_subtree_fails(self):
         """Test that nothing is pushed if the subtree update fails"""
-        result, _, push, fix = self._recreate_subtree(False)
+        result, _, push, fix, reply = self._recreate_subtree(False)
         self.assertEqual(0, result)
         push.assert_not_called()
         fix.assert_not_called()
+        self.assertIn('the subtree update cannot be pulled again',
+                      reply.call_args[0][2])
 
     def test_disabled_with_zero(self):
         """Test that fix_retries=0 is handled in do_step (not called)"""
