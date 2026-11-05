@@ -448,6 +448,11 @@ for failed pipelines. For each failed pipeline:
    `CI Pipelines`_)
 5. The attempt is recorded in the database to avoid reprocessing
 
+If the MR's branch is behind its target or has conflicts, pickman rebases it
+and pushes it instead, since the failure may come from the old base, then
+looks at the new pipeline in turn. Both sides add entries at the end of
+``.pickman-history``, so the rebase keeps the entries from both.
+
 **Retry behaviour**
 
 Each MR gets up to ``--fix-retries`` attempts (default: 3). If the limit is

@@ -7420,7 +7420,7 @@ class TestProcessPipelineFailures(unittest.TestCase):
             mrs = [self._make_mr(has_conflicts=True)]
 
             def mock_run_git_fn(args):
-                if args[0] == 'rebase':
+                if 'rebase' in args and '--abort' not in args:
                     raise command.CommandExc('conflict', None)
                 return ''
 
@@ -7474,7 +7474,7 @@ class TestProcessPipelineFailures(unittest.TestCase):
         self.assertEqual(1, result)
         self.assertIn(['checkout', '-B', 'cherry-test-1', 'ci/master'],
                       git_calls)
-        self.assertFalse([a for a in git_calls if a[0] == 'rebase'])
+        self.assertFalse([a for a in git_calls if 'rebase' in a])
         push.assert_called_once_with('ci', 'cherry-test-1', force=True,
                                      skip_ci=False)
         fix.assert_not_called()
@@ -10786,6 +10786,92 @@ def _git_init(path, bare=False):
     if not bare:
         _git(path, 'config', 'user.email', 'test@test.com')
         _git(path, 'config', 'user.name', 'Test')
+
+
+class TestRebaseOnto(unittest.TestCase):
+    """Tests for rebasing a branch which has its own history entry"""
+
+    def setUp(self):
+        """Set up a repo whose branch and master both add history entries"""
+        self.test_dir = tempfile.mkdtemp()
+        self.orig_dir = os.getcwd()
+        self.repo = self.test_dir
+        _git_init(self.repo)
+        self.first = self._entry('first')
+        self.cherry = self._entry('cherry')
+        self.other = self._entry('other')
+        self._commit({'a.c': 'one\ntwo\n',
+                      control.HISTORY_FILE: self.first}, 'Initial')
+        _git(self.repo, 'checkout', '-q', '-b', 'cherry')
+        self._commit({'a.c': 'one\ntwo changed\n'}, 'Change a.c')
+        self._commit({control.HISTORY_FILE: self.first + self.cherry},
+                     'Record cherry')
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({control.HISTORY_FILE: self.first + self.other},
+                     'Record other')
+        _git(self.repo, 'checkout', '-q', 'cherry')
+        os.chdir(self.repo)
+
+    def tearDown(self):
+        """Remove the repo"""
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    @staticmethod
+    def _entry(branch):
+        """Make a history entry like the ones which pickman writes"""
+        return (f'## 2026-11-02: us/main\n\nBranch: {branch}\n\nCommits:\n'
+                f'- abc {branch}\n\n### Conversation log\nDone\n\n---\n\n')
+
+    def _commit(self, files, subject):
+        """Write some files and commit them"""
+        for fname, data in files.items():
+            tools.write_file(os.path.join(self.repo, fname), data,
+                             binary=False)
+        _git(self.repo, 'add', '-A')
+        _git(self.repo, 'commit', '-q', '-m', subject)
+
+    def test_history_entries_kept(self):
+        """Test that history entries on both sides are kept"""
+        # A plain rebase cannot merge the history file
+        with self.assertRaises(subprocess.CalledProcessError):
+            _git(self.repo, 'rebase', 'master')
+        _git(self.repo, 'rebase', '--abort')
+
+        names = []
+        orig_mkstemp = tempfile.mkstemp
+
+        def mkstemp(**kwargs):
+            fd, fname = orig_mkstemp(**kwargs)
+            names.append(fname)
+            return fd, fname
+
+        with mock.patch.object(control.tempfile, 'mkstemp',
+                               side_effect=mkstemp):
+            self.assertEqual((True, []), control.rebase_onto('master'))
+        self.assertEqual(
+            ['Record cherry', 'Change a.c', 'Record other', 'Initial'],
+            _git(self.repo, 'log', '--format=%s').splitlines())
+        self.assertEqual(self.first + self.other + self.cherry,
+                         tools.read_file(control.HISTORY_FILE, binary=False))
+        self.assertEqual('one\ntwo changed\n',
+                         tools.read_file('a.c', binary=False))
+
+        # The attributes file is removed afterwards
+        self.assertEqual(1, len(names))
+        self.assertFalse(os.path.exists(names[0]))
+
+    def test_conflict(self):
+        """Test that a real conflict aborts the rebase"""
+        head = _git(self.repo, 'rev-parse', 'HEAD')
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({'a.c': 'one\ntwo other\n'}, 'Change a.c differently')
+        _git(self.repo, 'checkout', '-q', 'cherry')
+
+        self.assertEqual((False, ['a.c']), control.rebase_onto('master'))
+        self.assertEqual(head, _git(self.repo, 'rev-parse', 'HEAD'))
+        self.assertFalse(os.path.exists(os.path.join(self.repo, '.git',
+                                                     'rebase-merge')))
 
 
 class TestExtern(unittest.TestCase):
