@@ -101,7 +101,8 @@ static int do_log_filter_list(struct getopt_state *gs)
 		}
 	}
 
-	if (gs->index != gs->argc)
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
 		return CMD_RET_USAGE;
 
 	ldev = log_device_find_by_name(drv_name);

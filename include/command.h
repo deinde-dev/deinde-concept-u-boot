@@ -71,8 +71,9 @@ enum {
 	/* the command may be repeated by pressing Enter at an empty prompt */
 	CMDF_REPEATABLE	= BIT(1),
 	/*
-	 * the command takes no options, so cmd_invoke() refuses any with
-	 * CMD_RET_USAGE before calling it. Only meaningful with CMDF_GETOPT
+	 * the command takes no options, so with CONFIG_CMD_ARG_CHECK
+	 * cmd_invoke() refuses any with CMD_RET_USAGE before calling it. Only
+	 * meaningful with CMDF_GETOPT
 	 */
 	CMDF_NOOPTS	= BIT(2),
 };
@@ -470,9 +471,10 @@ int cmd_source_script(ulong addr, const char *fit_uname, const char *confname);
  * top-level command, and _COMPLETE also takes an auto-complete function.
  *
  * The _NOOPTS ones are the _GETOPT ones for a command which takes no
- * options. cmd_invoke() refuses an option with CMD_RET_USAGE before calling
- * the function, so it need not call getopt() itself; it can go straight to
- * getopt_pop() or gs->argv[gs->index] for its arguments.
+ * options. With CONFIG_CMD_ARG_CHECK cmd_invoke() refuses an option with
+ * CMD_RET_USAGE before calling the function, so it need not call getopt()
+ * itself; it can go straight to getopt_pop() or gs->argv[gs->index] for its
+ * arguments.
  */
 
 #define U_BOOT_CMD_MKENT_COMPLETE(_name, _maxargs, _rep, _cmd,		\
