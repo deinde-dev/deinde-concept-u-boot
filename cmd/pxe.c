@@ -7,6 +7,7 @@
 #include <command.h>
 #include <env.h>
 #include <fs_legacy.h>
+#include <getopt.h>
 #include <net.h>
 #include <net6.h>
 #include <malloc.h>
@@ -202,10 +203,11 @@ done:
  *
  * Returns 0 on success or 1 on error.
  */
-static int
-do_pxe_get(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_pxe_get(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	char *pxefile_addr_str;
+	int argc = gs->argc;
 	ulong pxefile_addr_r;
 	char *fname;
 	ulong size;
@@ -254,12 +256,13 @@ do_pxe_get(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
  *
  * Returns 0 on success, 1 on error.
  */
-static int
-do_pxe_boot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_pxe_boot(struct getopt_state *gs)
 {
 	unsigned long pxefile_addr_r;
+	char *const *argv = gs->argv;
 	char *pxefile_addr_str;
 	struct pxe_context ctx;
+	int argc = gs->argc;
 	int ret;
 	bool use_ipv6 = false;
 
@@ -289,7 +292,7 @@ do_pxe_boot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		printf("Out of memory\n");
 		return CMD_RET_FAILURE;
 	}
-	ret = pxe_process(&ctx, pxefile_addr_r, ctx.pxe_file_size, false);
+	ret = pxe_process_str(&ctx, pxefile_addr_r, false);
 	pxe_destroy_ctx(&ctx);
 	if (ret)
 		return CMD_RET_FAILURE;
@@ -300,12 +303,14 @@ do_pxe_boot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 }
 
 static struct cmd_tbl cmd_pxe_sub[] = {
-	U_BOOT_CMD_MKENT(get, 2, 1, do_pxe_get, "", ""),
-	U_BOOT_CMD_MKENT(boot, 3, 1, do_pxe_boot, "", "")
+	U_BOOT_CMD_MKENT_GETOPT(get, 2, 1, do_pxe_get, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(boot, 3, 1, do_pxe_boot, "", "")
 };
 
-static int do_pxe(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_pxe(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
+	int argc = gs->argc;
 	struct cmd_tbl *cp;
 
 	if (argc < 2)
@@ -318,13 +323,13 @@ static int do_pxe(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	cp = find_cmd_tbl(argv[0], cmd_pxe_sub, ARRAY_SIZE(cmd_pxe_sub));
 
 	if (cp)
-		return cmd_invoke(cp, flag, argc, argv);
+		return cmd_invoke(cp, gs->cmd_flag, argc, argv);
 
 	return CMD_RET_USAGE;
 }
 
-U_BOOT_CMD(pxe, 4, 1, do_pxe,
-	   "get and boot from pxe files",
-	   "get [" USE_IP6_CMD_PARAM "] - try to retrieve a pxe file using tftp\n"
-	   "pxe boot [pxefile_addr_r] [-ipv6] - boot from the pxe file at pxefile_addr_r\n"
+U_BOOT_CMD_GETOPT(pxe, 4, 1, do_pxe,
+		  "get and boot from pxe files",
+		  "get [" USE_IP6_CMD_PARAM "] - try to retrieve a pxe file using tftp\n"
+		  "pxe boot [pxefile_addr_r] [-ipv6] - boot from the pxe file at pxefile_addr_r\n"
 );

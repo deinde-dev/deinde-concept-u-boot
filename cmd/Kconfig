@@ -2492,6 +2492,7 @@ config WGET_BUILTIN_CACERT_PATH
 
 config CMD_PXE
 	bool "pxe"
+	select GETOPT
 	select PXE_UTILS
 	select CMD_TFTPBOOT
 	help
@@ -2761,6 +2762,7 @@ config CMD_SOUND
 
 config CMD_SYSBOOT
 	bool "sysboot"
+	select GETOPT
 	select PXE_UTILS
 	help
 	  Boot image via local extlinux.conf file

@@ -3,6 +3,7 @@
 #include <command.h>
 #include <env.h>
 #include <fs_legacy.h>
+#include <getopt.h>
 #include <pxe_utils.h>
 #include <vsprintf.h>
 
@@ -49,25 +50,34 @@ static int sysboot_read_file(struct pxe_context *ctx, const char *file_path,
  *
  * Returns 0 on success, 1 on error.
  */
-static int do_sysboot(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_sysboot(struct getopt_state *gs)
 {
 	unsigned long pxefile_addr_r;
 	struct pxe_context ctx;
 	char *pxefile_addr_str;
 	struct sysboot_info info;
+	char *const *argv;
 	char *filename;
 	int prompt = 0;
+	int argc, opt;
 	int ret;
 
-	if (argc > 1 && strstr(argv[1], "-p")) {
-		prompt = 1;
-		argc--;
-		argv++;
+	while ((opt = getopt(gs, "+p")) > 0) {
+		switch (opt) {
+		case 'p':
+			prompt = 1;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
+	/* step back one, so the arguments keep the indices they came with */
+	argv = gs->argv + gs->index - 1;
+	argc = gs->argc - gs->index + 1;
+
 	if (argc < 4)
-		return cmd_usage(cmdtp);
+		return CMD_RET_USAGE;
 
 	if (argc < 5) {
 		pxefile_addr_str = from_env("pxefile_addr_r");
@@ -127,9 +137,9 @@ static int do_sysboot(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-U_BOOT_CMD(sysboot, 7, 1, do_sysboot,
-	   "command to get and boot from syslinux files",
-	   "[-p] <interface> <dev[:part]> <ext2|fat|any> [addr] [filename]\n"
-	   "    - load and parse syslinux menu file 'filename' from ext2, fat\n"
-	   "      or any filesystem on 'dev' on 'interface' to address 'addr'"
+U_BOOT_CMD_GETOPT(sysboot, 7, 1, do_sysboot,
+		  "command to get and boot from syslinux files",
+		  "[-p] <interface> <dev[:part]> <ext2|fat|any> [addr] [filename]\n"
+		  "    - load and parse syslinux menu file 'filename' from ext2, fat\n"
+		  "      or any filesystem on 'dev' on 'interface' to address 'addr'"
 );

@@ -132,6 +132,7 @@ obj-$(CONFIG_CMD_PART) += part.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_OSD) += osd.o
 obj-$(CONFIG_CMD_PMIC) += pmic.o
+obj-$(CONFIG_CMD_PXE) += pxe.o
 endif
 obj-$(CONFIG_CMD_PART_FIND) += part_find.o
 ifdef CONFIG_CMD_PCI
@@ -209,6 +210,7 @@ obj-$(CONFIG_ARM_FFA_TRANSPORT) += armffa.o
 endif
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_CPU) += subcmd.o
+obj-$(CONFIG_CMD_SYSBOOT) += sysboot.o
 endif
 obj-$(CONFIG_CMD_SPAWN) += spawn.o
 ifdef CONFIG_CMD_ZIP
