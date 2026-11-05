@@ -73,7 +73,7 @@ endif
 endif
 ifdef CONFIG_CONSOLE_RECORD
 ifdef CONFIG_SANDBOX
-obj-$(CONFIG_CMD_FAT) += fatload.o
+obj-$(CONFIG_CMD_FAT) += fatload.o fatls.o
 endif
 endif
 obj-$(CONFIG_CMD_FDT) += fdt.o
