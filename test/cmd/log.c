@@ -531,6 +531,10 @@ static int cmd_test_log_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("log filter-list -x", 0));
 	ut_assertok(check_usage(uts));
 
+	/* an argument it does not take, refused only with CMD_ARG_CHECK */
+	ut_asserteq(1, run_command("log filter-list extra", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_log_usage, UTF_CONSOLE);
