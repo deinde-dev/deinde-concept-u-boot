@@ -1,2 +1,3 @@
 # dtoc is maintained as the standalone dtoc package
-dtoc==0.1.0
+# Use the template-phandle fix from dtoc PR #1 until it is in a release
+dtoc @ git+https://github.com/deinde-dev/dtoc@7e981091cffe132f56022ec77d0b3d34c376470a
