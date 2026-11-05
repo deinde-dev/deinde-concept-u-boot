@@ -79,6 +79,11 @@ endif
 endif
 obj-$(CONFIG_CMD_FDT) += fdt.o
 ifdef CONFIG_CONSOLE_RECORD
+ifdef CONFIG_CMD_VFS
+obj-y += fstypes.o
+else
+obj-$(CONFIG_CMD_FS_LEGACY) += fstypes.o
+endif
 obj-$(CONFIG_CMD_GETTIME) += gettime.o
 obj-$(CONFIG_CMD_GREPENV) += grepenv.o
 obj-$(CONFIG_CMD_HASH) += hash.o
