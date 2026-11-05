@@ -68,6 +68,7 @@ obj-$(CONFIG_CMD_EDITENV) += editenv.o
 obj-$(CONFIG_CMD_ETHSW) += ethsw.o
 obj-$(CONFIG_CMD_EVENT) += event.o
 ifdef CONFIG_SANDBOX
+obj-$(CONFIG_CMD_EXT4) += ext4ls.o
 obj-$(CONFIG_CMD_EXT4_WRITE) += ext4write.o
 endif
 endif
