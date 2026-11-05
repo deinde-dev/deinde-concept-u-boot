@@ -51,9 +51,9 @@ static int do_ext4_load(struct getopt_state *gs)
 	return do_load(gs->argc, gs->argv, FS_TYPE_EXT);
 }
 
-int do_ext4_ls(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_ext4_ls(struct getopt_state *gs)
 {
-	return do_ls(argc, argv, FS_TYPE_EXT);
+	return do_ls(gs->argc, gs->argv, FS_TYPE_EXT);
 }
 
 #if defined(CONFIG_CMD_EXT4_WRITE)
@@ -78,10 +78,10 @@ U_BOOT_CMD_NOOPTS(
 	"      and determine its size."
 );
 
-U_BOOT_CMD(ext4ls, 4, 1, do_ext4_ls,
-	   "list files in a directory (default /)",
-	   "<interface> <dev[:part]> [directory]\n"
-	   "    - list files from 'dev' on 'interface' in a 'directory'");
+U_BOOT_CMD_NOOPTS(ext4ls, 4, 1, do_ext4_ls,
+		  "list files in a directory (default /)",
+		  "<interface> <dev[:part]> [directory]\n"
+		  "    - list files from 'dev' on 'interface' in a 'directory'");
 
 U_BOOT_CMD_NOOPTS(ext4load, 7, 0, do_ext4_load,
 		  "load binary file from a Ext4 filesystem",

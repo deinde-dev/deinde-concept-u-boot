@@ -67,3 +67,7 @@ class TestExt4ls:
     def test_ext4ls_usage(self, ubman, ext4_image):
         """Check that ext4ls shows its usage message when it cannot go on"""
         ubman.run_ut('cmd', 'cmd_test_ext4ls_usage', fs_image=ext4_image)
+
+    def test_ext4ls_badopt(self, ubman, ext4_image):
+        """Check that ext4ls refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_ext4ls_badopt', fs_image=ext4_image)
