@@ -71,4 +71,4 @@ See also
 * :doc:`fatmkdir<fatmkdir>` for creating the directories fatrm removes
 * :doc:`fatwrite<fatwrite>` for creating the files fatrm removes
 * :doc:`rm<rm>` for the same operation on any supported filesystem
-* *fatls* for checking what is left afterwards
+* :doc:`fatls<fatls>` for checking what is left afterwards

@@ -90,6 +90,7 @@ See also
 --------
 
 * :doc:`fatload<fatload>` for reading the data back into memory
+* :doc:`fatls<fatls>` for checking that the file has arrived
 * :doc:`fatsize<fatsize>` for finding the resulting file's size
 * :doc:`fatmkdir<fatmkdir>` for creating the directory to write into
 * :doc:`fatrm<fatrm>` for deleting the file again

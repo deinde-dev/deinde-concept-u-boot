@@ -92,4 +92,4 @@ See also
 * *ext4ls* for the same command under its ext4 name
 * :doc:`ls<ls>` for listing a directory on any supported filesystem
 * :doc:`size<size>` for asking about one file rather than listing them all
-* *fatls* for the same operation on a FAT filesystem
+* :doc:`fatls<fatls>` for the same operation on a FAT filesystem
