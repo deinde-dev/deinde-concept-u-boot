@@ -83,8 +83,8 @@ class FsHelper:
         Args:
             config (u_boot_config): U-Boot configuration
             fs_type (str): File system type: one of ext2, ext3, ext4, vfat,
-                fat12, fat16, fat32, exfat, btrfs, fs_generic (which means
-                vfat)
+                fat12, fat16, fat32, exfat, btrfs, squashfs, fs_generic (which
+                means vfat)
             size_mb (int): Size of file system in MB
             prefix (str): Prefix string of volume's file name
             part_mb (int, optional): Size of partition in MB. If None, defaults
@@ -102,7 +102,8 @@ class FsHelper:
                 master key (via --master-key-file), enabling pre_derived unlock.
         """
         if ('fat' not in fs_type and 'ext' not in fs_type and
-             fs_type not in ['btrfs', 'exfat', 'fs_generic', 'iso']):
+             fs_type not in ['btrfs', 'exfat', 'fs_generic', 'iso',
+                             'squashfs']):
             raise ValueError(f"Unsupported filesystem type '{fs_type}'")
 
         self.config = config
@@ -175,6 +176,10 @@ class FsHelper:
             self._mk_iso()
             return
 
+        if self.fs_type == 'squashfs':
+            self._mk_sqfs()
+            return
+
         mkfs_opt, fs_lnxtype = self._get_fs_args()
         fs_img = self.fs_img
         with open(fs_img, 'wb') as fsi:
@@ -205,6 +210,17 @@ class FsHelper:
         # Encrypt the filesystem if requested
         if self.passphrase or self.encrypt_keyfile:
             self.encrypt_luks()
+
+    def _mk_sqfs(self):
+        """Make a SquashFS image, which mksquashfs sizes for itself
+
+        SquashFS is read-only and compressed, so there is nothing to truncate
+        to size_mb beforehand: mksquashfs writes the whole image from the
+        source directory in one go.
+        """
+        self._do_cleanup = True
+        check_call(f'mksquashfs {self.srcdir} {self.fs_img} -noappend',
+                   shell=True, stdout=DEVNULL if self.quiet else None)
 
     def _mk_iso(self):
         """Make an ISO 9660 filesystem image with Rock Ridge extensions"""
