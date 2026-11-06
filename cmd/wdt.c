@@ -133,6 +133,28 @@ static int do_wdt_reset(struct getopt_state *gs)
 	return CMD_RET_SUCCESS;
 }
 
+static int do_wdt_gettimeout(struct getopt_state *gs)
+{
+	int ret;
+	u64 timeout_ms;
+	struct udevice *currdev;
+
+	if (check_currdev(&currdev))
+		return CMD_RET_FAILURE;
+
+	ret = wdt_get_timeout(currdev, &timeout_ms);
+	if (ret == -ENOSYS)
+		printf("Getting watchdog timeout not supported.\n");
+	else if (ret == -ENODATA)
+		printf("Watchdog not running.\n");
+	else if (ret)
+		printf("Getting watchdog timeout failed (%d)\n", ret);
+	else
+		printf("Timeout: %llums\n", timeout_ms);
+
+	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
+}
+
 static int do_wdt_expire(struct getopt_state *gs)
 {
 	int argc = gs->argc;
@@ -165,6 +187,7 @@ U_BOOT_LONGHELP(wdt,
 	"wdt start <timeout ms> [flags] - start watchdog timer\n"
 	"wdt stop - stop watchdog timer\n"
 	"wdt reset - reset watchdog timer\n"
+	"wdt gettimeout - get device timeout in ms\n"
 	"wdt expire [flags] - expire watchdog timer immediately\n");
 
 U_BOOT_CMD_WITH_SUBCMDS(wdt, "Watchdog sub-system", wdt_help_text,
@@ -173,4 +196,5 @@ U_BOOT_CMD_WITH_SUBCMDS(wdt, "Watchdog sub-system", wdt_help_text,
 	U_BOOT_CMD_MKENT_NOOPTS(start, 3, 1, do_wdt_start, "", ""),
 	U_BOOT_CMD_MKENT_NOOPTS(stop, 1, 1, do_wdt_stop, "", ""),
 	U_BOOT_CMD_MKENT_NOOPTS(reset, 1, 1, do_wdt_reset, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(gettimeout, 1, 1, do_wdt_gettimeout, "", ""),
 	U_BOOT_CMD_MKENT_NOOPTS(expire, 2, 1, do_wdt_expire, "", ""));
