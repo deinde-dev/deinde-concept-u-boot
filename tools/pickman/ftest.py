@@ -7412,7 +7412,7 @@ class TestProcessPipelineFailures(unittest.TestCase):
             dbs.close()
 
     def test_rebase_with_conflicts_skips(self):
-        """Test that a failed rebase skips the pipeline fix"""
+        """Test that a failed rebase skips the pipeline fix and says so"""
         with terminal.capture():
             dbs = database.Database(self.db_path)
             dbs.start()
@@ -7420,18 +7420,30 @@ class TestProcessPipelineFailures(unittest.TestCase):
             mrs = [self._make_mr(has_conflicts=True)]
 
             def mock_run_git_fn(args):
-                if args[0] == 'rebase':
+                if 'rebase' in args and '--abort' not in args:
                     raise command.CommandExc('conflict', None)
+                if args[0] == 'diff':
+                    return 'boot/a.c\nboot/b.c'
                 return ''
 
             with mock.patch.object(control, 'run_git',
-                                   side_effect=mock_run_git_fn):
-                with mock.patch.object(agent, 'fix_pipeline') as mock_fix:
-                    result = control.process_pipeline_failures(
-                        'ci', mrs, dbs, 'master', 3)
+                                   side_effect=mock_run_git_fn), \
+                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
 
             self.assertEqual(result, 0)
             mock_fix.assert_not_called()
+            self.assertIn('Pipeline 100 failed, but the branch needs '
+                          'updating to master first and it cannot be '
+                          'rebased (conflicts in boot/a.c, boot/b.c)',
+                          mock_reply.call_args[0][2])
+
+            # Recorded, so not tried again on the next poll
+            self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(0, dbs.pfix_count(1))
             dbs.close()
 
     def _recreate_subtree(self, pulled):
@@ -7441,7 +7453,8 @@ class TestProcessPipelineFailures(unittest.TestCase):
             pulled (bool): Whether pulling the subtree update succeeds
 
         Returns:
-            tuple: (result, git_calls, mock for pushes, mock for the fixer)
+            tuple: (result, git_calls, mock for pushes, mock for the fixer,
+                mock for replies)
         """
         git_calls = []
 
@@ -7460,31 +7473,37 @@ class TestProcessPipelineFailures(unittest.TestCase):
                                    return_value=control.SUBTREE_OK if pulled
                                    else control.SUBTREE_FAIL) as pull, \
                  mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as reply, \
                  mock.patch.object(agent, 'fix_pipeline') as fix:
                 result = control.process_pipeline_failures(
                     'ci', mrs, dbs, 'master', 3)
             pull.assert_called_once_with('dts', 'v7.2-dts')
-            self.assertEqual(pulled, dbs.pfix_has(1, 100))
+
+            # Either way, the pipeline is dealt with
+            self.assertTrue(dbs.pfix_has(1, 100))
             dbs.close()
-        return result, git_calls, push, fix
+        return result, git_calls, push, fix, reply
 
     def test_recreates_subtree(self):
         """Test that a subtree update is pulled again rather than rebased"""
-        result, git_calls, push, fix = self._recreate_subtree(True)
+        result, git_calls, push, fix, _ = self._recreate_subtree(True)
         self.assertEqual(1, result)
         self.assertIn(['checkout', '-B', 'cherry-test-1', 'ci/master'],
                       git_calls)
-        self.assertFalse([a for a in git_calls if a[0] == 'rebase'])
+        self.assertFalse([a for a in git_calls if 'rebase' in a])
         push.assert_called_once_with('ci', 'cherry-test-1', force=True,
                                      skip_ci=False)
         fix.assert_not_called()
 
     def test_recreate_subtree_fails(self):
         """Test that nothing is pushed if the subtree update fails"""
-        result, _, push, fix = self._recreate_subtree(False)
+        result, _, push, fix, reply = self._recreate_subtree(False)
         self.assertEqual(0, result)
         push.assert_not_called()
         fix.assert_not_called()
+        self.assertIn('the subtree update cannot be pulled again',
+                      reply.call_args[0][2])
 
     def test_disabled_with_zero(self):
         """Test that fix_retries=0 is handled in do_step (not called)"""
@@ -10786,6 +10805,92 @@ def _git_init(path, bare=False):
     if not bare:
         _git(path, 'config', 'user.email', 'test@test.com')
         _git(path, 'config', 'user.name', 'Test')
+
+
+class TestRebaseOnto(unittest.TestCase):
+    """Tests for rebasing a branch which has its own history entry"""
+
+    def setUp(self):
+        """Set up a repo whose branch and master both add history entries"""
+        self.test_dir = tempfile.mkdtemp()
+        self.orig_dir = os.getcwd()
+        self.repo = self.test_dir
+        _git_init(self.repo)
+        self.first = self._entry('first')
+        self.cherry = self._entry('cherry')
+        self.other = self._entry('other')
+        self._commit({'a.c': 'one\ntwo\n',
+                      control.HISTORY_FILE: self.first}, 'Initial')
+        _git(self.repo, 'checkout', '-q', '-b', 'cherry')
+        self._commit({'a.c': 'one\ntwo changed\n'}, 'Change a.c')
+        self._commit({control.HISTORY_FILE: self.first + self.cherry},
+                     'Record cherry')
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({control.HISTORY_FILE: self.first + self.other},
+                     'Record other')
+        _git(self.repo, 'checkout', '-q', 'cherry')
+        os.chdir(self.repo)
+
+    def tearDown(self):
+        """Remove the repo"""
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    @staticmethod
+    def _entry(branch):
+        """Make a history entry like the ones which pickman writes"""
+        return (f'## 2026-11-02: us/main\n\nBranch: {branch}\n\nCommits:\n'
+                f'- abc {branch}\n\n### Conversation log\nDone\n\n---\n\n')
+
+    def _commit(self, files, subject):
+        """Write some files and commit them"""
+        for fname, data in files.items():
+            tools.write_file(os.path.join(self.repo, fname), data,
+                             binary=False)
+        _git(self.repo, 'add', '-A')
+        _git(self.repo, 'commit', '-q', '-m', subject)
+
+    def test_history_entries_kept(self):
+        """Test that history entries on both sides are kept"""
+        # A plain rebase cannot merge the history file
+        with self.assertRaises(subprocess.CalledProcessError):
+            _git(self.repo, 'rebase', 'master')
+        _git(self.repo, 'rebase', '--abort')
+
+        names = []
+        orig_mkstemp = tempfile.mkstemp
+
+        def mkstemp(**kwargs):
+            fd, fname = orig_mkstemp(**kwargs)
+            names.append(fname)
+            return fd, fname
+
+        with mock.patch.object(control.tempfile, 'mkstemp',
+                               side_effect=mkstemp):
+            self.assertEqual((True, []), control.rebase_onto('master'))
+        self.assertEqual(
+            ['Record cherry', 'Change a.c', 'Record other', 'Initial'],
+            _git(self.repo, 'log', '--format=%s').splitlines())
+        self.assertEqual(self.first + self.other + self.cherry,
+                         tools.read_file(control.HISTORY_FILE, binary=False))
+        self.assertEqual('one\ntwo changed\n',
+                         tools.read_file('a.c', binary=False))
+
+        # The attributes file is removed afterwards
+        self.assertEqual(1, len(names))
+        self.assertFalse(os.path.exists(names[0]))
+
+    def test_conflict(self):
+        """Test that a real conflict aborts the rebase"""
+        head = _git(self.repo, 'rev-parse', 'HEAD')
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({'a.c': 'one\ntwo other\n'}, 'Change a.c differently')
+        _git(self.repo, 'checkout', '-q', 'cherry')
+
+        self.assertEqual((False, ['a.c']), control.rebase_onto('master'))
+        self.assertEqual(head, _git(self.repo, 'rev-parse', 'HEAD'))
+        self.assertFalse(os.path.exists(os.path.join(self.repo, '.git',
+                                                     'rebase-merge')))
 
 
 class TestExtern(unittest.TestCase):

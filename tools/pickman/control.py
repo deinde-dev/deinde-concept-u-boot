@@ -5087,6 +5087,46 @@ def process_mr_reviews(remote, mrs, dbs, target='master'):
     return processed
 
 
+def rebase_onto(upstream):
+    """Rebase the current branch, keeping history entries from both sides
+
+    Entries are only ever added to the history file. A branch's own entry is
+    committed after the branch is pushed, so it is still there when the
+    branch is rebased, by which time the target has gained entries of its
+    own. Git cannot merge these, since both add at the end of the file, so
+    use the union merge driver for the file, which keeps the lines from both
+    sides. The diff3 conflict style stops git trimming the lines which the
+    two sides have in common, such as the '---' ending each entry, so each
+    entry stays whole.
+
+    Args:
+        upstream (str): Branch to rebase onto, e.g. 'ci/master'
+
+    Returns:
+        tuple:
+            bool: True if the rebase succeeded; if not, it is aborted
+            list of str: Files with conflicts, if any
+    """
+    fd, attrs = tempfile.mkstemp(prefix='pickman-attrs.')
+    os.close(fd)
+    try:
+        tools.write_file(attrs, f'{HISTORY_FILE} merge=union\n',
+                         binary=False)
+        run_git(['-c', f'core.attributesFile={attrs}', '-c',
+                 'merge.conflictStyle=diff3', 'rebase', upstream])
+        return True, []
+    except command.CommandExc:
+        conflicts = run_git(['diff', '--name-only',
+                             '--diff-filter=U']).split()
+        try:
+            run_git(['rebase', '--abort'])
+        except command.CommandExc:
+            pass
+        return False, conflicts
+    finally:
+        os.remove(attrs)
+
+
 def _rebase_mr_branch(remote, merge_req, dbs, target):
     """Rebase an MR branch onto the target before attempting a pipeline fix
 
@@ -5116,21 +5156,29 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         tout.info(f'MR !{mr_iid}: needs rebase, rebasing before '
                   f'pipeline fix...')
     subtree = mr_subtree(merge_req)
+    problem = None
     if subtree:
         if not _recreate_subtree(remote, merge_req, target, subtree):
-            tout.warning(f'MR !{mr_iid}: subtree update failed')
-            return False
+            problem = 'the subtree update cannot be pulled again'
     else:
         run_git(['checkout', branch])
-        try:
-            run_git(['rebase', f'{remote}/{target}'])
-        except command.CommandExc:
-            tout.warning(f'MR !{mr_iid}: rebase failed, aborting')
-            try:
-                run_git(['rebase', '--abort'])
-            except command.CommandExc:
-                pass
-            return False
+        ok, conflicts = rebase_onto(f'{remote}/{target}')
+        if not ok:
+            problem = 'it cannot be rebased'
+            if conflicts:
+                problem += f' (conflicts in {", ".join(conflicts)})'
+
+    # Record the failure, so that it is not tried again on every poll
+    if problem:
+        tout.warning(f'MR !{mr_iid}: {problem}')
+        gitlab_api.reply_to_mr(
+            remote, mr_iid,
+            f'Pipeline {merge_req.pipeline_id} failed, but the branch needs '
+            f'updating to {target} first and {problem}. Please update it by '
+            'hand.')
+        dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebase_failed')
+        dbs.commit()
+        return False
     gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
     dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebased')
     dbs.commit()
