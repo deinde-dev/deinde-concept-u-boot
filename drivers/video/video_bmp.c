@@ -143,14 +143,16 @@ static void draw_encoded_bitmap(u8 **fbp, uint bpix, enum video_format eformat,
 	*fbp = fb;
 }
 
-static void video_display_rle8_bitmap(struct udevice *dev,
-				      struct bmp_image *bmp, uint bpix,
-				      struct bmp_color_table_entry *palette,
-				      uchar *fb, int x_off, int y_off,
-				      ulong width, ulong height, bool alpha,
-				      u32 acolour)
+static int video_display_rle8_bitmap(struct udevice *dev,
+				     struct bmp_image *bmp, uint bpix,
+				     struct bmp_color_table_entry *palette,
+				     uchar *fb, int x_off, int y_off,
+				     ulong width, ulong height, bool alpha,
+				     u32 acolour)
 {
 	struct video_priv *priv = dev_get_uclass_priv(dev);
+	uchar *fb_start = priv->fb;
+	uchar *fb_end = (uchar *)priv->fb + priv->fb_size;
 	uchar *bmap;
 	ulong cnt, runlen;
 	int x, y;
@@ -198,6 +200,9 @@ static void video_display_rle8_bitmap(struct udevice *dev,
 							cnt = width - x;
 						else
 							cnt = runlen;
+						if (fb < fb_start ||
+						    fb + cnt * bytes_per_pixel > fb_end)
+							return -EINVAL;
 						draw_unencoded_bitmap(
 							&fb, bpix, eformat,
 							bmap, palette, cnt,
@@ -225,6 +230,9 @@ static void video_display_rle8_bitmap(struct udevice *dev,
 						cnt = width - x;
 					else
 						cnt = runlen;
+					if (fb < fb_start ||
+					    fb + cnt * bytes_per_pixel > fb_end)
+						return -EINVAL;
 					draw_encoded_bitmap(&fb, bpix, eformat,
 							    palette, &bmap[1],
 							    cnt, alpha,
@@ -235,6 +243,8 @@ static void video_display_rle8_bitmap(struct udevice *dev,
 			bmap += 2;
 		}
 	}
+
+	return 0;
 }
 
 /**
@@ -291,6 +301,7 @@ static int draw_bmp(struct udevice *dev, ulong bmp_image, int x, int y,
 	enum video_format eformat;
 	struct bmp_color_table_entry *palette;
 	int hdr_size;
+	int ret;
 
 	if (!bmp || !(bmp->header.signature[0] == 'B' &&
 	    bmp->header.signature[1] == 'M')) {
@@ -369,10 +380,12 @@ static int draw_bmp(struct udevice *dev, ulong bmp_image, int x, int y,
 				&bmp->header.compression);
 			debug("compressed %d %d\n", compression, BMP_BI_RLE8);
 			if (compression == BMP_BI_RLE8) {
-				video_display_rle8_bitmap(dev, bmp, bpix,
-							  palette, fb, x, y,
-							  width, height, alpha,
-							  acolour);
+				ret = video_display_rle8_bitmap(dev, bmp, bpix,
+								palette, fb, x, y,
+								width, height,
+								alpha, acolour);
+				if (ret)
+					return ret;
 				break;
 			}
 		}

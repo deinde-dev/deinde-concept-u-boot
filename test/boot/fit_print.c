@@ -136,7 +136,7 @@ static int test_fit_print_norun(struct unit_test_state *uts)
 	ut_assert_nextline("                    vendor,board");
 	ut_assert_nextline("     Sign algo:     sha256,rsa2048:test-key");
 	ut_assert_nextline("     Sign padding:  pkcs-1.5");
-	ut_assert_nextlinen("     Sign value:    c20f64d9bf79ddb0b1a6");
+	ut_assert_nextlinen("     Sign value:    abbb7ab19aefac84e238");
 	ut_assert_nextline("     Timestamp:     2009-02-13  23:31:30 UTC");
 	ut_assert_nextline("    Configuration 1 (conf-2)");
 	ut_assert_nextline("     Description:   Alternate configuration");
