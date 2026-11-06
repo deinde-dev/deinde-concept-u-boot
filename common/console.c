@@ -1028,8 +1028,14 @@ int console_record_init(void)
 				CONFIG_CONSOLE_RECORD_OUT_SIZE_F);
 	if (ret)
 		return ret;
-	ret = membuf_new((struct membuf *)&gd->console_in,
-			 CONFIG_CONSOLE_RECORD_IN_SIZE);
+
+	/*
+	 * Nothing feeds recorded input before relocation, and the early heap
+	 * may be too small for the input buffer as well, so only add it after
+	 */
+	if (gd->flags & GD_FLG_RELOC)
+		ret = membuf_new((struct membuf *)&gd->console_in,
+				 CONFIG_CONSOLE_RECORD_IN_SIZE);
 
 	/* Start recording from the beginning */
 	gd->flags |= GD_FLG_RECORD;
