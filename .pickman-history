@@ -103389,3 +103389,80 @@ The same stale-branch risk applies to any MR with a pipeline fix, because the pr
 
 ---
 
+## 2026-11-05: us/main
+
+Branch: cherry-0d08023f102f
+
+Commits:
+- 0d08023f102f lib: zstd: update to latest Linux zstd 1.5.7
+- 654242ac45bf disk: drop Amiga partition table support
+- acb09f16da33 disk: part_mac: Remove the Apple Partition Map driver
+- 9f6d57eaef77 pylibfdt: Cast property length to Py_ssize_t
+- b737e5cf2bc8 pylibfdt: Restore the upstream bytearray() in getprop()
+- 04e670ea3630 pylibfdt: Fix Python crash on getprop deallocation
+- d0c7b9e65bfd pylibfdt: Add Property.as_stringlist()
+- f41cecc1fe94 pylibfdt: Add Property.as_*int*_array()
+- 66ccb13a8180 pylibfdt: Add FdtRo.get_path()
+- ba6d20256305 pylibfdt: Work-around SWIG limitations with flexible arrays
+- 69c95e9e4f57 pylibfdt: Add size_hint parameter for get_path
+- 3bf9e7e72ab5 pylibfdt: Support boolean properties
+- 5b7d682e1d28 pylibfdt: Fix get_mem_rsv for newer Python versions
+- 0e9f9fda2e45 pylibfdt: Fix backwards compatibility of return values
+- dfba3eff563c pylibfdt: Fix a typo in the next_node() docstring
+- f3e00d4b7f36 pylibfdt: Grow the FdtSw buffer geometrically
+- 34fddfa16d47 pylibfdt: Add address_cells() and size_cells()
+- 388137abfd04 pylibfdt: Add add_mem_rsv() and del_mem_rsv()
+- 44a2a718fbe6 pylibfdt: Document that FdtSw.property() takes bytes
+- 01fb2b4d7368 dtoc: Add tests for the pylibfdt bindings dtoc does not use
+- cd5bd0cb98ec Merge patch series "pylibfdt: Update the U-Boot version with changes from upstream dtc"
+
+### Conversation log
+Resolving a conflict in include/linux/zstd.h for the first commit (zstd 1.5.7 update): the target adds zstd_uncompressed_size() at the end of the header.
+
+Build passes. Adding a fix-up note to the commit.
+
+Now the remaining commits, one at a time with a loop that stops on any problem.
+
+Straightforward conflicts: keep the target's IS_ENABLED()/CONFIG_ forms and drop the Amiga lines.
+
+Disk commit 2 built fine. Now resolving the similar part_mac conflicts.
+
+For all four files the right resolution is the HEAD side minus the MAC_PARTITION line (the other lines in the incoming side are just context that differs in the target).
+
+The part.c hunk lost its '#if' since it was on the MAC line; fixing that.
+
+Also removing target-only MAC_PARTITION references in four defconfigs and tools/codman/category.cfg.
+
+Disk commits done and building. Now the pylibfdt series, building after each.
+
+All ten applied cleanly with matching deltas and clean builds. Continuing with the rest.
+
+The merge commit must not be skipped — checking what happened and redoing it.
+
+01fb2b4d7368 skip is correct (it only touches tools/dtoc). The merge needs re-applying as an empty commit.
+
+20 commits present (21 minus the skipped dtoc-only one). Final build and a check that the pylibfdt file matches the source.
+
+The cherry-pick branch `cherry-0d08023f102f` is ready. It has 20 of the 21 commits; the one missing is dtoc-only and was skipped as instructed. The final sandbox build passes with no warnings or errors, and so did the build after each pick.
+
+**Skipped commit:**
+- **01fb2b4d7368** "dtoc: Add tests for the pylibfdt bindings dtoc does not use" only touches `tools/dtoc/test_fdt.py`, so it was empty here. Its changes are handled in the separate project.
+
+**Merge commit:**
+- **cd5bd0cb98ec** is kept as an empty commit. Its only conflict was `tools/dtoc/test_fdt.py`, which I removed. My script skipped it at first, so I recreated it as an empty commit with the original message and the cherry-pick trailer.
+
+**Fix-ups** (each commit has a note line added at the end of its message):
+1. **zstd 1.5.7 update (0d08023f102f):** `include/linux/zstd.h` conflicted because the target adds `zstd_uncompressed_size()` at the end of the file. I kept that declaration, which `boot/image.c` uses. I also kept the `#endif` header guard at the end of the file, rather than before `struct abuf` as the source has it.
+2. **Amiga removal (654242ac45bf):** `disk/Makefile` and `disk/part.c` conflicted. I kept the target's `CONFIG_FOO` / `IS_ENABLED(CONFIG_FOO)` forms and dropped the Amiga lines. The modified `part_amiga.c/h` files were deleted as the commit intends.
+3. **Apple Partition Map removal (acb09f16da33):** I resolved the same kind of conflict in `disk/Makefile`, `disk/part.c` and the two efi-x86_app defconfigs, and deleted `part_mac.c/h`. I also removed `MAC_PARTITION` lines from four defconfigs that exist only in the target (`chromebook_brya_cb`, `efi-arm_app64`, `efi-riscv_app64`, `gigabyte_mz33_ar1_cb`) and the `disk/part_mac.c` entry in `tools/codman/category.cfg`.
+
+`pickman split-check` changed nothing in any commit.
+
+**Deltas:**
+- Every pylibfdt commit matches its original exactly.
+- The zstd update is 3135+/1739− against 3137+/1741−, which is just the conflict resolution.
+- The Amiga removal matches its original exactly.
+- The Apple Partition Map removal is 59 files and 407 deletions against 54 and 389, because of the extra cleanup above. None of these are a concern.
+
+---
+
