@@ -140,7 +140,7 @@ static struct mmc *__init_mmc_device(int dev, bool force_init,
 	struct mmc *mmc;
 	mmc = find_mmc_device(dev);
 	if (!mmc) {
-		printf("no mmc device at slot %x\n", dev);
+		cmd_err("no mmc device at slot %x\n", dev);
 		return NULL;
 	}
 
@@ -178,8 +178,7 @@ static int do_mmcinfo(struct cmd_tbl *cmdtp, int flag, int argc,
 		if (get_mmc_num() > 0)
 			curr_device = 0;
 		else {
-			puts("No MMC device available\n");
-			return CMD_RET_FAILURE;
+			return cmd_fail(0, "No MMC device available\n");
 		}
 	}
 
@@ -217,8 +216,7 @@ static int do_mmcrpmb_key(struct cmd_tbl *cmdtp, int flag,
 	if (!confirm_key_prog())
 		return CMD_RET_FAILURE;
 	if (mmc_rpmb_set_key(mmc, key_addr)) {
-		printf("ERROR - Key already programmed ?\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "ERROR - Key already programmed ?\n");
 	}
 	return CMD_RET_SUCCESS;
 }
@@ -322,12 +320,10 @@ static int do_mmcrpmb(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_FAILURE;
 
 	if (!(mmc->version & MMC_VERSION_MMC)) {
-		printf("It is not an eMMC device\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "It is not an eMMC device\n");
 	}
 	if (mmc->version < MMC_VERSION_4_41) {
-		printf("RPMB not supported before version 4.41\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "RPMB not supported before version 4.41\n");
 	}
 	/* Switch to the RPMB partition */
 #ifndef CONFIG_BLK
@@ -408,8 +404,7 @@ static int do_mmc_sparse_write(struct cmd_tbl *cmdtp, int flag,
 	blk = hextoul(argv[2], NULL);
 
 	if (!is_sparse_image(addr)) {
-		printf("Not a sparse image\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Not a sparse image\n");
 	}
 
 	mmc = init_mmc_device(curr_device, false);
@@ -420,8 +415,7 @@ static int do_mmc_sparse_write(struct cmd_tbl *cmdtp, int flag,
 	       curr_device, blk);
 
 	if (mmc_getwp(mmc) == 1) {
-		printf("Error: card is write protected!\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Error: card is write protected!\n");
 	}
 
 	dev_desc = mmc_get_blk_desc(mmc);
@@ -464,8 +458,7 @@ static int do_mmc_write(struct cmd_tbl *cmdtp, int flag,
 	       curr_device, blk, cnt);
 
 	if (mmc_getwp(mmc) == 1) {
-		printf("Error: card is write protected!\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Error: card is write protected!\n");
 	}
 	n = blk_dwrite(mmc_get_blk_desc(mmc), blk, cnt, ptr);
 	printf("%d blocks written: %s\n", n, (n == cnt) ? "OK" : "ERROR");
@@ -502,8 +495,7 @@ static int do_mmc_erase(struct cmd_tbl *cmdtp, int flag,
 	       curr_device, blk, cnt);
 
 	if (mmc_getwp(mmc) == 1) {
-		printf("Error: card is write protected!\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Error: card is write protected!\n");
 	}
 	n = blk_derase(mmc_get_blk_desc(mmc), blk, cnt);
 	printf("%d blocks erased: %s\n", n, (n == cnt) ? "OK" : "ERROR");
@@ -550,8 +542,7 @@ static int do_mmc_part(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_SUCCESS;
 	}
 
-	puts("get mmc type error!\n");
-	return CMD_RET_FAILURE;
+	return cmd_fail(0, "get mmc type error!\n");
 }
 
 static int do_mmc_dev(struct cmd_tbl *cmdtp, int flag,
@@ -567,8 +558,8 @@ static int do_mmc_dev(struct cmd_tbl *cmdtp, int flag,
 		if (IS_ENABLED(CONFIG_MMC_SPEED_MODE_SET)) {
 			speed_mode = (int)dectoul(argv[3], &endp);
 			if (*endp) {
-				printf("Invalid speed mode index '%s', did you specify a mode name?\n",
-				       argv[3]);
+				cmd_err("Invalid speed mode index '%s', did you specify a mode name?\n",
+					argv[3]);
 				return CMD_RET_USAGE;
 			}
 		}
@@ -577,19 +568,18 @@ static int do_mmc_dev(struct cmd_tbl *cmdtp, int flag,
 	case 3:
 		part = (int)dectoul(argv[2], &endp);
 		if (*endp) {
-			printf("Invalid part number '%s'\n", argv[2]);
+			cmd_err("Invalid part number '%s'\n", argv[2]);
 			return CMD_RET_USAGE;
 		} else if (part > PART_ACCESS_MASK) {
-			printf("#part_num shouldn't be larger than %d\n",
-			       PART_ACCESS_MASK);
-			return CMD_RET_FAILURE;
+			return cmd_fail(0, "#part_num shouldn't be larger than %d\n",
+					       PART_ACCESS_MASK);
 		}
 
 		fallthrough;
 	case 2:
 		dev = (int)dectoul(argv[1], &endp);
 		if (*endp) {
-			printf("Invalid device number '%s'\n", argv[1]);
+			cmd_err("Invalid device number '%s'\n", argv[1]);
 			return CMD_RET_USAGE;
 		}
 
@@ -752,8 +742,7 @@ static int do_mmc_hwpartition(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_FAILURE;
 
 	if (IS_SD(mmc)) {
-		puts("SD doesn't support partitioning\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "SD doesn't support partitioning\n");
 	}
 
 	if (argc < 1)
@@ -821,8 +810,7 @@ static int do_mmc_hwpartition(struct cmd_tbl *cmdtp, int flag,
 			     "power-cycle to make effective\n");
 		return CMD_RET_SUCCESS;
 	} else {
-		puts("Failed!\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Failed!\n");
 	}
 }
 #endif
@@ -847,8 +835,7 @@ static int do_mmc_bootbus(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_FAILURE;
 
 	if (IS_SD(mmc)) {
-		puts("BOOT_BUS_WIDTH only exists on eMMC\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "BOOT_BUS_WIDTH only exists on eMMC\n");
 	}
 
 	/*
@@ -867,24 +854,20 @@ static int do_mmc_bootbus(struct cmd_tbl *cmdtp, int flag,
 	 *
 	 */
 	if (width >= 0x3) {
-		printf("boot_bus_width %d is invalid\n", width);
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "boot_bus_width %d is invalid\n", width);
 	}
 
 	if (reset >= 0x2) {
-		printf("reset_boot_bus_width %d is invalid\n", reset);
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "reset_boot_bus_width %d is invalid\n", reset);
 	}
 
 	if (mode >= 0x3) {
-		printf("reset_boot_bus_width %d is invalid\n", mode);
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "reset_boot_bus_width %d is invalid\n", mode);
 	}
 
 	/* acknowledge to be sent during boot operation */
 	if (mmc_set_boot_bus_width(mmc, width, reset, mode)) {
-		puts("BOOT_BUS_WIDTH is failed to change.\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "BOOT_BUS_WIDTH is failed to change.\n");
 	}
 
 	printf("Set to BOOT_BUS_WIDTH = 0x%x, RESET = 0x%x, BOOT_MODE = 0x%x\n",
@@ -910,13 +893,11 @@ static int do_mmc_boot_resize(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_FAILURE;
 
 	if (IS_SD(mmc)) {
-		printf("It is not an eMMC device\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "It is not an eMMC device\n");
 	}
 
 	if (mmc_boot_partition_size_change(mmc, bootsize, rpmbsize)) {
-		printf("EMMC boot partition Size change Failed.\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "EMMC boot partition Size change Failed.\n");
 	}
 
 	printf("EMMC boot partition Size %d MB\n", bootsize);
@@ -929,8 +910,7 @@ static int mmc_partconf_print(struct mmc *mmc, const char *varname)
 	u8 ack, access, part;
 
 	if (mmc->part_config == MMCPART_NOAVAILABLE) {
-		printf("No part_config info for ver. 0x%x\n", mmc->version);
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "No part_config info for ver. 0x%x\n", mmc->version);
 	}
 
 	access = EXT_CSD_EXTRACT_PARTITION_ACCESS(mmc->part_config);
@@ -966,8 +946,7 @@ static int do_mmc_partconf(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_FAILURE;
 
 	if (IS_SD(mmc)) {
-		puts("PARTITION_CONFIG only exists on eMMC\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "PARTITION_CONFIG only exists on eMMC\n");
 	}
 
 	if (argc == 2 || argc == 3)
@@ -1021,7 +1000,7 @@ static int do_mmc_rst_func(struct cmd_tbl *cmdtp, int flag,
 	enable = dectoul(argv[2], NULL);
 
 	if (enable > 2) {
-		puts("Invalid RST_n_ENABLE value\n");
+		cmd_err("Invalid RST_n_ENABLE value\n");
 		return CMD_RET_USAGE;
 	}
 
@@ -1030,8 +1009,7 @@ static int do_mmc_rst_func(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_FAILURE;
 
 	if (IS_SD(mmc)) {
-		puts("RST_n_FUNCTION only exists on eMMC\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "RST_n_FUNCTION only exists on eMMC\n");
 	}
 
 	ret = mmc_set_rst_n_function(mmc, enable);
@@ -1054,8 +1032,7 @@ static int do_mmc_setdsr(struct cmd_tbl *cmdtp, int flag,
 
 	mmc = find_mmc_device(curr_device);
 	if (!mmc) {
-		printf("no mmc device at slot %x\n", curr_device);
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "no mmc device at slot %x\n", curr_device);
 	}
 	ret = mmc_set_dsr(mmc, val);
 	printf("set dsr %s\n", (!ret) ? "OK, force rescan" : "ERROR");
@@ -1082,8 +1059,7 @@ static int mmc_bkops_common(char *device, bool autobkops, bool enable)
 		return CMD_RET_FAILURE;
 
 	if (IS_SD(mmc)) {
-		puts("BKOPS_EN only exists on eMMC\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "BKOPS_EN only exists on eMMC\n");
 	}
 
 	return mmc_set_bkops_enable(mmc, autobkops, enable);
@@ -1135,8 +1111,7 @@ static int do_mmc_boot_wp(struct cmd_tbl *cmdtp, int flag,
 	if (!mmc)
 		return CMD_RET_FAILURE;
 	if (IS_SD(mmc)) {
-		printf("It is not an eMMC device\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "It is not an eMMC device\n");
 	}
 
 	if (argc == 2) {
@@ -1166,13 +1141,11 @@ static int do_mmc_reg(struct cmd_tbl *cmdtp, int flag,
 
 	mmc = find_mmc_device(curr_device);
 	if (!mmc) {
-		printf("no mmc device at slot %x\n", curr_device);
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "no mmc device at slot %x\n", curr_device);
 	}
 
 	if (IS_SD(mmc)) {
-		printf("SD registers are not supported\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "SD registers are not supported\n");
 	}
 
 	off = simple_strtoul(argv[3], NULL, 10);
@@ -1296,8 +1269,7 @@ static int do_mmcops(struct cmd_tbl *cmdtp, int flag, int argc,
 		if (get_mmc_num() > 0) {
 			curr_device = 0;
 		} else {
-			puts("No MMC device available\n");
-			return CMD_RET_FAILURE;
+			return cmd_fail(0, "No MMC device available\n");
 		}
 	}
 	return cmd_invoke(cp, flag, argc, argv);

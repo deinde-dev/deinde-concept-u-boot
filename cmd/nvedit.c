@@ -121,7 +121,7 @@ static int do_env_print(struct cmd_tbl *cmdtp, int flag, int argc,
 	for (i = 1; i < argc; ++i) {
 		int rc = env_print(argv[i], env_flag);
 		if (!rc) {
-			printf("## Error: \"%s\" not defined\n", argv[i]);
+			cmd_err("## Error: \"%s\" not defined\n", argv[i]);
 			++rcode;
 		}
 	}
@@ -494,8 +494,7 @@ static int do_env_edit(struct getopt_state *gs)
 		if (ret == -EAGAIN)
 			return 0;	/* User cancelled, no change */
 		if (ret) {
-			printf("Edit failed (err=%d)\n", ret);
-			return CMD_RET_FAILURE;
+			return cmd_fail(ret, "Edit failed (err=%d)\n", ret);
 		}
 	} else {
 		if (cli_readline_into_buffer("edit: ", buffer, 0) < 0)
@@ -782,9 +781,8 @@ static int do_env_export(struct getopt_state *gs)
 	return 0;
 
 sep_err:
-	printf("## Error: %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",
-	       cmd);
-	return 1;
+	return cmd_fail(0, "## Error: %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",
+			cmd);
 }
 #endif
 
@@ -876,8 +874,7 @@ static int do_env_import(struct getopt_state *gs)
 	if (argc >= 2 && strcmp(argv[1], "-")) {
 		size = hextoul(argv[1], NULL);
 	} else if (chk) {
-		puts("## Error: external checksum format must pass size\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "## Error: external checksum format must pass size\n");
 	} else {
 		char *s = ptr;
 
@@ -905,16 +902,14 @@ static int do_env_import(struct getopt_state *gs)
 		env_t *ep = (env_t *)ptr;
 
 		if (size <= offsetof(env_t, data)) {
-			printf("## Error: Invalid size 0x%zX\n", size);
-			return 1;
+			return cmd_fail(0, "## Error: Invalid size 0x%zX\n", size);
 		}
 
 		size -= offsetof(env_t, data);
 		memcpy(&crc, &ep->crc, sizeof(crc));
 
 		if (crc32(0, ep->data, size) != crc) {
-			puts("## Error: bad CRC, import failed\n");
-			return 1;
+			return cmd_fail(0, "## Error: bad CRC, import failed\n");
 		}
 		ptr = (char *)ep->data;
 	}

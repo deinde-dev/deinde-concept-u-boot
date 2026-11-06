@@ -238,7 +238,7 @@ static int do_gpio(struct cmd_tbl *cmdtp, int flag, int argc,
 		printf("gpio: pin %s (gpio %u) already claimed by '%s'\n",
 		       str_gpio, gpio, uc_priv->name[offset]);
 	} else if (ret && ret != -EBUSY) {
-		printf("gpio: requesting pin %u failed\n", gpio);
+		cmd_err("gpio: requesting pin %u failed\n", gpio);
 		return -1;
 	}
 

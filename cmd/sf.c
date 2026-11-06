@@ -144,9 +144,8 @@ static int do_spi_flash_probe(int argc, char *const argv[])
 	}
 
 	if (!flash) {
-		printf("Failed to initialize SPI flash at %u:%u (error %d)\n",
+		return cmd_fail(0, "Failed to initialize SPI flash at %u:%u (error %d)\n",
 		       bus, cs, ret);
-		return 1;
 	}
 #else
 	if (flash)
@@ -155,8 +154,7 @@ static int do_spi_flash_probe(int argc, char *const argv[])
 	new = spi_flash_probe(bus, cs, speed, mode);
 	flash = new;
 	if (!new) {
-		printf("Failed to initialize SPI flash at %u:%u\n", bus, cs);
-		return 1;
+		return cmd_fail(0, "Failed to initialize SPI flash at %u:%u\n", bus, cs);
 	}
 #endif
 
@@ -259,8 +257,7 @@ static int spi_flash_update(struct spi_flash *flash, u32 offset,
 	free(cmp_buf);
 	putc('\r');
 	if (err_oper) {
-		printf("SPI flash failed in %s step\n", err_oper);
-		return 1;
+		return cmd_fail(0, "SPI flash failed in %s step\n", err_oper);
 	}
 
 	delta = get_timer(start_time);
@@ -294,21 +291,18 @@ static int do_spi_flash_read_write(int argc, char *const argv[])
 
 	/* Consistency checking */
 	if (offset + len > flash->size) {
-		printf("ERROR: attempting %s past flash size (%#x)\n",
+		return cmd_fail(0, "ERROR: attempting %s past flash size (%#x)\n",
 		       argv[0], flash->size);
-		return CMD_RET_FAILURE;
 	}
 
 	if (strncmp(argv[0], "read", 4) != 0 && flash->flash_is_unlocked &&
 	    !flash->flash_is_unlocked(flash, offset, len)) {
-		printf("ERROR: flash area is locked\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "ERROR: flash area is locked\n");
 	}
 
 	buf = map_physmem(addr, len, MAP_WRBACK);
 	if (!buf && addr) {
-		puts("Failed to map physical memory\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Failed to map physical memory\n");
 	}
 
 	if (strcmp(argv[0], "update") == 0) {
@@ -319,8 +313,8 @@ static int do_spi_flash_read_write(int argc, char *const argv[])
 
 		if (IS_ENABLED(CONFIG_LMB)) {
 			if (lmb_read_check(addr, len)) {
-				printf("ERROR: trying to overwrite reserved memory...\n");
-				return CMD_RET_FAILURE;
+				return cmd_fail(0,
+						"ERROR: trying to overwrite reserved memory...\n");
 			}
 		}
 
@@ -368,15 +362,13 @@ static int do_spi_flash_erase(int argc, char *const argv[])
 
 	/* Consistency checking */
 	if (offset + size > flash->size) {
-		printf("ERROR: attempting %s past flash size (%#x)\n",
+		return cmd_fail(0, "ERROR: attempting %s past flash size (%#x)\n",
 		       argv[0], flash->size);
-		return CMD_RET_FAILURE;
 	}
 
 	if (flash->flash_is_unlocked &&
 	    !flash->flash_is_unlocked(flash, offset, size)) {
-		printf("ERROR: flash area is locked\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "ERROR: flash area is locked\n");
 	}
 
 	ret = spi_flash_erase(flash, offset, size);
@@ -399,13 +391,11 @@ static int do_spi_protect(int argc, char *const argv[])
 		return -1;
 
 	if (!str2off(argv[2], &start)) {
-		puts("start sector is not a valid number\n");
-		return 1;
+		return cmd_fail(0, "start sector is not a valid number\n");
 	}
 
 	if (!str2off(argv[3], &len)) {
-		puts("len is not a valid number\n");
-		return 1;
+		return cmd_fail(0, "len is not a valid number\n");
 	}
 
 	if (strcmp(argv[1], "lock") == 0)
@@ -488,14 +478,14 @@ static int spi_flash_test(struct spi_flash *flash, uint8_t *buf, ulong len,
 	test.bytes = len;
 	err = spi_flash_erase(flash, offset, len);
 	if (err) {
-		printf("Erase failed (err = %d)\n", err);
+		cmd_err("Erase failed (err = %d)\n", err);
 		return -1;
 	}
 	spi_test_next_stage(&test);
 
 	err = spi_flash_read(flash, offset, len, vbuf);
 	if (err) {
-		printf("Check read failed (err = %d)\n", err);
+		cmd_err("Check read failed (err = %d)\n", err);
 		return -1;
 	}
 	for (i = 0; i < len; i++) {
@@ -510,7 +500,7 @@ static int spi_flash_test(struct spi_flash *flash, uint8_t *buf, ulong len,
 
 	err = spi_flash_write(flash, offset, len, buf);
 	if (err) {
-		printf("Write failed (err = %d)\n", err);
+		cmd_err("Write failed (err = %d)\n", err);
 		return -1;
 	}
 	memset(vbuf, '\0', len);
@@ -518,7 +508,7 @@ static int spi_flash_test(struct spi_flash *flash, uint8_t *buf, ulong len,
 
 	err = spi_flash_read(flash, offset, len, vbuf);
 	if (err) {
-		printf("Read failed (ret = %d)\n", err);
+		cmd_err("Read failed (ret = %d)\n", err);
 		return -1;
 	}
 	spi_test_next_stage(&test);
@@ -561,14 +551,12 @@ static int do_spi_flash_test(int argc, char *const argv[])
 
 	vbuf = memalign(ARCH_DMA_MINALIGN, len);
 	if (!vbuf) {
-		printf("Cannot allocate memory (%lu bytes)\n", len);
-		return 1;
+		return cmd_fail(0, "Cannot allocate memory (%lu bytes)\n", len);
 	}
 	buf = memalign(ARCH_DMA_MINALIGN, len);
 	if (!buf) {
 		free(vbuf);
-		printf("Cannot allocate memory (%lu bytes)\n", len);
-		return 1;
+		return cmd_fail(0, "Cannot allocate memory (%lu bytes)\n", len);
 	}
 
 	from = map_sysmem(CONFIG_PPL_TEXT_BASE, 0);
@@ -577,8 +565,7 @@ static int do_spi_flash_test(int argc, char *const argv[])
 	free(vbuf);
 	free(buf);
 	if (ret) {
-		printf("Test failed\n");
-		return 1;
+		return cmd_fail(0, "Test failed\n");
 	}
 
 	return 0;
@@ -603,8 +590,7 @@ static int do_spi_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* The remaining commands require a selected device */
 	if (!flash) {
-		puts("No SPI flash selected. Please run `sf probe'\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "No SPI flash selected. Please run `sf probe'\n");
 	}
 
 	if (strcmp(cmd, "read") == 0 || strcmp(cmd, "write") == 0 ||

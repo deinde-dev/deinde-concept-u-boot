@@ -142,6 +142,19 @@ config CMD_ARG_CHECK
 	  board which is short of space can turn them off. Keep them on for
 	  sandbox and the test boards, since the command tests expect them.
 
+config CMD_ERR_MSG
+	bool "Show detailed error messages from commands"
+	default y
+	help
+	  Show a message saying what went wrong when a command fails. Without
+	  this, a command which reports its errors with cmd_err() or
+	  cmd_fail() prints only its name and any error number, such as
+	  'mmc: failed, err -5', which saves the space taken by the messages.
+
+	  Leaving the messages out never changes what a command does, only
+	  what it prints. Keep them for sandbox and the test boards, since the
+	  command tests check them.
+
 config SYS_PROMPT
 	string "Shell prompt"
 	default "Zynq> " if ARCH_ZYNQ

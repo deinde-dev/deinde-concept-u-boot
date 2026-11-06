@@ -269,6 +269,45 @@ A test which asserts that such an argument is refused relies on the option.
 Sandbox and the test boards keep it on, so such a test needs no guard of its
 own.
 
+Error messages
+~~~~~~~~~~~~~~
+
+A command which fails should say why, but each message costs its text and the
+call on every board which has the command. Report a failure with cmd_err() or
+cmd_fail() rather than printf(), so that a board can leave the messages out by
+turning off CONFIG_CMD_ERR_MSG:
+
+.. code-block:: c
+
+    if (!dev) {
+        cmd_err("No device '%s'\n", name);
+        return CMD_RET_USAGE;
+    }
+
+    ret = device_probe(dev);
+    if (ret)
+        return cmd_fail(ret, "Cannot probe '%s' (err=%dE)\n", name, ret);
+
+cmd_fail() prints the message and gives CMD_RET_FAILURE. Its first argument is
+an error number to report when the message is left out, or 0 if there is none.
+cmd_err() prints the message and nothing more.
+
+Without CONFIG_CMD_ERR_MSG both print nothing. If the command then fails,
+cmd_process() prints a single line in place of the message, giving the
+command's name and the error number if there is one::
+
+    => printenv nosuchvar
+    printenv: failed
+
+A command which fails without reporting an error this way prints nothing extra,
+so a command such as itest, which returns CMD_RET_FAILURE to mean false, stays
+quiet.
+
+Use these only for a message which explains a failure. Output which is the
+result of the command, such as the checksum verdict printed by iminfo, is not
+an error message. Nor is a message from pr_err() or log_err(), which
+CONFIG_LOGLEVEL controls already.
+
 Completion function
 -------------------
 
