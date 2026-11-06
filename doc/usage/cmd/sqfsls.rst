@@ -116,7 +116,7 @@ message instead.
 See also
 --------
 
-* *sqfsload* for reading one of the listed files into memory
+* :doc:`sqfsload<sqfsload>` for reading one of the listed files into memory
 * :doc:`ext4ls<ext4ls>` for the same operation on an ext4 filesystem
 * :doc:`fatls<fatls>` for the same operation on a FAT filesystem
 * :doc:`cramfsls<cramfsls>` for listing another read-only compressed
