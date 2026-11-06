@@ -596,6 +596,19 @@ int cmd_dispatch_subcmd(struct getopt_state *gs, struct cmd_tbl *subcmds,
 #endif
 }
 
+/*
+ * Error left out by cmd_err() or cmd_fail() without CONFIG_CMD_ERR_MSG:
+ * 0 if none, 1 if it had no error number, else the error number
+ */
+static int cmd_err_val;
+
+int cmd_err_note(int err)
+{
+	cmd_err_val = err ? err : 1;
+
+	return CMD_RET_FAILURE;
+}
+
 /**
  * Call a command function. This should be the only route in U-Boot to call
  * a command, so that we can track whether we are waiting for input or
@@ -620,6 +633,15 @@ static int cmd_call(struct cmd_tbl *cmdtp, int flag, int argc,
 	 * picks, which it reaches through the getopt state.
 	 */
 	result = cmd_invoke_rep(cmdtp, flag, argc, argv, repeatable);
+
+	/* say which command failed, in place of the message it left out */
+	if (!IS_ENABLED(CONFIG_CMD_ERR_MSG) && cmd_err_val) {
+		if (result && cmd_err_val == 1)
+			printf("%s: failed\n", cmdtp->name);
+		else if (result)
+			printf("%s: failed, err %d\n", cmdtp->name, cmd_err_val);
+		cmd_err_val = 0;
+	}
 
 	if (result)
 		debug("Command failed, result=%d\n", result);

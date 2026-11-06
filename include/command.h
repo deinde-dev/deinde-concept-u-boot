@@ -13,6 +13,7 @@
 #include <getopt.h>
 #include <linker_lists.h>
 #include <limits.h>
+#include <stdio.h>
 
 #include <linux/bitops.h>
 #include <linux/compiler_attributes.h>
@@ -321,6 +322,50 @@ enum command_ret_t {
 	CMD_RET_FAILURE,	/* 1 = Failure */
 	CMD_RET_USAGE = -1,	/* Failure, please report 'usage' error */
 };
+
+/**
+ * cmd_err_note() - Note that a command has left out an error message
+ *
+ * This is used by cmd_err() and cmd_fail() when CONFIG_CMD_ERR_MSG is off. If
+ * the command then fails, cmd_process() prints a short line in place of the
+ * message, giving the command's name and @err
+ *
+ * @err: Error number to report, or 0 if none
+ * Return: CMD_RET_FAILURE
+ */
+int cmd_err_note(int err);
+
+/*
+ * Report an error from a command. With CONFIG_CMD_ERR_MSG these print the
+ * message. Without it they print nothing, and cmd_process() prints just the
+ * command's name and the error number if the command fails, saving the space
+ * taken by the message. The format is checked either way.
+ *
+ * cmd_err() reports just the message. cmd_fail() also takes the error number
+ * to report in its place, or 0 if there is none, and gives CMD_RET_FAILURE,
+ * for use as:
+ *
+ *	return cmd_fail(ret, "Cannot read '%s' (err=%dE)\n", fname, ret);
+ */
+#if IS_ENABLED(CONFIG_CMD_ERR_MSG)
+#define cmd_err(fmt, ...)	printf(fmt, ##__VA_ARGS__)
+#define cmd_fail(err, fmt, ...)	({				\
+		(void)(err);						\
+		printf(fmt, ##__VA_ARGS__);				\
+		CMD_RET_FAILURE;					\
+	})
+#else
+#define cmd_err(fmt, ...)	do {					\
+		if (0)							\
+			printf(fmt, ##__VA_ARGS__);			\
+		cmd_err_note(0);					\
+	} while (0)
+#define cmd_fail(err, fmt, ...)	({				\
+		if (0)							\
+			printf(fmt, ##__VA_ARGS__);			\
+		cmd_err_note(err);					\
+	})
+#endif
 
 /**
  * Process a command with arguments. We look up the command and execute it

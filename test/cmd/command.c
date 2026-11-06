@@ -259,3 +259,22 @@ static int command_test_dispatch(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(command_test_dispatch, 0);
+
+/* Test reporting an error from a command */
+static int command_test_err(struct unit_test_state *uts)
+{
+	/* without the messages there is nothing here to check */
+	if (!IS_ENABLED(CONFIG_CMD_ERR_MSG))
+		return -EAGAIN;
+
+	ut_asserteq(CMD_RET_FAILURE, cmd_fail(-EIO, "read %s: %d\n", "abc",
+					      -EIO));
+	ut_assert_nextline("read abc: -5");
+
+	cmd_err("no device %d\n", 3);
+	ut_assert_nextline("no device 3");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(command_test_err, UTF_CONSOLE);
