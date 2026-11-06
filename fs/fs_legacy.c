@@ -1335,7 +1335,7 @@ exit:
 	return ret;
 }
 
-int do_fs_types(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+int do_fs_types(void)
 {
 	struct fstype_info *drv = fstypes;
 	const int n_ents = ARRAY_SIZE(fstypes);

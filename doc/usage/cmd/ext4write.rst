@@ -139,7 +139,7 @@ See also
 
 * :doc:`ext4load<ext4load>` for reading the data back into memory
 * :doc:`ext4size<ext4size>` for finding the resulting file's size
-* *ext4ls* for listing what is in a directory already
+* :doc:`ext4ls<ext4ls>` for listing what is in a directory already
 * :doc:`mkdir<mkdir>` for creating the directory to write into
 * :doc:`save<save>` for the same operation on any supported filesystem
 * :doc:`fatwrite<fatwrite>` for the same operation on a FAT filesystem

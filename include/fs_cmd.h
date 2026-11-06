@@ -40,13 +40,9 @@ int do_fs_type(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
 /**
  * do_fs_types - List supported filesystems.
  *
- * @cmdtp: Command information for fstypes
- * @flag: Command flags (CMD_FLAG\_...)
- * @argc: Number of arguments
- * @argv: List of arguments
  * Return: result (see enum command_ret_t)
  */
-int do_fs_types(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[]);
+int do_fs_types(void);
 
 /**
  * do_fs_statfs - Get filesystem statistics.

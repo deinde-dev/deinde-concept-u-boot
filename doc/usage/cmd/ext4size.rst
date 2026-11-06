@@ -95,6 +95,6 @@ See also
 * :doc:`ext4load<ext4load>` for reading the file into memory, which also
   sets filesize
 * :doc:`ext4write<ext4write>` for writing the file whose size this reports
-* *ext4ls* for listing files with their sizes
+* :doc:`ext4ls<ext4ls>` for listing files with their sizes
 * :doc:`size<size>` for the same operation on any supported filesystem
 * :doc:`fatsize<fatsize>` for the same operation on a FAT filesystem

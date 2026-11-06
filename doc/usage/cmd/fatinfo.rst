@@ -51,6 +51,8 @@ See also
 --------
 
 * :doc:`fatload<fatload>` for reading a file from the filesystem
+* :doc:`fatls<fatls>` for listing what the filesystem holds
 * :doc:`fatsize<fatsize>` for finding a file's size without reading it
 * :doc:`fatmkdir<fatmkdir>` for creating a directory on the filesystem
-* :doc:`fsinfo<fsinfo>` for listing the filesystems U-Boot supports
+* :doc:`fsinfo<fsinfo>` for the block counts of the filesystem
+* :doc:`fstypes<fstypes>` for listing the filesystem types U-Boot supports

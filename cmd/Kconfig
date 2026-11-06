@@ -3207,6 +3207,7 @@ config CMD_FS_LEGACY
 	bool "Legacy filesystem commands (ls, load, save, ...)"
 	depends on CMD_FS_GENERIC && !VFS
 	default y
+	select GETOPT
 	help
 	  Enables the legacy filesystem commands that use the
 	  interface/dev:part syntax to access filesystems directly. These
@@ -3217,6 +3218,7 @@ config CMD_VFS
 	bool "fs - virtual filesystem commands"
 	depends on VFS
 	default VFS
+	select GETOPT
 	help
 	  Provides the 'fs' command with mount, umount and ls subcommands
 	  for the virtual filesystem layer.

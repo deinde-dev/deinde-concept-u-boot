@@ -68,16 +68,22 @@ obj-$(CONFIG_CMD_EDITENV) += editenv.o
 obj-$(CONFIG_CMD_ETHSW) += ethsw.o
 obj-$(CONFIG_CMD_EVENT) += event.o
 ifdef CONFIG_SANDBOX
+obj-$(CONFIG_CMD_EXT4) += ext4ls.o
 obj-$(CONFIG_CMD_EXT4_WRITE) += ext4write.o
 endif
 endif
 ifdef CONFIG_CONSOLE_RECORD
 ifdef CONFIG_SANDBOX
-obj-$(CONFIG_CMD_FAT) += fatload.o
+obj-$(CONFIG_CMD_FAT) += fatload.o fatls.o
 endif
 endif
 obj-$(CONFIG_CMD_FDT) += fdt.o
 ifdef CONFIG_CONSOLE_RECORD
+ifdef CONFIG_CMD_VFS
+obj-y += fstypes.o
+else
+obj-$(CONFIG_CMD_FS_LEGACY) += fstypes.o
+endif
 obj-$(CONFIG_CMD_GETTIME) += gettime.o
 obj-$(CONFIG_CMD_GREPENV) += grepenv.o
 obj-$(CONFIG_CMD_HASH) += hash.o

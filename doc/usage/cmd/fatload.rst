@@ -96,6 +96,7 @@ than the command takes, shows the usage message instead.
 See also
 --------
 
+* :doc:`fatls<fatls>` for finding out which files are there to read
 * :doc:`fatsize<fatsize>` for finding a file's size without reading it
 * :doc:`fatwrite<fatwrite>` for writing memory back out to a file
 * :doc:`fatinfo<fatinfo>` for showing which filesystem is on the device
