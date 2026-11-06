@@ -456,7 +456,11 @@ stops on a conflict elsewhere, pickman aborts it and says on the MR which files
 conflict, leaving the branch to be updated by hand.
 
 Pickman checks out the MR's branch before running the agent, so the result is
-pushed to the right branch even when the agent finds nothing to change. If a
+pushed to the right branch even when the agent finds nothing to change. If the
+branch on the remote has commits which the local one lacks, e.g. because
+someone has pushed a fix by hand, pickman starts again from the remote branch,
+carrying over any local commits which only add to ``.pickman-history``, so that
+it does not throw that work away when it pushes. If a
 push fails, pickman says so on the MR and carries on with the other MRs; the
 error itself goes only to pickman's log, since it may show the API token.
 

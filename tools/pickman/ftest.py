@@ -10957,8 +10957,8 @@ def _git_init(path, bare=False):
         _git(path, 'config', 'user.name', 'Test')
 
 
-class TestRebaseOnto(unittest.TestCase):
-    """Tests for rebasing a branch which has its own history entry"""
+class HistoryRepo(unittest.TestCase):
+    """Base class for tests with a branch which has its own history entry"""
 
     def setUp(self):
         """Set up a repo whose branch and master both add history entries"""
@@ -10999,6 +10999,18 @@ class TestRebaseOnto(unittest.TestCase):
                              binary=False)
         _git(self.repo, 'add', '-A')
         _git(self.repo, 'commit', '-q', '-m', subject)
+
+    def _log(self, ref='HEAD'):
+        """Get the subjects of the commits in a branch, newest first"""
+        return _git(self.repo, 'log', '--format=%s', ref).splitlines()
+
+    def _history(self):
+        """Read the history file in the work tree"""
+        return tools.read_file(control.HISTORY_FILE, binary=False)
+
+
+class TestRebaseOnto(HistoryRepo):
+    """Tests for rebasing a branch which has its own history entry"""
 
     def test_history_entries_kept(self):
         """Test that history entries on both sides are kept"""
@@ -11041,6 +11053,81 @@ class TestRebaseOnto(unittest.TestCase):
         self.assertEqual(head, _git(self.repo, 'rev-parse', 'HEAD'))
         self.assertFalse(os.path.exists(os.path.join(self.repo, '.git',
                                                      'rebase-merge')))
+
+
+class TestCheckoutMrBranch(HistoryRepo):
+    """Tests for checking out an MR branch which may be out of date"""
+
+    def setUp(self):
+        """Push the cherry branch without its history entry"""
+        super().setUp()
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/cherry', 'cherry~')
+        _git(self.repo, 'checkout', '-q', 'master')
+
+    def _push_fix(self):
+        """Push a fixed version of the cherry branch, rebased onto master"""
+        _git(self.repo, 'checkout', '-q', '-b', 'fixed', 'master')
+        self._commit({'a.c': 'one\ntwo fixed\n'}, 'Change a.c')
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/cherry', 'fixed')
+        _git(self.repo, 'checkout', '-q', 'master')
+
+    def test_local_ahead(self):
+        """Test that a local branch with an unpushed entry is used as is"""
+        head = _git(self.repo, 'rev-parse', 'cherry')
+        control.checkout_mr_branch('ci', 'cherry')
+        self.assertEqual('cherry', _git(self.repo, 'branch', '--show-current'))
+        self.assertEqual(head, _git(self.repo, 'rev-parse', 'HEAD'))
+
+    def test_remote_ahead(self):
+        """Test that work pushed by someone else is kept"""
+        self._push_fix()
+        with terminal.capture() as (_, err):
+            control.checkout_mr_branch('ci', 'cherry')
+        self.assertEqual('cherry', _git(self.repo, 'branch', '--show-current'))
+
+        # The old 'Change a.c' goes, but the history entry is carried over
+        self.assertEqual(
+            ['Record cherry', 'Change a.c', 'Record other', 'Initial'],
+            self._log())
+        self.assertEqual('one\ntwo fixed\n',
+                         tools.read_file('a.c', binary=False))
+        self.assertEqual(self.first + self.other + self.cherry,
+                         self._history())
+        self.assertIn('cherry: dropping 1 local commit(s) which ci/cherry '
+                      'supersedes', err.getvalue())
+
+    def test_remote_ahead_only(self):
+        """Test that a local branch which is just behind is brought up"""
+        _git(self.repo, 'branch', '-f', 'cherry', 'cherry~2')
+        with terminal.capture() as (_, err):
+            control.checkout_mr_branch('ci', 'cherry')
+        self.assertEqual(['Change a.c', 'Initial'], self._log())
+        self.assertNotIn('dropping', err.getvalue())
+
+    def test_cannot_carry_over(self):
+        """Test that a history entry which cannot be carried over is left"""
+        self._push_fix()
+        with mock.patch.object(control, 'run_git_union',
+                               side_effect=command.CommandExc('pick', None)), \
+                terminal.capture() as (_, err):
+            control.checkout_mr_branch('ci', 'cherry')
+        self.assertEqual(['Change a.c', 'Record other', 'Initial'],
+                         self._log())
+        self.assertIn('cannot carry over history commit', err.getvalue())
+
+    def test_no_local_branch(self):
+        """Test that a branch which is only on the remote is checked out"""
+        _git(self.repo, 'branch', '-D', 'cherry')
+        control.checkout_mr_branch('ci', 'cherry')
+        self.assertEqual('cherry', _git(self.repo, 'branch', '--show-current'))
+        self.assertEqual(['Change a.c', 'Initial'], self._log())
+
+    def test_no_remote_branch(self):
+        """Test that a branch which is not pushed is checked out as is"""
+        _git(self.repo, 'update-ref', '-d', 'refs/remotes/ci/cherry')
+        control.checkout_mr_branch('ci', 'cherry')
+        self.assertEqual(['Record cherry', 'Change a.c', 'Initial'],
+                         self._log())
 
 
 class TestExtern(unittest.TestCase):

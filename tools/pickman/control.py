@@ -5010,7 +5010,7 @@ def process_single_mr(remote, merge_req, dbs, target):
             return processed + 1
         needs_rebase = False
     else:
-        checkout_mr_branch(merge_req.source_branch)
+        checkout_mr_branch(remote, merge_req.source_branch)
 
     # Run agent to handle comments and/or rebase
     success, conversation_log = agent.handle_mr_comments(
@@ -5095,7 +5095,39 @@ def process_mr_reviews(remote, mrs, dbs, target='master'):
     return processed
 
 
-def checkout_mr_branch(branch):
+def run_git_union(args):
+    """Run git, keeping history entries from both sides of any merge
+
+    Entries are only ever added to the history file. A branch's own entry is
+    committed after the branch is pushed, so it is still there when the
+    branch is rebased, by which time the target has gained entries of its
+    own. Git cannot merge these, since both add at the end of the file, so
+    use the union merge driver for the file, which keeps the lines from both
+    sides. The diff3 conflict style stops git trimming the lines which the
+    two sides have in common, such as the '---' ending each entry, so each
+    entry stays whole.
+
+    Args:
+        args (list of str): Arguments for git
+
+    Returns:
+        str: Output from git
+
+    Raises:
+        command.CommandExc: If git fails
+    """
+    fd, attrs = tempfile.mkstemp(prefix='pickman-attrs.')
+    os.close(fd)
+    try:
+        tools.write_file(attrs, f'{HISTORY_FILE} merge=union\n',
+                         binary=False)
+        return run_git(['-c', f'core.attributesFile={attrs}', '-c',
+                        'merge.conflictStyle=diff3'] + args)
+    finally:
+        os.remove(attrs)
+
+
+def checkout_mr_branch(remote, branch):
     """Check out an MR branch, ready for an agent to work on it
 
     The agents are asked to check out the branch themselves, but one which
@@ -5103,10 +5135,55 @@ def checkout_mr_branch(branch):
     records history on whatever HEAD holds. Check the branch out first, so
     HEAD holds it whatever the agent does.
 
+    The local branch can also be out of date. Someone may push to the MR,
+    e.g. to fix it by hand, and a fix pushed from the agent's own branch
+    leaves the local one behind too. Pushing the local branch would then
+    throw that work away. So when the remote branch has commits which the
+    local one lacks, start again from the remote branch. Local commits which
+    only change the history file are carried over, since the record of a
+    cherry-pick is committed after the branch is pushed. Any others are
+    superseded by the remote branch, e.g. they are from before it was
+    rebased, so they are dropped.
+
     Args:
+        remote (str): Remote name, already fetched
         branch (str): Branch name
     """
-    run_git(['checkout', branch])
+    upstream = f'{remote}/{branch}'
+    try:
+        run_git(['rev-parse', '--verify', '--quiet',
+                 f'refs/remotes/{upstream}'])
+    except command.CommandExc:
+        run_git(['checkout', branch])
+        return
+    try:
+        behind = run_git(['rev-list', f'refs/heads/{branch}..{upstream}'])
+    except command.CommandExc:
+        # There is no local branch yet
+        run_git(['checkout', '-B', branch, upstream])
+        return
+    if not behind:
+        run_git(['checkout', branch])
+        return
+
+    ahead = run_git(['rev-list', '--reverse',
+                     f'{upstream}..refs/heads/{branch}']).split()
+    keep = [commit for commit in ahead
+            if run_git(['diff-tree', '--no-commit-id', '--name-only', '-r',
+                        commit]).split() == [HISTORY_FILE]]
+    tout.info(f'{branch}: updating to {upstream}, which has commits the '
+              'local branch lacks')
+    if len(keep) < len(ahead):
+        tout.warning(f'{branch}: dropping {len(ahead) - len(keep)} local '
+                     f'commit(s) which {upstream} supersedes')
+    run_git(['checkout', '-B', branch, upstream])
+    for commit in keep:
+        try:
+            run_git_union(['cherry-pick', commit])
+        except command.CommandExc:
+            tout.warning(f'{branch}: cannot carry over history commit '
+                         f'{commit[:12]}')
+            _abort_in_progress()
 
 
 def _push_failed(remote, mr_iid, what):
@@ -5130,14 +5207,7 @@ def _push_failed(remote, mr_iid, what):
 def rebase_onto(upstream):
     """Rebase the current branch, keeping history entries from both sides
 
-    Entries are only ever added to the history file. A branch's own entry is
-    committed after the branch is pushed, so it is still there when the
-    branch is rebased, by which time the target has gained entries of its
-    own. Git cannot merge these, since both add at the end of the file, so
-    use the union merge driver for the file, which keeps the lines from both
-    sides. The diff3 conflict style stops git trimming the lines which the
-    two sides have in common, such as the '---' ending each entry, so each
-    entry stays whole.
+    See run_git_union() for how the entries are kept.
 
     Args:
         upstream (str): Branch to rebase onto, e.g. 'ci/master'
@@ -5147,13 +5217,8 @@ def rebase_onto(upstream):
             bool: True if the rebase succeeded; if not, it is aborted
             list of str: Files with conflicts, if any
     """
-    fd, attrs = tempfile.mkstemp(prefix='pickman-attrs.')
-    os.close(fd)
     try:
-        tools.write_file(attrs, f'{HISTORY_FILE} merge=union\n',
-                         binary=False)
-        run_git(['-c', f'core.attributesFile={attrs}', '-c',
-                 'merge.conflictStyle=diff3', 'rebase', upstream])
+        run_git_union(['rebase', upstream])
         return True, []
     except command.CommandExc:
         conflicts = run_git(['diff', '--name-only',
@@ -5163,8 +5228,6 @@ def rebase_onto(upstream):
         except command.CommandExc:
             pass
         return False, conflicts
-    finally:
-        os.remove(attrs)
 
 
 def _rebase_mr_branch(remote, merge_req, dbs, target):
@@ -5201,7 +5264,7 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         if not _recreate_subtree(remote, merge_req, target, subtree):
             problem = 'the subtree update cannot be pulled again'
     else:
-        checkout_mr_branch(branch)
+        checkout_mr_branch(remote, branch)
         ok, conflicts = rebase_onto(f'{remote}/{target}')
         if not ok:
             problem = 'it cannot be rebased'
@@ -5465,7 +5528,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
             return False
 
     # Run agent to fix the failures
-    checkout_mr_branch(merge_req.source_branch)
+    checkout_mr_branch(remote, merge_req.source_branch)
     success, conversation_log = agent.fix_pipeline(
         mr_iid,
         merge_req.source_branch,
