@@ -455,6 +455,11 @@ looks at the new pipeline in turn. Both sides add entries at the end of
 stops on a conflict elsewhere, pickman aborts it and says on the MR which files
 conflict, leaving the branch to be updated by hand.
 
+Pickman checks out the MR's branch before running the agent, so the result is
+pushed to the right branch even when the agent finds nothing to change. If a
+push fails, pickman says so on the MR and carries on with the other MRs; the
+error itself goes only to pickman's log, since it may show the API token.
+
 **Retry behaviour**
 
 Each MR gets up to ``--fix-retries`` attempts (default: 3). If the limit is

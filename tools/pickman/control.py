@@ -5002,10 +5002,15 @@ def process_single_mr(remote, merge_req, dbs, target):
             tout.error(f'Failed to update the subtree for MR !{mr_iid}')
             return processed + 1
         if not unresolved:
-            gitlab_api.push_branch(remote, merge_req.source_branch,
-                                   force=True, skip_ci=False)
+            try:
+                gitlab_api.push_branch(remote, merge_req.source_branch,
+                                       force=True, skip_ci=False)
+            except command.CommandExc:
+                _push_failed(remote, mr_iid, 'the subtree update')
             return processed + 1
         needs_rebase = False
+    else:
+        checkout_mr_branch(merge_req.source_branch)
 
     # Run agent to handle comments and/or rebase
     success, conversation_log = agent.handle_mr_comments(
@@ -5041,9 +5046,12 @@ def process_single_mr(remote, merge_req, dbs, target):
                                    unresolved, conversation_log)
 
         # Push the changes along with the history, and run CI on them
-        ci_note = _push_with_ci(remote, merge_req, dbs, ())
-        if ci_note:
-            gitlab_api.reply_to_mr(remote, mr_iid, ci_note.strip())
+        try:
+            ci_note = _push_with_ci(remote, merge_req, dbs, ())
+            if ci_note:
+                gitlab_api.reply_to_mr(remote, mr_iid, ci_note.strip())
+        except command.CommandExc:
+            _push_failed(remote, mr_iid, 'the review changes')
 
         tout.info(f'Updated MR !{mr_iid} description and history')
     else:
@@ -5085,6 +5093,38 @@ def process_mr_reviews(remote, mrs, dbs, target='master'):
         _return_to(original_branch)
 
     return processed
+
+
+def checkout_mr_branch(branch):
+    """Check out an MR branch, ready for an agent to work on it
+
+    The agents are asked to check out the branch themselves, but one which
+    finds nothing to change may not do so, and pickman then pushes and
+    records history on whatever HEAD holds. Check the branch out first, so
+    HEAD holds it whatever the agent does.
+
+    Args:
+        branch (str): Branch name
+    """
+    run_git(['checkout', branch])
+
+
+def _push_failed(remote, mr_iid, what):
+    """Say on an MR that pickman cannot push its branch
+
+    The error itself goes only to the log, since the push URL in it may hold
+    the API token.
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request IID
+        what (str): What cannot be pushed, e.g. 'the pipeline fix'
+    """
+    tout.error(f'MR !{mr_iid}: cannot push {what}')
+    gitlab_api.reply_to_mr(
+        remote, mr_iid,
+        f'Cannot push {what} to the branch. Please check the branch; '
+        "pickman's log has the error.")
 
 
 def rebase_onto(upstream):
@@ -5161,12 +5201,17 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         if not _recreate_subtree(remote, merge_req, target, subtree):
             problem = 'the subtree update cannot be pulled again'
     else:
-        run_git(['checkout', branch])
+        checkout_mr_branch(branch)
         ok, conflicts = rebase_onto(f'{remote}/{target}')
         if not ok:
             problem = 'it cannot be rebased'
             if conflicts:
                 problem += f' (conflicts in {", ".join(conflicts)})'
+    if not problem:
+        try:
+            gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
+        except command.CommandExc:
+            problem = "the result cannot be pushed (see pickman's log)"
 
     # Record the failure, so that it is not tried again on every poll
     if problem:
@@ -5179,7 +5224,6 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebase_failed')
         dbs.commit()
         return False
-    gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
     dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebased')
     dbs.commit()
     tout.info(f'MR !{mr_iid}: rebased and pushed, waiting for '
@@ -5421,6 +5465,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
             return False
 
     # Run agent to fix the failures
+    checkout_mr_branch(merge_req.source_branch)
     success, conversation_log = agent.fix_pipeline(
         mr_iid,
         merge_req.source_branch,
@@ -5437,7 +5482,12 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
 
     if success:
         # Push the fix branch to the original MR branch
-        ci_note = _push_with_ci(remote, merge_req, dbs, shared)
+        try:
+            ci_note = _push_with_ci(remote, merge_req, dbs, shared)
+        except command.CommandExc:
+            _push_failed(remote, mr_iid, f'the fix from attempt {attempt}')
+            _abort_in_progress()
+            return True
 
         # Update MR description with fix log
         old_desc = merge_req.description

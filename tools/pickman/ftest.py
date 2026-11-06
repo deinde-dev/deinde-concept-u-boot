@@ -2829,6 +2829,51 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
         self.assertTrue(call_kwargs.get('needs_rebase'))
         self.assertFalse(call_kwargs.get('has_conflicts'))
 
+    def test_review_push_fails(self):
+        """Test that the branch is checked out and a failed push reported"""
+        comment = gitlab.MrComment(id=1, author='reviewer', body='Fix this',
+                                   created_at='2025-01-01', resolvable=True,
+                                   resolved=False)
+        calls = []
+
+        def run_git(args):
+            calls.append(args)
+            return ''
+
+        def handle(*_args, **_kwargs):
+            calls.append('agent')
+            return True, 'Done'
+
+        mrs = [gitlab.PickmanMr(
+            iid=100, title='[pickman] Test MR', source_branch='cherry-test',
+            description='Test', web_url='https://gitlab.com/mr/100',
+            has_conflicts=False, needs_rebase=False)]
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(control, 'run_git', side_effect=run_git), \
+                 mock.patch.object(gitlab, 'get_mr_comments',
+                                   return_value=[comment]), \
+                 mock.patch.object(agent, 'handle_mr_comments',
+                                   side_effect=handle), \
+                 mock.patch.object(gitlab, 'update_mr_desc'), \
+                 mock.patch.object(control, 'update_history'), \
+                 mock.patch.object(control, '_push_with_ci',
+                                   side_effect=command.CommandExc(
+                                       'push', None)), \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                self.assertEqual(
+                    1, control.process_mr_reviews('ci', mrs, dbs))
+            self.assertTrue(dbs.comment_is_processed(100, 1))
+            dbs.close()
+
+        # The agent need not check out the branch itself
+        self.assertLess(calls.index(['checkout', 'cherry-test']),
+                        calls.index('agent'))
+        reply.assert_called_once_with(
+            'ci', 100, 'Cannot push the review changes to the branch. Please '
+            "check the branch; pickman's log has the error.")
+
     def test_failed_review_abandons_rebase(self):
         """Test that a rebase left by a failed agent does not stop pickman"""
         def git(*args):
@@ -2883,15 +2928,17 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
         self.assertEqual('main', control.run_git(
             ['rev-parse', '--abbrev-ref', 'HEAD']))
 
-    def _review_subtree(self, comments=(), pulled=True):
+    def _review_subtree(self, comments=(), pulled=True, push_error=None):
         """Process a subtree MR which has conflicts
 
         Args:
             comments (list of MrComment): Unresolved comments on the MR
             pulled (bool): Whether pulling the subtree update succeeds
+            push_error (Exception): Error for the push to raise, or None
 
         Returns:
-            tuple: (Mock, Mock) for the agent and for pushes
+            tuple: (Mock, Mock, Mock) for the agent, for pushes and for
+                replies to the MR
         """
         mrs = [gitlab.PickmanMr(
             iid=100,
@@ -2917,26 +2964,37 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                  mock.patch.object(control, 'update_history'), \
                  mock.patch.object(control, '_push_with_ci',
                                    return_value=''), \
-                 mock.patch.object(gitlab, 'push_branch') as push:
+                 mock.patch.object(gitlab, 'push_branch',
+                                   side_effect=push_error) as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
                 self.assertEqual(
                     1, control.process_mr_reviews('ci', mrs, dbs))
             pull.assert_called_once_with('dts', 'v7.2-dts')
             dbs.close()
-        return m_agent, push
+        return m_agent, push, reply
 
     def test_review_recreates_subtree(self):
         """Test that a subtree MR is pulled again, not rebased by the agent"""
-        m_agent, push = self._review_subtree()
+        m_agent, push, reply = self._review_subtree()
         m_agent.assert_not_called()
         push.assert_called_once_with('ci', 'cherry-test', force=True,
                                      skip_ci=False)
+        reply.assert_not_called()
+
+    def test_review_subtree_push_fails(self):
+        """Test that a subtree update which cannot be pushed is reported"""
+        _, _, reply = self._review_subtree(
+            push_error=command.CommandExc('push', None))
+        reply.assert_called_once_with(
+            'ci', 100, 'Cannot push the subtree update to the branch. Please '
+            "check the branch; pickman's log has the error.")
 
     def test_review_subtree_with_comments(self):
         """Test that the agent handles comments on a recreated subtree MR"""
         comment = gitlab.MrComment(id=1, author='reviewer', body='Fix this',
                                    created_at='2025-01-01', resolvable=True,
                                    resolved=False)
-        m_agent, push = self._review_subtree([comment])
+        m_agent, push, _ = self._review_subtree([comment])
         call_kwargs = m_agent.call_args[1]
         self.assertFalse(call_kwargs.get('needs_rebase'))
         self.assertFalse(call_kwargs.get('has_conflicts'))
@@ -2944,7 +3002,7 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
 
     def test_review_subtree_fails(self):
         """Test that a failed subtree update leaves the MR alone"""
-        m_agent, push = self._review_subtree(pulled=False)
+        m_agent, push, _ = self._review_subtree(pulled=False)
         m_agent.assert_not_called()
         push.assert_not_called()
 
@@ -7304,6 +7362,72 @@ class TestProcessPipelineFailures(unittest.TestCase):
                                  log_tail='error')
                 for i, name in enumerate(names)]
 
+    def _fix(self, push_error=None):
+        """Process a failed pipeline for which the agent finds nothing to do
+
+        Args:
+            push_error (Exception): Error for the push to raise, or None
+
+        Returns:
+            tuple: (result, calls, Mock, Mock), where calls lists the git
+                commands with 'agent' where the agent runs, and the mocks
+                are for replies to the MR and for the history update
+        """
+        calls = []
+
+        def run_git(args):
+            calls.append(args)
+            return ''
+
+        def fix_pipeline(*_args, **_kwargs):
+            calls.append('agent')
+            return True, 'Nothing to change'
+
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(control, 'run_git', side_effect=run_git), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=self._failed('build')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={}), \
+                 mock.patch.object(gitlab, 'get_pipeline_jobs',
+                                   return_value=None), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   side_effect=fix_pipeline), \
+                 mock.patch.object(gitlab, 'push_branch',
+                                   side_effect=push_error), \
+                 mock.patch.object(gitlab, 'update_mr_desc'), \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply, \
+                 mock.patch.object(control, '_abort_in_progress'), \
+                 mock.patch.object(control,
+                                   'update_history_pipeline_fix') as history:
+                result = control.process_pipeline_failures(
+                    'ci', [self._make_mr()], dbs, 'master', 3)
+            self.assertTrue(dbs.pfix_has(1, 100))
+            dbs.close()
+        return result, calls, reply, history
+
+    def test_fix_checks_out_branch(self):
+        """Test that the branch is checked out before the agent runs"""
+        result, calls, _, history = self._fix()
+        self.assertEqual(1, result)
+
+        # The agent need not check out the branch itself
+        self.assertLess(calls.index(['checkout', 'cherry-test-1']),
+                        calls.index('agent'))
+        history.assert_called_once()
+
+    def test_fix_push_fails(self):
+        """Test that a fix which cannot be pushed does not stop pickman"""
+        result, _, reply, history = self._fix(command.CommandExc(
+            "Error running 'git push https://token@host'", None))
+        self.assertEqual(1, result)
+        history.assert_not_called()
+        reply.assert_called_once_with(
+            'ci', 1, 'Cannot push the fix from attempt 1 to the branch. '
+            "Please check the branch; pickman's log has the error.")
+
     def test_shared_failures_left_alone(self):
         """Test that failures shared with other MRs get no fix attempt"""
         with terminal.capture():
@@ -7442,6 +7566,32 @@ class TestProcessPipelineFailures(unittest.TestCase):
                           mock_reply.call_args[0][2])
 
             # Recorded, so not tried again on the next poll
+            self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(0, dbs.pfix_count(1))
+            dbs.close()
+
+    def test_rebase_push_fails(self):
+        """Test that a rebased branch which cannot be pushed is reported"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr(needs_rebase=True)]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'push_branch',
+                                   side_effect=command.CommandExc(
+                                       'push', None)), \
+                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            mock_fix.assert_not_called()
+            self.assertIn('updating to master first and the result cannot '
+                          "be pushed (see pickman's log)",
+                          mock_reply.call_args[0][2])
             self.assertTrue(dbs.pfix_has(1, 100))
             self.assertEqual(0, dbs.pfix_count(1))
             dbs.close()
