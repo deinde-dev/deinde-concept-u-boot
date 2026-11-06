@@ -329,10 +329,14 @@ static int last_stage_init(void)
 
 	board_final_init();
 
-	if (IS_ENABLED(CONFIG_HAVE_ACPI_RESUME)) {
+	/*
+	 * Only a resume from S3 needs the FADT. Don't look for it otherwise,
+	 * since this boot's tables are not written yet
+	 */
+	if (IS_ENABLED(CONFIG_HAVE_ACPI_RESUME) &&
+	    gd->arch.prev_sleep_state == ACPI_S3) {
 		fadt = acpi_find_fadt();
-
-		if (fadt && gd->arch.prev_sleep_state == ACPI_S3)
+		if (fadt)
 			acpi_resume(fadt);
 	}
 
