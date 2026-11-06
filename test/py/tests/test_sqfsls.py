@@ -73,3 +73,7 @@ class TestSqfsls:
     def test_sqfsls_usage(self, ubman, sqfs_image):
         """Check that sqfsls shows its usage message when it cannot go on"""
         ubman.run_ut('cmd', 'cmd_test_sqfsls_usage', fs_image=sqfs_image)
+
+    def test_sqfsls_badopt(self, ubman, sqfs_image):
+        """Check that sqfsls refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_sqfsls_badopt', fs_image=sqfs_image)

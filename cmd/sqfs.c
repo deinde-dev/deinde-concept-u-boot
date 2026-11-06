@@ -9,17 +9,18 @@
 
 #include <command.h>
 #include <fs_cmd.h>
+#include <getopt.h>
 #include <squashfs.h>
 
-static int do_sqfs_ls(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+static int do_sqfs_ls(struct getopt_state *gs)
 {
-	return do_ls(argc, argv, FS_TYPE_SQUASHFS);
+	return do_ls(gs->argc, gs->argv, FS_TYPE_SQUASHFS);
 }
 
-U_BOOT_CMD(sqfsls, 4, 1, do_sqfs_ls,
-	   "List files in directory. Default: root (/).",
-	   "<interface> [<dev[:part]>] [directory]\n"
-	   "    - list files from 'dev' on 'interface' in 'directory'\n"
+U_BOOT_CMD_NOOPTS(sqfsls, 4, 1, do_sqfs_ls,
+		  "List files in directory. Default: root (/).",
+		  "<interface> [<dev[:part]>] [directory]\n"
+		  "    - list files from 'dev' on 'interface' in 'directory'\n"
 );
 
 static int do_sqfs_load(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])

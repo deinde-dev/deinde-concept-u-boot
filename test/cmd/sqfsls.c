@@ -199,3 +199,23 @@ static int cmd_test_sqfsls_usage_norun(struct unit_test_state *uts)
 }
 CMD_TEST_ARGS(cmd_test_sqfsls_usage_norun, UTF_CONSOLE | UTF_MANUAL,
 	      { "fs_image", UT_ARG_STR });
+
+/* Test that sqfsls refuses an option, since it has none */
+static int cmd_test_sqfsls_badopt_norun(struct unit_test_state *uts)
+{
+	ut_assertok(bind_image(uts));
+
+	ut_asserteq(1, run_command("sqfsls -l host 0", 0));
+	ut_assert_skip_to_line(USAGE_LAST);
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
+	/* a directory which looks like an option is still a directory */
+	ut_asserteq(1, run_command("sqfsls host 0 -l", 0));
+	ut_assert_nextline("** Cannot find directory. **");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_sqfsls_badopt_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });

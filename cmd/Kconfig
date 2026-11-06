@@ -3192,6 +3192,7 @@ config CMD_FAT
 config CMD_SQUASHFS
 	bool "SquashFS command support"
 	select FS_SQUASHFS
+	select GETOPT
 	help
 	  Enables SquashFS filesystem commands (e.g. load, ls).
 
