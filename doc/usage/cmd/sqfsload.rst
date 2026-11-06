@@ -136,6 +136,8 @@ See also
 * :doc:`sqfsls<sqfsls>` for finding out which files are there to read
 * :doc:`ext4load<ext4load>` for the same operation on an ext4 filesystem
 * :doc:`fatload<fatload>` for the same operation on a FAT filesystem
+* :doc:`erofsload<erofsload>` for the same operation on an EROFS filesystem,
+  which can read from a position other than the start
 * :doc:`cramfsload<cramfsload>` for reading from another read-only
   compressed filesystem, held in memory rather than on a block device
 * :doc:`load<load>` for reading a file from any supported filesystem

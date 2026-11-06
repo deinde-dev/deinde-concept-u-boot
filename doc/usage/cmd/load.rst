@@ -142,6 +142,7 @@ See also
 * :doc:`ext4load<ext4load>` for the ext-only form under its ext4 name
 * :doc:`fatload<fatload>` for the FAT-only form of this command
 * :doc:`sqfsload<sqfsload>` for the SquashFS-only form of this command
+* :doc:`erofsload<erofsload>` for the EROFS-only form of this command
 * :doc:`fstypes<fstypes>` for the filesystem types this command can read
 * :doc:`iminfo<iminfo>` for checking an image once it has been loaded
 * :doc:`go<go>` for starting an application once it has been loaded

@@ -121,7 +121,8 @@ message instead.
 See also
 --------
 
-* *erofsload* for reading one of the listed files into memory
+* :doc:`erofsload<erofsload>` for reading one of the listed files into
+  memory
 * :doc:`sqfsls<sqfsls>` for the same operation on a SquashFS filesystem,
   which holds no . and .. entries
 * :doc:`ext4ls<ext4ls>` for the same operation on an ext4 filesystem

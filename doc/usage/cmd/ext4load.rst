@@ -123,5 +123,6 @@ See also
 * :doc:`load<load>` for reading a file from any supported filesystem
 * :doc:`fatload<fatload>` for the same operation on a FAT filesystem
 * :doc:`sqfsload<sqfsload>` for the same operation on a SquashFS filesystem
+* :doc:`erofsload<erofsload>` for the same operation on an EROFS filesystem
 * :doc:`sysboot<sysboot>` for reading a syslinux configuration file from the
   filesystem and booting what it names
