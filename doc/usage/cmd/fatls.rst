@@ -115,4 +115,5 @@ See also
 * :doc:`fatmkdir<fatmkdir>` for creating a directory to list
 * :doc:`ext2ls<ext2ls>` for the same operation on an ext filesystem
 * :doc:`ext4ls<ext4ls>` for that operation under its ext4 name
+* :doc:`sqfsls<sqfsls>` for the same operation on a SquashFS filesystem
 * :doc:`ls<ls>` for listing a directory on any supported filesystem
