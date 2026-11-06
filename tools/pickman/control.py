@@ -5002,10 +5002,15 @@ def process_single_mr(remote, merge_req, dbs, target):
             tout.error(f'Failed to update the subtree for MR !{mr_iid}')
             return processed + 1
         if not unresolved:
-            gitlab_api.push_branch(remote, merge_req.source_branch,
-                                   force=True, skip_ci=False)
+            try:
+                gitlab_api.push_branch(remote, merge_req.source_branch,
+                                       force=True, skip_ci=False)
+            except command.CommandExc:
+                _push_failed(remote, mr_iid, 'the subtree update')
             return processed + 1
         needs_rebase = False
+    else:
+        checkout_mr_branch(remote, merge_req.source_branch)
 
     # Run agent to handle comments and/or rebase
     success, conversation_log = agent.handle_mr_comments(
@@ -5041,9 +5046,12 @@ def process_single_mr(remote, merge_req, dbs, target):
                                    unresolved, conversation_log)
 
         # Push the changes along with the history, and run CI on them
-        ci_note = _push_with_ci(remote, merge_req, dbs, ())
-        if ci_note:
-            gitlab_api.reply_to_mr(remote, mr_iid, ci_note.strip())
+        try:
+            ci_note = _push_with_ci(remote, merge_req, dbs, ())
+            if ci_note:
+                gitlab_api.reply_to_mr(remote, mr_iid, ci_note.strip())
+        except command.CommandExc:
+            _push_failed(remote, mr_iid, 'the review changes')
 
         tout.info(f'Updated MR !{mr_iid} description and history')
     else:
@@ -5087,8 +5095,8 @@ def process_mr_reviews(remote, mrs, dbs, target='master'):
     return processed
 
 
-def rebase_onto(upstream):
-    """Rebase the current branch, keeping history entries from both sides
+def run_git_union(args):
+    """Run git, keeping history entries from both sides of any merge
 
     Entries are only ever added to the history file. A branch's own entry is
     committed after the branch is pushed, so it is still there when the
@@ -5100,6 +5108,108 @@ def rebase_onto(upstream):
     entry stays whole.
 
     Args:
+        args (list of str): Arguments for git
+
+    Returns:
+        str: Output from git
+
+    Raises:
+        command.CommandExc: If git fails
+    """
+    fd, attrs = tempfile.mkstemp(prefix='pickman-attrs.')
+    os.close(fd)
+    try:
+        tools.write_file(attrs, f'{HISTORY_FILE} merge=union\n',
+                         binary=False)
+        return run_git(['-c', f'core.attributesFile={attrs}', '-c',
+                        'merge.conflictStyle=diff3'] + args)
+    finally:
+        os.remove(attrs)
+
+
+def checkout_mr_branch(remote, branch):
+    """Check out an MR branch, ready for an agent to work on it
+
+    The agents are asked to check out the branch themselves, but one which
+    finds nothing to change may not do so, and pickman then pushes and
+    records history on whatever HEAD holds. Check the branch out first, so
+    HEAD holds it whatever the agent does.
+
+    The local branch can also be out of date. Someone may push to the MR,
+    e.g. to fix it by hand, and a fix pushed from the agent's own branch
+    leaves the local one behind too. Pushing the local branch would then
+    throw that work away. So when the remote branch has commits which the
+    local one lacks, start again from the remote branch. Local commits which
+    only change the history file are carried over, since the record of a
+    cherry-pick is committed after the branch is pushed. Any others are
+    superseded by the remote branch, e.g. they are from before it was
+    rebased, so they are dropped.
+
+    Args:
+        remote (str): Remote name, already fetched
+        branch (str): Branch name
+    """
+    upstream = f'{remote}/{branch}'
+    try:
+        run_git(['rev-parse', '--verify', '--quiet',
+                 f'refs/remotes/{upstream}'])
+    except command.CommandExc:
+        run_git(['checkout', branch])
+        return
+    try:
+        behind = run_git(['rev-list', f'refs/heads/{branch}..{upstream}'])
+    except command.CommandExc:
+        # There is no local branch yet
+        run_git(['checkout', '-B', branch, upstream])
+        return
+    if not behind:
+        run_git(['checkout', branch])
+        return
+
+    ahead = run_git(['rev-list', '--reverse',
+                     f'{upstream}..refs/heads/{branch}']).split()
+    keep = [commit for commit in ahead
+            if run_git(['diff-tree', '--no-commit-id', '--name-only', '-r',
+                        commit]).split() == [HISTORY_FILE]]
+    tout.info(f'{branch}: updating to {upstream}, which has commits the '
+              'local branch lacks')
+    if len(keep) < len(ahead):
+        tout.warning(f'{branch}: dropping {len(ahead) - len(keep)} local '
+                     f'commit(s) which {upstream} supersedes')
+    run_git(['checkout', '-B', branch, upstream])
+    for commit in keep:
+        try:
+            run_git_union(['cherry-pick', commit])
+        except command.CommandExc:
+            tout.warning(f'{branch}: cannot carry over history commit '
+                         f'{commit[:12]}')
+            _abort_in_progress()
+
+
+def _push_failed(remote, mr_iid, what):
+    """Say on an MR that pickman cannot push its branch
+
+    The error itself goes only to the log, since the push URL in it may hold
+    the API token.
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request IID
+        what (str): What cannot be pushed, e.g. 'the pipeline fix'
+    """
+    tout.error(f'MR !{mr_iid}: cannot push {what}')
+    gitlab_api.reply_to_mr(
+        remote, mr_iid,
+        f'Cannot push {what} to the branch. Please check the branch; '
+        "pickman's log has the error.")
+
+
+def rebase_onto(upstream):
+    """Rebase the current branch, keeping history entries from both sides
+
+    See run_git_union() for how the entries are kept.
+
+    Args:
         upstream (str): Branch to rebase onto, e.g. 'ci/master'
 
     Returns:
@@ -5107,13 +5217,8 @@ def rebase_onto(upstream):
             bool: True if the rebase succeeded; if not, it is aborted
             list of str: Files with conflicts, if any
     """
-    fd, attrs = tempfile.mkstemp(prefix='pickman-attrs.')
-    os.close(fd)
     try:
-        tools.write_file(attrs, f'{HISTORY_FILE} merge=union\n',
-                         binary=False)
-        run_git(['-c', f'core.attributesFile={attrs}', '-c',
-                 'merge.conflictStyle=diff3', 'rebase', upstream])
+        run_git_union(['rebase', upstream])
         return True, []
     except command.CommandExc:
         conflicts = run_git(['diff', '--name-only',
@@ -5123,8 +5228,6 @@ def rebase_onto(upstream):
         except command.CommandExc:
             pass
         return False, conflicts
-    finally:
-        os.remove(attrs)
 
 
 def _rebase_mr_branch(remote, merge_req, dbs, target):
@@ -5161,12 +5264,17 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         if not _recreate_subtree(remote, merge_req, target, subtree):
             problem = 'the subtree update cannot be pulled again'
     else:
-        run_git(['checkout', branch])
+        checkout_mr_branch(remote, branch)
         ok, conflicts = rebase_onto(f'{remote}/{target}')
         if not ok:
             problem = 'it cannot be rebased'
             if conflicts:
                 problem += f' (conflicts in {", ".join(conflicts)})'
+    if not problem:
+        try:
+            gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
+        except command.CommandExc:
+            problem = "the result cannot be pushed (see pickman's log)"
 
     # Record the failure, so that it is not tried again on every poll
     if problem:
@@ -5179,7 +5287,6 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebase_failed')
         dbs.commit()
         return False
-    gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
     dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebased')
     dbs.commit()
     tout.info(f'MR !{mr_iid}: rebased and pushed, waiting for '
@@ -5421,6 +5528,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
             return False
 
     # Run agent to fix the failures
+    checkout_mr_branch(remote, merge_req.source_branch)
     success, conversation_log = agent.fix_pipeline(
         mr_iid,
         merge_req.source_branch,
@@ -5437,7 +5545,12 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
 
     if success:
         # Push the fix branch to the original MR branch
-        ci_note = _push_with_ci(remote, merge_req, dbs, shared)
+        try:
+            ci_note = _push_with_ci(remote, merge_req, dbs, shared)
+        except command.CommandExc:
+            _push_failed(remote, mr_iid, f'the fix from attempt {attempt}')
+            _abort_in_progress()
+            return True
 
         # Update MR description with fix log
         old_desc = merge_req.description
