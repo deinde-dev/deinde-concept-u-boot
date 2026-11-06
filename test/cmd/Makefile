@@ -187,7 +187,7 @@ ifdef CONFIG_SOUND_SANDBOX
 obj-$(CONFIG_CMD_SOUND) += sound.o
 endif
 obj-$(CONFIG_CMD_SPI) += sspi.o
-obj-$(CONFIG_CMD_SQUASHFS) += sqfsls.o
+obj-$(CONFIG_CMD_SQUASHFS) += sqfsload.o sqfsls.o
 obj-$(CONFIG_CMD_TEMPERATURE) += temperature.o
 obj-$(CONFIG_CMD_TIMER) += timer.o
 obj-$(CONFIG_CMD_TPM_V1) += tpm.o
