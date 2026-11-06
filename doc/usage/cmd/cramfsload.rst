@@ -79,6 +79,8 @@ See also
 --------
 
 * :doc:`cramfsls<cramfsls>` for listing what the image holds
+* :doc:`sqfsload<sqfsload>` for reading from another read-only compressed
+  filesystem, held on a block device rather than in memory
 * :doc:`load<load>` for reading a file from a filesystem on a block device
   rather than from an image in memory
 * :doc:`unzip<unzip>` for expanding a compressed region of memory, which is
