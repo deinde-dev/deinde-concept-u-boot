@@ -103525,3 +103525,53 @@ Dropping commands is a trade-off: turris_1x_nor loses `wdt`, and turris_1x_sdcar
 
 ---
 
+## 2026-11-06: us/main
+
+Branch: cherry-528be4beaeeb
+
+Commits:
+- 528be4beaeeb mipi_dsi: add mipi_dsi_{generic/dcs}_write_seq helper macros
+- cfd281781fc7 video: panel: hitachi-tx10d07vm0baa: use common mipi_dsi_dcs_write_seq macro
+- 671a742734bf video: panel: lg-lh400wv3-sd04: use common mipi_dsi_dcs_write_seq macro
+- 006e3a67746b video: panel: mot-panel: use common mipi_dsi_dcs_write_seq macro
+- 1621c6e3ab12 video: panel: renesas-r69328: use common mipi_dsi_dcs_write_seq macro
+- d9bd3246b436 video: panel: himax-hx8394: use common mipi_dsi_dcs_write_seq macro
+- f9bf133d16c8 arm: dts: mediatek: remove mt8188 tphy fallback
+- 3ffad26f17cb clk: mediatek: fix using clocks before relocation
+- 706c533cf4ca dt-bindings: clock: add MT8366 clock header
+- fb9339ce3996 clk: mediatek: add support for MT8366
+- 49570ec9d701 power: domain: mtk: add bus_prot_sta_mask field
+- 927bf999f615 power: domain: mtk: add BUS_PROT_WR_IGN() macros
+- faf353d1498f dt-bindings: power: add mediatek,mt8366-power.h
+- 115f9a66bfaa power: domain: mtk: add mt8366 power domain
+- 5549ddbc52c7 arm: dts: mediatek: remove mt6357.dtsi
+- 2248166cb21a video: pwm_backlight: support num-interpolated-steps
+- df4f9b66d9e3 configs: mediatek: remove UFS defconfigs
+- 938e2774f016 power: domain: mtk: remove setting DCM_TOP_EN
+- 1c5004ffc5e3 Merge tag 'mediatek-for-next-2026-09-02' of https://git.u-boot-project.org/u-boot/custodians/u-boot-mediatek into next
+
+### Conversation log
+Expected: the merge is empty because its content is already in the picked commits. Committing it as empty.
+
+Head builds cleanly. Now I'll build each commit on the branch to cover the per-commit build checks:
+
+All 19 commits are on branch `cherry-528be4beaeeb` (based on `ci/master`), and the sandbox build passes.
+
+**Cherry-picks:**
+- None of the 18 regular commits had conflicts. For each one, the files changed and the line counts match the original exactly, so there are no concerning deltas.
+- `pickman split-check` changed nothing on any commit.
+- The merge commit 1c5004ffc5e3 ("Merge tag 'mediatek-for-next-2026-09-02'...") came out empty because the 18 commits before it already contain its changes. I committed it with `--allow-empty` to keep the history.
+- No fix-ups were needed, so no commit messages were amended.
+
+**Builds:**
+- **Final build** (`buildman -L --board sandbox -w -o /tmp/pickman`): passes with no warnings or errors.
+- **Per-commit builds:** I didn't build after each pick. Instead, once all the picks were in, I built every commit on the branch in one buildman run. Because the board pattern `sandbox` matched all 9 sandbox boards, this went further than asked:
+  - `sandbox` itself builds cleanly at every commit.
+  - `sandbox_spl`, `sandbox_vpl` and `sandbox_noinst` fail at every commit, starting from commit 01, because `dtoc` is not installed ("dtoc is no longer part of U-Boot... pip install dtoc"). That is a build-environment problem, not something this series causes.
+  - `sandbox64` and `sandbox64_lwip` show a dtc `ranges_format` warning in `sandbox.dtsi` at commit 01 only, and it is gone from commit 02 onwards. That file isn't touched by the series, so it looks like build noise.
+  - `video: pwm_backlight: support num-interpolated-steps` adds about 389 bytes to sandbox, which is expected for new code.
+
+The branch has not been pushed or merged.
+
+---
+
