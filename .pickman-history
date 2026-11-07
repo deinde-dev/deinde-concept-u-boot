@@ -103389,3 +103389,139 @@ The same stale-branch risk applies to any MR with a pipeline fix, because the pr
 
 ---
 
+## 2026-11-05: us/main
+
+Branch: cherry-0d08023f102f
+
+Commits:
+- 0d08023f102f lib: zstd: update to latest Linux zstd 1.5.7
+- 654242ac45bf disk: drop Amiga partition table support
+- acb09f16da33 disk: part_mac: Remove the Apple Partition Map driver
+- 9f6d57eaef77 pylibfdt: Cast property length to Py_ssize_t
+- b737e5cf2bc8 pylibfdt: Restore the upstream bytearray() in getprop()
+- 04e670ea3630 pylibfdt: Fix Python crash on getprop deallocation
+- d0c7b9e65bfd pylibfdt: Add Property.as_stringlist()
+- f41cecc1fe94 pylibfdt: Add Property.as_*int*_array()
+- 66ccb13a8180 pylibfdt: Add FdtRo.get_path()
+- ba6d20256305 pylibfdt: Work-around SWIG limitations with flexible arrays
+- 69c95e9e4f57 pylibfdt: Add size_hint parameter for get_path
+- 3bf9e7e72ab5 pylibfdt: Support boolean properties
+- 5b7d682e1d28 pylibfdt: Fix get_mem_rsv for newer Python versions
+- 0e9f9fda2e45 pylibfdt: Fix backwards compatibility of return values
+- dfba3eff563c pylibfdt: Fix a typo in the next_node() docstring
+- f3e00d4b7f36 pylibfdt: Grow the FdtSw buffer geometrically
+- 34fddfa16d47 pylibfdt: Add address_cells() and size_cells()
+- 388137abfd04 pylibfdt: Add add_mem_rsv() and del_mem_rsv()
+- 44a2a718fbe6 pylibfdt: Document that FdtSw.property() takes bytes
+- 01fb2b4d7368 dtoc: Add tests for the pylibfdt bindings dtoc does not use
+- cd5bd0cb98ec Merge patch series "pylibfdt: Update the U-Boot version with changes from upstream dtc"
+
+### Conversation log
+Resolving a conflict in include/linux/zstd.h for the first commit (zstd 1.5.7 update): the target adds zstd_uncompressed_size() at the end of the header.
+
+Build passes. Adding a fix-up note to the commit.
+
+Now the remaining commits, one at a time with a loop that stops on any problem.
+
+Straightforward conflicts: keep the target's IS_ENABLED()/CONFIG_ forms and drop the Amiga lines.
+
+Disk commit 2 built fine. Now resolving the similar part_mac conflicts.
+
+For all four files the right resolution is the HEAD side minus the MAC_PARTITION line (the other lines in the incoming side are just context that differs in the target).
+
+The part.c hunk lost its '#if' since it was on the MAC line; fixing that.
+
+Also removing target-only MAC_PARTITION references in four defconfigs and tools/codman/category.cfg.
+
+Disk commits done and building. Now the pylibfdt series, building after each.
+
+All ten applied cleanly with matching deltas and clean builds. Continuing with the rest.
+
+The merge commit must not be skipped — checking what happened and redoing it.
+
+01fb2b4d7368 skip is correct (it only touches tools/dtoc). The merge needs re-applying as an empty commit.
+
+20 commits present (21 minus the skipped dtoc-only one). Final build and a check that the pylibfdt file matches the source.
+
+The cherry-pick branch `cherry-0d08023f102f` is ready. It has 20 of the 21 commits; the one missing is dtoc-only and was skipped as instructed. The final sandbox build passes with no warnings or errors, and so did the build after each pick.
+
+**Skipped commit:**
+- **01fb2b4d7368** "dtoc: Add tests for the pylibfdt bindings dtoc does not use" only touches `tools/dtoc/test_fdt.py`, so it was empty here. Its changes are handled in the separate project.
+
+**Merge commit:**
+- **cd5bd0cb98ec** is kept as an empty commit. Its only conflict was `tools/dtoc/test_fdt.py`, which I removed. My script skipped it at first, so I recreated it as an empty commit with the original message and the cherry-pick trailer.
+
+**Fix-ups** (each commit has a note line added at the end of its message):
+1. **zstd 1.5.7 update (0d08023f102f):** `include/linux/zstd.h` conflicted because the target adds `zstd_uncompressed_size()` at the end of the file. I kept that declaration, which `boot/image.c` uses. I also kept the `#endif` header guard at the end of the file, rather than before `struct abuf` as the source has it.
+2. **Amiga removal (654242ac45bf):** `disk/Makefile` and `disk/part.c` conflicted. I kept the target's `CONFIG_FOO` / `IS_ENABLED(CONFIG_FOO)` forms and dropped the Amiga lines. The modified `part_amiga.c/h` files were deleted as the commit intends.
+3. **Apple Partition Map removal (acb09f16da33):** I resolved the same kind of conflict in `disk/Makefile`, `disk/part.c` and the two efi-x86_app defconfigs, and deleted `part_mac.c/h`. I also removed `MAC_PARTITION` lines from four defconfigs that exist only in the target (`chromebook_brya_cb`, `efi-arm_app64`, `efi-riscv_app64`, `gigabyte_mz33_ar1_cb`) and the `disk/part_mac.c` entry in `tools/codman/category.cfg`.
+
+`pickman split-check` changed nothing in any commit.
+
+**Deltas:**
+- Every pylibfdt commit matches its original exactly.
+- The zstd update is 3135+/1739− against 3137+/1741−, which is just the conflict resolution.
+- The Amiga removal matches its original exactly.
+- The Apple Partition Map removal is 59 files and 407 deletions against 54 and 389, because of the extra cleanup above. None of these are a concern.
+
+---
+
+### Pipeline fix: 2026-11-06 (attempt 1)
+
+Branch: cherry-0d08023f102f
+
+Failed jobs:
+- build all PowerPC platforms (world_build)
+
+### Conversation log
+The turris_1x boards overflow their size limits, most likely because of the zstd 1.5.7 update. I'll check.
+
+Let me see how upstream handled this and confirm which commit causes it.
+
+The zstd update adds about 270 bytes, and these boards were already almost full (sdcard had 128 bytes spare). Next I'll compare against the upstream defconfigs.
+
+Upstream enables even more features on these boards, so the extra space comes from other code-size differences in this tree. I'll check how earlier size fixes for turris were done here.
+
+Both boards fit now: NOR has about 450 bytes spare and sdcard about 1.5K. Before rebasing I'll check whether the 'Merge' commit is a real merge, because a rebase could drop it.
+
+It's an empty single-parent commit. Recent git keeps commits that start out empty, and I'll confirm the count afterwards. Now I'll amend the zstd commit.
+
+All 21 commits are back, the empty merge commit included. The only change against the original branch is the three defconfig lines. Now the build checks.
+
+The sandbox failure comes from a stale /tmp/b/sandbox, which points at another source tree (cosarm), so my change didn't cause it. I'll rebuild clean.
+
+The board spec in the instructions doesn't match any boards. The CI job builds the powerpc architecture, so I'll use that term.
+
+Locally P2041RDB_SDCARD and T2080QDS_SECURE_BOOT fail too, but they passed in CI. I'll check why.
+
+The error reads u-boot-spl.dtb.out, which suggests a stale build directory or a local tool difference. I'll rebuild both boards fresh at the new HEAD and at the base commit to compare.
+
+A fresh build passes for P2041RDB_SDCARD, T2080QDS_SECURE_BOOT and both turris boards, so the earlier failures came from stale files in /tmp/pickman. Now I'll create the result branch.
+
+The PowerPC build failure is fixed: both turris boards fit their size limits again. The fix is on local branch `cherry-0d08023f102f-fix1`, not pushed.
+
+**Cause:** the two failing boards were turris_1x_nor and turris_1x_sdcard. The responsible commit is "lib: zstd: update to latest Linux zstd 1.5.7" (originally 0d08023f102f). It makes the image about 270 bytes bigger. These boards need zstd for btrfs support and were already almost full (the sdcard build had 128 bytes spare), so both went over:
+- **turris_1x_nor:** the image was 193 bytes over its 768K limit.
+- **turris_1x_sdcard:** u-boot-nodtb.bin was 396 bytes over its 1M limit.
+
+The other four commits in the MR don't change the size of these boards.
+
+**Fix:** I amended the zstd commit to drop a few commands, as the earlier commit e52c06a8a7d8 did for the same board:
+- `configs/turris_1x_nor_defconfig`: drop CONFIG_CMD_WDT, which saves about 2.1K and leaves about 450 bytes spare.
+- `configs/turris_1x_sdcard_defconfig`: drop CONFIG_CMD_LSBLK and CONFIG_CMD_TFTPPUT, which saves about 1.9K and leaves about 1.5K spare.
+
+I added a `[pickman]` note to the end of that commit's message. All 21 commits are still there, including the empty merge commit. The only difference from the original branch is those three defconfig lines. The rebase also rewrote `cherry-0d08023f102f` itself, so it now matches the fix branch.
+
+**Builds:**
+- `um build sandbox` passes, but only with `-F` (fresh). Without it, the old /tmp/b/sandbox build directory pointed at another source tree (cosarm) and failed to link.
+- `PowerPC,all,platforms,sandbox` matches no boards, so I ran `buildman -o /tmp/pickman powerpc sandbox` instead.
+- All powerpc boards pass, with only the existing kmcent2 and MPC837XERDB migration warnings.
+- P2041RDB_SDCARD and T2080QDS_SECURE_BOOT failed in /tmp/pickman because of old build files there. Fresh builds of both pass, at the new HEAD and at the base commit.
+- sandbox_spl, sandbox_noinst and sandbox_vpl fail on this machine because the external `dtoc` package isn't installed. That is a local setup gap, and those boards aren't in the failing job.
+
+My first rebase attempt went wrong: `rf 22` reached into the branch's base merge commit and amended the wrong commit. I reset the branch to its original state and redid the change with `git rebase -i 01ae123cc675`.
+
+Dropping commands is a trade-off: turris_1x_nor loses `wdt`, and turris_1x_sdcard loses `lsblk` and `tftpput`.
+
+---
+
