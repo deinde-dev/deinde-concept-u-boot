@@ -103741,3 +103741,39 @@ I rebased `cherry-97626d3f0ae6` onto ci/master (dcbf82f9aab2), and the sandbox b
 
 ---
 
+### Pipeline fix: 2026-11-07 (attempt 3)
+
+Branch: cherry-97626d3f0ae6
+
+Failed jobs:
+- bpi (sjg-lab)
+
+### Conversation log
+The bpi job failed before any test ran: U-Boot was written to the board but never reached a prompt. Let me check whether anything on the branch could plausibly affect bpi's boot.
+
+The pipeline ran the branch head (29c06253). Let me confirm the bootm.c change only runs while loading an OS image.
+
+The sandbox_spl/tpl/vpl failures are the known missing-dtoc problem on this machine (noted in attempt 2). Checking that Bananapi itself built:
+
+The summary covered only the 12 sandbox boards, so the "Bananapi" term didn't select the bpi board. I'll build it explicitly by name.
+
+Bananapi and sandbox both build cleanly. No code change is needed, so I'll create the requested branch at the unchanged head.
+
+The bpi job failure is a lab problem, not a code problem, so I made no changes. The local branch cherry-97626d3f0ae6-fix3 points at the same head as before (29c062534ca7), and I have not pushed it.
+
+**What failed:** job 745458 never ran a test. It built U-Boot and wrote it to the Bananapi with the sunxi method, but no U-Boot prompt appeared. After a reset and a second try, it timed out again ("Timeout of 45 seconds exceeded during waiting for login"). The runner then reported "Lab failure: Marking connection bad - no other tests will run". All 855 selected tests were skipped.
+
+**Why the branch isn't the cause:** none of its changes run before the U-Boot prompt on bpi.
+- **k3/j721e/j7200 commit (60842e2f4cdb):** these files are only built for TI K3 boards, not sunxi.
+- **bootm.c change (0fb0ffa4bfd2):** it only runs inside bootm_load_os(), for compressed kernel_noload images. That code runs when a kernel is being booted, not at startup.
+- **Other commits:** the test_fit.py tests, the empty commits and the .pickman-history entries don't touch bpi's U-Boot image.
+
+**Builds:**
+- `buildman -o /tmp/pickman --boards Bananapi` builds cleanly and produces u-boot-sunxi-with-spl.bin. My first try with plain `bpi,sandbox`-style names built only the sandbox boards, so I named the board explicitly.
+- `um build sandbox` is clean.
+- With buildman, sandbox, sandbox64 and the other main sandbox boards build. sandbox_spl, sandbox_vpl and sandbox_noinst fail only because dtoc isn't installed on this machine, the same local problem noted in attempt 2.
+
+**Suggested action:** retry the bpi job. If it fails the same way again, someone should look at the Bananapi in the lab: its power, the SD-card muxing or the serial console. The board may also fail to boot on ci/master.
+
+---
+
