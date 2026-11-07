@@ -103629,3 +103629,57 @@ The mapping in commit 2 is a judgement call, so it's worth checking before you p
 
 ---
 
+## 2026-11-06: us/main
+
+Branch: cherry-97626d3f0ae6
+
+Commits:
+- 97626d3f0ae6 arm: mach-k3: j721e: make get_boot_device() available outside xPL
+- cf63a0c411b9 bootm: size the noload gzip decompression buffer from ISIZE
+- 1d0998998c2d test: fit: cover the kernel_noload gzip header-size and lying-header paths
+- 894eff92ecf0 bootm: size the noload zstd decompression buffer from Frame_Content_Size
+- 6b88aee1dd07 test: fit: cover the kernel_noload zstd header-size path
+- a85d598be2a3 bootm: size the noload lz4 decompression buffer from Content_Size
+- 7d7770dbfce0 test: fit: cover the kernel_noload lz4 header-size path
+- a730ba7f8996 bootm: size the noload lzma decompression buffer from the header
+- 6bd934a1f5e9 test: fit: cover the kernel_noload lzma header-size and unknown-size paths
+- b55d2b12d3a8 Merge patch series "bootm: size the noload buffer from the compressor header"
+
+### Conversation log
+Hit a conflict in boot/bootm.c on the second commit (the target's noload buffer code differs); investigating whether it can be resolved.
+
+The target already has an image_decomp_size() helper; checking what it covers.
+
+The target's bootm_load_os() is restructured (uses bmi and resolve_os_comp_buf()), and it already has image_decomp_size() covering gzip/lzma/lz4/zstd. Checking those helpers' semantics.
+
+Now the gzip test commit.
+
+Next, the zstd bootm commit, which will conflict since the target already handles zstd.
+
+Picks are done through the zstd test. The lz4 bootm commit conflicts as expected; I'm keeping it as an empty commit because image_decomp_size() already covers lz4.
+
+Now the merge commit.
+
+The merge commit's content is already applied by the individual picks, so I'll keep ours and make it empty.
+
+All 10 present. Final build, then I'll run the noload FIT tests to validate the adaptation.
+
+All 10 commits are on `cherry-97626d3f0ae6`, based on ci/master. The bootm changes didn't apply cleanly, so I adapted one commit and left three as empty commits.
+
+**Build:** the sandbox build with buildman passes after every pick and at the end, with no warnings or errors. I also built with `um build sandbox` and ran the Python tests: all 7 kernel_noload tests pass, and so do the full test_fit suite (36) and the compression tests (14). `pickman split-check` changed nothing on any commit.
+
+**Why bootm didn't apply:** in the target, `bootm_load_os()` takes a `bmi` argument and gets the noload buffer from `resolve_os_comp_buf()`. The target also already has `image_decomp_size()`, which reads the uncompressed size for gzip, lzma, lz4 and zstd. Upstream instead adds a local size helper for each format in `bootm.c`.
+
+**Fix-ups (each has a note at the end of its commit message):**
+- **7a32e457757c** (gzip ISIZE): I rewrote the change for the target instead of resolving the conflict. The noload path now calls `image_decomp_size()` and, if it finds a size that is non-zero and no larger than `CONFIG_SYS_BOOTM_LEN`, sets `bmi->kern_comp_size = ALIGN(size, SZ_1M)` before `resolve_os_comp_buf()` runs. If not, the existing 8x fallback still applies. A `kernel_comp_size` set in the environment still takes priority. Because the helper handles all four formats, this one commit does what upstream spreads over four.
+- **87c5920f5f77** (zstd), **536f9f598c21** (lz4), **606b0caeb2d3** (lzma): left empty because the commit above already covers them.
+- **a581a01d6814** (merge): empty, since the individual picks already applied its contents.
+
+**Commits with unusual deltas:**
+- **7a32e457757c** changes 12+/1− lines, against 44+/6− upstream. That gap is the adaptation above, not a lost change.
+- One small difference in behaviour: upstream's lz4 size check also rejects a few header flag combinations. The target's `lz4_uncompressed_size()` doesn't. This only affects the buffer-size estimate, and the lz4 decoder rejects those streams anyway when it decompresses.
+
+The k3 commit and the four test commits match the originals' line counts exactly. The branch is ready to push and hasn't been merged anywhere.
+
+---
+
