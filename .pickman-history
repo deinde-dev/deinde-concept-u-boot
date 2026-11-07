@@ -103683,3 +103683,61 @@ The k3 commit and the four test commits match the originals' line counts exactly
 
 ---
 
+### Review: 2026-11-07
+
+Branch: cherry-97626d3f0ae6
+
+Comments addressed:
+
+
+### Conversation log
+No upstream changes touch the files in this series. Rebasing:
+
+A trivial append conflict in .pickman-history: another cherry-pick entry landed in the same spot. I'll keep both, adding ours as its own section after upstream's.
+
+The resolution adds exactly 54 lines, the same as before. Next I'll compare per-commit deltas, then build each commit.
+
+I'm waiting for the per-commit build results to come in.
+
+The first commit builds. Waiting for the rest.
+
+The adapted bootm commit builds too. Waiting for the rest.
+
+3 of 11 commits built OK so far.
+
+4 of 11 commits built OK so far.
+
+5 of 11 commits built OK so far.
+
+6 of 11 commits built OK so far.
+
+7 of 11 commits built OK so far.
+
+8 of 11 commits built OK so far.
+
+9 of 11 commits built OK so far.
+
+10 of 11 commits built OK so far. One left.
+
+Every commit builds. I'll check that the bootm_len() fix is still in place, create the -v2 branch and stop the monitor.
+
+I rebased `cherry-97626d3f0ae6` onto ci/master (dcbf82f9aab2), and the sandbox build passes at every commit. The result is on the local branch `cherry-97626d3f0ae6-v2`, which is checked out and not pushed. The rebase also moved the local `cherry-97626d3f0ae6` branch to the same commit.
+
+**What happened:**
+- ci/master was 21 commits ahead, and none of them touch the files this series changes.
+- The 10 picked commits replayed with no conflicts. `--keep-empty` kept the empty zstd, lz4 and lzma bootm commits and the empty merge commit.
+- The only conflict was in `.pickman-history` on the top "pickman: Record cherry-pick" commit. Another cherry-pick record (cherry-528be4beaeeb) had been added at the same spot. I kept both: the upstream entry first, then this MR's entry as its own `## 2026-11-06: us/main` section with a `---` between them. The commit still adds exactly 54 lines, as before.
+
+**Checks:**
+- **Deltas:** the `git show --stat` output for all 11 commits is the same before and after the rebase.
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes at each commit, with no warnings or errors.
+- **Earlier fix:** the CI fix from the last attempt is still in place. The gzip commit, now 0fb0ffa4bfd2, uses `bootm_len()` rather than `CONFIG_SYS_BOOTM_LEN`, so the Versal mini boards should still build.
+
+**New commit IDs:** 60842e2f4cdb (k3), 0fb0ffa4bfd2 (gzip), 2336a62a9280, f203e0dd8d21 (empty), 56be90127384, 9ed0dee79c14 (empty), 79991a97634b, 9543acd9187b (empty), a283a1c0d343, 18f4099d5233 (empty merge), 875baf98e096 (pickman record).
+
+**Suggested MR reply:**
+
+> Rebased onto ci/master (dcbf82f9aab2). The 10 cherry-picked commits applied without conflicts, and their file/line stats are the same as before; the empty zstd/lz4/lzma and merge commits are kept. The only conflict was an append clash in `.pickman-history` with the cherry-528be4beaeeb record, resolved by keeping both entries. The sandbox build passes at every commit, and the `bootm_len()` fix for the Versal mini boards is still in the gzip commit. The vbe/vbe-abrec failures last time were the lab place being held, so they should pass on this pipeline once it is free.
+
+---
+
