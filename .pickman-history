@@ -103777,3 +103777,54 @@ The bpi job failure is a lab problem, not a code problem, so I made no changes. 
 
 ---
 
+### Review: 2026-11-08
+
+Branch: cherry-97626d3f0ae6
+
+Comments addressed:
+
+
+### Conversation log
+Rebase finished, with only the `.pickman-history` conflict to resolve. Next I'll compare each commit's delta with the original, then build every commit.
+
+The per-commit stats match the originals, and the `bootm_len()` fix is still in place. The build of all 13 commits is running in the background, and I'll create the new branch once it finishes.
+
+The per-commit build is still running, so there's no result yet. When it finishes I'll create the `-v3` branch (`-v2` already exists) and report back.
+
+I rebased `cherry-97626d3f0ae6` onto ci/master (2543b24925eb), and the sandbox build passes at every commit. The result is on local branch `cherry-97626d3f0ae6-v3`, which is checked out and not pushed. `-v3` because `-v2` already existed. The rebase also moved the local `cherry-97626d3f0ae6` branch to the same commit (90adc323836c).
+
+**What happened**
+- ci/master was 5 commits ahead, and they only touch `board/armltd/vexpress64` and `.pickman-history`, so `.pickman-history` is the only file this series shares with them.
+- The 10 picked commits replayed with no conflicts, and `--keep-empty` kept the empty zstd, lz4, lzma and merge commits.
+- The only conflict was in `.pickman-history`, on "pickman: Record cherry-pick of 10 commits". The cherry-179010694b30 record had landed at the same spot, so I kept both, upstream's first, with a `---` between them. The two later pickman record commits applied cleanly.
+
+**Checks**
+- **Deltas:** `git show --stat` output for all 13 commits is identical before and after the rebase.
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes at each of the 13 commits and again at the head, which shows no warnings or errors.
+- **Earlier fix:** the gzip commit still uses `bootm_len()` rather than `CONFIG_SYS_BOOTM_LEN` (`boot/bootm.c:857`).
+- **Not run:** the Python kernel_noload tests and the Versal mini board builds, since nothing in this rebase touches that code.
+
+**New commit IDs**
+
+| Commit | Change |
+|---|---|
+| 0d601eabc8e2 | k3 |
+| a24a6f58cbf9 | gzip |
+| 01dfd5171882 | gzip test |
+| 9c69bf48bc52 | zstd (empty) |
+| 27587df02d31 | zstd test |
+| 5e35235ac306 | lz4 (empty) |
+| 4ff49c973dc4 | lz4 test |
+| 806cea20b1fa | lzma (empty) |
+| a6e3e042ecca | lzma test |
+| 50a3f0649b27 | merge (empty) |
+| 9356c7c24b92 | pickman: cherry-pick record |
+| 4383791bb154 | pickman: review handling record |
+| 90adc323836c | pickman: pipeline fix record |
+
+**Suggested MR reply**
+
+> Rebased onto ci/master (2543b24925eb). The 10 cherry-picked commits applied without conflicts, and the file/line stats of all 13 commits are unchanged; the empty zstd/lz4/lzma and merge commits are kept. The only conflict was an append clash in `.pickman-history` with the cherry-179010694b30 record, resolved by keeping both entries. The sandbox build passes at every commit, and the `bootm_len()` fix for the Versal mini boards is still in the gzip commit. The last pipeline's bpi failure was the board not reaching a U-Boot prompt in the lab, so this pipeline will also serve as the retry for that job.
+
+---
+
