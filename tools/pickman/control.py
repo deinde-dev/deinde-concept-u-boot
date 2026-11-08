@@ -5544,6 +5544,10 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
     dbs.commit()
 
     if success:
+        # Record the fix first, so that the push takes the record with it
+        update_history_pipeline_fix(merge_req.source_branch, failed_jobs,
+                                    conversation_log, attempt)
+
         # Push the fix branch to the original MR branch
         try:
             ci_note = _push_with_ci(remote, merge_req, dbs, shared)
@@ -5566,10 +5570,6 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
             f'Pipeline fix (attempt {attempt}): '
             f'fixed failed job(s) {job_names}.\n\n'
             f'{conversation_log[:2000]}{shared_note}{ci_note}')
-
-        # Update .pickman-history
-        update_history_pipeline_fix(merge_req.source_branch, failed_jobs,
-                                    conversation_log, attempt)
 
         tout.info(f'MR !{mr_iid}: pipeline fix pushed (attempt {attempt})')
     else:

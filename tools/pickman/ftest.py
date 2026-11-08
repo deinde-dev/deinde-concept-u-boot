@@ -7370,8 +7370,10 @@ class TestProcessPipelineFailures(unittest.TestCase):
 
         Returns:
             tuple: (result, calls, Mock, Mock), where calls lists the git
-                commands with 'agent' where the agent runs, and the mocks
-                are for replies to the MR and for the history update
+                commands with 'agent', 'history' and 'push' where the agent
+                runs, the history is updated and the branch is pushed, and
+                the mocks are for replies to the MR and for the history
+                update
         """
         calls = []
 
@@ -7382,6 +7384,14 @@ class TestProcessPipelineFailures(unittest.TestCase):
         def fix_pipeline(*_args, **_kwargs):
             calls.append('agent')
             return True, 'Nothing to change'
+
+        def history(*_args):
+            calls.append('history')
+
+        def push(*_args, **_kwargs):
+            calls.append('push')
+            if push_error:
+                raise push_error
 
         with terminal.capture():
             dbs = database.Database(self.db_path)
@@ -7396,17 +7406,18 @@ class TestProcessPipelineFailures(unittest.TestCase):
                  mock.patch.object(agent, 'fix_pipeline',
                                    side_effect=fix_pipeline), \
                  mock.patch.object(gitlab, 'push_branch',
-                                   side_effect=push_error), \
+                                   side_effect=push) as push_mock, \
                  mock.patch.object(gitlab, 'update_mr_desc'), \
                  mock.patch.object(gitlab, 'reply_to_mr') as reply, \
                  mock.patch.object(control, '_abort_in_progress'), \
-                 mock.patch.object(control,
-                                   'update_history_pipeline_fix') as history:
+                 mock.patch.object(control, 'update_history_pipeline_fix',
+                                   side_effect=history) as history_mock:
                 result = control.process_pipeline_failures(
                     'ci', [self._make_mr()], dbs, 'master', 3)
             self.assertTrue(dbs.pfix_has(1, 100))
             dbs.close()
-        return result, calls, reply, history
+        push_mock.assert_called_once()
+        return result, calls, reply, history_mock
 
     def test_fix_checks_out_branch(self):
         """Test that the branch is checked out before the agent runs"""
@@ -7418,12 +7429,15 @@ class TestProcessPipelineFailures(unittest.TestCase):
                         calls.index('agent'))
         history.assert_called_once()
 
+        # The push must take the history entry with it
+        self.assertLess(calls.index('history'), calls.index('push'))
+
     def test_fix_push_fails(self):
         """Test that a fix which cannot be pushed does not stop pickman"""
         result, _, reply, history = self._fix(command.CommandExc(
             "Error running 'git push https://token@host'", None))
         self.assertEqual(1, result)
-        history.assert_not_called()
+        history.assert_called_once()
         reply.assert_called_once_with(
             'ci', 1, 'Cannot push the fix from attempt 1 to the branch. '
             "Please check the branch; pickman's log has the error.")
