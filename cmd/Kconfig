@@ -1634,6 +1634,7 @@ config CMD_MISC
 config CMD_MMC
 	bool "mmc"
 	depends on MMC
+	select GETOPT
 	help
 	  MMC memory mapped support.
 

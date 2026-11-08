@@ -169,8 +169,7 @@ static struct mmc *init_mmc_device(int dev, bool force_init)
 	return __init_mmc_device(dev, force_init, MMC_MODES_END);
 }
 
-static int do_mmcinfo(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_mmcinfo(struct getopt_state *gs)
 {
 	struct mmc *mmc;
 
@@ -1213,7 +1212,7 @@ static int do_mmc_reg(struct cmd_tbl *cmdtp, int flag,
 #endif
 
 static struct cmd_tbl cmd_mmc[] = {
-	U_BOOT_CMD_MKENT(info, 1, 0, do_mmcinfo, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, 1, 0, do_mmcinfo, "", ""),
 	U_BOOT_CMD_MKENT(read, 4, 1, do_mmc_read, "", ""),
 	U_BOOT_CMD_MKENT(wp, 2, 0, do_mmc_boot_wp, "", ""),
 #if IS_ENABLED(CONFIG_MMC_WRITE)
@@ -1349,7 +1348,7 @@ U_BOOT_CMD(
 	);
 
 /* Old command kept for compatibility. Same as 'mmc info' */
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mmcinfo, 1, 0, do_mmcinfo,
 	"display MMC info",
 	"- display info of the current MMC device"
