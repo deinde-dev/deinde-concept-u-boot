@@ -103575,3 +103575,57 @@ The branch has not been pushed or merged.
 
 ---
 
+## 2026-11-07: us/main
+
+Branch: cherry-179010694b30
+
+Commits:
+- 179010694b30 lib/fdtdec.c: Disallow overriding BLOBLIST_PASSAGE_MANDATORY
+- 2457d1d0fc87 vexpress64: Correct CONFIG symbol logic around device tree passage
+- 3e40b6599c3d Merge patch series "Correct behavior of BLOBLIST_PASSAGE_MANDATORY"
+
+### Conversation log
+The target's OF_PASSAGE path already returns -ENOENT with no fallback, so commit 1 is already in effect. I'll keep it as an empty commit with a note.
+
+Sandbox builds. Now commit 2:
+
+Applies cleanly, but it uses CONFIG_BLOBLIST_PASSAGE_MANDATORY, which does not exist in the target. I'll run split-check, then build vexpress_fvp_bloblist to see what actually happens.
+
+Both build as picked. On the bloblist config, though, OF_HAS_PRIOR_STAGE and OF_BOARD are now enabled, so board_fdt_blob_setup() runs after passage. Comparing with upstream's fdtdec:
+
+All four vexpress boards build, and each one has the same OF settings as before the pick. Now I'll amend commit 2 and add the note.
+
+Now the merge commit:
+
+As expected, the merge re-applies the series diff. Those changes are already in place, so I'll keep our side and make it an empty commit.
+
+All 3 commits are on branch `cherry-179010694b30` (based on ci/master), and the final sandbox build passes with no warnings or errors. Two of the commits needed changes, because ci/master doesn't have CONFIG_BLOBLIST_PASSAGE_MANDATORY at all. Its equivalent is CONFIG_OF_PASSAGE.
+
+```
+1bffc9d910b1 Merge patch series "Correct behavior of BLOBLIST_PASSAGE_MANDATORY"
+25074a2d6aa0 vexpress64: Correct CONFIG symbol logic around device tree passage
+d7332334ade7 lib/fdtdec.c: Disallow overriding BLOBLIST_PASSAGE_MANDATORY
+```
+
+**Changes made:**
+
+1. **d7332334ade7 (lib/fdtdec.c)**: kept as an empty commit. It conflicted because `fdtdec_setup()` is written differently in ci/master. The commit stops `fdtdec_setup()` falling back to another devicetree source when the bloblist has none. In ci/master, the OF_PASSAGE path already returns -ENOENT with no fallback, so there was nothing to add. Note added:
+   `[Empty: OF_PASSAGE in fdtdec_setup() already returns without fallback]`
+
+2. **25074a2d6aa0 (vexpress64)**: it applied cleanly but used the symbol that doesn't exist here. I replaced it with CONFIG_OF_PASSAGE in the Makefile and `vexpress64.c`.
+   - Upstream drops the condition on `imply OF_HAS_PRIOR_STAGE`. Doing the same here would turn on OF_HAS_PRIOR_STAGE, and with it OF_BOARD, for `vexpress_fvp_bloblist`.
+   - Upstream gets away with that because the change in commit 1 returns before the board hook (`board_fdt_blob_setup()`) is called. In ci/master the OF_PASSAGE path still goes on to call it, and with the new guards the board no longer defines it, so the link would fail.
+   - So I changed `if !BLOBLIST` to `if !OF_PASSAGE` rather than removing the condition. Note added:
+     `[Use OF_PASSAGE for BLOBLIST_PASSAGE_MANDATORY; imply if !OF_PASSAGE]`
+   - I also built `vexpress_fvp_bloblist`, `vexpress_fvp`, `vexpress_aemv8a_juno` and `vexpress_aemv8r`. All four build, and their OF settings are the same as before the pick.
+
+3. **1bffc9d910b1 (merge)**: re-applying the series diff conflicted with the two commits above. I kept the branch's version, so this is an empty commit with the original message.
+
+**Delta:** the series changes 3 files (+5/−3) in `board/armltd/vexpress64`, the same files and line counts as upstream's second commit. Upstream's 7-line `lib/fdtdec.c` change is not carried over, for the reason in point 1.
+
+`pickman split-check` found nothing to convert in any of the commits. None of the commits were already in ci/master.
+
+The mapping in commit 2 is a judgement call, so it's worth checking before you push.
+
+---
+
