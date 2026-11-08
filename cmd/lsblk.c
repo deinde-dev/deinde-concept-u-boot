@@ -19,10 +19,8 @@ static int do_lsblk(struct getopt_state *gs)
 	int ret, i;
 
 	ret = uclass_get(UCLASS_BLK, &uc);
-	if (ret) {
-		puts("Could not get BLK uclass.\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Could not get BLK uclass.\n");
 	puts("Block Driver          Devices\n");
 	puts("-----------------------------\n");
 	for (entry = d; entry < d + n_ents; entry++) {
