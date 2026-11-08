@@ -91,4 +91,4 @@ See also
   another device
 * :doc:`blkcache<blkcache>` for the cache which sits in front of these devices
 * :doc:`host<host>` for attaching a file on the host to the sandbox host driver
-* *mmcinfo* for the details of the current MMC device
+* :doc:`mmcinfo<mmcinfo>` for the details of the current MMC device
