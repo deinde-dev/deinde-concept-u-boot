@@ -172,6 +172,7 @@ obj-$(CONFIG_CMD_ITEST) += itest.o
 obj-$(CONFIG_CMD_LED) += led.o
 obj-$(CONFIG_CMD_LSBLK) += lsblk.o
 obj-$(CONFIG_CMD_MBR) += mbr.o
+obj-$(CONFIG_CMD_MMC) += mmcinfo.o
 obj-$(CONFIG_CMD_MOUSE) += mouse.o
 obj-$(CONFIG_CMD_PINMUX) += pinmux.o
 obj-$(CONFIG_CMD_PMC) += pmc.o
