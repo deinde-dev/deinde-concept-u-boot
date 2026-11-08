@@ -5475,33 +5475,33 @@ def _report_run_passed(remote, merge_req, run, dbs):
     tout.info(f'MR !{merge_req.iid}: pipeline {run.pipeline_id} passed')
 
 
-def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
-    """Run the agent to fix a failed pipeline and report the result
+def _select_failed_jobs(remote, merge_req, dbs, attempt):
+    """Work out which of a pipeline's failed jobs to try to fix
 
-    Fetches the failed-job logs, invokes the fix agent, then pushes the
-    result and updates the MR description and history on success, or posts
-    a failure comment otherwise.
+    Jobs which also fail in other merge requests are left out, since this
+    series is not what breaks them. If nothing is left, say so on the merge
+    request and record the pipeline, so that it is not looked at again.
 
     Args:
         remote (str): Remote name
         merge_req (PickmanMr): MR with a failed pipeline
         dbs (Database): Database instance for tracking fix attempts
-        target (str): Target branch
         attempt (int): Current fix attempt number
 
     Returns:
-        bool: True if the fix was attempted, False if no failed jobs
-            were found
+        tuple: (failed_jobs, shared, shared_note), where failed_jobs lists
+            the FailedJob tuples to fix, shared is a dict of the job names
+            left out -> other merge requests where they fail, and
+            shared_note is a note for the merge request about them; or None
+            if there is nothing to fix
     """
     mr_iid = merge_req.iid
-
-    # Fetch failed jobs
     failed_jobs = gitlab_api.get_failed_jobs(remote, merge_req.pipeline_id)
     if not failed_jobs:
         tout.info(f'MR !{mr_iid}: no failed jobs found')
         dbs.pfix_add(mr_iid, merge_req.pipeline_id, attempt, 'no_jobs')
         dbs.commit()
-        return False
+        return None
 
     # Leave out jobs which fail in other merge requests too
     shared = gitlab_api.get_shared_failures(
@@ -5525,7 +5525,29 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
                 f'{shared_note}')
             dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'shared')
             dbs.commit()
-            return False
+            return None
+    return failed_jobs, shared, shared_note
+
+
+def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
+                          selected):
+    """Run the agent to fix a failed pipeline and report the result
+
+    Invokes the fix agent, then pushes the result and updates the MR
+    description and history on success, or posts a failure comment
+    otherwise.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): MR with a failed pipeline
+        dbs (Database): Database instance for tracking fix attempts
+        target (str): Target branch
+        attempt (int): Current fix attempt number
+        selected (tuple): (failed_jobs, shared, shared_note) from
+            _select_failed_jobs()
+    """
+    mr_iid = merge_req.iid
+    failed_jobs, shared, shared_note = selected
 
     # Run agent to fix the failures
     checkout_mr_branch(remote, merge_req.source_branch)
@@ -5554,7 +5576,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
         except command.CommandExc:
             _push_failed(remote, mr_iid, f'the fix from attempt {attempt}')
             _abort_in_progress()
-            return True
+            return
 
         # Update MR description with fix log
         old_desc = merge_req.description
@@ -5580,8 +5602,6 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
         tout.error(f'MR !{mr_iid}: pipeline fix failed '
                    f'(attempt {attempt})')
         _abort_in_progress()
-
-    return True
 
 
 def process_pipeline_failures(remote, mrs, dbs, target, max_retries):
@@ -5624,13 +5644,17 @@ def process_pipeline_failures(remote, mrs, dbs, target, max_retries):
         if dbs.pfix_has(mr_iid, merge_req.pipeline_id):
             continue
 
+        # Rebasing and fixing are only for failures this series may cause
+        attempt = dbs.pfix_count(mr_iid) + 1
+        selected = _select_failed_jobs(remote, merge_req, dbs, attempt)
+        if not selected:
+            continue
+
         rebased = _rebase_mr_branch(remote, merge_req, dbs, target)
         if rebased is not None:
             if rebased:
                 processed += 1
             continue
-
-        attempt = dbs.pfix_count(mr_iid) + 1
 
         # Check retry limit
         if attempt > max_retries:
@@ -5648,8 +5672,9 @@ def process_pipeline_failures(remote, mrs, dbs, target, max_retries):
         tout.info(f'MR !{mr_iid}: pipeline {merge_req.pipeline_id} failed, '
                   f'attempting fix (attempt {attempt}/{max_retries})...')
 
-        if _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt):
-            processed += 1
+        _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt,
+                              selected=selected)
+        processed += 1
 
     # Restore original branch
     if processed:

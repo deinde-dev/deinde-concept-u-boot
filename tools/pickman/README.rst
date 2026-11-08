@@ -448,9 +448,11 @@ for failed pipelines. For each failed pipeline:
    `CI Pipelines`_)
 5. The attempt is recorded in the database to avoid reprocessing
 
-If the MR's branch is behind its target or has conflicts, pickman rebases it
-and pushes it instead, since the failure may come from the old base, then
-looks at the new pipeline in turn. Both sides add entries at the end of
+If any failures remain after step 2 and the MR's branch is behind its target
+or has conflicts, pickman rebases it and pushes it instead, since the failure
+may come from the old base, then looks at the new pipeline in turn. Failures
+which also happen in other MRs are not a reason to rebase, since a new
+pipeline would only fail again. Both sides add entries at the end of
 ``.pickman-history``, so the rebase keeps the entries from both. If the rebase
 stops on a conflict elsewhere, pickman aborts it and says on the MR which files
 conflict, leaving the branch to be updated by hand.

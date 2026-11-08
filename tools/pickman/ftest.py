@@ -7181,14 +7181,21 @@ class TestBuildPipelineFixPrompt(unittest.TestCase):
             os.path.join(self.tmp_dir, 'mr-description.txt')))
 
 
-class TestProcessPipelineFailures(unittest.TestCase):
-    """Tests for process_pipeline_failures function."""
+class PipelineFailures(unittest.TestCase):
+    """Base class for tests of process_pipeline_failures()"""
 
     def setUp(self):
         """Set up test fixtures."""
         fd, self.db_path = tempfile.mkstemp(suffix='.db')
         os.close(fd)
         os.unlink(self.db_path)
+
+        # By default, one job fails and only in this MR; tests can override
+        for name, value in (('get_failed_jobs', self._failed('build')),
+                            ('get_shared_failures', {})):
+            patcher = mock.patch.object(gitlab, name, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -7210,6 +7217,18 @@ class TestProcessPipelineFailures(unittest.TestCase):
             pipeline_status=pipeline_status,
             pipeline_id=pipeline_id,
         )
+
+    @staticmethod
+    def _failed(*names):
+        """Build FailedJob tuples with the given names"""
+        return [gitlab.FailedJob(id=i, name=name, stage='test',
+                                 web_url=f'https://gitlab.com/job/{i}',
+                                 log_tail='error')
+                for i, name in enumerate(names)]
+
+
+class TestProcessPipelineFailures(PipelineFailures):
+    """Tests for process_pipeline_failures function."""
 
     def test_skips_running(self):
         """Test that running pipelines are skipped"""
@@ -7354,14 +7373,6 @@ class TestProcessPipelineFailures(unittest.TestCase):
             self.assertIn('build', reply_msg)
             dbs.close()
 
-    @staticmethod
-    def _failed(*names):
-        """Build FailedJob tuples with the given names"""
-        return [gitlab.FailedJob(id=i, name=name, stage='test',
-                                 web_url=f'https://gitlab.com/job/{i}',
-                                 log_tail='error')
-                for i, name in enumerate(names)]
-
     def _fix(self, push_error=None):
         """Process a failed pipeline for which the agent finds nothing to do
 
@@ -7441,75 +7452,6 @@ class TestProcessPipelineFailures(unittest.TestCase):
         reply.assert_called_once_with(
             'ci', 1, 'Cannot push the fix from attempt 1 to the branch. '
             "Please check the branch; pickman's log has the error.")
-
-    def test_shared_failures_left_alone(self):
-        """Test that failures shared with other MRs get no fix attempt"""
-        with terminal.capture():
-            dbs = database.Database(self.db_path)
-            dbs.start()
-
-            mrs = [self._make_mr()]
-            with mock.patch.object(control, 'run_git'), \
-                 mock.patch.object(gitlab, 'get_failed_jobs',
-                                   return_value=self._failed('samus',
-                                                             'snow')), \
-                 mock.patch.object(gitlab, 'get_shared_failures',
-                                   return_value={'samus': [10, 11],
-                                                 'snow': [11, 12]}), \
-                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
-                 mock.patch.object(gitlab, 'push_branch') as mock_push, \
-                 mock.patch.object(gitlab, 'reply_to_mr',
-                                   return_value=True) as mock_reply:
-                result = control.process_pipeline_failures(
-                    'ci', mrs, dbs, 'master', 3)
-
-            self.assertEqual(result, 0)
-            mock_fix.assert_not_called()
-            mock_push.assert_not_called()
-            reply_msg = mock_reply.call_args[0][2]
-            self.assertIn('lab or infrastructure problem', reply_msg)
-            self.assertIn('- samus (!10, !11)', reply_msg)
-            self.assertIn('- snow (!11, !12)', reply_msg)
-
-            # Recorded, so not looked at again, but not an attempt
-            self.assertTrue(dbs.pfix_has(1, 100))
-            self.assertEqual(dbs.pfix_count(1), 0)
-            dbs.close()
-
-    def test_shared_failures_left_out(self):
-        """Test that only this MR's own failures go to the agent"""
-        with terminal.capture():
-            dbs = database.Database(self.db_path)
-            dbs.start()
-
-            mrs = [self._make_mr()]
-            with mock.patch.object(control, 'run_git'), \
-                 mock.patch.object(gitlab, 'get_failed_jobs',
-                                   return_value=self._failed('samus',
-                                                             'sandbox')), \
-                 mock.patch.object(gitlab, 'get_shared_failures',
-                                   return_value={'samus': [10, 11]}), \
-                 mock.patch.object(agent, 'fix_pipeline',
-                                   return_value=(False, 'No luck')) \
-                    as mock_fix, \
-                 mock.patch.object(gitlab, 'reply_to_mr',
-                                   return_value=True) as mock_reply, \
-                 mock.patch.object(control, '_abort_in_progress') as abort:
-                result = control.process_pipeline_failures(
-                    'ci', mrs, dbs, 'master', 3)
-
-            self.assertEqual(result, 1)
-
-            # Anything the agent leaves unfinished is abandoned, once after
-            # the failure and once before returning to the original branch
-            self.assertEqual(2, abort.call_count)
-            jobs = mock_fix.call_args[0][2]
-            self.assertEqual(['sandbox'], [job.name for job in jobs])
-            reply_msg = mock_reply.call_args[0][2]
-            self.assertIn('No luck', reply_msg)
-            self.assertIn('also fail in other merge requests:\n'
-                          '- samus (!10, !11)', reply_msg)
-            dbs.close()
 
     def test_skips_skipped_mr(self):
         """Test that MRs without pipeline_id are skipped"""
@@ -7702,6 +7644,123 @@ class TestProcessPipelineFailures(unittest.TestCase):
 
         mock_ppf.assert_not_called()
 
+
+class TestFailedJobSelection(PipelineFailures):
+    """Tests for which failed jobs pickman tries to fix"""
+
+    def test_shared_failures_left_alone(self):
+        """Test that failures shared with other MRs get no fix attempt"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr()]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=self._failed('samus',
+                                                             'snow')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'samus': [10, 11],
+                                                 'snow': [11, 12]}), \
+                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
+                 mock.patch.object(gitlab, 'push_branch') as mock_push, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            mock_fix.assert_not_called()
+            mock_push.assert_not_called()
+            reply_msg = mock_reply.call_args[0][2]
+            self.assertIn('lab or infrastructure problem', reply_msg)
+            self.assertIn('- samus (!10, !11)', reply_msg)
+            self.assertIn('- snow (!11, !12)', reply_msg)
+
+            # Recorded, so not looked at again, but not an attempt
+            self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(dbs.pfix_count(1), 0)
+            dbs.close()
+
+    def test_shared_failures_left_out(self):
+        """Test that only this MR's own failures go to the agent"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr()]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=self._failed('samus',
+                                                             'sandbox')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'samus': [10, 11]}), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No luck')) \
+                    as mock_fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply, \
+                 mock.patch.object(control, '_abort_in_progress') as abort:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 1)
+
+            # Anything the agent leaves unfinished is abandoned, once after
+            # the failure and once before returning to the original branch
+            self.assertEqual(2, abort.call_count)
+            jobs = mock_fix.call_args[0][2]
+            self.assertEqual(['sandbox'], [job.name for job in jobs])
+            reply_msg = mock_reply.call_args[0][2]
+            self.assertIn('No luck', reply_msg)
+            self.assertIn('also fail in other merge requests:\n'
+                          '- samus (!10, !11)', reply_msg)
+            dbs.close()
+
+    def test_shared_failures_not_rebased(self):
+        """Test that failures shared with other MRs do not cause a rebase"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr(needs_rebase=True)]
+            with mock.patch.object(control, 'run_git') as git, \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'build': [10, 11]}), \
+                 mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            push.assert_not_called()
+            self.assertNotIn(mock.call(['rebase', 'ci/master']),
+                             git.call_args_list)
+            self.assertIn('lab or infrastructure problem',
+                          reply.call_args[0][2])
+            self.assertTrue(dbs.pfix_has(1, 100))
+            dbs.close()
+
+    def test_no_failed_jobs(self):
+        """Test a failed pipeline whose failed jobs cannot be found"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr(needs_rebase=True)]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=None), \
+                 mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(agent, 'fix_pipeline') as fix:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            push.assert_not_called()
+            fix.assert_not_called()
+            self.assertTrue(dbs.pfix_has(1, 100))
+            dbs.close()
 
 class TestStepFixRetries(unittest.TestCase):
     """Tests for --fix-retries argument parsing."""
