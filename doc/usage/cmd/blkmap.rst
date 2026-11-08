@@ -325,3 +325,5 @@ See Also
 * :doc:`../blkmap` - Blkmap device documentation and examples
 * :doc:`../luks` - LUKS encryption support (uses blkmap for decrypted access)
 * :doc:`../tkey-fde` - TKey full disk encryption
+* :doc:`lsblk<lsblk>` - Listing the block drivers, including the blkmap one,
+  along with the devices attached to each

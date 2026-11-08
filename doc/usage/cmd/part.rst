@@ -245,3 +245,4 @@ See also
 * :doc:`ide<ide>` for the partition table of an IDE drive alone, along with
   the other operations that interface provides
 * :doc:`nvme<nvme>` for the same on an NVMe namespace
+* :doc:`lsblk<lsblk>` for the devices which can be given to this command
