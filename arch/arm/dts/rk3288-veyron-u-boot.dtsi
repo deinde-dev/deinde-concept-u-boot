@@ -40,35 +40,36 @@
 };
 
 &emmc {
-	bootph-all;
+	bootph-some-ram;
 };
 
 &gpio3 {
-	bootph-all;
+	bootph-some-ram;
 };
 
 &gpio7 {
-	bootph-all;
+	/delete-property/ bootph-all;
+	bootph-some-ram;
 };
 
 &gpio8 {
-	bootph-all;
+	bootph-some-ram;
 };
 
 &i2c0 {
-	bootph-all;
+	bootph-some-ram;
 };
 
 &pinctrl {
-	bootph-all;
+	bootph-some-ram;
 };
 
 &rk808 {
-	bootph-all;
+	bootph-some-ram;
 };
 
 &sdmmc {
-	bootph-all;
+	bootph-some-ram;
 };
 
 &spi2 {
