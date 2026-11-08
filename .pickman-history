@@ -103983,3 +103983,53 @@ All 15 commits are on `cherry-fff6ccdc18e3`, 15 ahead of `ci/master`, and the br
 
 ---
 
+### Pipeline fix: 2026-11-08 (attempt 2)
+
+Branch: cherry-fff6ccdc18e3
+
+Failed jobs:
+- build all 64bit ARM platforms (world_build)
+- pine64 (sjg-lab)
+
+### Conversation log
+The pine64 failure has a corrupted driver name, which doesn't look like a code problem. Next I'll find the actual errors in the world build log.
+
+The log is only a tail, so the real error may have been cut off. The `.sram` linker error stands out, so I'll check its context, how CI turns this into exit 100, and which boards the series touches.
+
+The series adds `imx93w_evk`, which is the most likely source of the build error. I'll build the boards it touches first, as they're quicker than the whole ARM set.
+
+The real error is a Kconfig failure on `PPL_TEXT_BASE` and `SYS_UBOOT_START`, both with empty values. Next step is to find which boards hit it and where those symbols are defined.
+
+The builds are running in the background, and I'll report once they finish.
+
+The fix is on local branch `cherry-fff6ccdc18e3-fix2`, but the verification builds are still running, so it isn't confirmed yet. I'll send the final report when they finish.
+
+**So far:**
+- **`build all 64bit ARM platforms`:** this is a real failure from `board: imx93w_evk: add board support for i.MX93W EVK`. The new defconfig sets `CONFIG_TEXT_BASE`, which this tree has renamed to `CONFIG_PPL_TEXT_BASE`, so Kconfig fails for `imx93w_evk` and `imx93w_evk_inline_ecc`. I changed that one line and amended the commit with a `[pickman]` note.
+- **`pine64`:** this looks like a transient lab problem, so I made no change for it. `test_dm_compat` read the driver name as `gpi߾sunxi` instead of `gpio_sunxi`, because two bytes came through bit-shifted on the serial link. The series doesn't touch sunxi, driver model or that test.
+
+The one real build failure is fixed on local branch `cherry-fff6ccdc18e3-fix2`, which I haven't pushed. The `pine64` failure looks like a transient lab problem, so I changed nothing for it.
+
+## `build all 64bit ARM platforms`: real failure, fixed
+- **Responsible commit:** `62de35b2f41d` "board: imx93w_evk: add board support for i.MX93W EVK", now `640f229394af` after the rebase.
+- **Root cause:** the new `configs/imx93w_evk_defconfig` sets `CONFIG_TEXT_BASE`, but this tree has renamed that symbol to `CONFIG_PPL_TEXT_BASE`. With no value for it, Kconfig stopped with `no value for new symbol 'PPL_TEXT_BASE'`. `imx93w_evk` and `imx93w_evk_inline_ecc` both failed, because the second includes the first.
+- **Change:** one line, `CONFIG_TEXT_BASE=0x80200000` became `CONFIG_PPL_TEXT_BASE=0x80200000`. I amended that commit with a `[pickman]` note and a `Co-developed-by` tag, following earlier pickman fixes. No other symbol in that defconfig is missing from Kconfig.
+
+The job log only had the tail of the output, so the error itself wasn't visible; I reproduced it locally. The log's other errors include `aarch64-linux-ld: invalid length for memory region .sram`, but none of them stopped the local `aarch64` build.
+
+## `pine64`: transient, no change
+`test_dm_compat` failed because it read the driver name as `gpi߾sunxi`. The real name in `drivers/gpio/sunxi_gpio.c` is `gpio_sunxi`. The two bytes `o_` (0x6f 0x5f) arrived as 0xdf 0xbe, which is the same data shifted one bit, so this points to corruption on the serial link. The series doesn't touch sunxi, driver model or that test, so a retry should pass. I can't test that from here, as it needs the lab board.
+
+## Verification
+| Build | Result |
+|---|---|
+| `um build sandbox` | Pass |
+| `buildman -PEWM aarch64` (same as the failing CI job) | Pass, 557 boards, exit 0 |
+| The requested board list | Pass, 36 boards selected, 29 reported built, exit 0 |
+| `imx93w_evk` and `imx93w_evk_inline_ecc` | `u-boot.bin` produced for both |
+
+- **Requested board list:** the comma-separated command from the instructions fails with "No matching boards found", so I ran the same terms separated by spaces. I didn't check why only 29 of the 36 were reported as built; the other 7 may have been skipped as already built in the `aarch64` run.
+- **Branch state:** still 16 commits above `ci/master`. It differs from `cherry-fff6ccdc18e3` only by that one line, and the original branch is unchanged.
+
+---
+
