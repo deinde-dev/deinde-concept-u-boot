@@ -5475,12 +5475,68 @@ def _report_run_passed(remote, merge_req, run, dbs):
     tout.info(f'MR !{merge_req.iid}: pipeline {run.pipeline_id} passed')
 
 
+# What test/py prints when it gives up on a board, see handle_exception() in
+# test/py/console_base.py
+LAB_MARKERS = ('Lab failure: ', 'Lab timeout: ')
+
+# Start of each line of a job log: GitLab's timestamp and stream
+RE_LOG_PREFIX = re.compile(r'^\d{4}-\d\d-\d\dT[\d:.]+Z \S+ ?')
+
+# Terminal colour codes in a job log
+RE_COLOUR = re.compile(r'\x1b\[[\d;]*[mK]')
+
+
+def lab_failure(log_tail):
+    """Find why test/py gave up on a lab board, from a job's log
+
+    Args:
+        log_tail (str): The end of the job's log
+
+    Returns:
+        tuple: (reason, error), where reason is test/py's 'Lab failure: ...'
+            line and error is the line before it, which normally gives the
+            error behind it, or '' if there is none; or None if the job
+            does not fail in this way
+    """
+    lines = [RE_COLOUR.sub('', RE_LOG_PREFIX.sub('', line)).strip()
+             for line in (log_tail or '').splitlines()]
+    for i, line in enumerate(lines):
+        pos = min((line.find(marker) for marker in LAB_MARKERS
+                   if marker in line), default=-1)
+        if pos != -1:
+            error = next((prev for prev in reversed(lines[:i]) if prev), '')
+            return line[pos:], error
+    return None
+
+
+def _lab_note(lab):
+    """Describe the jobs which fail because of the lab
+
+    Args:
+        lab (dict): Job name -> (FailedJob, (reason, error))
+
+    Returns:
+        str: Note for the merge request, or '' if there are no such jobs
+    """
+    if not lab:
+        return ''
+    lines = []
+    for name, (job, (reason, error)) in sorted(lab.items()):
+        lines.append(f'- [{name}]({job.web_url}): {reason}')
+        if error:
+            lines.append(f'  - {error}')
+    return ('\n\nNot attempted, since test/py gave up on the lab board; '
+            'please check the board, or the log if U-Boot may not reach its '
+            'prompt:\n' + '\n'.join(lines))
+
+
 def _select_failed_jobs(remote, merge_req, dbs, attempt):
     """Work out which of a pipeline's failed jobs to try to fix
 
-    Jobs which also fail in other merge requests are left out, since this
-    series is not what breaks them. If nothing is left, say so on the merge
-    request and record the pipeline, so that it is not looked at again.
+    Jobs where test/py gives up on the lab board are left out, as are jobs
+    which also fail in other merge requests, since this series is not what
+    breaks them. If nothing is left, say so on the merge request and record
+    the pipeline, so that it is not looked at again.
 
     Args:
         remote (str): Remote name
@@ -5489,11 +5545,10 @@ def _select_failed_jobs(remote, merge_req, dbs, attempt):
         attempt (int): Current fix attempt number
 
     Returns:
-        tuple: (failed_jobs, shared, shared_note), where failed_jobs lists
-            the FailedJob tuples to fix, shared is a dict of the job names
-            left out -> other merge requests where they fail, and
-            shared_note is a note for the merge request about them; or None
-            if there is nothing to fix
+        tuple: (failed_jobs, leave_out, note), where failed_jobs lists the
+            FailedJob tuples to fix, leave_out is a set of the names of the
+            jobs left out and note is a note for the merge request about
+            them; or None if there is nothing to fix
     """
     mr_iid = merge_req.iid
     failed_jobs = gitlab_api.get_failed_jobs(remote, merge_req.pipeline_id)
@@ -5503,30 +5558,39 @@ def _select_failed_jobs(remote, merge_req, dbs, attempt):
         dbs.commit()
         return None
 
+    # Leave out jobs which the lab breaks
+    lab = {}
+    for job in failed_jobs:
+        found = lab_failure(job.log_tail)
+        if found:
+            lab[job.name] = job, found
+    failed_jobs = [job for job in failed_jobs if job.name not in lab]
+    note = _lab_note(lab)
+
     # Leave out jobs which fail in other merge requests too
     shared = gitlab_api.get_shared_failures(
         remote, mr_iid, [job.name for job in failed_jobs])
-    shared_note = ''
     if shared:
-        shared_note = ('\n\nNot attempted, since these also fail in other '
-                       'merge requests:\n' + '\n'.join(
-                           f'- {name} (' +
-                           ', '.join(f'!{iid}' for iid in iids) + ')'
-                           for name, iids in sorted(shared.items())))
+        note += ('\n\nNot attempted, since these also fail in other '
+                 'merge requests:\n' + '\n'.join(
+                     f'- {name} (' +
+                     ', '.join(f'!{iid}' for iid in iids) + ')'
+                     for name, iids in sorted(shared.items())))
         failed_jobs = [job for job in failed_jobs if job.name not in shared]
-        if not failed_jobs:
-            tout.info(f'MR !{mr_iid}: every failed job also fails in other '
-                      f'merge requests, not attempting a fix')
-            gitlab_api.reply_to_mr(
-                remote, mr_iid,
-                f'Pipeline {merge_req.pipeline_id}: every failed job also '
-                f'fails in other merge requests, so this looks like a lab '
-                f'or infrastructure problem rather than this series.'
-                f'{shared_note}')
-            dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'shared')
-            dbs.commit()
-            return None
-    return failed_jobs, shared, shared_note
+
+    if not failed_jobs:
+        tout.info(f'MR !{mr_iid}: no failed job is down to this series, not '
+                  f'attempting a fix')
+        gitlab_api.reply_to_mr(
+            remote, mr_iid,
+            f'Pipeline {merge_req.pipeline_id}: no failed job looks to be '
+            f'caused by this series, so this looks like a lab or '
+            f'infrastructure problem.{note}')
+        dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0,
+                     'lab' if lab else 'shared')
+        dbs.commit()
+        return None
+    return failed_jobs, set(lab) | set(shared), note
 
 
 def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
@@ -5543,11 +5607,11 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
         dbs (Database): Database instance for tracking fix attempts
         target (str): Target branch
         attempt (int): Current fix attempt number
-        selected (tuple): (failed_jobs, shared, shared_note) from
+        selected (tuple): (failed_jobs, leave_out, note) from
             _select_failed_jobs()
     """
     mr_iid = merge_req.iid
-    failed_jobs, shared, shared_note = selected
+    failed_jobs, leave_out, note = selected
 
     # Run agent to fix the failures
     checkout_mr_branch(remote, merge_req.source_branch)
@@ -5572,7 +5636,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
 
         # Push the fix branch to the original MR branch
         try:
-            ci_note = _push_with_ci(remote, merge_req, dbs, shared)
+            ci_note = _push_with_ci(remote, merge_req, dbs, leave_out)
         except command.CommandExc:
             _push_failed(remote, mr_iid, f'the fix from attempt {attempt}')
             _abort_in_progress()
@@ -5591,14 +5655,14 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
             remote, mr_iid,
             f'Pipeline fix (attempt {attempt}): '
             f'fixed failed job(s) {job_names}.\n\n'
-            f'{conversation_log[:2000]}{shared_note}{ci_note}')
+            f'{conversation_log[:2000]}{note}{ci_note}')
 
         tout.info(f'MR !{mr_iid}: pipeline fix pushed (attempt {attempt})')
     else:
         gitlab_api.reply_to_mr(
             remote, mr_iid,
             f'Pipeline fix attempt {attempt} failed. '
-            f'Agent output:\n\n{conversation_log[:1000]}{shared_note}')
+            f'Agent output:\n\n{conversation_log[:1000]}{note}')
         tout.error(f'MR !{mr_iid}: pipeline fix failed '
                    f'(attempt {attempt})')
         _abort_in_progress()

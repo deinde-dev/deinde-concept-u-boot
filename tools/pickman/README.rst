@@ -437,10 +437,13 @@ During each step, after processing review comments, pickman checks active MRs
 for failed pipelines. For each failed pipeline:
 
 1. Pickman fetches the failed job logs from GitLab
-2. Pickman leaves out jobs which also fail in the newest pipelines of at least
-   two other MRs from the last two days, e.g. because a lab board is broken,
-   since the series cannot be the cause. If no other failures remain, it says
-   so on the MR and stops there
+2. Pickman leaves out jobs where test/py gives up on the lab board ('Lab
+   failure' or 'Lab timeout' in the log), and jobs which also fail in the
+   newest pipelines of at least two other MRs from the last two days, e.g.
+   because a lab board is broken, since the series cannot be the cause. It
+   lists them on the MR, with the reason test/py gives for each lab failure,
+   so that someone can look into the lab. It does not retry them. If no other
+   failures remain, it stops there
 3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
 4. The fix is pushed to the MR branch, triggering a new pipeline. If the fix
@@ -451,8 +454,8 @@ for failed pipelines. For each failed pipeline:
 If any failures remain after step 2 and the MR's branch is behind its target
 or has conflicts, pickman rebases it and pushes it instead, since the failure
 may come from the old base, then looks at the new pipeline in turn. Failures
-which also happen in other MRs are not a reason to rebase, since a new
-pipeline would only fail again. Both sides add entries at the end of
+left out in step 2 are not a reason to rebase, since the series is not their
+cause. Both sides add entries at the end of
 ``.pickman-history``, so the rebase keeps the entries from both. If the rebase
 stops on a conflict elsewhere, pickman aborts it and says on the MR which files
 conflict, leaving the branch to be updated by hand.
