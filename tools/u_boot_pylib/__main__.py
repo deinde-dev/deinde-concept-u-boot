@@ -33,6 +33,7 @@ def run_tests():
     from u_boot_pylib import test_command
     from u_boot_pylib import test_dwarf_lines
     from u_boot_pylib import test_gitutil
+    from u_boot_pylib import test_tooldir
     from u_boot_pylib import test_xpl
 
     to_run = args.testname if args.testname not in [None, 'test'] else None
@@ -44,7 +45,7 @@ def run_tests():
          test_command.TestRunInteractive,
          test_dwarf_lines.TestLinesToRanges, test_dwarf_lines.TestRangeFormat,
          test_gitutil.TestGitutilHelpers, test_gitutil.TestGitutilDrift,
-         test_xpl.TestReadPhases])
+         test_tooldir.TestToolDir, test_xpl.TestReadPhases])
 
     sys.exit(0 if result.wasSuccessful() else 1)
 

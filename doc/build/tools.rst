@@ -53,3 +53,32 @@ The tools-only builds pylibfdt by default. To disable this, use the
 NO_PYTHON variable::
 
    NO_PYTHON=1 make tools-only_defconfig tools-only
+
+.. _python_tool_checkouts:
+
+Running Python tools from a checkout
+------------------------------------
+
+Several Python tools, such as binman, buildman and dtoc, are maintained as
+separate projects and installed with pip. If you work on one of them, you can
+use a checkout instead, by telling U-Boot where to find it in
+``~/.config/u-boot/tools.conf``::
+
+    [tools]
+    # Directory holding a checkout of each tool, e.g. ~/dev/dtoc
+    dir = ~/dev
+
+    # Use a different checkout for one tool
+    dtoc = ~/dev/dtoc-test
+
+A checkout is the top directory of the tool's git repository, which holds the
+package directory, e.g. ``~/dev/dtoc/dtoc``. The ``U_BOOT_TOOLS_DIR``
+environment variable, if set, is used instead of the file, as the directory
+holding a checkout of each tool.
+
+With this, ``tools/binman/binman``, ``tools/buildman/buildman`` and
+``tools/dtoc/dtoc`` run the checkout instead of saying how to install the
+package, and ``tools/qconfig.py`` finds kconfiglib in a buildman checkout. The
+build runs a binman or dtoc on the PATH in preference to these, so to use the
+checkout there, remove the installed copy, or point the build at the checkout,
+e.g. ``make DTOC=~/dev/dtoc/dtoc/main.py``.
