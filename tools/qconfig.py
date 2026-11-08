@@ -30,8 +30,17 @@ import unittest
 try:
     from buildman import kconfiglib
 except ImportError:
-    sys.exit('qconfig needs kconfiglib from the buildman package: '
-             'pip install buildman')
+    try:
+        from u_boot_pylib import tooldir
+    except ImportError:
+        # An older u_boot_pylib, such as the one in mainline U-Boot
+        tooldir = None
+    if not tooldir or not tooldir.add_to_path('buildman'):
+        sys.exit('qconfig needs kconfiglib from the buildman package: '
+                 'pip install buildman')
+    # Drop the stub directory tools/buildman, found by the first attempt
+    sys.modules.pop('buildman', None)
+    from buildman import kconfiglib
 from u_boot_pylib import terminal
 from u_boot_pylib.terminal import tprint
 from u_boot_pylib import tools

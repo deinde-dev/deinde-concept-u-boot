@@ -7,16 +7,24 @@
 
 """Stub for the former in-tree binman tool
 
-binman is now maintained as a standalone 'binary-manager' package, rather
-than living in the U-Boot tree. This stub just tells the user how to get
-it.
+binman is now maintained as a standalone 'binary-manager' package, rather than
+living in the U-Boot tree. This stub runs a checkout of it if one is set up
+(see u_boot_pylib/tooldir.py), or otherwise tells the user how to get it.
 """
 
+import os
 import sys
+
+# Use the u_boot_pylib in this tree
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                '..'))
+# pylint: disable=wrong-import-position
+from u_boot_pylib import tooldir
 
 
 def main():
-    """Print instructions for installing the binary-manager package"""
+    """Run a checkout of binman, else print how to install the binary-manager package"""
+    tooldir.run('binman')
     print(
         'binman is no longer part of U-Boot. It is now maintained as a\n'
         "separate package called 'binary-manager'.\n"
