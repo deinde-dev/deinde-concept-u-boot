@@ -2789,6 +2789,8 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                 needs_rebase=needs_rebase,
             )]
             with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(control, 'history_only_conflict',
+                                   return_value=False), \
                  mock.patch.object(gitlab, 'get_mr_comments',
                                    return_value=list(comments)), \
                  mock.patch.object(agent, 'handle_mr_comments',
@@ -11191,6 +11193,124 @@ class HistoryRepo(unittest.TestCase):
         """Read the history file in the work tree"""
         return tools.read_file(control.HISTORY_FILE, binary=False)
 
+
+class TestHistoryConflict(HistoryRepo):
+    """Tests for an MR which conflicts with master only in the history"""
+
+    def setUp(self):
+        """Set up remote branches for the MR and its target"""
+        super().setUp()
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/cherry', 'cherry')
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/master', 'master')
+        self.db_path = os.path.join(self.test_dir, 'pickman.db')
+
+    def tearDown(self):
+        """Close the database"""
+        database.Database.instances.clear()
+        super().tearDown()
+
+    def _review(self, pipeline_status='failed', push_error=None):
+        """Process the MR, as GitLab reports that it has conflicts
+
+        Args:
+            pipeline_status (str): Status of the MR's pipeline
+            push_error (Exception): Error for the push to raise, or None
+
+        Returns:
+            tuple: (result, Mock, Mock, Mock) for the result of
+                process_single_mr() and for the agent, for pushes and for
+                replies to the MR
+        """
+        merge_req = gitlab.PickmanMr(
+            iid=100, title='[pickman] Test MR', source_branch='cherry',
+            description='Test', web_url='https://gitlab.com/mr/100',
+            has_conflicts=True, needs_rebase=True,
+            pipeline_status=pipeline_status, pipeline_id=200)
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(gitlab, 'get_mr_comments',
+                                   return_value=[]), \
+                 mock.patch.object(agent, 'handle_mr_comments',
+                                   return_value=(False, 'No')) as m_agent, \
+                 mock.patch.object(gitlab, 'push_branch',
+                                   side_effect=push_error) as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                result = control.process_single_mr('ci', merge_req, dbs,
+                                                   'master')
+            dbs.close()
+        return result, m_agent, push, reply
+
+    def test_detect(self):
+        """Test telling a history conflict from a real one"""
+        self.assertTrue(control.history_only_conflict('master', 'cherry'))
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({'a.c': 'one\ntwo on master\n'}, 'Clash')
+        self.assertFalse(control.history_only_conflict('master', 'cherry'))
+
+    def test_rebased(self):
+        """Test that the branch is rebased and pushed without the agent"""
+        result, m_agent, push, reply = self._review()
+        self.assertEqual(1, result)
+        m_agent.assert_not_called()
+        self.assertEqual(['Record cherry', 'Change a.c', 'Record other',
+                          'Initial'], self._log('cherry'))
+        _git(self.repo, 'checkout', '-q', 'cherry')
+        self.assertEqual(self.first + self.other + self.cherry,
+                         self._history())
+        push.assert_called_once_with('ci', 'cherry', force=True,
+                                     skip_ci=False)
+        self.assertIn('the only conflict is in .pickman-history',
+                      reply.call_args[0][2])
+
+    def test_already_rebased(self):
+        """Test an MR which GitLab still flags after it is rebased"""
+        self._review()
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/cherry', 'cherry')
+        result, m_agent, push, reply = self._review()
+        self.assertEqual(0, result)
+        m_agent.assert_not_called()
+        push.assert_not_called()
+        reply.assert_not_called()
+
+    def test_waits_for_pipeline(self):
+        """Test that a running pipeline is left to finish first"""
+        result, m_agent, push, _ = self._review('running')
+        self.assertEqual(0, result)
+        m_agent.assert_not_called()
+        push.assert_not_called()
+        self.assertEqual(['Record cherry', 'Change a.c', 'Initial'],
+                         self._log('cherry'))
+
+    def test_rebased_push_fails(self):
+        """Test that a rebased branch which cannot be pushed is reported"""
+        result, m_agent, _, reply = self._review(
+            push_error=command.CommandExc('push', None))
+        self.assertEqual(1, result)
+        m_agent.assert_not_called()
+        reply.assert_called_once_with(
+            'ci', 100, 'Cannot push the rebased branch to the branch. Please '
+            "check the branch; pickman's log has the error.")
+
+    def test_cannot_rebase(self):
+        """Test falling back to the agent if the rebase fails after all"""
+        with mock.patch.object(control, 'rebase_onto',
+                               return_value=(False, [])):
+            result, m_agent, push, _ = self._review()
+        self.assertEqual(1, result)
+        m_agent.assert_called_once()
+        push.assert_not_called()
+
+    def test_real_conflict(self):
+        """Test that a conflict outside the history goes to the agent"""
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({'a.c': 'one\ntwo on master\n'}, 'Clash')
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/master', 'master')
+        _git(self.repo, 'checkout', '-q', 'cherry')
+        result, m_agent, push, _ = self._review()
+        self.assertEqual(1, result)
+        m_agent.assert_called_once()
+        push.assert_not_called()
 
 class TestRebaseOnto(HistoryRepo):
     """Tests for rebasing a branch which has its own history entry"""
