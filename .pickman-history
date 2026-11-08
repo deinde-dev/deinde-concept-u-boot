@@ -104079,3 +104079,34 @@ All 15 commits are on `cherry-fff6ccdc18e3`, 15 ahead of `ci/master`, and the br
 
 ---
 
+### Pipeline fix: 2026-11-08 (attempt 3)
+
+Branch: cherry-fff6ccdc18e3
+
+Failed jobs:
+- jerry (sjg-lab)
+
+### Conversation log
+The log points to a lab reservation problem, not the code. Before calling it infrastructure, I'll check that the series doesn't touch the test harness and see whether the place is still held.
+
+**The `jerry` failure is a lab reservation conflict, not a code problem, so I made no changes.** The series didn't cause it, so there's nothing to amend. I didn't create `cherry-fff6ccdc18e3-fix3` or run any builds, and `cherry-fff6ccdc18e3` is untouched.
+
+**Root cause:** the job stopped about five seconds into `test.py`, while pytest was still configuring and before U-Boot was built or the board touched. `u-boot-test-getrole jerry --configure` failed with:
+
+```
+labgrid-client: Error: place jerry is not acquired by your user, acquired by sglass.
+To work simultaneously, sglass can execute labgrid-client -p jerry allow ellesmere/gitlab-runner
+```
+
+The runner uses the `ellesmere/gitlab-runner` identity, but the `jerry` place was held by `ellesmere/sglass`, probably from a manual session. The job's cleanup `u-boot-test-release` was refused for the same reason. The exit status 3 is pytest reporting that internal error, and the "No files to upload" message only follows from no tests having run.
+
+**Why the series isn't responsible:** none of its commits touch `test/py`, `test/hooks` or `.gitlab-ci.yml`, and no changed file has "jerry" in its path.
+
+**To clear it:** I couldn't check whether `jerry` is still held, because the labgrid coordinator refused the connection from this environment. I also wouldn't release or kick your reservation without you asking. Once you've done one of these, retry job 748189:
+- **If you've finished with the board:** run `labgrid-client -p jerry release`.
+- **If you're still using it:** run `labgrid-client -p jerry allow ellesmere/gitlab-runner`, though the CI job will then share the board with your session.
+
+**Still unverified:** the `jerry` tests never ran, so this series hasn't been tested on that board yet. Attempt 2's report also noted that sandbox doesn't compile the i.MX93/i.MX95 board code, and those boards only have build coverage so far.
+
+---
+
