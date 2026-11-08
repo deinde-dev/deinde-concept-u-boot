@@ -103892,3 +103892,48 @@ Both commits have a one-line note about this, plus a `Co-developed-by` tag since
 
 ---
 
+### Review: 2026-11-08
+
+Branch: cherry-b9cd57c5cefa
+
+Comments addressed:
+
+
+### Conversation log
+The rebase is running in the background, with a sandbox build after each commit. I'll pick it up when it exits, most likely at a `.pickman-history` conflict, since that's the only file both sides touch.
+
+The rebase is finished and `cherry-b9cd57c5cefa-v2` is created. Buildman exited 101 on the QEMU boards, so I'm checking whether that's only the known dtc warnings or a real failure.
+
+`cherry-b9cd57c5cefa` is rebased onto `ci/master` (`65db72cb845e`), and all 7 commits are on the new local branch `cherry-b9cd57c5cefa-v2`, which is checked out and not pushed. Sandbox built cleanly after every commit, and the local `cherry-b9cd57c5cefa` branch has moved to the rebased commits too.
+
+## Conflict
+The only conflict was in `.pickman-history`, on the final `pickman: Record cherry-pick` commit, because both sides added an entry at the end of the file. I kept both entries, so the file differs from `ci/master` only by that commit's 64 added lines. The other 6 commits applied without conflicts.
+
+## Commits
+
+| Before | After | Subject | Delta |
+|---|---|---|---|
+| `7497be493f90` | `85379dcdcf94` | dts: Correct behavior of OF_OMIT_DTB | same |
+| `ccf3faf7236c` | `a69a185fb128` | dts: Make DEFAULT_DEVICE_TREE depend on !OF_OMIT_DTB | same |
+| `1a95a304ce20` | `30b7cd660afb` | dts: Correct entry for OF_OMIT_DTB | same |
+| `0157a1bca78d` | `52b2f19149b2` | powerpc: drop qemu-ppce500 dts | same |
+| `b2c443582beb` | `030cafb570cd` | arm: Drop unused dts files | same (39 files, -4541) |
+| `34bd988b1350` | `59858b470668` | Merge patch series (empty, kept) | none |
+| `e69e35cd8b09` | `a2acbbfccded` | pickman: Record cherry-pick of 6 commits | same (+64), conflict resolved |
+
+Outside `.pickman-history`, the difference between the old and new branch is exactly what `ci/master` gained. `git range-diff` shows the first 6 commits unchanged.
+
+## Build results
+- **Sandbox:** passed after each of the 7 commits, using the specified `buildman -L --board sandbox -w -o /tmp/pickman`.
+- **QEMU boards (my addition):** I built `qemu_arm64`, `qemu_arm64_lwip`, `qemu_arm64_acpi` and `qemu-riscv64`; the name match also picked up four related boards such as the SPL variants, for 8 in total. All 8 built with no `unset.dtb` error, and the `OF_OMIT_DTB` fix in `scripts/Makefile.ulib-example` is still there.
+- **Warnings:** buildman exited 101 because two boards warn. `qemu_arm64_spl` has the dtc phandle warnings already noted on this MR, and `qemu-riscv64_spl` reports the external `opensbi` blob missing here.
+- **Not run:** a world build or `test.py`; CI will cover those once pickman pushes the branch.
+
+The `.pickman-history` record commit `a2dc577f3e73` exists only on `cherry-b9cd57c5cefa-fix1`, so it isn't in this rebase. It changes no code, but that entry won't be in `.pickman-history` unless pickman adds it again.
+
+## Suggested MR reply
+
+> Rebased onto ci/master (65db72cb845e). The only conflict was in `.pickman-history`, where both sides added an entry, and I kept both. The 6 cherry-picked commits are unchanged, including the `OF_OMIT_DTB` fix for the ulib demos. Sandbox builds at every commit, and `qemu_arm64`, `qemu_arm64_lwip`, `qemu_arm64_acpi` and `qemu-riscv64` build without the `unset.dtb` error.
+
+---
+
