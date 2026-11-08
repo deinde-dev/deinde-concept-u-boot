@@ -437,10 +437,13 @@ During each step, after processing review comments, pickman checks active MRs
 for failed pipelines. For each failed pipeline:
 
 1. Pickman fetches the failed job logs from GitLab
-2. Pickman leaves out jobs which also fail in the newest pipelines of at least
-   two other MRs from the last two days, e.g. because a lab board is broken,
-   since the series cannot be the cause. If no other failures remain, it says
-   so on the MR and stops there
+2. Pickman leaves out jobs where test/py gives up on the lab board ('Lab
+   failure' or 'Lab timeout' in the log), and jobs which also fail in the
+   newest pipelines of at least two other MRs from the last two days, e.g.
+   because a lab board is broken, since the series cannot be the cause. It
+   lists them on the MR, with the reason test/py gives for each lab failure,
+   so that someone can look into the lab. It does not retry them. If no other
+   failures remain, it stops there
 3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
 4. The fix is pushed to the MR branch, triggering a new pipeline. If the fix
@@ -448,9 +451,11 @@ for failed pipelines. For each failed pipeline:
    `CI Pipelines`_)
 5. The attempt is recorded in the database to avoid reprocessing
 
-If the MR's branch is behind its target or has conflicts, pickman rebases it
-and pushes it instead, since the failure may come from the old base, then
-looks at the new pipeline in turn. Both sides add entries at the end of
+If any failures remain after step 2 and the MR's branch is behind its target
+or has conflicts, pickman rebases it and pushes it instead, since the failure
+may come from the old base, then looks at the new pipeline in turn. Failures
+left out in step 2 are not a reason to rebase, since the series is not their
+cause. Both sides add entries at the end of
 ``.pickman-history``, so the rebase keeps the entries from both. If the rebase
 stops on a conflict elsewhere, pickman aborts it and says on the MR which files
 conflict, leaving the branch to be updated by hand.
@@ -726,7 +731,11 @@ comments, so they are ignored. The agent will:
 - Use ``--keep-empty`` when rebasing to preserve empty merge commits
 
 The agent also rebases an MR which has merge conflicts, even if there are no
-comments. An MR which is only behind its target is rebased only while the agent
+comments. If the only conflict is in ``.pickman-history``, as happens when
+another pickman MR is merged, since GitLab cannot tell that both sides only
+add entries, pickman rebases the MR itself, keeping the entries from both, and
+says so on the MR. It waits for any running pipeline to finish first, so that
+the pipeline's results are not lost. An MR which is only behind its target is rebased only while the agent
 is addressing comments: each rebase needs a full pipeline, so rebasing every
 open MR whenever the target moves would use a lot of CI time for little gain.
 Such an MR can be rebased when it is merged.

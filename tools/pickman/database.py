@@ -539,8 +539,8 @@ class Database:  # pylint: disable=too-many-public-methods
         """Count fix attempts for an MR
 
         A pipeline left alone because its failures also happen in other
-        merge requests, or because its branch cannot be rebased, is not an
-        attempt, so it does not count.
+        merge requests or come from the lab, or because its branch cannot be
+        rebased, is not an attempt, so it does not count.
 
         Args:
             mr_iid (int): Merge request IID
@@ -549,8 +549,8 @@ class Database:  # pylint: disable=too-many-public-methods
             int: Number of fix attempts
         """
         res = self.execute(
-            'SELECT COUNT(*) FROM pipeline_fix '
-            "WHERE mr_iid = ? AND status NOT IN ('shared', 'rebase_failed')",
+            'SELECT COUNT(*) FROM pipeline_fix WHERE mr_iid = ? '
+            "AND status NOT IN ('shared', 'lab', 'rebase_failed')",
             (mr_iid,))
         return res.fetchone()[0]
 

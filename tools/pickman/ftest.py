@@ -2789,6 +2789,8 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                 needs_rebase=needs_rebase,
             )]
             with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(control, 'history_only_conflict',
+                                   return_value=False), \
                  mock.patch.object(gitlab, 'get_mr_comments',
                                    return_value=list(comments)), \
                  mock.patch.object(agent, 'handle_mr_comments',
@@ -7181,14 +7183,21 @@ class TestBuildPipelineFixPrompt(unittest.TestCase):
             os.path.join(self.tmp_dir, 'mr-description.txt')))
 
 
-class TestProcessPipelineFailures(unittest.TestCase):
-    """Tests for process_pipeline_failures function."""
+class PipelineFailures(unittest.TestCase):
+    """Base class for tests of process_pipeline_failures()"""
 
     def setUp(self):
         """Set up test fixtures."""
         fd, self.db_path = tempfile.mkstemp(suffix='.db')
         os.close(fd)
         os.unlink(self.db_path)
+
+        # By default, one job fails and only in this MR; tests can override
+        for name, value in (('get_failed_jobs', self._failed('build')),
+                            ('get_shared_failures', {})):
+            patcher = mock.patch.object(gitlab, name, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -7210,6 +7219,18 @@ class TestProcessPipelineFailures(unittest.TestCase):
             pipeline_status=pipeline_status,
             pipeline_id=pipeline_id,
         )
+
+    @staticmethod
+    def _failed(*names):
+        """Build FailedJob tuples with the given names"""
+        return [gitlab.FailedJob(id=i, name=name, stage='test',
+                                 web_url=f'https://gitlab.com/job/{i}',
+                                 log_tail='error')
+                for i, name in enumerate(names)]
+
+
+class TestProcessPipelineFailures(PipelineFailures):
+    """Tests for process_pipeline_failures function."""
 
     def test_skips_running(self):
         """Test that running pipelines are skipped"""
@@ -7354,14 +7375,6 @@ class TestProcessPipelineFailures(unittest.TestCase):
             self.assertIn('build', reply_msg)
             dbs.close()
 
-    @staticmethod
-    def _failed(*names):
-        """Build FailedJob tuples with the given names"""
-        return [gitlab.FailedJob(id=i, name=name, stage='test',
-                                 web_url=f'https://gitlab.com/job/{i}',
-                                 log_tail='error')
-                for i, name in enumerate(names)]
-
     def _fix(self, push_error=None):
         """Process a failed pipeline for which the agent finds nothing to do
 
@@ -7370,8 +7383,10 @@ class TestProcessPipelineFailures(unittest.TestCase):
 
         Returns:
             tuple: (result, calls, Mock, Mock), where calls lists the git
-                commands with 'agent' where the agent runs, and the mocks
-                are for replies to the MR and for the history update
+                commands with 'agent', 'history' and 'push' where the agent
+                runs, the history is updated and the branch is pushed, and
+                the mocks are for replies to the MR and for the history
+                update
         """
         calls = []
 
@@ -7382,6 +7397,14 @@ class TestProcessPipelineFailures(unittest.TestCase):
         def fix_pipeline(*_args, **_kwargs):
             calls.append('agent')
             return True, 'Nothing to change'
+
+        def history(*_args):
+            calls.append('history')
+
+        def push(*_args, **_kwargs):
+            calls.append('push')
+            if push_error:
+                raise push_error
 
         with terminal.capture():
             dbs = database.Database(self.db_path)
@@ -7396,17 +7419,18 @@ class TestProcessPipelineFailures(unittest.TestCase):
                  mock.patch.object(agent, 'fix_pipeline',
                                    side_effect=fix_pipeline), \
                  mock.patch.object(gitlab, 'push_branch',
-                                   side_effect=push_error), \
+                                   side_effect=push) as push_mock, \
                  mock.patch.object(gitlab, 'update_mr_desc'), \
                  mock.patch.object(gitlab, 'reply_to_mr') as reply, \
                  mock.patch.object(control, '_abort_in_progress'), \
-                 mock.patch.object(control,
-                                   'update_history_pipeline_fix') as history:
+                 mock.patch.object(control, 'update_history_pipeline_fix',
+                                   side_effect=history) as history_mock:
                 result = control.process_pipeline_failures(
                     'ci', [self._make_mr()], dbs, 'master', 3)
             self.assertTrue(dbs.pfix_has(1, 100))
             dbs.close()
-        return result, calls, reply, history
+        push_mock.assert_called_once()
+        return result, calls, reply, history_mock
 
     def test_fix_checks_out_branch(self):
         """Test that the branch is checked out before the agent runs"""
@@ -7418,84 +7442,18 @@ class TestProcessPipelineFailures(unittest.TestCase):
                         calls.index('agent'))
         history.assert_called_once()
 
+        # The push must take the history entry with it
+        self.assertLess(calls.index('history'), calls.index('push'))
+
     def test_fix_push_fails(self):
         """Test that a fix which cannot be pushed does not stop pickman"""
         result, _, reply, history = self._fix(command.CommandExc(
             "Error running 'git push https://token@host'", None))
         self.assertEqual(1, result)
-        history.assert_not_called()
+        history.assert_called_once()
         reply.assert_called_once_with(
             'ci', 1, 'Cannot push the fix from attempt 1 to the branch. '
             "Please check the branch; pickman's log has the error.")
-
-    def test_shared_failures_left_alone(self):
-        """Test that failures shared with other MRs get no fix attempt"""
-        with terminal.capture():
-            dbs = database.Database(self.db_path)
-            dbs.start()
-
-            mrs = [self._make_mr()]
-            with mock.patch.object(control, 'run_git'), \
-                 mock.patch.object(gitlab, 'get_failed_jobs',
-                                   return_value=self._failed('samus',
-                                                             'snow')), \
-                 mock.patch.object(gitlab, 'get_shared_failures',
-                                   return_value={'samus': [10, 11],
-                                                 'snow': [11, 12]}), \
-                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
-                 mock.patch.object(gitlab, 'push_branch') as mock_push, \
-                 mock.patch.object(gitlab, 'reply_to_mr',
-                                   return_value=True) as mock_reply:
-                result = control.process_pipeline_failures(
-                    'ci', mrs, dbs, 'master', 3)
-
-            self.assertEqual(result, 0)
-            mock_fix.assert_not_called()
-            mock_push.assert_not_called()
-            reply_msg = mock_reply.call_args[0][2]
-            self.assertIn('lab or infrastructure problem', reply_msg)
-            self.assertIn('- samus (!10, !11)', reply_msg)
-            self.assertIn('- snow (!11, !12)', reply_msg)
-
-            # Recorded, so not looked at again, but not an attempt
-            self.assertTrue(dbs.pfix_has(1, 100))
-            self.assertEqual(dbs.pfix_count(1), 0)
-            dbs.close()
-
-    def test_shared_failures_left_out(self):
-        """Test that only this MR's own failures go to the agent"""
-        with terminal.capture():
-            dbs = database.Database(self.db_path)
-            dbs.start()
-
-            mrs = [self._make_mr()]
-            with mock.patch.object(control, 'run_git'), \
-                 mock.patch.object(gitlab, 'get_failed_jobs',
-                                   return_value=self._failed('samus',
-                                                             'sandbox')), \
-                 mock.patch.object(gitlab, 'get_shared_failures',
-                                   return_value={'samus': [10, 11]}), \
-                 mock.patch.object(agent, 'fix_pipeline',
-                                   return_value=(False, 'No luck')) \
-                    as mock_fix, \
-                 mock.patch.object(gitlab, 'reply_to_mr',
-                                   return_value=True) as mock_reply, \
-                 mock.patch.object(control, '_abort_in_progress') as abort:
-                result = control.process_pipeline_failures(
-                    'ci', mrs, dbs, 'master', 3)
-
-            self.assertEqual(result, 1)
-
-            # Anything the agent leaves unfinished is abandoned, once after
-            # the failure and once before returning to the original branch
-            self.assertEqual(2, abort.call_count)
-            jobs = mock_fix.call_args[0][2]
-            self.assertEqual(['sandbox'], [job.name for job in jobs])
-            reply_msg = mock_reply.call_args[0][2]
-            self.assertIn('No luck', reply_msg)
-            self.assertIn('also fail in other merge requests:\n'
-                          '- samus (!10, !11)', reply_msg)
-            dbs.close()
 
     def test_skips_skipped_mr(self):
         """Test that MRs without pipeline_id are skipped"""
@@ -7688,6 +7646,233 @@ class TestProcessPipelineFailures(unittest.TestCase):
 
         mock_ppf.assert_not_called()
 
+
+class TestFailedJobSelection(PipelineFailures):
+    """Tests for which failed jobs pickman tries to fix"""
+
+    def test_shared_failures_left_alone(self):
+        """Test that failures shared with other MRs get no fix attempt"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr()]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=self._failed('samus',
+                                                             'snow')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'samus': [10, 11],
+                                                 'snow': [11, 12]}), \
+                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
+                 mock.patch.object(gitlab, 'push_branch') as mock_push, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            mock_fix.assert_not_called()
+            mock_push.assert_not_called()
+            reply_msg = mock_reply.call_args[0][2]
+            self.assertIn('lab or infrastructure problem', reply_msg)
+            self.assertIn('- samus (!10, !11)', reply_msg)
+            self.assertIn('- snow (!11, !12)', reply_msg)
+
+            # Recorded, so not looked at again, but not an attempt
+            self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(dbs.pfix_count(1), 0)
+            dbs.close()
+
+    def test_shared_failures_left_out(self):
+        """Test that only this MR's own failures go to the agent"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr()]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=self._failed('samus',
+                                                             'sandbox')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'samus': [10, 11]}), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No luck')) \
+                    as mock_fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr',
+                                   return_value=True) as mock_reply, \
+                 mock.patch.object(control, '_abort_in_progress') as abort:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 1)
+
+            # Anything the agent leaves unfinished is abandoned, once after
+            # the failure and once before returning to the original branch
+            self.assertEqual(2, abort.call_count)
+            jobs = mock_fix.call_args[0][2]
+            self.assertEqual(['sandbox'], [job.name for job in jobs])
+            reply_msg = mock_reply.call_args[0][2]
+            self.assertIn('No luck', reply_msg)
+            self.assertIn('also fail in other merge requests:\n'
+                          '- samus (!10, !11)', reply_msg)
+            dbs.close()
+
+    def test_shared_failures_not_rebased(self):
+        """Test that failures shared with other MRs do not cause a rebase"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr(needs_rebase=True)]
+            with mock.patch.object(control, 'run_git') as git, \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={'build': [10, 11]}), \
+                 mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            push.assert_not_called()
+            self.assertNotIn(mock.call(['rebase', 'ci/master']),
+                             git.call_args_list)
+            self.assertIn('lab or infrastructure problem',
+                          reply.call_args[0][2])
+            self.assertTrue(dbs.pfix_has(1, 100))
+            dbs.close()
+
+    def test_no_failed_jobs(self):
+        """Test a failed pipeline whose failed jobs cannot be found"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr(needs_rebase=True)]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=None), \
+                 mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(agent, 'fix_pipeline') as fix:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            push.assert_not_called()
+            fix.assert_not_called()
+            self.assertTrue(dbs.pfix_has(1, 100))
+            dbs.close()
+    def _lab_job(self, name='samus', job_id=7):
+        """Build a FailedJob for a board which test/py gives up on"""
+        return gitlab.FailedJob(
+            id=job_id, name=name, stage='test',
+            web_url=f'https://gitlab.com/job/{job_id}', log_tail=LAB_LOG)
+
+    def test_lab_failures_reported(self):
+        """Test that lab failures are reported, not rebased or fixed"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr(needs_rebase=True)]
+            with mock.patch.object(control, 'run_git') as git, \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=[self._lab_job()]), \
+                 mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(agent, 'fix_pipeline') as fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            push.assert_not_called()
+            fix.assert_not_called()
+            self.assertNotIn(mock.call(['rebase', 'ci/master']),
+                             git.call_args_list)
+            msg = reply.call_args[0][2]
+            self.assertIn('Pipeline 100: no failed job looks to be caused by '
+                          'this series', msg)
+            self.assertIn(
+                '- [samus](https://gitlab.com/job/7): Lab failure: Marking '
+                'connection bad - no other tests will run\n'
+                '  - pexpect.exceptions.TIMEOUT: Timeout of 25 seconds '
+                'exceeded during waiting for login', msg)
+
+            # Recorded, so reported only once, but not an attempt
+            self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(0, dbs.pfix_count(1))
+            dbs.close()
+
+    def test_lab_failures_left_out(self):
+        """Test that lab failures are left out of a fix attempt"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            mrs = [self._make_mr()]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(
+                     gitlab, 'get_failed_jobs',
+                     return_value=[self._lab_job()] +
+                     self._failed('sandbox')), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={}) as shared, \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No luck')) as fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply, \
+                 mock.patch.object(control, '_abort_in_progress'):
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 1)
+            shared.assert_called_once_with('ci', 1, ['sandbox'])
+            jobs = fix.call_args[0][2]
+            self.assertEqual(['sandbox'], [job.name for job in jobs])
+            msg = reply.call_args[0][2]
+            self.assertIn('No luck', msg)
+            self.assertIn('test/py gave up on the lab board', msg)
+            self.assertIn('- [samus](https://gitlab.com/job/7): Lab failure',
+                          msg)
+            self.assertEqual(1, dbs.pfix_count(1))
+            dbs.close()
+
+
+# The end of the log of a job where test/py gives up on the board
+LAB_LOG = '''2026-11-08T15:38:08.652294Z 01O No U-Boot prompt; resetting
+2026-11-08T15:38:09.136092Z 01O pexpect.exceptions.TIMEOUT: Timeout of 25 \
+seconds exceeded during waiting for login
+2026-11-08T15:38:09.136097Z 01O Lab failure: Marking connection bad - no \
+other tests will run
+2026-11-08T15:38:09.136100Z 01O
+2026-11-08T15:38:09.136172Z 01O ! _pytest.outcomes.Exit: Lab failure: \
+Marking connection bad - no other tests will run !
+2026-11-08T15:38:09.200000Z 01O \x1b[32;1m$ u-boot-test-release\x1b[0;m
+'''
+
+
+class TestLabFailure(unittest.TestCase):
+    """Tests for lab_failure()"""
+
+    def test_found(self):
+        """Test finding the reason and the error behind it"""
+        self.assertEqual(
+            ('Lab failure: Marking connection bad - no other tests will run',
+             'pexpect.exceptions.TIMEOUT: Timeout of 25 seconds exceeded '
+             'during waiting for login'),
+            control.lab_failure(LAB_LOG))
+
+    def test_timeout(self):
+        """Test a lab timeout, with nothing before it"""
+        self.assertEqual(
+            ("Lab timeout: Timeout executing 'ut dm'", ''),
+            control.lab_failure("E   Lab timeout: Timeout executing 'ut dm'"))
+
+    def test_not_lab(self):
+        """Test a job which fails for some other reason"""
+        self.assertIsNone(control.lab_failure('FAILED test_ut.py - assert'))
+        self.assertIsNone(control.lab_failure(''))
+        self.assertIsNone(control.lab_failure(None))
 
 class TestStepFixRetries(unittest.TestCase):
     """Tests for --fix-retries argument parsing."""
@@ -11008,6 +11193,124 @@ class HistoryRepo(unittest.TestCase):
         """Read the history file in the work tree"""
         return tools.read_file(control.HISTORY_FILE, binary=False)
 
+
+class TestHistoryConflict(HistoryRepo):
+    """Tests for an MR which conflicts with master only in the history"""
+
+    def setUp(self):
+        """Set up remote branches for the MR and its target"""
+        super().setUp()
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/cherry', 'cherry')
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/master', 'master')
+        self.db_path = os.path.join(self.test_dir, 'pickman.db')
+
+    def tearDown(self):
+        """Close the database"""
+        database.Database.instances.clear()
+        super().tearDown()
+
+    def _review(self, pipeline_status='failed', push_error=None):
+        """Process the MR, as GitLab reports that it has conflicts
+
+        Args:
+            pipeline_status (str): Status of the MR's pipeline
+            push_error (Exception): Error for the push to raise, or None
+
+        Returns:
+            tuple: (result, Mock, Mock, Mock) for the result of
+                process_single_mr() and for the agent, for pushes and for
+                replies to the MR
+        """
+        merge_req = gitlab.PickmanMr(
+            iid=100, title='[pickman] Test MR', source_branch='cherry',
+            description='Test', web_url='https://gitlab.com/mr/100',
+            has_conflicts=True, needs_rebase=True,
+            pipeline_status=pipeline_status, pipeline_id=200)
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(gitlab, 'get_mr_comments',
+                                   return_value=[]), \
+                 mock.patch.object(agent, 'handle_mr_comments',
+                                   return_value=(False, 'No')) as m_agent, \
+                 mock.patch.object(gitlab, 'push_branch',
+                                   side_effect=push_error) as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                result = control.process_single_mr('ci', merge_req, dbs,
+                                                   'master')
+            dbs.close()
+        return result, m_agent, push, reply
+
+    def test_detect(self):
+        """Test telling a history conflict from a real one"""
+        self.assertTrue(control.history_only_conflict('master', 'cherry'))
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({'a.c': 'one\ntwo on master\n'}, 'Clash')
+        self.assertFalse(control.history_only_conflict('master', 'cherry'))
+
+    def test_rebased(self):
+        """Test that the branch is rebased and pushed without the agent"""
+        result, m_agent, push, reply = self._review()
+        self.assertEqual(1, result)
+        m_agent.assert_not_called()
+        self.assertEqual(['Record cherry', 'Change a.c', 'Record other',
+                          'Initial'], self._log('cherry'))
+        _git(self.repo, 'checkout', '-q', 'cherry')
+        self.assertEqual(self.first + self.other + self.cherry,
+                         self._history())
+        push.assert_called_once_with('ci', 'cherry', force=True,
+                                     skip_ci=False)
+        self.assertIn('the only conflict is in .pickman-history',
+                      reply.call_args[0][2])
+
+    def test_already_rebased(self):
+        """Test an MR which GitLab still flags after it is rebased"""
+        self._review()
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/cherry', 'cherry')
+        result, m_agent, push, reply = self._review()
+        self.assertEqual(0, result)
+        m_agent.assert_not_called()
+        push.assert_not_called()
+        reply.assert_not_called()
+
+    def test_waits_for_pipeline(self):
+        """Test that a running pipeline is left to finish first"""
+        result, m_agent, push, _ = self._review('running')
+        self.assertEqual(0, result)
+        m_agent.assert_not_called()
+        push.assert_not_called()
+        self.assertEqual(['Record cherry', 'Change a.c', 'Initial'],
+                         self._log('cherry'))
+
+    def test_rebased_push_fails(self):
+        """Test that a rebased branch which cannot be pushed is reported"""
+        result, m_agent, _, reply = self._review(
+            push_error=command.CommandExc('push', None))
+        self.assertEqual(1, result)
+        m_agent.assert_not_called()
+        reply.assert_called_once_with(
+            'ci', 100, 'Cannot push the rebased branch to the branch. Please '
+            "check the branch; pickman's log has the error.")
+
+    def test_cannot_rebase(self):
+        """Test falling back to the agent if the rebase fails after all"""
+        with mock.patch.object(control, 'rebase_onto',
+                               return_value=(False, [])):
+            result, m_agent, push, _ = self._review()
+        self.assertEqual(1, result)
+        m_agent.assert_called_once()
+        push.assert_not_called()
+
+    def test_real_conflict(self):
+        """Test that a conflict outside the history goes to the agent"""
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({'a.c': 'one\ntwo on master\n'}, 'Clash')
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/master', 'master')
+        _git(self.repo, 'checkout', '-q', 'cherry')
+        result, m_agent, push, _ = self._review()
+        self.assertEqual(1, result)
+        m_agent.assert_called_once()
+        push.assert_not_called()
 
 class TestRebaseOnto(HistoryRepo):
     """Tests for rebasing a branch which has its own history entry"""
