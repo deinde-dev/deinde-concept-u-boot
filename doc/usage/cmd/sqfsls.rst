@@ -119,6 +119,8 @@ See also
 * :doc:`sqfsload<sqfsload>` for reading one of the listed files into memory
 * :doc:`ext4ls<ext4ls>` for the same operation on an ext4 filesystem
 * :doc:`fatls<fatls>` for the same operation on a FAT filesystem
+* :doc:`erofsls<erofsls>` for the same operation on an EROFS filesystem,
+  which keeps . and .. entries
 * :doc:`cramfsls<cramfsls>` for listing another read-only compressed
   filesystem, held in memory rather than on a block device
 * :doc:`ls<ls>` for listing a directory on any supported filesystem

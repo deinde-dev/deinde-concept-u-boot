@@ -60,6 +60,7 @@ See also
 * :doc:`ext4ls<ext4ls>` for that under its ext4 name
 * :doc:`fatls<fatls>` for listing a FAT filesystem without mounting it
 * :doc:`sqfsls<sqfsls>` for listing a SquashFS filesystem without mounting it
+* :doc:`erofsls<erofsls>` for listing an EROFS filesystem without mounting it
 * :doc:`cramfsls<cramfsls>` for listing a CRAMFS image held in memory,
   which has no block device to mount
 * :doc:`fstypes<fstypes>` for the filesystem types this command can read

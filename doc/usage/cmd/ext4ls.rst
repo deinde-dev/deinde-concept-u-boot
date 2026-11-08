@@ -115,4 +115,5 @@ See also
 * :doc:`ext2ls<ext2ls>` for the same command under its ext2 name
 * :doc:`fatls<fatls>` for the same operation on a FAT filesystem
 * :doc:`sqfsls<sqfsls>` for the same operation on a SquashFS filesystem
+* :doc:`erofsls<erofsls>` for the same operation on an EROFS filesystem
 * :doc:`ls<ls>` for listing a directory on any supported filesystem

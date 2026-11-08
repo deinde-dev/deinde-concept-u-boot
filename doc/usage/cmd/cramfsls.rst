@@ -90,6 +90,8 @@ See also
   memory
 * :doc:`sqfsls<sqfsls>` for listing another read-only compressed filesystem,
   held on a block device rather than in memory
+* :doc:`erofsls<erofsls>` for listing an EROFS filesystem, which is also
+  read-only and compressed but held on a block device
 * :doc:`ls<ls>` for listing a directory on a filesystem held on a block
   device rather than in memory
 * :doc:`fsuuid<fsuuid>` for the UUID of such a filesystem, which CRAMFS
