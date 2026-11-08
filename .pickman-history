@@ -103937,3 +103937,49 @@ The `.pickman-history` record commit `a2dc577f3e73` exists only on `cherry-b9cd5
 
 ---
 
+## 2026-11-08: us/main
+
+Branch: cherry-fff6ccdc18e3
+
+Commits:
+- fff6ccdc18e3 imx93: clock: add 900MHz entry to fractional PLL rate table
+- b6f8cb429bb0 imx93: clock: add 450MHz DDR PLL rate
+- f2f010a31612 board: imx93_evk: add LPDDR4X 3600MTS timing tables
+- a580768b923f board: imx93w_evk: add board support for i.MX93W EVK
+- 3b27426a1fb6 configs: {aquila, verdin, toradex-smarc}-imx95: remove CONFIG_SPI
+- 9a068fee9bd1 imx: verdin-imx95: remove unused WDOG_BASE_ADDR
+- ff6a09a649ed toradex: {aquila, smarc, verdin}-imx95: add board_fix_fdt
+- cf521818fdaf net: fsl_enetc_xpcs_phy: Extract common PMA MMD init sequence into helper function
+- ffeb65b80963 net: fsl_enetc_xpcs_phy: Add SGMII 1G support for i.MX95 Ethernet PHY Wrapper
+- 2c46f9f03479 net: fsl_enetc: Add 1G SGMII mode support for i.MX95
+- ad7e0c16b4ff Revert "ARM: dts: tqma6: add boot phase properties"
+- 1b14be3a5fa2 Revert "ARM: dts: tqma6ul: add boot phase properties"
+- 2230a622cac3 Revert "arch: arm: dts: tqma7x: add boot phase properties"
+- d97390107f52 imx: imx8mm_evk: Indent the config with tabs
+- d4152edb5035 Merge tag 'u-boot-imx-next-20260906' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx into next
+
+### Conversation log
+The picks are running in the background, one commit at a time. The script stops at any conflict, split-check change or build failure, and I'll pick up from there when it exits.
+
+Monitor isn't needed here, since the background job notifies me when it exits. I'll check progress once in the meantime.
+
+The first pick applied cleanly: split-check changed nothing and the files match the original. Its sandbox build is still running, and I'll carry on when the background job reports that it has finished or stopped.
+
+All 15 commits are on `cherry-fff6ccdc18e3`, 15 ahead of `ci/master`, and the branch is ready for pushing. I haven't pushed or merged it.
+
+**Build:** the final sandbox build passed with no warnings or errors, as did the build after each of the 14 regular commits. Sandbox doesn't compile the i.MX93/i.MX95 board code or the TQ device trees, and I didn't build those boards, so this series' changes there are untested.
+
+**Fix-ups:** none were needed, and there were no conflicts.
+- `pickman split-check -f` changed nothing on any commit, so no commit was amended and no notes were added.
+- A final `split-check` over the whole range also came back clean.
+
+**Deltas:** none are concerning. Each of the 14 regular commits has the same changed lines as its original, and each has its `cherry picked from` line.
+
+**Merge commit `d4152edb5035` (now `bcd5e95ea2de`):**
+- It is an empty commit, which is expected. The merge's diff (5121 insertions, 292 deletions) is exactly the sum of the 14 commits before it.
+- `git cherry-pick -m 1 --allow-empty` stopped because that flag only keeps commits that were already empty. I finished it with `git commit --allow-empty --no-edit`, which kept the original message and the `cherry picked from` line.
+
+**Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there before I started, and I left them alone.
+
+---
+
