@@ -103828,3 +103828,67 @@ I rebased `cherry-97626d3f0ae6` onto ci/master (2543b24925eb), and the sandbox b
 
 ---
 
+## 2026-11-08: us/main
+
+Branch: cherry-b9cd57c5cefa
+
+Commits:
+- b9cd57c5cefa dts: Correct behavior of OF_OMIT_DTB
+- ad14691f3e50 dts: Make DEFAULT_DEVICE_TREE depend on !OF_OMIT_DTB
+- 68e65953400f dts: Correct entry for OF_OMIT_DTB
+- 9012579179f7 powerpc: drop qemu-ppce500 dts
+- 99df7f471551 arm: Drop unused dts files
+- 75df64103873 Merge patch series "Fix logic of OF_OMIT_DTB and remove useless dts files"
+
+### Conversation log
+The tree is clean apart from two untracked directories that have nothing to do with this work, so I'll create the branch and pick the first commit.
+
+The delta matches the original and split-check changed nothing. Next is the build test.
+
+The conflict is the same, and it resolves the same way: everything in this merge is already applied, so the commit ends up empty as expected.
+
+`-w` only accepts a single board, so I'll build the affected boards without it, into their own output directory. That's the check that shows whether deleting these files breaks anything.
+
+All 6 commits are on `cherry-b9cd57c5cefa` and sandbox builds cleanly, but **don't push it yet: the series breaks four QEMU boards that sandbox doesn't cover.**
+
+## Regression
+`qemu_arm64`, `qemu_arm64_acpi`, `qemu_arm64_lwip` and `qemu-riscv64` now fail to build, with this error:
+
+```
+Device Tree Source (arch/arm/dts/unset.dtb) is not correctly specified.
+make[1]: *** [Makefile:1500: dts/dt.dtb] Error 2
+```
+
+- **Cause:** all four build on `ci/master` and after `7497be493f90`, and fail from `d110f5ddd1e3` ("Make DEFAULT_DEVICE_TREE depend on !OF_OMIT_DTB"). That commit leaves these boards with no device tree name, but something in the build still asks for `dts/dt.dtb`.
+- **Not found yet:** I couldn't identify which make target requests it; my trace came back empty. `qemu_arm64` and `qemu_arm64_lwip` are CI test boards, so CI would fail.
+- **Fix:** I didn't add one, as it's a design choice beyond the cherry-pick. Either that target stops requiring the dtb when `OF_OMIT_DTB` is set, or these boards keep a device tree name.
+
+## Commits
+
+| Commit | Subject | Delta against original |
+|---|---|---|
+| `7497be493f90` | dts: Correct behavior of OF_OMIT_DTB | same |
+| `d110f5ddd1e3` | dts: Make DEFAULT_DEVICE_TREE depend on !OF_OMIT_DTB | same |
+| `2af169fba1c3` | dts: Correct entry for OF_OMIT_DTB | same |
+| `7a981543c57d` | powerpc: drop qemu-ppce500 dts | same |
+| `d32ec6af96b4` | arm: Drop unused dts files | 39 files, -4541 (original 40 files, +1/-4553) |
+| `1fe39dd44e2a` | Merge patch series (empty, as expected) | none |
+
+`split-check` changed nothing on any commit.
+
+## Fix-ups
+`arm: Drop unused dts files` and the merge commit both conflicted on `arch/arm/dts/qemu-arm.dts` and `arch/arm/dts/Makefile`. In both I kept the file and the `dtb-$(CONFIG_ARCH_QEMU_ARM) += qemu-arm.dtb qemu-arm64.dtb` line:
+- **`qemu-arm.dts`:** upstream's was an empty stub, but here it's a full device tree that `qemu_arm_spl` builds from.
+- **Makefile line:** upstream's replacement, `TARGET_QEMU_ARM_64BIT`, would drop the `qemu-arm.dtb` that `qemu_arm_spl` needs.
+
+Both commits have a one-line note about this, plus a `Co-developed-by` tag since I edited them.
+
+## Build results
+- **Sandbox:** passed after every commit and at the end, with no warnings.
+- **Wider check (my addition):** I built the 27 boards that use the deleted files plus the 21 `qemu*` boards. Apart from the four failures, they all build.
+- **Warnings:** `qemu_arm_spl` and `qemu_arm64_spl` show dtc phandle warnings, the same kind `qemu_arm64` already shows on `ci/master`. `rpi_4_acpi` shows its existing ACPI compiler messages.
+- **Not checked:** `qemu-xtensa-dc233c` has no toolchain here, and I didn't run a full build of every board, so other boards could be affected.
+- **`vexpress_fvp_bloblist`:** it still names the deleted `arm_fvp` device tree but builds fine, because it doesn't use that file. Upstream has the same leftover.
+
+---
+
