@@ -97,9 +97,10 @@ endef
 $(foreach e,$(ULIB_EXAMPLES),$(eval $(call example_nodtb_rule,$(e))))
 
 ifeq ($(EXAMPLE_APPEND_DTB),y)
-# Binary with DTB appended
+# Binary with DTB appended, unless a prior stage provides the DTB
 define example_bin_rule
-examples/ulib/$(1).bin: examples/ulib/$(1)-nodtb.bin dts/dt.dtb FORCE
+examples/ulib/$(1).bin: examples/ulib/$(1)-nodtb.bin \
+		$(if $(CONFIG_OF_OMIT_DTB),,dts/dt.dtb) FORCE
 	$$(call if_changed,cat)
 endef
 
