@@ -34,7 +34,7 @@ static struct disk_partition *partition = &partition_data;
 static int bcb_not_loaded(void)
 {
 	printf("Error: Please, load BCB first!\n");
-	return -1;
+	return CMD_RET_FAILURE;
 }
 
 static int bcb_field_get(const char *name, char **fieldp, int *sizep)
