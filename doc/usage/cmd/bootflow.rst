@@ -795,6 +795,8 @@ See also
 * :doc:`boot` - Boot using *bootcmd*, which normally starts this scan
 * :doc:`bootdev` - Boot device documentation
 * :doc:`bootctl` - Boot control, which offers these bootflows in a menu
+* :doc:`abootimg` - Android boot image contents, which the android bootmeth
+  reads for itself
 * :doc:`/develop/bootstd/index` - Standard boot documentation
 
 

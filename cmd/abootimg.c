@@ -7,6 +7,7 @@
 #include <android_image.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <image.h>
 #include <mapmem.h>
 
@@ -53,8 +54,7 @@ static int abootimg_get_ver(int argc, char *const argv[])
 
 	hdr = map_sysmem(abootimg_addr(), sizeof(*hdr));
 	if (!is_android_boot_image_header(hdr)) {
-		printf("Error: Boot Image header is incorrect\n");
-		res = CMD_RET_FAILURE;
+		res = cmd_fail(0, "Error: Boot Image header is incorrect\n");
 		goto exit;
 	}
 
@@ -105,15 +105,12 @@ static int abootimg_get_dtb_load_addr(int argc, char *const argv[])
 				    vendor_boot_hdr, &img_data))
 		return CMD_RET_FAILURE;
 
-	if (img_data.header_version < 2) {
-		printf("Error: header_version must be >= 2 for this\n");
-		return CMD_RET_FAILURE;
-	}
+	if (img_data.header_version < 2)
+		return cmd_fail(0,
+				"Error: header_version must be >= 2 for this\n");
 
-	if (!img_data.dtb_load_addr) {
-		printf("Error: failed to read dtb_load_addr\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!img_data.dtb_load_addr)
+		return cmd_fail(0, "Error: failed to read dtb_load_addr\n");
 
 	if (argc == 0)
 		printf("%lx\n", (ulong)img_data.dtb_load_addr);
@@ -135,16 +132,12 @@ static int abootimg_get_dtb_by_index(int argc, char *const argv[])
 		return CMD_RET_USAGE;
 
 	index_str = argv[0] + strlen("--index=");
-	if (index_str[0] == '\0') {
-		printf("Error: Wrong index num\n");
-		return CMD_RET_FAILURE;
-	}
+	if (index_str[0] == '\0')
+		return cmd_fail(0, "Error: Wrong index num\n");
 
 	num = simple_strtoul(index_str, &endp, 0);
-	if (*endp != '\0') {
-		printf("Error: Wrong index num\n");
-		return CMD_RET_FAILURE;
-	}
+	if (*endp != '\0')
+		return cmd_fail(0, "Error: Wrong index num\n");
 
 	if (!android_image_get_dtb_by_index(abootimg_addr(),
 					    get_avendor_bootimg_addr(), num,
@@ -155,16 +148,13 @@ static int abootimg_get_dtb_by_index(int argc, char *const argv[])
 	if (argc == 1) {
 		printf("%lx\n", addr);
 	} else {
-		if (env_set_hex(argv[1], addr)) {
-			printf("Error: Can't set [addr_var]\n");
-			return CMD_RET_FAILURE;
-		}
+		if (env_set_hex(argv[1], addr))
+			return cmd_fail(0, "Error: Can't set [addr_var]\n");
 
 		if (argc == 3) {
-			if (env_set_hex(argv[2], size)) {
-				printf("Error: Can't set [size_var]\n");
-				return CMD_RET_FAILURE;
-			}
+			if (env_set_hex(argv[2], size))
+				return cmd_fail(0,
+						"Error: Can't set [size_var]\n");
 		}
 	}
 
@@ -182,9 +172,10 @@ static int abootimg_get_dtb(int argc, char *const argv[])
 	return CMD_RET_USAGE;
 }
 
-static int do_abootimg_addr(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_abootimg_addr(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	char *endp;
 	ulong img_addr;
 
@@ -192,29 +183,25 @@ static int do_abootimg_addr(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	img_addr = hextoul(argv[1], &endp);
-	if (*endp != '\0') {
-		printf("Error: Wrong image address\n");
-		return CMD_RET_FAILURE;
-	}
+	if (*endp != '\0')
+		return cmd_fail(0, "Error: Wrong image address\n");
 
 	_abootimg_addr = img_addr;
 
 	if (argc > 2) {
 		img_addr = simple_strtoul(argv[2], &endp, 16);
-		if (*endp != '\0') {
-			printf("Error: Wrong vendor_boot image address\n");
-			return CMD_RET_FAILURE;
-		}
+		if (*endp != '\0')
+			return cmd_fail(0,
+					"Error: Wrong vendor_boot image address\n");
 
 		_avendor_bootimg_addr = img_addr;
 	}
 
 	if (argc == 4) {
 		img_addr = simple_strtoul(argv[3], &endp, 16);
-		if (*endp != '\0') {
-			printf("Error: Wrong init_boot image address\n");
-			return CMD_RET_FAILURE;
-		}
+		if (*endp != '\0')
+			return cmd_fail(0,
+					"Error: Wrong init_boot image address\n");
 
 		_ainit_bootimg_addr = img_addr;
 	}
@@ -249,9 +236,10 @@ static int abootimg_get_ramdisk(int argc, char *const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-static int do_abootimg_get(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_abootimg_get(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *param;
 
 	if (argc < 2)
@@ -274,9 +262,11 @@ static int do_abootimg_get(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_USAGE;
 }
 
-static int do_abootimg_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_abootimg_dump(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+
 	if (argc != 2)
 		return CMD_RET_USAGE;
 
@@ -291,32 +281,18 @@ static int do_abootimg_dump(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 static struct cmd_tbl cmd_abootimg_sub[] = {
-	U_BOOT_CMD_MKENT(addr, 4, 1, do_abootimg_addr, "", ""),
-	U_BOOT_CMD_MKENT(dump, 2, 1, do_abootimg_dump, "", ""),
-	U_BOOT_CMD_MKENT(get, 5, 1, do_abootimg_get, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(addr, 4, 1, do_abootimg_addr, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 2, 1, do_abootimg_dump, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(get, 5, 1, do_abootimg_get, "", ""),
 };
 
-static int do_abootimg(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_abootimg(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	cp = find_cmd_tbl(argv[1], cmd_abootimg_sub,
-			  ARRAY_SIZE(cmd_abootimg_sub));
-
-	/* Strip off leading 'abootimg' command argument */
-	argc--;
-	argv++;
-
-	if (!cp || argc > cp->maxargs)
-		return CMD_RET_USAGE;
-	if (flag == CMD_FLAG_REPEAT && !cmd_is_repeatable(cp))
-		return CMD_RET_SUCCESS;
-
-	return cmd_invoke(cp, flag, argc, argv);
+	return cmd_dispatch_subcmd(gs, cmd_abootimg_sub,
+				   ARRAY_SIZE(cmd_abootimg_sub));
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	abootimg, CONFIG_SYS_MAXARGS, 0, do_abootimg,
 	"manipulate Android Boot Image",
 	"addr <boot_img_addr> [<vendor_boot_img_addr> [<init_boot_img_addr>]]\n"
