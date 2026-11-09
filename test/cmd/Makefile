@@ -36,6 +36,7 @@ obj-$(CONFIG_CMD_BACKTRACE) += backtrace.o
 obj-$(CONFIG_CMD_BDI) += bdinfo.o
 ifdef CONFIG_CONSOLE_RECORD
 ifdef CONFIG_BLKMAP
+obj-$(CONFIG_CMD_BCB) += bcb.o
 obj-$(CONFIG_CMD_BLOCK_CACHE) += blkcache.o
 endif
 obj-$(CONFIG_CMD_BMP) += bmp.o
