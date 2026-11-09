@@ -104110,3 +104110,55 @@ The runner uses the `ellesmere/gitlab-runner` identity, but the `jerry` place wa
 
 ---
 
+## 2026-11-08: us/main
+
+Branch: cherry-035d68fc36b5
+
+Commits:
+- 035d68fc36b5 lx2160: add lx2160_serdes split and management
+- 3a92a5ddcaad power: regulator: require SCMI firmware for SCMI regulators
+- a00b044079e9 board: nxp: add Nodebox v3 CPU Module (LX2160A)
+- f5f5565258e4 doc: board: nxp: add the Nodebox v3 CPU Module
+- 3b9e58de3ffa board: nbxv3: add MPQ8785 PMBus core-rail readback
+- 3c244e09e29f board: nbxv3: add boot-time PMBus PSU traces
+- 6cf05a3f5f99 board: nbxv3: add VID-fuse driven core voltage
+- 9f18a66ffbe7 board: nbxv3: select carrier at boot
+- 8fc78d660afe board: nbxv3: add DPLL status (ZL30733, ZL30643)
+- 90e4eaa6bf09 board: nbxv3: enable +3V3_FAN rail fixed regulator
+- 805bd8eb1ccc Merge tag 'fsl-qoriq-next-2026-09-14' of https://git.u-boot-project.org/u-boot/custodians/u-boot-fsl-qoriq into next
+
+### Conversation log
+The working tree only has untracked files, which won't interfere, so I'll create the branch and start with the first pick.
+
+That pick is clean. The next ones go through the same steps, one commit at a time, and the loop stops on a conflict, a split-check change or a build failure.
+
+The build passes and all 11 commits are there. The comparison with the source tree does show two files that differ, so I'll check whether the series touched them or they already differed.
+
+All 11 commits are cherry-picked onto `cherry-035d68fc36b5`, based on `ci/master`, and the final sandbox build passes with no warnings or errors. The branch is ready for pushing; I haven't pushed or merged it.
+
+| Original | Picked | Subject |
+|---|---|---|
+| 035d68fc36b5 | 5a58d2a52dd9 | lx2160: add lx2160_serdes split and management |
+| 3a92a5ddcaad | d7be24e50c1b | power: regulator: require SCMI firmware for SCMI regulators |
+| a00b044079e9 | 2c756fcd6519 | board: nxp: add Nodebox v3 CPU Module (LX2160A) |
+| f5f5565258e4 | dc5a218d60e9 | doc: board: nxp: add the Nodebox v3 CPU Module |
+| 3b9e58de3ffa | a75c5d72a71b | board: nbxv3: add MPQ8785 PMBus core-rail readback |
+| 3c244e09e29f | fb3b5ed08f36 | board: nbxv3: add boot-time PMBus PSU traces |
+| 6cf05a3f5f99 | e3ad0db104c3 | board: nbxv3: add VID-fuse driven core voltage |
+| 9f18a66ffbe7 | 066808e05cd9 | board: nbxv3: select carrier at boot |
+| 8fc78d660afe | 9a65dcb7be30 | board: nbxv3: add DPLL status (ZL30733, ZL30643) |
+| 90e4eaa6bf09 | e88b64306649 | board: nbxv3: enable +3V3_FAN rail fixed regulator |
+| 805bd8eb1ccc | 52e3d902d8e6 | Merge tag 'fsl-qoriq-next-2026-09-14' (empty) |
+
+- **Builds:** sandbox also built cleanly after each of the ten regular commits.
+- **Fix-ups:** none were needed. There were no conflicts and `pickman split-check` changed nothing on any commit.
+- **Deltas:** none are concerning. All ten regular commits have the same patch ID as their originals.
+- **Merge commit:** it is empty because the series is based on the merge's first parent. `git cherry-pick --allow-empty` still stopped on it as redundant, so I finished it with `git commit --allow-empty --no-edit`. Tom Rini's authorship and the `(cherry picked from ...)` line are kept.
+
+**Worth knowing:**
+- **Not compile-tested:** the sandbox build doesn't compile the LX2160A or Nodebox v3 board code, which is most of this series. Only the shared Kconfig and DTS Makefile changes get any exposure, so a CI build for the ARM board is the real check.
+- **Files that differ from `us/main`:** `arch/arm/Kconfig`, `arch/arm/dts/Makefile` and `drivers/power/regulator/Kconfig` still differ from the source tree. `ci/master` already differed in all three before these picks, and the series' own changes match the originals.
+- **Starting state:** the repo had untracked `tools/binman/home/` and `tools/binman/usr/` directories. They didn't get in the way and I left them alone.
+
+---
+
