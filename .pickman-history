@@ -104578,3 +104578,51 @@ All 29 commits are on `cherry-71f3bd694b3e`, based on `ci/master` and ready for 
 
 ---
 
+### Pipeline fix: 2026-11-09 (attempt 1)
+
+Branch: cherry-71f3bd694b3e
+
+Failed jobs:
+- sandbox test.py (test.py)
+- sandbox with clang test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- sandbox64_lwip test.py (test.py)
+- sandbox64 test.py (test.py)
+- efi-x86_64-uboot-iso (sjg-lab)
+- Check make qcheck (test.py)
+
+### Conversation log
+The scsiboot failure points at the 'disk: update partition type reporting' commit, so I'll check that and the other job failures.
+
+The CI API is readable without authentication, so I can compare the ISO job across recent pipelines. The qcheck log also has two FAILED lines, so I'll check whether the second is a different test.
+
+The scsiboot failure is fixed on local branch `cherry-71f3bd694b3e-fix1`, which is not pushed. That accounts for 7 of the 8 failed jobs; the eighth, the ISO job, looks intermittent, so I made no change for it.
+
+## Scsiboot failure (7 jobs)
+This hit all six sandbox `test.py` jobs and `make qcheck`.
+
+- **Responsible commit:** `0062a4e9588d` "disk: update partition type reporting" (cherry-pick of `11cde642ee83`).
+- **Root cause:** the commit changes the whole-disk partition type from `U-Boot` to `unknown`. It updates `test/dm/scsi.c`, but `test/cmd/scsiboot.c` exists only on this tree and still expected `Type: U-Boot`, so `scsiboot_base` failed.
+- **Fix:** I amended that commit to expect `Type: unknown` in `test/cmd/scsiboot.c`, and added a `[pickman]` note to its message. That one line is the only difference from the original branch, and all 30 commits are still there.
+
+## ISO job `efi-x86_64-uboot-iso` (no change)
+- **What failed:** the kernel reported `Initramfs unpacking failed: invalid magic`, and `Started gdm.service` never appeared within the 120-second limit.
+- **Why it isn't a code regression:** the same commit, `c3f73301a36b`, passed this job in pipeline 11233 (job 752620) with the same initrd size. Nothing in the series touches the file-read or initrd path, and the job's other recent runs passed.
+- **What's still unknown:** I couldn't find out why the initrd was bad in this one run. Re-running the job should confirm it's intermittent.
+
+## Verification
+- **Sandbox build:** `um build sandbox` is clean.
+- **Tests:** all four scsiboot tests pass once `test_ut_dm_init` has created `scsi.img`. I only ran those, not the full `test.py` suite. `test_ut_dm_init_bootstd` failed locally because it needs `sudo`, which is unrelated to this fix.
+- **Board builds:** all 10 boards built with no errors. The only warnings are device-tree `ranges_format` ones from `sandbox.dtsi`, which this series doesn't touch.
+
+## Differences from your steps
+- The buildman list you gave matched no boards because it was built from job names, so I named the boards directly: `sandbox sandbox64 sandbox64_lwip sandbox_flattree efi-x86_app64`.
+- `/tmp/pickman` has a stale AArch64 `examples/ulib/demo.o` that breaks the sandbox link, so I built in `/tmp/pickman-fix1-msxkrd4g` instead. That stale object will probably break the next sandbox build there too.
+- I created `-fix1` before rebasing, so `cherry-71f3bd694b3e` is unchanged.
+
+## Left for follow-up
+The sample output in `doc/usage/cmd/scsiboot.rst`, `usbboot.rst` and `diskboot.rst` still shows `Type: U-Boot`. I left those alone to keep this fix minimal.
+
+---
+
