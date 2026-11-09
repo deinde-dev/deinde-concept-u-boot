@@ -104455,3 +104455,64 @@ Should I add the `blk_desc_to_mtd()` fix? I left it out because you specified ex
 
 ---
 
+### Pipeline fix: 2026-11-09 (attempt 3)
+
+Branch: cherry-e8a7453824b7
+
+Failed jobs:
+- edison (sjg-lab)
+- tk1 (sjg-lab)
+- jetson-nano (sjg-lab)
+- bpif3 (sjg-lab)
+- pico (sjg-lab)
+- nanopi-m5 (sjg-lab)
+- colibrimx8 (sjg-lab)
+- nyan-big (sjg-lab)
+- Check make qcheck (test.py)
+
+### Conversation log
+The lab job shown is a labgrid place-acquisition error, so I'll check whether all eight failed the same way, then look at the qcheck failures in detail.
+
+**No fix is needed for MR !1565: none of the 9 failures come from this series, so I made no code changes.** I also didn't create `cherry-e8a7453824b7-fix3`, because you asked for infrastructure or transient failures to be reported without changes. `cherry-e8a7453824b7` is unchanged, and re-running these jobs should clear them once the lab is free.
+
+## Lab jobs (8): labgrid lock
+`edison`, `tk1`, `jetson-nano`, `bpif3`, `pico`, `nanopi-m5`, `colibrimx8` and `nyan-big` all failed the same way, before U-Boot was built or run:
+
+```
+labgrid-client: Error: place <board> is acquired by a different user (kea/labgrid)
+```
+
+Something on `kea` held all eight boards at the time. I didn't use `--kick`, as that could interrupt whatever is running there.
+
+## `Check make qcheck`: existing parallel-build race
+The `sandbox` build failed, and that was the only step in the job that did:
+
+```
+../lib/efi_loader/efi_capsule_key.S:14: Error: file not found: ../capsule_esl_file
+```
+
+- **Cause:** `efi_capsule_key.S` includes `capsule_esl_file`, but line 102 of `lib/efi_loader/Makefile` makes `efi_capsule.o` depend on it instead. On a clean tree, the assembler can run before the file has been generated.
+- **Why only `sandbox` failed:** it is the first build in `test/run`, and `capsule_esl_file` is generated in the source tree. `sandbox_flattree`, which also needs the file, built and passed later (1400 passed).
+- **Not from this series:** the series doesn't change `lib/efi_loader`, the top-level `Makefile` or `scripts/Makefile.{build,lib}`. The `.incbin` has been in `efi_capsule_key.S` since `ec2c86d6de7c`.
+
+| Clean export | Building only `efi_capsule_key.o` |
+|---|---|
+| This branch | Same error as CI |
+| `ci/master` | Same error as CI |
+| This branch, with the dependency moved to `efi_capsule_key.o` (scratch copy, since deleted) | Builds |
+
+That shows the dependency is missing on both trees; that CI hit it through build timing is my inference from the log.
+
+## Not verified
+- I skipped the sandbox and `buildman` builds in step 5, since there was nothing new to build.
+- `qcheck`'s sandbox tests never ran in this pipeline because the build stopped first. The `sandbox test.py` job isn't in the failed list, but I didn't look at its results.
+
+## Suggested follow-up
+Fix the race in its own MR, since it's unrelated to this series and can hit any clean-tree build. Change line 102 of `lib/efi_loader/Makefile` to:
+
+```make
+$(obj)/efi_capsule_key.o: $(srctree)/capsule_esl_file FORCE
+```
+
+---
+
