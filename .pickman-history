@@ -104516,3 +104516,65 @@ $(obj)/efi_capsule_key.o: $(srctree)/capsule_esl_file FORCE
 
 ---
 
+## 2026-11-09: us/main
+
+Branch: cherry-71f3bd694b3e
+
+Commits:
+- 71f3bd694b3e net: ti: cpsw: Skip disabled ports in switch binding
+- 044b64fff13c simple-pm-bus: Fix clk -ENOSYS check
+- 26a1060bdd7e mmc: omap_hsmmc: Add "ti,am437-sdhci" compatible
+- c3c81951f128 test: lib/uuid: Fix endianness for dynamic GUIDs
+- 0b4c421190a6 ide: Fix truncation of device strings by one character
+- a5c62c87ecb1 lib: rsa: reject oversized public exponent in rsa_gen_key_prop()
+- 6b2b1578bceb video: console: fix scrolling on rotated consoles
+- be8f96dbaa5e board_f: fix use of uninitialized variable in initf_upl()
+- 1fa8b586404a bootstage: fix record name fix-up offset in bootstage_unstash()
+- d00b38134051 bootstage: guard against NULL record names during relocation/sizing
+- 1fa5c98b4adf stdio: gate splash_display() on CONFIG_BMP instead of CONFIG_CMD_BMP
+- a12ef680c0f1 spl: rename DISABLE_ALL_EXECPTIONS
+- 11cde642ee83 disk: update partition type reporting
+- 826ac8d2dc50 cmd: smccc: Implement SMCCC 1.2 support
+- b4df0bd0d406 power: pmic: mtk-pwrap: check dev_remap_addr() for NULL
+- 5d965c1cd00f net: mt7628-eth: check dev_remap_addr_index() for NULL
+- 4978553131f8 net: airoha_eth: check dev_remap_addr_name() for NULL
+- d1fc2485ad1c net: hifemac: check dev_remap_addr_name() for NULL
+- 06b05d6424bf net: hifemac_mdio: check dev_remap_addr() for NULL
+- eed5fc97c069 usb: dwc3-octeon-glue: check dev_remap_addr() for NULL
+- 83abf9120071 usb: dwc3-am62: check dev_remap_addr_index() for NULL
+- 535e0b95d8d9 timer: mchp-pit64b: check dev_read_addr_ptr() for NULL
+- 4829a386955a phy: qcom: snps-femto-v2: check dev_read_addr_ptr() for NULL
+- 003a91a3786b phy: rockchip: inno-dsidphy: check dev_read_addr_ptr() for NULL
+- 332091bda7c1 pinctrl: aspeed: ast2600: check dev_read_addr_ptr() for NULL
+- 3ed90bd8d136 reset: ast2500: check dev_read_addr_ptr() for NULL
+- 5fcdb017c49c reset: ast2600: check dev_read_addr_ptr() for NULL
+- 1d487c6ba505 arm: aspeed: ast2600: check devfdt_get_addr_ptr() for NULL
+- 37bbe6e3ed20 Merge patch series "tree-wide: check dev_remap_addr() for NULL"
+
+### Conversation log
+All the series commits applied cleanly. The final merge commit came out empty, as expected, so I'm recording it with `--allow-empty` and then running the final checks.
+
+All 29 commits are on `cherry-71f3bd694b3e`, based on `ci/master` and ready for pushing. Nothing has been merged or pushed.
+
+**Build:** the final sandbox build passes with no warnings or errors, and so did the build after each commit that changed code. The three empty commits needed no build of their own. `split-check` reported nothing on any commit. I also ran `ut lib dynamic_uuid` after the UUID fix-up, and it passes.
+
+**Fix-ups** (each has a one-line note at the end of its commit message):
+
+| Commit | Subject | What changed |
+|---|---|---|
+| `782c3c0b02f3` | test: lib/uuid: Fix endianness for dynamic GUIDs | The target splits `gen_v5_guid()` into `_be` and `_le` variants, so the test now calls `gen_v5_guid_le()` with `bytes_to_null_pair()`. The seed-data doc note auto-merged onto `gen_v5_guid_be()`, so I moved it to `gen_v5_guid_le()`. |
+| `b23c98d169fe` | video: console: fix scrolling on rotated consoles | Applied the same one-line fix using `ctx->` instead of `priv->`, since the cursor state is in the console context here. |
+| `a47cdaaf78eb` | spl: rename DISABLE_ALL_EXECPTIONS | Dropped the change to `arch/arm/mach-meson/spl.c`, which doesn't exist in the target. No uses of the misspelt name remain. |
+
+**Empty commits** (kept to preserve the sequence):
+
+| Commit | Subject | Why it is empty |
+|---|---|---|
+| `6379d88c4140` | bootstage: fix record name fix-up offset in bootstage_unstash() | The target already iterates from `data->record + data->rec_count`. |
+| `38c774a07e4d` | bootstage: guard against NULL record names during relocation/sizing | Conflicted, but `bootstage_relocate()` and `bootstage_get_size()` already use `get_record_name()`, which never returns NULL. I kept the target's code, including its bounds check. |
+| `c3f73301a36b` | Merge patch series "tree-wide: check dev_remap_addr() for NULL" | Expected for a merge, since its changes came in with the individual commits. |
+
+**Deltas:** the only commit whose files differ from the original is `a47cdaaf78eb`, because of the dropped meson file. The two bootstage commits have no delta because they are empty. All the others match the originals in files and line counts.
+
+---
+
