@@ -24,6 +24,7 @@ ifdef CONFIG_UT_DM
 obj-$(CONFIG_OF_LIBFDT) += image_fdt.o
 endif
 endif
+obj-$(CONFIG_FIT_CIPHER) += fit_cipher.o
 obj-$(CONFIG_FIT_VERITY) += fit_verity.o
 obj-$(CONFIG_MEASURED_BOOT) += measurement.o
 

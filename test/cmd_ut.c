@@ -60,6 +60,7 @@ SUITE_DECL(env);
 SUITE_DECL(exit);
 SUITE_DECL(fdt);
 SUITE_DECL(fdt_overlay);
+SUITE_DECL(fit_cipher);
 SUITE_DECL(fit_verity);
 SUITE_DECL(font);
 SUITE_DECL(fs);
@@ -92,6 +93,7 @@ static struct suite suites[] = {
 	SUITE(exit, "shell exit and variables"),
 	SUITE(fdt, "fdt command"),
 	SUITE(fdt_overlay, "device tree overlays"),
+	SUITE(fit_cipher, "FIT cipher bounds checks"),
 	SUITE(fit_verity, "FIT dm-verity cmdline generation"),
 	SUITE(font, "font command"),
 	SUITE(fs, "filesystem tests"),
