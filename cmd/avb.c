@@ -15,6 +15,12 @@
 
 static struct AvbOps *avb_ops;
 
+void avb_cmd_reset(void)
+{
+	avb_ops_free(avb_ops);
+	avb_ops = NULL;
+}
+
 int do_avb_init(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	unsigned long mmc_dev;

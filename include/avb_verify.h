@@ -48,6 +48,15 @@ AvbOps *avb_ops_alloc(int boot_device);
 void avb_ops_free(AvbOps *ops);
 
 /**
+ * avb_cmd_reset() - drop the operations the avb command holds
+ *
+ * The command keeps the operations which 'avb init' creates until the next
+ * init, so a test which runs an init leaves them behind, pointing at a device
+ * which may be gone. This frees them, as if no init had run.
+ */
+void avb_cmd_reset(void);
+
+/**
  * avb_read_root_key_digest() - get the SHA-256 digest of the trusted AVB
  * root public key
  *

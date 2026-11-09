@@ -30,6 +30,7 @@ obj-$(CONFIG_CMD_2048) += 2048.o
 obj-$(CONFIG_CMD_ABOOTIMG) += abootimg.o
 obj-$(CONFIG_CMD_ACPI) += acpi.o
 obj-$(CONFIG_CMD_ASKENV) += askenv.o
+obj-$(CONFIG_CMD_AVB) += avb.o
 obj-$(CONFIG_CMD_AXI) += axi.o
 endif
 obj-$(CONFIG_CMD_BACKTRACE) += backtrace.o
