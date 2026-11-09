@@ -8,7 +8,7 @@
 #include <command.h>
 #include <dm.h>
 
-static int do_lsblk(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+static int do_lsblk(struct getopt_state *gs)
 {
 	struct driver *d = ll_entry_start(struct driver, driver);
 	const int n_ents = ll_entry_count(struct driver, driver);
@@ -19,10 +19,8 @@ static int do_lsblk(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv
 	int ret, i;
 
 	ret = uclass_get(UCLASS_BLK, &uc);
-	if (ret) {
-		puts("Could not get BLK uclass.\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Could not get BLK uclass.\n");
 	puts("Block Driver          Devices\n");
 	puts("-----------------------------\n");
 	for (entry = d; entry < d + n_ents; entry++) {
@@ -47,6 +45,6 @@ static int do_lsblk(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(lsblk, 1, 0, do_lsblk, "list block drivers and devices",
-	   "- display list of block device drivers and attached block devices"
+U_BOOT_CMD_NOOPTS(lsblk, 1, 0, do_lsblk, "list block drivers and devices",
+		  "- display list of block device drivers and attached block devices"
 );

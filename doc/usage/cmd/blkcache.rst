@@ -94,3 +94,4 @@ See also
   the cache as well
 * :doc:`blkmap<blkmap>` for making a block device out of memory, whose reads
   are cached like any other
+* :doc:`lsblk<lsblk>` for the devices which have a cache of their own

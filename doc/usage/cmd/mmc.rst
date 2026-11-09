@@ -306,3 +306,5 @@ See also
 * :doc:`ufetch<ufetch>` for the size of each device, listed with the rest of
   the board details
 * :doc:`part<part>` for the partitions on a device of any type
+* :doc:`mmcinfo<mmcinfo>` for the older name of 'mmc info', which shows the
+  same report

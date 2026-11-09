@@ -1611,6 +1611,7 @@ config CMD_LOADXY_TIMEOUT
 config CMD_LSBLK
 	depends on BLK
 	bool "lsblk - list block drivers and devices"
+	select GETOPT
 	help
 	  Print list of available block device drivers, and for each, the list
 	  of known block devices.
@@ -1633,6 +1634,7 @@ config CMD_MISC
 config CMD_MMC
 	bool "mmc"
 	depends on MMC
+	select GETOPT
 	help
 	  MMC memory mapped support.
 

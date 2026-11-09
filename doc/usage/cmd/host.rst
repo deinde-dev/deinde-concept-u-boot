@@ -111,3 +111,9 @@ Unbind a device::
     => host info
     dev       blocks label           path
       1         2048 fat             1MB.fat32.img
+
+See also
+--------
+
+* :doc:`lsblk<lsblk>` for the host devices listed with the block devices of
+  every other driver
