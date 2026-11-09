@@ -35,7 +35,8 @@ Bootloader Requirements [2]_, amongst which are:
 -----------------------------
 
 The ``bcb`` command provides a CLI to facilitate the development of the
-requirements enumerated above. Below is the command's help message::
+requirements enumerated above. :doc:`../usage/cmd/bcb` describes each
+sub-command; below is the command's help message::
 
    => bcb
    bcb - Load/set/clear/test/dump/store Android BCB fields

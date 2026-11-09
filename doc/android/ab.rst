@@ -29,7 +29,7 @@ For example: ``boot_a``, ``boot_b``, ``system_a``, ``system_b``, ``vendor_a``,
 As a result you can use ``bcb ab_select`` command to ensure A/B boot process in
 your boot script. This command analyzes and processes A/B metadata stored on a
 special partition (e.g. ``misc``) and determines which slot should be used for
-booting up.
+booting up. See :doc:`../usage/cmd/bcb` for the rest of that command.
 
 If the A/B metadata partition has a backup bootloader_message block that is used
 to ensure one is always valid even in the event of interruption when writing, it
