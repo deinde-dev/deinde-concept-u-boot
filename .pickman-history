@@ -104325,3 +104325,54 @@ Should I add the `blk_desc_to_mtd()` fix? I left it out because you specified ex
 
 ---
 
+### Pipeline fix: 2026-11-09 (attempt 2)
+
+Branch: cherry-e8a7453824b7
+
+Failed jobs:
+- sandbox test.py (test.py)
+- sandbox with clang test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox64_lwip test.py (test.py)
+- sandbox64 test.py (test.py)
+- Check make qcheck (test.py)
+
+### Conversation log
+Both failure causes are reproduced, and I'm now checking why my test run with the trial fix for the segfault has hung.
+
+Both tests pass at this commit. Next I'll amend it and move to the commit that enables the storage backends and adds `nand@2`.
+
+The fix is on `cherry-e8a7453824b7-fix2` and builds cleanly. The unit tests are now running under `test.py` for sandbox and sandbox64, and I'll report once they finish.
+
+The test run will notify me when it exits, so I don't need a monitor. I'll take one look to confirm it's making progress and hasn't stalled like the earlier run.
+
+The test run has started and is working through `test_ut`. The whole suite took about 10 minutes in CI, and I'll send the final report when it finishes.
+
+The failures are fixed on local branch `cherry-e8a7453824b7-fix2` (HEAD `e8f951f4c6ba`), by amending two commits, and nothing has been pushed. All 20 tests that failed in CI now pass locally on sandbox, and the 2 that failed on the sandbox64 jobs pass on sandbox64. These were real bugs in the series, not infrastructure problems.
+
+## Root causes and fixes
+
+| Original commit | New hash | Problem | Change |
+|---|---|---|---|
+| `770bc920ec07` (sandbox NAND: forbid sub-page writes) | `7fb26771156b` | `NAND_NO_SUBPAGE_WRITE` changes the reported sub-page size and options, so `cmd_test_nand_base` failed. | Updated the expected values: sub-page size 512 and 4096, options `0x40000300` and `0x40005200`. |
+| `eec57c0a052d` (enable imagemap and its storage backends) | `4ade2a8ebc2c` | Enabling `CONFIG_MTD_BLOCK` makes `blk_desc_to_mtd()` treat every block device's private data as an MTD pointer. The partition scan then crashes on NVMe and virtio, which caused the 18 SIGSEGVs. | Added a `UCLASS_MTD` check to `blk_desc_to_mtd()`, so other devices return NULL. |
+| Same commit | Same | The new `nand@2` chip and, on sandbox only, the NOR devices appear in `nand info` and `mtd list`, so `mtd_base` and `nand_base` failed. | The tests now expect `nand2`, plus `nor0` and `nor1` when `CONFIG_SPI_FLASH_MTD` is set. `nand_base` also checks `nand2`'s geometry variables. |
+
+Each amended commit has a `[pickman]` note. The other 10 commits are unchanged apart from their hashes, and `cherry-e8a7453824b7` itself is untouched.
+
+The segfault fix answers the open question in the MR description. I put it in the commit that exposes the crash rather than adding a 13th commit, so the history stays bisectable.
+
+## Verification
+- **Builds:** `um build sandbox` is clean. `buildman` built all 9 boards matching sandbox, with only the `ranges_format` dtc warnings from `sandbox.dtsi`, a file this fix doesn't touch.
+- **`test_ut` on sandbox:** 1795 passed, 15 failed.
+- **`test_ut` on sandbox64:** 1509 passed, 4 failed.
+- **Remaining failures:** these are local only, and none were in CI's failure list. `sudo cryptsetup` needs a password here, so `test_ut_dm_init_bootstd` aborts and leaves images such as `mmc11.img` empty. The failures I checked are all from those missing images (LUKS, `sb_devon`, `bootctl`).
+- **At the intermediate commit:** `nand_base` and `mtd_base` also pass at `7fb26771156b`.
+- **Not run locally:** clang builds and the full `make qcheck`.
+
+## Problems with the pickman build step
+- **Board list:** the comma-separated list in the instructions matches no boards ("No matching boards found"), because it is built from words in the job names. I ran `sandbox sandbox64 sandbox64_lwip` instead.
+- **Stale build output:** `/tmp/pickman/.bm-work/00` contains a leftover RISC-V `demo.o`, which breaks the `sandbox` link there. I built in `/tmp/pickman-verify/bm` instead and left `/tmp/pickman` alone, so the next run using that directory will hit the same error.
+
+---
+
