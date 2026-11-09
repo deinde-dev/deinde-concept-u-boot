@@ -189,6 +189,13 @@ static int cmd_test_abootimg_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("abootimg dump frobnicate", 0));
 	ut_assertok(check_usage(uts));
 
+	/*
+	 * An argument which looks like an option is refused before the
+	 * sub-command runs, since none of them takes one
+	 */
+	ut_asserteq(1, run_command("abootimg addr -1", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_abootimg_usage, UTF_CONSOLE);

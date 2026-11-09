@@ -7,6 +7,7 @@
 #include <android_image.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <image.h>
 #include <mapmem.h>
 
@@ -182,9 +183,10 @@ static int abootimg_get_dtb(int argc, char *const argv[])
 	return CMD_RET_USAGE;
 }
 
-static int do_abootimg_addr(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_abootimg_addr(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	char *endp;
 	ulong img_addr;
 
@@ -249,9 +251,10 @@ static int abootimg_get_ramdisk(int argc, char *const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-static int do_abootimg_get(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_abootimg_get(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *param;
 
 	if (argc < 2)
@@ -274,9 +277,11 @@ static int do_abootimg_get(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_USAGE;
 }
 
-static int do_abootimg_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_abootimg_dump(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+
 	if (argc != 2)
 		return CMD_RET_USAGE;
 
@@ -291,32 +296,18 @@ static int do_abootimg_dump(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 static struct cmd_tbl cmd_abootimg_sub[] = {
-	U_BOOT_CMD_MKENT(addr, 4, 1, do_abootimg_addr, "", ""),
-	U_BOOT_CMD_MKENT(dump, 2, 1, do_abootimg_dump, "", ""),
-	U_BOOT_CMD_MKENT(get, 5, 1, do_abootimg_get, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(addr, 4, 1, do_abootimg_addr, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 2, 1, do_abootimg_dump, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(get, 5, 1, do_abootimg_get, "", ""),
 };
 
-static int do_abootimg(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_abootimg(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	cp = find_cmd_tbl(argv[1], cmd_abootimg_sub,
-			  ARRAY_SIZE(cmd_abootimg_sub));
-
-	/* Strip off leading 'abootimg' command argument */
-	argc--;
-	argv++;
-
-	if (!cp || argc > cp->maxargs)
-		return CMD_RET_USAGE;
-	if (flag == CMD_FLAG_REPEAT && !cmd_is_repeatable(cp))
-		return CMD_RET_SUCCESS;
-
-	return cmd_invoke(cp, flag, argc, argv);
+	return cmd_dispatch_subcmd(gs, cmd_abootimg_sub,
+				   ARRAY_SIZE(cmd_abootimg_sub));
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	abootimg, CONFIG_SYS_MAXARGS, 0, do_abootimg,
 	"manipulate Android Boot Image",
 	"addr <boot_img_addr> [<vendor_boot_img_addr> [<init_boot_img_addr>]]\n"

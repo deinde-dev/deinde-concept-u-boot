@@ -597,6 +597,7 @@ config CMD_ADTIMG
 config CMD_ABOOTIMG
 	bool "abootimg"
 	depends on ANDROID_BOOT_IMAGE
+	select GETOPT
 	help
 	  Android Boot Image manipulation commands. Allows one to extract
 	  images contained in boot.img, like kernel, ramdisk, dtb, etc, and
