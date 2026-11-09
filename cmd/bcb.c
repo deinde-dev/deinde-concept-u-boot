@@ -34,8 +34,7 @@ static struct disk_partition *partition = &partition_data;
 
 static int bcb_not_loaded(void)
 {
-	printf("Error: Please, load BCB first!\n");
-	return CMD_RET_FAILURE;
+	return cmd_fail(0, "Error: Please, load BCB first!\n");
 }
 
 static int bcb_field_get(const char *name, char **fieldp, int *sizep)
@@ -56,7 +55,7 @@ static int bcb_field_get(const char *name, char **fieldp, int *sizep)
 		*fieldp = bcb.reserved;
 		*sizep = sizeof(bcb.reserved);
 	} else {
-		printf("Error: Unknown bcb field '%s'\n", name);
+		cmd_err("Error: Unknown bcb field '%s'\n", name);
 		return -1;
 	}
 
@@ -108,8 +107,8 @@ static int __bcb_initialize(const char *iface, int devnum, const char *partp)
 	return CMD_RET_SUCCESS;
 
 err_read_fail:
-	printf("Error: %s %d:%s read failed (%d)\n", iface, devnum,
-	       partition->name, ret);
+	cmd_err("Error: %s %d:%s read failed (%d)\n", iface, devnum,
+		partition->name, ret);
 	__bcb_reset();
 	return CMD_RET_FAILURE;
 }
@@ -133,12 +132,12 @@ static int __bcb_load(void)
 
 	return CMD_RET_SUCCESS;
 err_read_fail:
-	printf("Error: %d %d:%s read failed (%d)\n", block->uclass_id,
-	       block->devnum, partition->name, ret);
+	cmd_err("Error: %d %d:%s read failed (%d)\n", block->uclass_id,
+		block->devnum, partition->name, ret);
 	goto err;
 err_too_small:
-	printf("Error: %d %d:%s too small!", block->uclass_id,
-	       block->devnum, partition->name);
+	cmd_err("Error: %d %d:%s too small!", block->uclass_id,
+		block->devnum, partition->name);
 err:
 	__bcb_reset();
 	return CMD_RET_FAILURE;
@@ -163,10 +162,9 @@ static int do_bcb_load(struct getopt_state *gs)
 	}
 
 	devnum = simple_strtoul(argv[1], &endp, 0);
-	if (*endp != '\0') {
-		printf("Error: Device id '%s' not a number\n", argv[1]);
-		return CMD_RET_FAILURE;
-	}
+	if (*endp != '\0')
+		return cmd_fail(0, "Error: Device id '%s' not a number\n",
+				argv[1]);
 
 	ret = __bcb_initialize(iface, devnum, argv[2]);
 	if (ret != CMD_RET_SUCCESS)
@@ -184,16 +182,13 @@ static int __bcb_set(const char *fieldp, const char *valp)
 		return CMD_RET_FAILURE;
 
 	len = strlen(valp);
-	if (len >= size) {
-		printf("Error: sizeof('%s') = %d >= %d = sizeof(bcb.%s)\n",
-		       valp, len, size, fieldp);
-		return CMD_RET_FAILURE;
-	}
+	if (len >= size)
+		return cmd_fail(0,
+				"Error: sizeof('%s') = %d >= %d = sizeof(bcb.%s)\n",
+				valp, len, size, fieldp);
 	str = strdup(valp);
-	if (!str) {
-		printf("Error: Out of memory while strdup\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!str)
+		return cmd_fail(0, "Error: Out of memory while strdup\n");
 
 	tmp = str;
 	field[0] = '\0';
@@ -274,7 +269,7 @@ static int do_bcb_test(struct getopt_state *gs)
 		else
 			return CMD_RET_SUCCESS;
 	} else {
-		printf("Error: Unknown operator '%s'\n", op);
+		cmd_err("Error: Unknown operator '%s'\n", op);
 	}
 
 	return CMD_RET_FAILURE;
@@ -315,10 +310,8 @@ static int __bcb_store(void)
 
 	return CMD_RET_SUCCESS;
 err:
-	printf("Error: %d %d:%s write failed (%d)\n", block->uclass_id,
-	       block->devnum, partition->name, ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret, "Error: %d %d:%s write failed (%d)\n",
+			block->uclass_id, block->devnum, partition->name, ret);
 }
 
 static int do_bcb_store(struct getopt_state *gs)
@@ -412,10 +405,8 @@ __maybe_unused static int do_bcb_ab_select(struct getopt_state *gs)
 	}
 
 	ret = ab_select_slot(dev_desc, &part_info, dec_tries);
-	if (ret < 0) {
-		printf("Android boot failed, error %d.\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret < 0)
+		return cmd_fail(ret, "Android boot failed, error %d.\n", ret);
 
 	/* Android standard slot names are 'a', 'b', ... */
 	slot[0] = BOOT_SLOT_NAME(ret);
@@ -444,10 +435,8 @@ __maybe_unused static int do_bcb_ab_dump(struct getopt_state *gs)
 	}
 
 	ret = ab_dump_abc(dev_desc, &part_info);
-	if (ret < 0) {
-		printf("Cannot dump ABC data, error %d.\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret < 0)
+		return cmd_fail(ret, "Cannot dump ABC data, error %d.\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
