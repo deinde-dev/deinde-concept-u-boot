@@ -346,7 +346,8 @@ static unsigned long mmc_read_and_flush(struct mmc_part *part,
 	blks = blk_dread(part->mmc_blk,
 			 start, sectors, tmp_buf);
 	/* flush cache after read */
-	flush_cache((ulong)tmp_buf, sectors * part->info.blksz);
+	flush_cache((ulong)map_to_sysmem(tmp_buf),
+		    sectors * part->info.blksz);
 
 	if (unaligned)
 		memcpy(buffer, tmp_buf, sectors * part->info.blksz);
