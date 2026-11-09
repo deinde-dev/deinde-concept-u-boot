@@ -104162,3 +104162,35 @@ All 11 commits are cherry-picked onto `cherry-035d68fc36b5`, based on `ci/master
 
 ---
 
+### Pipeline fix: 2026-11-08 (attempt 2)
+
+Branch: cherry-035d68fc36b5
+
+Failed jobs:
+- build all 64bit ARM platforms (world_build)
+
+### Conversation log
+The sandbox build passes. The buildman selection from your instructions (`64bit,ARM,all,platforms,sandbox`) reports "No matching boards found", so I'm running the equivalent `aarch64 sandbox` instead, which covers 567 boards. It's running in the background, and I'll report back when it finishes.
+
+The pipeline failure is fixed on local branch `cherry-035d68fc36b5-fix2`, which I haven't pushed. All 567 aarch64 and sandbox boards now build with 0 errors. 383 of them have warnings, but CI runs buildman with `-W`, so those won't fail the job.
+
+**Responsible commit:** `45b447e58d14` "board: nxp: add Nodebox v3 CPU Module (LX2160A)", now `6a75567c8274` on the fix branch.
+
+**Root cause:** the commit adds `configs/nbxv3_tfa_defconfig` with `CONFIG_TEXT_BASE=0x82000000`, the upstream name for that symbol. In this tree it is called `CONFIG_PPL_TEXT_BASE`, so the value was ignored and these symbols ended up empty:
+- `PPL_TEXT_BASE`
+- `CUSTOM_SYS_INIT_SP_ADDR`
+- `SYS_UBOOT_START`
+
+`syncconfig` then stopped with "no value for new symbol 'CUSTOM_SYS_INIT_SP_ADDR'", so `nbxv3_tfa` couldn't be configured at all. The sandbox build done during the cherry-pick doesn't use this defconfig, so it didn't catch this.
+
+The CI log tail only shows blob and dtc noise and exit code 100, without naming the failing board. I identified `nbxv3_tfa` by building it locally, where it failed before the fix and built after it.
+
+**Change:** one line in the defconfig, renaming `CONFIG_TEXT_BASE` to `CONFIG_PPL_TEXT_BASE`, which matches the `lx2160a*` defconfigs. It's amended into the responsible commit with a `[pickman]` note, and no other files changed. Every other `CONFIG_` symbol in that defconfig exists in Kconfig. The branch still has 12 commits, including the empty merge commit.
+
+**Verification:**
+- `um build sandbox` passes.
+- The suggested `buildman -o /tmp/pickman 64bit,ARM,all,platforms,sandbox` reports "No matching boards found", so I ran `buildman -o /tmp/pickman aarch64 sandbox` instead, which covers what the CI job builds.
+- Result: 184 boards clean and 383 with warnings (LTO and dtc warnings). The full log is in `/tmp/pickman-fix2-build.log`.
+
+---
+
