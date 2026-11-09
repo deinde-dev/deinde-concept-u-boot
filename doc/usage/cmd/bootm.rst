@@ -421,6 +421,8 @@ See also
   from the command line rather than from an image header
 * :doc:`fastboot<fastboot>` for downloading an image from a host and booting
   it, which uses this command to start what it has downloaded
+* :doc:`abootimg<abootimg>` for finding the kernel, ramdisk and DT in an
+  Android boot image, so that they can be passed to this command
 * :doc:`nboot<nboot>` for loading an image from raw NAND and booting it,
   which uses this command once the image is in memory
 * :doc:`pxe<pxe>` for booting the images named by a PXELINUX configuration
