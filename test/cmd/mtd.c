@@ -114,6 +114,45 @@ static int cmd_test_mtd_base(struct unit_test_state *uts)
 	ut_assert_nextline("  - ECC step size: 512 bytes");
 	ut_assert_nextline("  - bitflip threshold: 3 bits");
 	ut_assert_nextline("  - 0x000000000000-0x%012llx : \"nand1\"", NAND1_SIZE);
+
+	ut_assert_nextline("* nand2");
+	ut_assert_nextline("  - device: nand-controller");
+	ut_assert_nextline("  - parent: root_driver");
+	ut_assert_nextline("  - driver: sand-nand");
+	ut_assert_nextline("  - path: /nand-controller");
+	ut_assert_nextline("  - type: NAND flash");
+	ut_assert_nextline("  - block size: 0x%x bytes", NAND0_ERASE);
+	ut_assert_nextline("  - min I/O: 0x%x bytes", NAND0_PAGE);
+	ut_assert_nextline("  - OOB size: 16 bytes");
+	ut_assert_nextline("  - OOB available: 8 bytes");
+	ut_assert_nextline("  - ECC strength: 1 bits");
+	ut_assert_nextline("  - ECC step size: 256 bytes");
+	ut_assert_nextline("  - bitflip threshold: 1 bits");
+	ut_assert_nextline("  - 0x000000000000-0x%012x : \"nand2\"", NAND0_SIZE);
+
+	if (IS_ENABLED(CONFIG_SPI_FLASH_MTD)) {
+		ut_assert_nextline("* nor0");
+		ut_assert_nextline("  - device: spi.bin@0");
+		ut_assert_nextline("  - parent: spi@0");
+		ut_assert_nextline("  - driver: jedec_spi_nor");
+		ut_assert_nextline("  - path: /spi@0/spi.bin@0");
+		ut_assert_nextline("  - type: NOR flash");
+		ut_assert_nextline("  - block size: 0x10000 bytes");
+		ut_assert_nextline("  - min I/O: 0x1 bytes");
+		ut_assert_nextline("  - 0x000000000000-0x000000200000 : \"nor0\"");
+		ut_assert_nextline("\t  - 0x000000000000-0x000000100000 : \"nor-fit\"");
+		ut_assert_nextline("\t  - 0x000000100000-0x000000200000 : \"nor-spare\"");
+
+		ut_assert_nextline("* nor1");
+		ut_assert_nextline("  - device: spi.bin@1");
+		ut_assert_nextline("  - parent: spi@0");
+		ut_assert_nextline("  - driver: jedec_spi_nor");
+		ut_assert_nextline("  - path: /spi@0/spi.bin@1");
+		ut_assert_nextline("  - type: NOR flash");
+		ut_assert_nextline("  - block size: 0x10000 bytes");
+		ut_assert_nextline("  - min I/O: 0x1 bytes");
+		ut_assert_nextline("  - 0x000000000000-0x000000200000 : \"nor1\"");
+	}
 	ut_assert_console_end();
 
 	return 0;

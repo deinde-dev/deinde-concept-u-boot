@@ -26,6 +26,7 @@ extern void *aligned_alloc(size_t alignment, size_t size);
 #include <env.h>
 #include <errno.h>
 #include <hexdump.h>
+#include <imagemap.h>
 #include <log.h>
 #include <mapmem.h>
 #include <asm/io.h>
@@ -703,6 +704,16 @@ int fit_image_get_data(const void *fit, int noffset, const void **data,
 				return -EINVAL;
 			}
 			*data = fit + offset;
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
+			if (images.imagemap) {
+				void *mapped;
+
+				mapped = imagemap_lookup(images.imagemap,
+							 offset, len);
+				if (mapped)
+					*data = mapped;
+			}
+#endif
 			*size = len;
 		}
 	} else {
@@ -1740,6 +1751,87 @@ static const char *fit_get_image_type_property(int ph_type)
 	return "unknown";
 }
 
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
+/**
+ * fit_image_load_storage() - Pre-load a sub-image from on-demand storage
+ *
+ * Brings an external-data sub-image into RAM through the imagemap loader before
+ * print_and_verify() runs verification, so the existing verify/copy path sees a
+ * valid RAM pointer.  Uncompressed sub-images with a load address are read
+ * straight to their destination (zero-copy); everything else goes to scratch
+ * RAM.  Filesystem sub-images protected by dm-verity are left on storage and
+ * verified by the kernel at block level; @early is set for those so the caller
+ * returns the node without loading the payload.
+ *
+ * @early is set to true when the caller should stop and return @noffset with an
+ * empty payload.
+ *
+ * Return: 0 to continue, negative errno on failure
+ */
+static int fit_image_load_storage(struct bootm_headers *images, const void *fit,
+				  int noffset, enum fit_load_op load_op,
+				  ulong *datap, ulong *lenp, bool *early)
+{
+	int data_off = 0, data_sz = 0;
+	bool external = false;
+	ulong img_load;
+	u8 img_comp = IH_COMP_NONE;
+	void *mapped;
+
+	if (IS_ENABLED(CONFIG_FIT_VERITY)) {
+		u8 img_type;
+
+		if (!fit_image_get_type(fit, noffset, &img_type) &&
+		    img_type == IH_TYPE_FILESYSTEM &&
+		    fdt_subnode_offset(fit, noffset, "dm-verity") >= 0) {
+			struct fit_print_ctx ctx;
+
+			fit_print_init(&ctx, fit);
+			fit_image_print(&ctx, noffset);
+			*datap = 0;
+			*lenp = 0;
+			*early = true;
+			return 0;
+		}
+	}
+
+	if (!fit_image_get_data_position(fit, noffset, &data_off)) {
+		external = true;
+	} else if (!fit_image_get_data_offset(fit, noffset, &data_off)) {
+		external = true;
+		data_off += ALIGN(fdt_totalsize(fit), 4);
+	}
+
+	if (!external || fit_image_get_data_size(fit, noffset, &data_sz))
+		return 0;
+
+	if (data_off < 0 || data_sz < 0)
+		return -EINVAL;
+
+	fit_image_get_comp(fit, noffset, &img_comp);
+
+	if (img_comp == IH_COMP_NONE && load_op != FIT_LOAD_IGNORED &&
+	    !fit_image_get_load(fit, noffset, &img_load)) {
+		void *dst = map_sysmem(img_load, data_sz);
+
+		mapped = imagemap_map_to(images->imagemap, data_off, data_sz,
+					 dst);
+	} else {
+		mapped = imagemap_map(images->imagemap, data_off, data_sz);
+	}
+
+	return IS_ERR(mapped) ? PTR_ERR(mapped) : 0;
+}
+#else
+static inline int fit_image_load_storage(struct bootm_headers *images,
+					 const void *fit, int noffset,
+					 enum fit_load_op load_op, ulong *datap,
+					 ulong *lenp, bool *early)
+{
+	return 0;
+}
+#endif
+
 /**
  * select_from_config() - Select an image from a configuration
  *
@@ -1840,6 +1932,11 @@ static int select_from_config(const void *fit, struct bootm_headers *images,
  * to load
  * @ph_type: Required image type (IH_TYPE_...) and phase (IH_PHASE_...)
  * @bootstage_id: ID of starting bootstage to use for progress updates
+ * @load_op: Load operation, used when pre-loading from on-demand storage
+ * @datap: Set to 0 if the image is left on storage
+ * @lenp: Set to 0 if the image is left on storage
+ * @earlyp: Set to true if the image is left on storage, so that the caller
+ * should return the node without loading the payload; must be false on entry
  * @fit_base_uname_configp: Returns config name selected, or NULL if *fit_unamep
  * was used to select an image node
  * Return: node offset of image node, on success, else -ve error code
@@ -1847,7 +1944,8 @@ static int select_from_config(const void *fit, struct bootm_headers *images,
 static int select_image(const void *fit, struct bootm_headers *images,
 			const char **fit_unamep, const char *fit_uname_config,
 			const char *prop_name, int ph_type, int bootstage_id,
-			const char **fit_base_uname_configp)
+			enum fit_load_op load_op, ulong *datap, ulong *lenp,
+			bool *earlyp, const char **fit_base_uname_configp)
 {
 	int noffset;
 	int ret;
@@ -1888,6 +1986,20 @@ static int select_image(const void *fit, struct bootm_headers *images,
 	}
 
 	printf("   Trying '%s' %s subimage\n", *fit_unamep, prop_name);
+
+	/*
+	 * On-demand storage: pre-load external-data payloads into RAM (or leave
+	 * dm-verity filesystems on storage) before print_and_verify() verifies.
+	 */
+	if (IS_ENABLED(CONFIG_IMAGEMAP) && !tools_build() && images->imagemap) {
+		ret = fit_image_load_storage(images, fit, noffset, load_op,
+					     datap, lenp, earlyp);
+		if (ret)
+			return ret;
+		if (*earlyp)
+			return noffset;
+	}
+
 	ret = print_and_verify(fit, noffset, images->verify);
 	if (ret) {
 		bootstage_error(bootstage_id + BOOTSTAGE_SUB_HASH);
@@ -2163,8 +2275,9 @@ static int handle_load_op(const void *fit, int noffset, const char *prop_name,
 			return -EXDEV;
 		}
 
-		printf("   Loading %s from 0x%08lx to 0x%08lx\n",
-		       prop_name, data, load);
+		if (!IS_ENABLED(CONFIG_IMAGEMAP) || data != load)
+			printf("   Loading %s from 0x%08lx to 0x%08lx\n",
+			       prop_name, data, load);
 	} else {
 		load = data;	/* load address specified but set to 0 */
 		log_debug("No load\n");
@@ -2191,6 +2304,7 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
 	const char *fit_uname_config;
 	const char *fit_uname;
 	const char *prop_name;
+	bool early = false;
 	int noffset, ret;
 	const void *fit;
 	ulong load, len;
@@ -2204,8 +2318,10 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
 	fit_uname = fit_unamep ? *fit_unamep : NULL;
 	fit_uname_config = fit_uname_configp ? *fit_uname_configp : NULL;
 	noffset = select_image(fit, images, &fit_uname, fit_uname_config,
-			       prop_name, ph_type, bootstage_id,
-			       &fit_base_uname_config);
+			       prop_name, ph_type, bootstage_id, load_op,
+			       datap, lenp, &early, &fit_base_uname_config);
+	if (early)
+		return noffset;
 	if (noffset >= 0) {
 		ret = check_allowed(fit, noffset, images, image_type, arch,
 				    bootstage_id);

@@ -38,3 +38,5 @@ obj-$(CONFIG_BOOTMETH_VBE_ABREC) += vbe_abrec.o
 obj-$(CONFIG_BOOTMETH_VBE_ABREC_OS) += vbe_abrec_os.o
 
 obj-$(CONFIG_UPL) += upl.o
+
+obj-$(CONFIG_IMAGEMAP) += imagemap.o

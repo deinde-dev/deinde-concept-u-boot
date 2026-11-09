@@ -416,8 +416,13 @@ int mtd_panic_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 #if IS_ENABLED(CONFIG_MTD_BLOCK)
 static inline struct mtd_info *blk_desc_to_mtd(struct blk_desc *bdesc)
 {
-	void *priv = dev_get_priv(bdesc->bdev);
+	void *priv;
 
+	/* Only an mtd_blk device holds an mtd_info pointer in its priv data */
+	if (bdesc->uclass_id != UCLASS_MTD)
+		return NULL;
+
+	priv = dev_get_priv(bdesc->bdev);
 	if (!priv)
 		return NULL;
 

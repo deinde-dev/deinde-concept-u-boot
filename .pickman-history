@@ -104246,3 +104246,273 @@ All 11 commits are cherry-picked onto `cherry-035d68fc36b5`, based on `ci/master
 
 ---
 
+## 2026-11-08: us/main
+
+Branch: cherry-e8a7453824b7
+
+Commits:
+- e8a7453824b7 mtd: bind an mtd_blk device for non-NAND MTD masters
+- 7c821fea0860 mtd: nand: sandbox: forbid sub-page writes
+- dec405d1653a cmd: ubi: create a ubi_blk device when attaching UBI
+- 790c94a5c40a mtd: nand: spi: drop the eager ubi_blk binding
+- 15358294f112 mtd: ubi: block: build only with CONFIG_CMD_UBI
+- d6bcfe912757 mtd: ubi: block: only claim UBI block devices in the partition scan
+- 9b41c7dbee96 boot: add imagemap on-demand loading from storage
+- 46d32e38ee4e boot: fit: support on-demand loading in fit_image_load()
+- feeef0a69f0f configs: sandbox: enable imagemap and its storage backends
+- 05c1fbbfa79f test: boot: add imagemap unit tests
+- 0f59e0702ae9 doc: imagemap: document on-demand loading framework
+- 5bcb8e0352da Merge patch series "imagemap: on-demand FIT loading from storage"
+
+### Conversation log
+The tree has only untracked files in `tools/binman`, which won't affect the picks, so I'll create the branch and start.
+
+The first pick is clean. I'll do the rest one at a time with the same checks, stopping at any conflict, split-check change or build failure.
+
+The conversion is as expected, so I'll amend it. First I'll check how earlier commits placed the note, so this one matches.
+
+The earlier commit puts a blank line before the note and follows it with a `Co-developed-by` tag, which your rules also ask for. I'll fix this commit's message to match, then continue.
+
+The target already has the per-phase form of the lines this commit deletes (`IS_ENABLED(CONFIG_UBI_BLOCK)`), which is what caused the conflict. The fix is simply to delete them.
+
+All the conflicts come from the target's refactoring of `bootm.c`, `fit_image_load()` and `image.h`. Before deciding whether this is safe to resolve here, I'll check the target code around them.
+
+Sandbox now builds cleanly with imagemap enabled. Next is the test commit.
+
+All 13 imagemap tests pass. Now the doc commit and the merge commit.
+
+This is expected. With `-m 1` the merge's diff is the whole series, which is already applied in adapted form. Before keeping the tree unchanged, I'll confirm the merge adds nothing beyond the series.
+
+The merge commit's message picked up git's `# Conflicts:` comment lines. I'll remove them and check that none of the other messages have the same problem.
+
+gdb is too old to read this binary. The crash happens when a new block device is scanned, and the series adds a UBI partition driver that now runs on every block scan, so that's where I'll look.
+
+All 12 commits are on `cherry-e8a7453824b7` and the sandbox build passes with no warnings, but **I wouldn't push it yet: `ut dm` now segfaults**. Nothing has been pushed or merged.
+
+## The segfault
+- **Symptom:** `ut dm` crashes at `nvme_identify` on this branch, while `ci/master` runs to completion with 22 failures of its own (e.g. missing disk images).
+- **Cause:** `feeef0a69f0f` enables `CONFIG_MTD_BLOCK` in sandbox. `blk_desc_to_mtd()` then treats every block device's private data as an MTD pointer, and `part_test_mtd()` calls it on the NVMe device. The crash is in `part_get_info_mtd()`.
+- **Candidate fix (not on the branch):** add this at the top of the `CONFIG_MTD_BLOCK` version of `blk_desc_to_mtd()` in `include/linux/mtd/mtd.h`:
+  ```c
+  if (bdesc->uclass_id != UCLASS_MTD)
+  	return NULL;
+  ```
+- **Testing so far:** in a throwaway build, 942 `ut dm` test runs gave no new failures compared with `ci/master`, then that run stalled at `serial` until the timeout. A second full run didn't stall, but it ran alongside another instance and the extra failures it showed look like interference, so there is no clean full pass yet.
+
+## Results
+- **Tests:** `ut imagemap` passes 13 of 13 and `ut bootm` 11 of 11.
+- **Commits:** every commit builds, including the two amended during the rebase below.
+- **Line counts:** all within 20% of the originals; the largest change is `46d32e38ee4e`, at 174 → 182 insertions.
+
+## Fix-ups (each has a `[pickman]` note)
+| Commit | Change |
+|---|---|
+| `dec405d1653a` | split-check macro conversion |
+| `790c94a5c40a` | conflict: removed the target's `IS_ENABLED()` form of the lines |
+| `9b41c7dbee96` | `boot/Makefile` conflict; ported to the target's LMB API (`lmb_alloc()`, `lmb_alloc_addr()`, two-argument `lmb_free()`); macros; `IMAGEMAP` added to `conf_nospl` |
+| `46d32e38ee4e` | conflicts in `bootm.c`, `image-fit.c` and `image.h`; `fit_image_print()` now takes a print context; macros |
+| `feeef0a69f0f` | `sandbox_defconfig` conflict, kept both sides |
+| `05c1fbbfa79f` | macros; `MTD_UBI` added to `conf_nospl` |
+| `5bcb8e0352da` | empty merge; I confirmed it contains only the series |
+
+The LMB and print fixes only showed up once `feeef0a69f0f` enabled imagemap, so I amended them into their original commits with `rf`/`rn`. The amended commits use `Co-developed-by`, as your instructions ask.
+
+## Please review
+`46d32e38ee4e` is the one conflict that needed new code. The target split `fit_image_load()` into helpers, so I pass `load_op`, `datap`, `lenp` and an early-return flag into `select_image()`, keeping the pre-load just before verification. The imagemap tests don't exercise this path, and nothing in the series sets `bmi->imagemap` yet, so it compiles but hasn't been run.
+
+## Decision for you
+Should I add the `blk_desc_to_mtd()` fix? I left it out because you specified exactly these 12 commits and none of them touch that file. I'd add it as a separate 13th commit before pushing and rerun `ut dm` on its own to confirm; otherwise this segfault will fail any CI job that runs `ut dm`.
+
+---
+
+### Pipeline fix: 2026-11-09 (attempt 2)
+
+Branch: cherry-e8a7453824b7
+
+Failed jobs:
+- sandbox test.py (test.py)
+- sandbox with clang test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox64_lwip test.py (test.py)
+- sandbox64 test.py (test.py)
+- Check make qcheck (test.py)
+
+### Conversation log
+Both failure causes are reproduced, and I'm now checking why my test run with the trial fix for the segfault has hung.
+
+Both tests pass at this commit. Next I'll amend it and move to the commit that enables the storage backends and adds `nand@2`.
+
+The fix is on `cherry-e8a7453824b7-fix2` and builds cleanly. The unit tests are now running under `test.py` for sandbox and sandbox64, and I'll report once they finish.
+
+The test run will notify me when it exits, so I don't need a monitor. I'll take one look to confirm it's making progress and hasn't stalled like the earlier run.
+
+The test run has started and is working through `test_ut`. The whole suite took about 10 minutes in CI, and I'll send the final report when it finishes.
+
+The failures are fixed on local branch `cherry-e8a7453824b7-fix2` (HEAD `e8f951f4c6ba`), by amending two commits, and nothing has been pushed. All 20 tests that failed in CI now pass locally on sandbox, and the 2 that failed on the sandbox64 jobs pass on sandbox64. These were real bugs in the series, not infrastructure problems.
+
+## Root causes and fixes
+
+| Original commit | New hash | Problem | Change |
+|---|---|---|---|
+| `770bc920ec07` (sandbox NAND: forbid sub-page writes) | `7fb26771156b` | `NAND_NO_SUBPAGE_WRITE` changes the reported sub-page size and options, so `cmd_test_nand_base` failed. | Updated the expected values: sub-page size 512 and 4096, options `0x40000300` and `0x40005200`. |
+| `eec57c0a052d` (enable imagemap and its storage backends) | `4ade2a8ebc2c` | Enabling `CONFIG_MTD_BLOCK` makes `blk_desc_to_mtd()` treat every block device's private data as an MTD pointer. The partition scan then crashes on NVMe and virtio, which caused the 18 SIGSEGVs. | Added a `UCLASS_MTD` check to `blk_desc_to_mtd()`, so other devices return NULL. |
+| Same commit | Same | The new `nand@2` chip and, on sandbox only, the NOR devices appear in `nand info` and `mtd list`, so `mtd_base` and `nand_base` failed. | The tests now expect `nand2`, plus `nor0` and `nor1` when `CONFIG_SPI_FLASH_MTD` is set. `nand_base` also checks `nand2`'s geometry variables. |
+
+Each amended commit has a `[pickman]` note. The other 10 commits are unchanged apart from their hashes, and `cherry-e8a7453824b7` itself is untouched.
+
+The segfault fix answers the open question in the MR description. I put it in the commit that exposes the crash rather than adding a 13th commit, so the history stays bisectable.
+
+## Verification
+- **Builds:** `um build sandbox` is clean. `buildman` built all 9 boards matching sandbox, with only the `ranges_format` dtc warnings from `sandbox.dtsi`, a file this fix doesn't touch.
+- **`test_ut` on sandbox:** 1795 passed, 15 failed.
+- **`test_ut` on sandbox64:** 1509 passed, 4 failed.
+- **Remaining failures:** these are local only, and none were in CI's failure list. `sudo cryptsetup` needs a password here, so `test_ut_dm_init_bootstd` aborts and leaves images such as `mmc11.img` empty. The failures I checked are all from those missing images (LUKS, `sb_devon`, `bootctl`).
+- **At the intermediate commit:** `nand_base` and `mtd_base` also pass at `7fb26771156b`.
+- **Not run locally:** clang builds and the full `make qcheck`.
+
+## Problems with the pickman build step
+- **Board list:** the comma-separated list in the instructions matches no boards ("No matching boards found"), because it is built from words in the job names. I ran `sandbox sandbox64 sandbox64_lwip` instead.
+- **Stale build output:** `/tmp/pickman/.bm-work/00` contains a leftover RISC-V `demo.o`, which breaks the `sandbox` link there. I built in `/tmp/pickman-verify/bm` instead and left `/tmp/pickman` alone, so the next run using that directory will hit the same error.
+
+---
+
+## 2026-11-08: us/main
+
+Branch: cherry-e8a7453824b7
+
+Commits:
+- e8a7453824b7 mtd: bind an mtd_blk device for non-NAND MTD masters
+- 7c821fea0860 mtd: nand: sandbox: forbid sub-page writes
+- dec405d1653a cmd: ubi: create a ubi_blk device when attaching UBI
+- 790c94a5c40a mtd: nand: spi: drop the eager ubi_blk binding
+- 15358294f112 mtd: ubi: block: build only with CONFIG_CMD_UBI
+- d6bcfe912757 mtd: ubi: block: only claim UBI block devices in the partition scan
+- 9b41c7dbee96 boot: add imagemap on-demand loading from storage
+- 46d32e38ee4e boot: fit: support on-demand loading in fit_image_load()
+- feeef0a69f0f configs: sandbox: enable imagemap and its storage backends
+- 05c1fbbfa79f test: boot: add imagemap unit tests
+- 0f59e0702ae9 doc: imagemap: document on-demand loading framework
+- 5bcb8e0352da Merge patch series "imagemap: on-demand FIT loading from storage"
+
+### Conversation log
+The tree has only untracked files in `tools/binman`, which won't affect the picks, so I'll create the branch and start.
+
+The first pick is clean. I'll do the rest one at a time with the same checks, stopping at any conflict, split-check change or build failure.
+
+The conversion is as expected, so I'll amend it. First I'll check how earlier commits placed the note, so this one matches.
+
+The earlier commit puts a blank line before the note and follows it with a `Co-developed-by` tag, which your rules also ask for. I'll fix this commit's message to match, then continue.
+
+The target already has the per-phase form of the lines this commit deletes (`IS_ENABLED(CONFIG_UBI_BLOCK)`), which is what caused the conflict. The fix is simply to delete them.
+
+All the conflicts come from the target's refactoring of `bootm.c`, `fit_image_load()` and `image.h`. Before deciding whether this is safe to resolve here, I'll check the target code around them.
+
+Sandbox now builds cleanly with imagemap enabled. Next is the test commit.
+
+All 13 imagemap tests pass. Now the doc commit and the merge commit.
+
+This is expected. With `-m 1` the merge's diff is the whole series, which is already applied in adapted form. Before keeping the tree unchanged, I'll confirm the merge adds nothing beyond the series.
+
+The merge commit's message picked up git's `# Conflicts:` comment lines. I'll remove them and check that none of the other messages have the same problem.
+
+gdb is too old to read this binary. The crash happens when a new block device is scanned, and the series adds a UBI partition driver that now runs on every block scan, so that's where I'll look.
+
+All 12 commits are on `cherry-e8a7453824b7` and the sandbox build passes with no warnings, but **I wouldn't push it yet: `ut dm` now segfaults**. Nothing has been pushed or merged.
+
+## The segfault
+- **Symptom:** `ut dm` crashes at `nvme_identify` on this branch, while `ci/master` runs to completion with 22 failures of its own (e.g. missing disk images).
+- **Cause:** `feeef0a69f0f` enables `CONFIG_MTD_BLOCK` in sandbox. `blk_desc_to_mtd()` then treats every block device's private data as an MTD pointer, and `part_test_mtd()` calls it on the NVMe device. The crash is in `part_get_info_mtd()`.
+- **Candidate fix (not on the branch):** add this at the top of the `CONFIG_MTD_BLOCK` version of `blk_desc_to_mtd()` in `include/linux/mtd/mtd.h`:
+  ```c
+  if (bdesc->uclass_id != UCLASS_MTD)
+  	return NULL;
+  ```
+- **Testing so far:** in a throwaway build, 942 `ut dm` test runs gave no new failures compared with `ci/master`, then that run stalled at `serial` until the timeout. A second full run didn't stall, but it ran alongside another instance and the extra failures it showed look like interference, so there is no clean full pass yet.
+
+## Results
+- **Tests:** `ut imagemap` passes 13 of 13 and `ut bootm` 11 of 11.
+- **Commits:** every commit builds, including the two amended during the rebase below.
+- **Line counts:** all within 20% of the originals; the largest change is `46d32e38ee4e`, at 174 → 182 insertions.
+
+## Fix-ups (each has a `[pickman]` note)
+| Commit | Change |
+|---|---|
+| `dec405d1653a` | split-check macro conversion |
+| `790c94a5c40a` | conflict: removed the target's `IS_ENABLED()` form of the lines |
+| `9b41c7dbee96` | `boot/Makefile` conflict; ported to the target's LMB API (`lmb_alloc()`, `lmb_alloc_addr()`, two-argument `lmb_free()`); macros; `IMAGEMAP` added to `conf_nospl` |
+| `46d32e38ee4e` | conflicts in `bootm.c`, `image-fit.c` and `image.h`; `fit_image_print()` now takes a print context; macros |
+| `feeef0a69f0f` | `sandbox_defconfig` conflict, kept both sides |
+| `05c1fbbfa79f` | macros; `MTD_UBI` added to `conf_nospl` |
+| `5bcb8e0352da` | empty merge; I confirmed it contains only the series |
+
+The LMB and print fixes only showed up once `feeef0a69f0f` enabled imagemap, so I amended them into their original commits with `rf`/`rn`. The amended commits use `Co-developed-by`, as your instructions ask.
+
+## Please review
+`46d32e38ee4e` is the one conflict that needed new code. The target split `fit_image_load()` into helpers, so I pass `load_op`, `datap`, `lenp` and an early-return flag into `select_image()`, keeping the pre-load just before verification. The imagemap tests don't exercise this path, and nothing in the series sets `bmi->imagemap` yet, so it compiles but hasn't been run.
+
+## Decision for you
+Should I add the `blk_desc_to_mtd()` fix? I left it out because you specified exactly these 12 commits and none of them touch that file. I'd add it as a separate 13th commit before pushing and rerun `ut dm` on its own to confirm; otherwise this segfault will fail any CI job that runs `ut dm`.
+
+---
+
+### Pipeline fix: 2026-11-09 (attempt 3)
+
+Branch: cherry-e8a7453824b7
+
+Failed jobs:
+- edison (sjg-lab)
+- tk1 (sjg-lab)
+- jetson-nano (sjg-lab)
+- bpif3 (sjg-lab)
+- pico (sjg-lab)
+- nanopi-m5 (sjg-lab)
+- colibrimx8 (sjg-lab)
+- nyan-big (sjg-lab)
+- Check make qcheck (test.py)
+
+### Conversation log
+The lab job shown is a labgrid place-acquisition error, so I'll check whether all eight failed the same way, then look at the qcheck failures in detail.
+
+**No fix is needed for MR !1565: none of the 9 failures come from this series, so I made no code changes.** I also didn't create `cherry-e8a7453824b7-fix3`, because you asked for infrastructure or transient failures to be reported without changes. `cherry-e8a7453824b7` is unchanged, and re-running these jobs should clear them once the lab is free.
+
+## Lab jobs (8): labgrid lock
+`edison`, `tk1`, `jetson-nano`, `bpif3`, `pico`, `nanopi-m5`, `colibrimx8` and `nyan-big` all failed the same way, before U-Boot was built or run:
+
+```
+labgrid-client: Error: place <board> is acquired by a different user (kea/labgrid)
+```
+
+Something on `kea` held all eight boards at the time. I didn't use `--kick`, as that could interrupt whatever is running there.
+
+## `Check make qcheck`: existing parallel-build race
+The `sandbox` build failed, and that was the only step in the job that did:
+
+```
+../lib/efi_loader/efi_capsule_key.S:14: Error: file not found: ../capsule_esl_file
+```
+
+- **Cause:** `efi_capsule_key.S` includes `capsule_esl_file`, but line 102 of `lib/efi_loader/Makefile` makes `efi_capsule.o` depend on it instead. On a clean tree, the assembler can run before the file has been generated.
+- **Why only `sandbox` failed:** it is the first build in `test/run`, and `capsule_esl_file` is generated in the source tree. `sandbox_flattree`, which also needs the file, built and passed later (1400 passed).
+- **Not from this series:** the series doesn't change `lib/efi_loader`, the top-level `Makefile` or `scripts/Makefile.{build,lib}`. The `.incbin` has been in `efi_capsule_key.S` since `ec2c86d6de7c`.
+
+| Clean export | Building only `efi_capsule_key.o` |
+|---|---|
+| This branch | Same error as CI |
+| `ci/master` | Same error as CI |
+| This branch, with the dependency moved to `efi_capsule_key.o` (scratch copy, since deleted) | Builds |
+
+That shows the dependency is missing on both trees; that CI hit it through build timing is my inference from the log.
+
+## Not verified
+- I skipped the sandbox and `buildman` builds in step 5, since there was nothing new to build.
+- `qcheck`'s sandbox tests never ran in this pipeline because the build stopped first. The `sandbox test.py` job isn't in the failed list, but I didn't look at its results.
+
+## Suggested follow-up
+Fix the race in its own MR, since it's unrelated to this series and can hit any clean-tree build. Change line 102 of `lib/efi_loader/Makefile` to:
+
+```make
+$(obj)/efi_capsule_key.o: $(srctree)/capsule_esl_file FORCE
+```
+
+---
+
