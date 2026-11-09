@@ -104785,3 +104785,62 @@ The colibrimx8 failure could happen again on any branch whenever that echo glitc
 
 ---
 
+## 2026-11-09: us/main
+
+Branch: cherry-db02988d74d4
+
+Commits:
+- db02988d74d4 cmd/host: allow to retrieve sequence number for label
+- 52673196da57 fs: jffs2: set part->jffs2_priv to NULL after freeing cache
+- 7ac3028f4796 jffs2: initialize datacrc for inode/dirent entries built from scan
+- 42f268c89f8d pxe_utils: fix W=1 kernel-doc warnings
+- 7c38bac6abf4 pxe_utils: accept "options" as synonym for "append"
+- 5f80d8614ca2 pxe_utils: harden the "append" parser against malformed input
+- bb7b839e7147 pxe_utils: extract per-entry key parsing into parse_label_keys()
+- eb38123ead89 pxe_utils: export per-entry label helpers
+- 98fdc9b50233 pxe_utils: optionally ignore unknown keys in parse_label_keys()
+- df3f0a81e91e pxe_utils: accept "title" inside a label as a synonym for "menu label"
+- bb3beb6c802a bootmeth: share the pxelinux getfile helper
+- 17756b69064c boot: add a minimal bootmeth for the Boot Loader Specification
+- b8b69a660231 test: bootstd: add a BLS entry to the Fedora fixture image
+- f1ca59e93017 sandbox: enable BLS boot method
+- 8aa74cad35f8 test: bootstd: cover BLS entries below a prefix
+- 4d2d6d080620 doc: bootstd: describe the BLS bootmeth
+- d27c992cebb9 Merge patch series "pxe_utils: small fixups, implement BLS type 1 boot on top of them"
+
+### Conversation log
+The first pick conflicts, so before going further I'll check whether the series is already in ci/master.
+
+That one is done and builds cleanly. The remaining commits follow the same per-commit routine, so I'll script it to stop at the first conflict, split-check change or build failure.
+
+**The cherry-pick stopped at commit 4 of 17, so the series is incomplete and the branch shouldn't be pushed as the finished series.** `42f268c89f8d` hit a conflict that can't be auto-resolved, so I ran `git cherry-pick --abort`. The tree is clean on `cherry-db02988d74d4`, 3 commits ahead of `ci/master`. None of the 17 commits were already in `ci/master`, so I didn't write `.pickman-signal`.
+
+| Commit | Subject | Result |
+|---|---|---|
+| `db02988d74d4` | cmd/host: retrieve sequence number for label | Picked as `d5af43c0155a`, with a fix-up |
+| `52673196da57` | jffs2: NULL `jffs2_priv` after freeing cache | Picked as `9c9dfdf96c28` |
+| `7ac3028f4796` | jffs2: initialise `datacrc` | Picked as `6f620d69883c` |
+| `42f268c89f8d` and the next 13 | pxe_utils and BLS series, including the merge | Not applied |
+
+- **Build:** sandbox built without warnings or errors after each of the 3 picks, and the last of those builds is the current HEAD.
+- **Deltas and split-check:** line counts and files match the originals for all 3, and `split-check` changed nothing.
+- **Fix-up:** in `cmd/host.c` I kept the target's `<fs_cmd.h>` instead of `<fs.h>` when adding `<env.h>`, and recorded that in a note at the end of the commit message. I didn't add an AI attribution tag to it, since the task puts that note last.
+
+## Why it can't be resolved
+The target has diverged from this series in two ways:
+
+1. **The parser has moved:** `boot/pxe_parse.c` now holds the parser, with a `limit` argument added to its functions, and `pxe_menu_init()` and a new `parse_pxefile()` signature are in place. Git therefore treats the upstream parser in `pxe_utils.c` as conflicting.
+2. **The target already has its own BLS support:** your commits added `boot/bootmeth_bls.c`, `boot/bls_parse.c`, `doc/develop/bootstd/bls.rst` and `BOOTMETH_BLS`. Upstream's `17756b69064c` adds a different `bootmeth_bls.c` built on `parse_label_keys()` and an exported `label_boot()`, neither of which exists in the target. The later sandbox, test and doc commits depend on that version.
+
+## What needs deciding
+- **BLS commits (`bb3beb6c802a` to `4d2d6d080620`):** they duplicate the target's BLS work, so I'd skip them unless you want to replace your implementation. `bb3beb6c802a` is only a helper refactor for them.
+- **Parser fixes:** these could be ported by hand to `boot/pxe_parse.c`:
+  - `42f268c89f8d`: kernel-doc fixes.
+  - `7c38bac6abf4`: accept "options" as a synonym for "append".
+  - `5f80d8614ca2`: harden the "append" parser. This is the most useful one, because `ci/master` still does `strchr(s, ' ') - s` unchecked, which goes wrong when `initrd=` is the last item on the line.
+- **Label helper commits (`bb7b839e7147`, `eb38123ead89`, `98fdc9b50233`, `df3f0a81e91e`):** these mainly exist to support upstream's BLS, so they probably aren't needed.
+
+If you go that way, the 3 good commits plus the hand-ported parser fixes could go out as a reduced series, with the rest marked as skipped in pickman.
+
+---
+
