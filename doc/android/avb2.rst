@@ -78,7 +78,8 @@ AVB 2.0 U-Boot shell commands
 -----------------------------
 
 Provides CLI interface to invoke AVB 2.0 verification + misc. commands for
-different testing purposes::
+different testing purposes. See :doc:`../usage/cmd/avb` for what each
+sub-command does::
 
     avb init <dev> - initialize avb 2 for <dev>
     avb read_rb <num> - read rollback index at location <num>
