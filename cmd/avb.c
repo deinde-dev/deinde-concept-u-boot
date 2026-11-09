@@ -80,7 +80,7 @@ int do_avb_read_part_hex(struct cmd_tbl *cmdtp, int flag, int argc,
 	const char *part;
 	s64 offset;
 	size_t bytes, bytes_read = 0;
-	char *buffer;
+	u8 *buffer;
 	int ret;
 
 	if (!avb_ops) {
