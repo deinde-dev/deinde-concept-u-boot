@@ -11,6 +11,7 @@
 #include <env.h>
 #include <android_ab.h>
 #include <display_options.h>
+#include <getopt.h>
 #include <log.h>
 #include <part.h>
 #include <malloc.h>
@@ -143,9 +144,10 @@ err:
 	return CMD_RET_FAILURE;
 }
 
-static int do_bcb_load(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char * const argv[])
+static int do_bcb_load(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret;
 	int devnum;
 	char *endp;
@@ -205,9 +207,11 @@ static int __bcb_set(const char *fieldp, const char *valp)
 	return CMD_RET_SUCCESS;
 }
 
-static int do_bcb_set(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char * const argv[])
+static int do_bcb_set(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+
 	if (argc < 3)
 		return CMD_RET_USAGE;
 
@@ -217,9 +221,10 @@ static int do_bcb_set(struct cmd_tbl *cmdtp, int flag, int argc,
 	return __bcb_set(argv[1], argv[2]);
 }
 
-static int do_bcb_clear(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_bcb_clear(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int size;
 	char *field;
 
@@ -239,9 +244,10 @@ static int do_bcb_clear(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_bcb_test(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_bcb_test(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int size;
 	char *field;
 	char *op;
@@ -274,9 +280,10 @@ static int do_bcb_test(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_FAILURE;
 }
 
-static int do_bcb_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_bcb_dump(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int size;
 	char *field;
 
@@ -314,8 +321,7 @@ err:
 	return CMD_RET_FAILURE;
 }
 
-static int do_bcb_store(struct cmd_tbl *cmdtp, int flag, int argc,
-			char * const argv[])
+static int do_bcb_store(struct getopt_state *gs)
 {
 	if (!block)
 		return bcb_not_loaded();
@@ -378,10 +384,10 @@ void bcb_reset(void)
 	__bcb_reset();
 }
 
-__maybe_unused static int do_bcb_ab_select(struct cmd_tbl *cmdtp,
-					   int flag, int argc,
-					   char * const argv[])
+__maybe_unused static int do_bcb_ab_select(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret;
 	struct blk_desc *dev_desc;
 	struct disk_partition part_info;
@@ -420,10 +426,10 @@ __maybe_unused static int do_bcb_ab_select(struct cmd_tbl *cmdtp,
 	return CMD_RET_SUCCESS;
 }
 
-__maybe_unused static int do_bcb_ab_dump(struct cmd_tbl *cmdtp,
-					 int flag, int argc,
-					 char *const argv[])
+__maybe_unused static int do_bcb_ab_dump(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret;
 	struct blk_desc *dev_desc;
 	struct disk_partition part_info;
@@ -491,14 +497,14 @@ U_BOOT_LONGHELP(bcb,
 
 U_BOOT_CMD_WITH_SUBCMDS(bcb,
 	"Load/set/clear/test/dump/store Android BCB fields", bcb_help_text,
-	U_BOOT_SUBCMD_MKENT(load, 4, 1, do_bcb_load),
-	U_BOOT_SUBCMD_MKENT(set, 3, 1, do_bcb_set),
-	U_BOOT_SUBCMD_MKENT(clear, 2, 1, do_bcb_clear),
-	U_BOOT_SUBCMD_MKENT(test, 4, 1, do_bcb_test),
-	U_BOOT_SUBCMD_MKENT(dump, 2, 1, do_bcb_dump),
-	U_BOOT_SUBCMD_MKENT(store, 1, 1, do_bcb_store),
+	U_BOOT_CMD_MKENT_NOOPTS(load, 4, 1, do_bcb_load, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(set, 3, 1, do_bcb_set, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(clear, 2, 1, do_bcb_clear, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(test, 4, 1, do_bcb_test, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 2, 1, do_bcb_dump, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(store, 1, 1, do_bcb_store, "", ""),
 #if IS_ENABLED(CONFIG_ANDROID_AB)
-	U_BOOT_SUBCMD_MKENT(ab_select, 5, 1, do_bcb_ab_select),
-	U_BOOT_SUBCMD_MKENT(ab_dump, 3, 1, do_bcb_ab_dump),
+	U_BOOT_CMD_MKENT_GETOPT(ab_select, 5, 1, do_bcb_ab_select, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(ab_dump, 3, 1, do_bcb_ab_dump, "", ""),
 #endif
 );

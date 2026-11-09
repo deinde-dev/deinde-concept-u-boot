@@ -368,6 +368,13 @@ static int cmd_test_bcb_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("bcb test command =", 0));
 	ut_assertok(check_usage(uts));
 
+	/*
+	 * An argument which looks like an option is refused before the
+	 * sub-command runs, since none of them takes one
+	 */
+	ut_asserteq(1, run_command("bcb clear -x", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_bcb_usage, UTF_CONSOLE);
