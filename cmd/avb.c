@@ -6,6 +6,7 @@
 #include <avb_verify.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <image.h>
 #include <malloc.h>
 #include <mapmem.h>
@@ -21,8 +22,10 @@ void avb_cmd_reset(void)
 	avb_ops = NULL;
 }
 
-int do_avb_init(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_avb_init(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	unsigned long mmc_dev;
 
 	if (argc != 2)
@@ -44,9 +47,10 @@ int do_avb_init(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_read_part(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+int do_avb_read_part(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	s64 offset;
 	size_t bytes, bytes_read = 0;
@@ -80,9 +84,10 @@ int do_avb_read_part(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_read_part_hex(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+int do_avb_read_part_hex(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	s64 offset;
 	size_t bytes, bytes_read = 0;
@@ -129,9 +134,10 @@ int do_avb_read_part_hex(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_write_part(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+int do_avb_write_part(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	s64 offset;
 	size_t bytes;
@@ -165,9 +171,10 @@ int do_avb_write_part(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_read_rb(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+int do_avb_read_rb(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	size_t index;
 	u64 rb_idx;
 	int ret;
@@ -194,9 +201,10 @@ int do_avb_read_rb(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_write_rb(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+int do_avb_write_rb(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	size_t index;
 	u64 rb_idx;
 	int ret;
@@ -222,9 +230,10 @@ int do_avb_write_rb(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_get_uuid(struct cmd_tbl *cmdtp, int flag,
-		    int argc, char *const argv[])
+int do_avb_get_uuid(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	char buffer[UUID_STR_LEN + 1];
 	int ret;
@@ -253,9 +262,10 @@ int do_avb_get_uuid(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_verify_part(struct cmd_tbl *cmdtp, int flag,
-		       int argc, char *const argv[])
+int do_avb_verify_part(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char * const requested_partitions[] = {"boot", NULL};
 	AvbSlotVerifyResult slot_result;
 	AvbSlotVerifyData *out_data;
@@ -333,8 +343,7 @@ int do_avb_verify_part(struct cmd_tbl *cmdtp, int flag,
 	return res;
 }
 
-int do_avb_is_unlocked(struct cmd_tbl *cmdtp, int flag,
-		       int argc, char *const argv[])
+int do_avb_is_unlocked(struct getopt_state *gs)
 {
 	bool unlock;
 	int ret;
@@ -342,11 +351,6 @@ int do_avb_is_unlocked(struct cmd_tbl *cmdtp, int flag,
 	if (!avb_ops) {
 		printf("AVB is not initialized, please run 'avb init <id>'\n");
 		return CMD_RET_FAILURE;
-	}
-
-	if (argc != 1) {
-		printf("--%s(-1)\n", __func__);
-		return CMD_RET_USAGE;
 	}
 
 	ret = avb_ops->read_is_device_unlocked(avb_ops, &unlock);
@@ -361,9 +365,10 @@ int do_avb_is_unlocked(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_read_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+int do_avb_read_pvalue(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *name;
 	size_t bytes;
 	size_t bytes_read;
@@ -404,9 +409,10 @@ int do_avb_read_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_FAILURE;
 }
 
-int do_avb_write_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+int do_avb_write_pvalue(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *name;
 	const char *value;
 	int ret;
@@ -437,40 +443,29 @@ int do_avb_write_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 static struct cmd_tbl cmd_avb[] = {
-	U_BOOT_CMD_MKENT(init, 2, 0, do_avb_init, "", ""),
-	U_BOOT_CMD_MKENT(read_rb, 2, 0, do_avb_read_rb, "", ""),
-	U_BOOT_CMD_MKENT(write_rb, 3, 0, do_avb_write_rb, "", ""),
-	U_BOOT_CMD_MKENT(is_unlocked, 1, 0, do_avb_is_unlocked, "", ""),
-	U_BOOT_CMD_MKENT(get_uuid, 2, 0, do_avb_get_uuid, "", ""),
-	U_BOOT_CMD_MKENT(read_part, 5, 0, do_avb_read_part, "", ""),
-	U_BOOT_CMD_MKENT(read_part_hex, 4, 0, do_avb_read_part_hex, "", ""),
-	U_BOOT_CMD_MKENT(write_part, 5, 0, do_avb_write_part, "", ""),
-	U_BOOT_CMD_MKENT(verify, 2, 0, do_avb_verify_part, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(init, 2, 0, do_avb_init, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_rb, 2, 0, do_avb_read_rb, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_rb, 3, 0, do_avb_write_rb, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(is_unlocked, 1, 0, do_avb_is_unlocked, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(get_uuid, 2, 0, do_avb_get_uuid, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_part, 5, 0, do_avb_read_part, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_part_hex, 4, 0, do_avb_read_part_hex, "",
+				""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_part, 5, 0, do_avb_write_part, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(verify, 2, 0, do_avb_verify_part, "", ""),
 #ifdef CONFIG_OPTEE_TA_AVB
-	U_BOOT_CMD_MKENT(read_pvalue, 3, 0, do_avb_read_pvalue, "", ""),
-	U_BOOT_CMD_MKENT(write_pvalue, 3, 0, do_avb_write_pvalue, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_pvalue, 3, 0, do_avb_read_pvalue, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_pvalue, 3, 0, do_avb_write_pvalue, "",
+				""),
 #endif
 };
 
-static int do_avb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_avb(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	cp = find_cmd_tbl(argv[1], cmd_avb, ARRAY_SIZE(cmd_avb));
-
-	argc--;
-	argv++;
-
-	if (!cp || argc > cp->maxargs)
-		return CMD_RET_USAGE;
-
-	if (flag == CMD_FLAG_REPEAT)
-		return CMD_RET_FAILURE;
-
-	return cmd_invoke(cp, flag, argc, argv);
+	return cmd_dispatch_subcmd(gs, cmd_avb, ARRAY_SIZE(cmd_avb));
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	avb, 29, 0, do_avb,
 	"Provides commands for testing Android Verified Boot 2.0 functionality",
 	"init <dev> - initialize avb2 for <dev>\n"
