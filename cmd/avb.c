@@ -8,6 +8,7 @@
 #include <env.h>
 #include <image.h>
 #include <malloc.h>
+#include <mapmem.h>
 #include <mmc.h>
 
 #define AVB_BOOTARGS	"avb_bootargs"
@@ -57,10 +58,11 @@ int do_avb_read_part(struct cmd_tbl *cmdtp, int flag, int argc,
 	part = argv[1];
 	offset = hextoul(argv[2], NULL);
 	bytes = hextoul(argv[3], NULL);
-	buffer = (void *)hextoul(argv[4], NULL);
+	buffer = map_sysmem(hextoul(argv[4], NULL), bytes);
 
 	ret = avb_ops->read_from_partition(avb_ops, part, offset,
 					   bytes, buffer, &bytes_read);
+	unmap_sysmem(buffer);
 	if (ret == AVB_IO_RESULT_OK) {
 		printf("Read %zu bytes\n", bytes_read);
 		return CMD_RET_SUCCESS;
@@ -141,10 +143,11 @@ int do_avb_write_part(struct cmd_tbl *cmdtp, int flag, int argc,
 	part = argv[1];
 	offset = hextoul(argv[2], NULL);
 	bytes = hextoul(argv[3], NULL);
-	buffer = (void *)hextoul(argv[4], NULL);
+	buffer = map_sysmem(hextoul(argv[4], NULL), bytes);
 
 	ret = avb_ops->write_to_partition(avb_ops, part, offset,
 					  bytes, buffer);
+	unmap_sysmem(buffer);
 	if (ret == AVB_IO_RESULT_OK) {
 		printf("Wrote %zu bytes\n", bytes);
 		return CMD_RET_SUCCESS;
