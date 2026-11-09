@@ -103937,3 +103937,176 @@ The `.pickman-history` record commit `a2dc577f3e73` exists only on `cherry-b9cd5
 
 ---
 
+## 2026-11-08: us/main
+
+Branch: cherry-fff6ccdc18e3
+
+Commits:
+- fff6ccdc18e3 imx93: clock: add 900MHz entry to fractional PLL rate table
+- b6f8cb429bb0 imx93: clock: add 450MHz DDR PLL rate
+- f2f010a31612 board: imx93_evk: add LPDDR4X 3600MTS timing tables
+- a580768b923f board: imx93w_evk: add board support for i.MX93W EVK
+- 3b27426a1fb6 configs: {aquila, verdin, toradex-smarc}-imx95: remove CONFIG_SPI
+- 9a068fee9bd1 imx: verdin-imx95: remove unused WDOG_BASE_ADDR
+- ff6a09a649ed toradex: {aquila, smarc, verdin}-imx95: add board_fix_fdt
+- cf521818fdaf net: fsl_enetc_xpcs_phy: Extract common PMA MMD init sequence into helper function
+- ffeb65b80963 net: fsl_enetc_xpcs_phy: Add SGMII 1G support for i.MX95 Ethernet PHY Wrapper
+- 2c46f9f03479 net: fsl_enetc: Add 1G SGMII mode support for i.MX95
+- ad7e0c16b4ff Revert "ARM: dts: tqma6: add boot phase properties"
+- 1b14be3a5fa2 Revert "ARM: dts: tqma6ul: add boot phase properties"
+- 2230a622cac3 Revert "arch: arm: dts: tqma7x: add boot phase properties"
+- d97390107f52 imx: imx8mm_evk: Indent the config with tabs
+- d4152edb5035 Merge tag 'u-boot-imx-next-20260906' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx into next
+
+### Conversation log
+The picks are running in the background, one commit at a time. The script stops at any conflict, split-check change or build failure, and I'll pick up from there when it exits.
+
+Monitor isn't needed here, since the background job notifies me when it exits. I'll check progress once in the meantime.
+
+The first pick applied cleanly: split-check changed nothing and the files match the original. Its sandbox build is still running, and I'll carry on when the background job reports that it has finished or stopped.
+
+All 15 commits are on `cherry-fff6ccdc18e3`, 15 ahead of `ci/master`, and the branch is ready for pushing. I haven't pushed or merged it.
+
+**Build:** the final sandbox build passed with no warnings or errors, as did the build after each of the 14 regular commits. Sandbox doesn't compile the i.MX93/i.MX95 board code or the TQ device trees, and I didn't build those boards, so this series' changes there are untested.
+
+**Fix-ups:** none were needed, and there were no conflicts.
+- `pickman split-check -f` changed nothing on any commit, so no commit was amended and no notes were added.
+- A final `split-check` over the whole range also came back clean.
+
+**Deltas:** none are concerning. Each of the 14 regular commits has the same changed lines as its original, and each has its `cherry picked from` line.
+
+**Merge commit `d4152edb5035` (now `bcd5e95ea2de`):**
+- It is an empty commit, which is expected. The merge's diff (5121 insertions, 292 deletions) is exactly the sum of the 14 commits before it.
+- `git cherry-pick -m 1 --allow-empty` stopped because that flag only keeps commits that were already empty. I finished it with `git commit --allow-empty --no-edit`, which kept the original message and the `cherry picked from` line.
+
+**Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there before I started, and I left them alone.
+
+---
+
+### Pipeline fix: 2026-11-08 (attempt 2)
+
+Branch: cherry-fff6ccdc18e3
+
+Failed jobs:
+- build all 64bit ARM platforms (world_build)
+- pine64 (sjg-lab)
+
+### Conversation log
+The pine64 failure has a corrupted driver name, which doesn't look like a code problem. Next I'll find the actual errors in the world build log.
+
+The log is only a tail, so the real error may have been cut off. The `.sram` linker error stands out, so I'll check its context, how CI turns this into exit 100, and which boards the series touches.
+
+The series adds `imx93w_evk`, which is the most likely source of the build error. I'll build the boards it touches first, as they're quicker than the whole ARM set.
+
+The real error is a Kconfig failure on `PPL_TEXT_BASE` and `SYS_UBOOT_START`, both with empty values. Next step is to find which boards hit it and where those symbols are defined.
+
+The builds are running in the background, and I'll report once they finish.
+
+The fix is on local branch `cherry-fff6ccdc18e3-fix2`, but the verification builds are still running, so it isn't confirmed yet. I'll send the final report when they finish.
+
+**So far:**
+- **`build all 64bit ARM platforms`:** this is a real failure from `board: imx93w_evk: add board support for i.MX93W EVK`. The new defconfig sets `CONFIG_TEXT_BASE`, which this tree has renamed to `CONFIG_PPL_TEXT_BASE`, so Kconfig fails for `imx93w_evk` and `imx93w_evk_inline_ecc`. I changed that one line and amended the commit with a `[pickman]` note.
+- **`pine64`:** this looks like a transient lab problem, so I made no change for it. `test_dm_compat` read the driver name as `gpi߾sunxi` instead of `gpio_sunxi`, because two bytes came through bit-shifted on the serial link. The series doesn't touch sunxi, driver model or that test.
+
+The one real build failure is fixed on local branch `cherry-fff6ccdc18e3-fix2`, which I haven't pushed. The `pine64` failure looks like a transient lab problem, so I changed nothing for it.
+
+## `build all 64bit ARM platforms`: real failure, fixed
+- **Responsible commit:** `62de35b2f41d` "board: imx93w_evk: add board support for i.MX93W EVK", now `640f229394af` after the rebase.
+- **Root cause:** the new `configs/imx93w_evk_defconfig` sets `CONFIG_TEXT_BASE`, but this tree has renamed that symbol to `CONFIG_PPL_TEXT_BASE`. With no value for it, Kconfig stopped with `no value for new symbol 'PPL_TEXT_BASE'`. `imx93w_evk` and `imx93w_evk_inline_ecc` both failed, because the second includes the first.
+- **Change:** one line, `CONFIG_TEXT_BASE=0x80200000` became `CONFIG_PPL_TEXT_BASE=0x80200000`. I amended that commit with a `[pickman]` note and a `Co-developed-by` tag, following earlier pickman fixes. No other symbol in that defconfig is missing from Kconfig.
+
+The job log only had the tail of the output, so the error itself wasn't visible; I reproduced it locally. The log's other errors include `aarch64-linux-ld: invalid length for memory region .sram`, but none of them stopped the local `aarch64` build.
+
+## `pine64`: transient, no change
+`test_dm_compat` failed because it read the driver name as `gpi߾sunxi`. The real name in `drivers/gpio/sunxi_gpio.c` is `gpio_sunxi`. The two bytes `o_` (0x6f 0x5f) arrived as 0xdf 0xbe, which is the same data shifted one bit, so this points to corruption on the serial link. The series doesn't touch sunxi, driver model or that test, so a retry should pass. I can't test that from here, as it needs the lab board.
+
+## Verification
+| Build | Result |
+|---|---|
+| `um build sandbox` | Pass |
+| `buildman -PEWM aarch64` (same as the failing CI job) | Pass, 557 boards, exit 0 |
+| The requested board list | Pass, 36 boards selected, 29 reported built, exit 0 |
+| `imx93w_evk` and `imx93w_evk_inline_ecc` | `u-boot.bin` produced for both |
+
+- **Requested board list:** the comma-separated command from the instructions fails with "No matching boards found", so I ran the same terms separated by spaces. I didn't check why only 29 of the 36 were reported as built; the other 7 may have been skipped as already built in the `aarch64` run.
+- **Branch state:** still 16 commits above `ci/master`. It differs from `cherry-fff6ccdc18e3` only by that one line, and the original branch is unchanged.
+
+---
+
+## 2026-11-08: us/main
+
+Branch: cherry-fff6ccdc18e3
+
+Commits:
+- fff6ccdc18e3 imx93: clock: add 900MHz entry to fractional PLL rate table
+- b6f8cb429bb0 imx93: clock: add 450MHz DDR PLL rate
+- f2f010a31612 board: imx93_evk: add LPDDR4X 3600MTS timing tables
+- a580768b923f board: imx93w_evk: add board support for i.MX93W EVK
+- 3b27426a1fb6 configs: {aquila, verdin, toradex-smarc}-imx95: remove CONFIG_SPI
+- 9a068fee9bd1 imx: verdin-imx95: remove unused WDOG_BASE_ADDR
+- ff6a09a649ed toradex: {aquila, smarc, verdin}-imx95: add board_fix_fdt
+- cf521818fdaf net: fsl_enetc_xpcs_phy: Extract common PMA MMD init sequence into helper function
+- ffeb65b80963 net: fsl_enetc_xpcs_phy: Add SGMII 1G support for i.MX95 Ethernet PHY Wrapper
+- 2c46f9f03479 net: fsl_enetc: Add 1G SGMII mode support for i.MX95
+- ad7e0c16b4ff Revert "ARM: dts: tqma6: add boot phase properties"
+- 1b14be3a5fa2 Revert "ARM: dts: tqma6ul: add boot phase properties"
+- 2230a622cac3 Revert "arch: arm: dts: tqma7x: add boot phase properties"
+- d97390107f52 imx: imx8mm_evk: Indent the config with tabs
+- d4152edb5035 Merge tag 'u-boot-imx-next-20260906' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx into next
+
+### Conversation log
+The picks are running in the background, one commit at a time. The script stops at any conflict, split-check change or build failure, and I'll pick up from there when it exits.
+
+Monitor isn't needed here, since the background job notifies me when it exits. I'll check progress once in the meantime.
+
+The first pick applied cleanly: split-check changed nothing and the files match the original. Its sandbox build is still running, and I'll carry on when the background job reports that it has finished or stopped.
+
+All 15 commits are on `cherry-fff6ccdc18e3`, 15 ahead of `ci/master`, and the branch is ready for pushing. I haven't pushed or merged it.
+
+**Build:** the final sandbox build passed with no warnings or errors, as did the build after each of the 14 regular commits. Sandbox doesn't compile the i.MX93/i.MX95 board code or the TQ device trees, and I didn't build those boards, so this series' changes there are untested.
+
+**Fix-ups:** none were needed, and there were no conflicts.
+- `pickman split-check -f` changed nothing on any commit, so no commit was amended and no notes were added.
+- A final `split-check` over the whole range also came back clean.
+
+**Deltas:** none are concerning. Each of the 14 regular commits has the same changed lines as its original, and each has its `cherry picked from` line.
+
+**Merge commit `d4152edb5035` (now `bcd5e95ea2de`):**
+- It is an empty commit, which is expected. The merge's diff (5121 insertions, 292 deletions) is exactly the sum of the 14 commits before it.
+- `git cherry-pick -m 1 --allow-empty` stopped because that flag only keeps commits that were already empty. I finished it with `git commit --allow-empty --no-edit`, which kept the original message and the `cherry picked from` line.
+
+**Untracked files:** `tools/binman/home/` and `tools/binman/usr/` were already there before I started, and I left them alone.
+
+---
+
+### Pipeline fix: 2026-11-08 (attempt 3)
+
+Branch: cherry-fff6ccdc18e3
+
+Failed jobs:
+- jerry (sjg-lab)
+
+### Conversation log
+The log points to a lab reservation problem, not the code. Before calling it infrastructure, I'll check that the series doesn't touch the test harness and see whether the place is still held.
+
+**The `jerry` failure is a lab reservation conflict, not a code problem, so I made no changes.** The series didn't cause it, so there's nothing to amend. I didn't create `cherry-fff6ccdc18e3-fix3` or run any builds, and `cherry-fff6ccdc18e3` is untouched.
+
+**Root cause:** the job stopped about five seconds into `test.py`, while pytest was still configuring and before U-Boot was built or the board touched. `u-boot-test-getrole jerry --configure` failed with:
+
+```
+labgrid-client: Error: place jerry is not acquired by your user, acquired by sglass.
+To work simultaneously, sglass can execute labgrid-client -p jerry allow ellesmere/gitlab-runner
+```
+
+The runner uses the `ellesmere/gitlab-runner` identity, but the `jerry` place was held by `ellesmere/sglass`, probably from a manual session. The job's cleanup `u-boot-test-release` was refused for the same reason. The exit status 3 is pytest reporting that internal error, and the "No files to upload" message only follows from no tests having run.
+
+**Why the series isn't responsible:** none of its commits touch `test/py`, `test/hooks` or `.gitlab-ci.yml`, and no changed file has "jerry" in its path.
+
+**To clear it:** I couldn't check whether `jerry` is still held, because the labgrid coordinator refused the connection from this environment. I also wouldn't release or kick your reservation without you asking. Once you've done one of these, retry job 748189:
+- **If you've finished with the board:** run `labgrid-client -p jerry release`.
+- **If you're still using it:** run `labgrid-client -p jerry allow ellesmere/gitlab-runner`, though the CI job will then share the board with your session.
+
+**Still unverified:** the `jerry` tests never ran, so this series hasn't been tested on that board yet. Attempt 2's report also noted that sandbox doesn't compile the i.MX93/i.MX95 board code, and those boards only have build coverage so far.
+
+---
+
