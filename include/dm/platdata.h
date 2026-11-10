@@ -35,8 +35,10 @@ struct driver_info {
 
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 #define driver_info_parent_id(driver_info)	driver_info->parent_idx
+#define driver_info_plat_size(driver_info)	driver_info->plat_size
 #else
 #define driver_info_parent_id(driver_info)	(-1)
+#define driver_info_plat_size(driver_info)	0
 #endif
 
 /**

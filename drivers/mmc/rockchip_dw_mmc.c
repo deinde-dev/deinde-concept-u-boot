@@ -6,23 +6,21 @@
 #include <bloblist.h>
 #include <clk.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <dwmmc.h>
 #include <errno.h>
 #include <log.h>
 #include <mapmem.h>
 #include <pwrseq.h>
+#include <spl.h>
 #include <syscon.h>
 #include <asm/gpio.h>
 #include <asm/arch-rockchip/clock.h>
 #include <asm/arch-rockchip/periph.h>
+#include <dm/prop.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 
 struct rockchip_mmc_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3288_dw_mshc dtplat;
-#endif
 	struct mmc_config cfg;
 	struct mmc mmc;
 };
@@ -92,39 +90,39 @@ static int rockchip_dwmmc_of_to_plat(struct udevice *dev)
 {
 	struct rockchip_dwmmc_priv *priv = dev_get_priv(dev);
 	struct dwmci_host *host = &priv->host;
-
-	if (!IS_ENABLED(CONFIG_OF_REAL))
-		return 0;
+	DTPLAT(rockchip_rk3288_dw_mshc, dt, dev);
 
 	host->name = dev->name;
-	host->ioaddr = dev_read_addr_ptr(dev);
-	host->buswidth = dev_read_u32_default(dev, "bus-width", 4);
+	host->ioaddr = dev_prop_addr_ptr(dev, dt);
+	host->buswidth = dev_prop_u32_default(dev, dt, bus_width, "bus-width", 4);
 	host->get_mmc_clk = rockchip_dwmmc_get_mmc_clk;
 	host->priv = dev;
 
 	/* use non-removeable as sdcard and emmc as judgement */
-	if (dev_read_bool(dev, "non-removable"))
+	if (dev_prop_bool(dev, dt, non_removable, "non-removable"))
 		host->dev_index = 0;
 	else
 		host->dev_index = 1;
 
-	priv->fifo_depth = dev_read_u32_default(dev, "fifo-depth", 0);
+	priv->fifo_depth = dev_prop_u32_default(dev, dt, fifo_depth,
+						"fifo-depth", 0);
 
 	if (priv->fifo_depth < 0)
 		return log_msg_ret("rkp", -EINVAL);
-	priv->fifo_mode = dev_read_bool(dev, "fifo-mode");
+	priv->fifo_mode = dev_prop_bool(dev, dt, fifo_mode, "fifo-mode");
 
-#ifdef CONFIG_XPL_BUILD
-	if (!priv->fifo_mode)
-		priv->fifo_mode = dev_read_bool(dev, "u-boot,spl-fifo-mode");
-#endif
+	if (is_xpl() && !priv->fifo_mode)
+		priv->fifo_mode = dev_prop_bool(dev, dt, u_boot_spl_fifo_mode,
+						"u-boot,spl-fifo-mode");
 
 	/*
 	 * 'clock-freq-min-max' is deprecated
 	 * (see https://github.com/torvalds/linux/commit/b023030f10573de738bbe8df63d43acab64c9f7b)
 	 */
-	if (dev_read_u32_array(dev, "clock-freq-min-max", priv->minmax, 2)) {
-		int val = dev_read_u32_default(dev, "max-frequency", -EINVAL);
+	if (dev_prop_u32_array(dev, dt, clock_freq_min_max,
+			       "clock-freq-min-max", priv->minmax, 2)) {
+		int val = dev_prop_u32_default(dev, dt, max_frequency,
+					       "max-frequency", -EINVAL);
 
 		if (val < 0)
 			return log_msg_ret("rkc", val);
@@ -145,26 +143,10 @@ static int rockchip_dwmmc_probe(struct udevice *dev)
 	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(dev);
 	struct rockchip_dwmmc_priv *priv = dev_get_priv(dev);
 	struct dwmci_host *host = &priv->host;
+	DTPLAT(rockchip_rk3288_dw_mshc, dt, dev);
 	int ret;
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3288_dw_mshc *dtplat = &plat->dtplat;
-
-	host->name = dev->name;
-	host->ioaddr = map_sysmem(dtplat->reg[0], dtplat->reg[1]);
-	host->buswidth = dtplat->bus_width;
-	host->get_mmc_clk = rockchip_dwmmc_get_mmc_clk;
-	host->priv = dev;
-	host->dev_index = 0;
-	priv->fifo_depth = dtplat->fifo_depth;
-	priv->fifo_mode = dtplat->u_boot_spl_fifo_mode;
-	priv->minmax[0] = 400000;  /*  400 kHz */
-	priv->minmax[1] = dtplat->max_frequency;
-
-	ret = clk_get_by_phandle(dev, &dtplat->clocks[1], &priv->clk);
-#else
-	ret = clk_get_by_index(dev, 1, &priv->clk);
-#endif
+	ret = dev_prop_clk(dev, dt, clocks, "clocks", 1, &priv->clk);
 	if (ret < 0 && ret != -ENOSYS)
 		return log_msg_ret("clk", ret);
 	host->fifo_depth = priv->fifo_depth;
