@@ -104688,3 +104688,68 @@ All 29 commits are on `cherry-71f3bd694b3e`, based on `ci/master` and ready for 
 
 ---
 
+### Review: 2026-11-10
+
+Branch: cherry-71f3bd694b3e
+
+Comments addressed:
+- [sjg]: pickman: Please check test.py failures...
+
+### Conversation log
+Checking the test.py job logs from the latest pipelines to find every failing test, not just scsiboot.
+
+All the test.py failures are `scsiboot_base`. Now checking that the pushed branch has the fix and that no other test still expects the old type.
+
+The fix is on the pushed branch. Building and running the failing test to confirm.
+
+`scsiboot_base` now passes; `test_ut_dm_init_bootstd` fails only because it needs `sudo`, as before. Running the full sandbox test.py suite to check for anything else.
+
+The full suite is running in the background, and I'll be notified when it finishes. In the meantime I'm checking why the push of the fix didn't start a pipeline.
+
+The MR head is the fix commit `791658d0408a`, but its head pipeline is still 11235, which ran on the old code. No pipeline has run on the fix yet. Waiting for the local suite to finish.
+
+The serial run of the full suite is in progress, and I'll be notified when it finishes, probably in about 15 minutes.
+
+Waiting for the test run to complete.
+
+The waiting script hit its 10-minute limit, but the test suite itself is still running. I'll be notified when it finishes.
+
+That run failed to start because I gave it a build directory with no build in it. Restarting it against `/tmp/pickman`.
+
+The Monitor tool rejected my polling script, so I'll wait for the test-run notification instead and check progress in a few minutes.
+
+The run is stuck on `test_cleanup_build.py::test_clean`, at the same point where the previous serial run stopped. Looking at what that test does.
+
+Those partial copies came from my two runs, so I'm deleting them in the background and starting the suite again without the cleanup-build tests.
+
+The suite is running again without the cleanup-build tests, and I'll be notified when it finishes.
+
+The partial copies are removed. The test suite is still running.
+
+Every test.py failure the comment refers to is the one `scsiboot_base` failure that the earlier pipeline-fix push already fixed. No pipeline has run on that push yet, so the MR still shows the old results. I made no code changes for this review.
+
+**What the failed pipeline shows.** Pipeline 11235 is still the MR's head pipeline, but it ran on the old code, before the fix commit `791658d0408a` was pushed. The fix is now the MR head and has no pipeline of its own. In 11235 (and the earlier 11233):
+- **All six sandbox test.py jobs** failed on one test only, `ut_cmd_cmd_test_scsiboot_base`, which expected `Type: U-Boot` but got `Type: unknown`.
+- **`make check` and `make qcheck`** failed on the same test and nothing else.
+- **The pushed branch has the fix:** `test/cmd/scsiboot.c` expects `Type: unknown`, and no other test under `test/` expects the old string.
+- **The other failed jobs aren't test.py:** samus and samus_tpl hit a labgrid error ("multiple drivers matching ConsoleProtocol"), minnowmax hit a lab console timeout, and `efi-x86_64-uboot-iso` is the intermittent initrd failure already noted.
+
+**Local checks**
+- `buildman -L --board sandbox -w -o /tmp/pickman` passes.
+- The scsiboot, usbboot and diskboot tests pass under test.py, including `scsiboot_base`.
+- The full sandbox test.py run, minus the cleanup-build tests, gave 2180 passed and 17 failed. None of the 17 failures is caused by the branch, and all of these tests passed in CI on the same series:
+  - Most need disk images (`mmc11.img`, `mmc13.img`) that `test_ut_dm_init_bootstd` creates. That setup needs `sudo`, which isn't available here.
+  - `test_event_dump` fails on a local import error for binman's `elf` module.
+  - `test_env_spi_flash` fails with a bad CRC on the stored SPI flash environment. That data is probably left over from an earlier parallel run I aborted.
+- I left out the cleanup-build tests because they copy the whole build directory, and `/tmp/pickman` is too big to copy. Earlier full runs hung there until they timed out at 40 minutes. You may want to clear that directory out.
+
+**Branch:** `cherry-71f3bd694b3e-v2` is checked out and not pushed. It is the same as the pushed branch plus pickman's local history commit `b94c87adda1a`. It makes no code changes.
+
+**Suggested reply for the MR:**
+
+> All the test.py failures (the six sandbox test.py jobs, plus `make check` and `make qcheck`) are the same test, `ut_cmd_cmd_test_scsiboot_base`. The 'disk: update partition type reporting' commit changes the whole-disk partition type from 'U-Boot' to 'unknown', and `test/cmd/scsiboot.c`, which exists only in this tree, still expected 'U-Boot'. That commit was amended in the last push to expect 'Type: unknown'. The pipeline you saw (11235) ran on the code before that fix, and no pipeline has run on the fix yet. The new push should start one. Locally `scsiboot_base` passes and the sandbox build is clean. The samus, samus_tpl and minnowmax failures are lab/labgrid problems, and `efi-x86_64-uboot-iso` looks intermittent, so the code needs no change for those.
+
+The sample output in `doc/usage/cmd/scsiboot.rst`, `usbboot.rst` and `diskboot.rst` still shows `Type: U-Boot`. It can be updated in a follow-up.
+
+---
+
