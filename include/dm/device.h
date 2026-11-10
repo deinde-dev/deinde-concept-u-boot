@@ -334,6 +334,20 @@ struct udevice_id {
 #define of_match_ptr(_ptr)	NULL
 #endif /* IS_ENABLED(CONFIG_OF_REAL) */
 
+/*
+ * of_to_plat_ptr() - Use an of_to_plat() method only with OF_CONTROL
+ *
+ * Unlike of_match_ptr(), this keeps the method with of-platdata, where
+ * of_to_plat() is called too, e.g. to read the generated data with the
+ * dev_prop_...() helpers. So a driver can define the method only when
+ * OF_CONTROL is enabled, without an #if in its U_BOOT_DRIVER()
+ */
+#if IS_ENABLED(CONFIG_OF_CONTROL)
+#define of_to_plat_ptr(_ptr)	(_ptr)
+#else
+#define of_to_plat_ptr(_ptr)	NULL
+#endif
+
 /**
  * struct driver - A driver for a feature or peripheral
  *
