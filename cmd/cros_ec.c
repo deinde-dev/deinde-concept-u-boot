@@ -555,7 +555,6 @@ U_BOOT_CMD(
 	"crosec hash                Read CROS-EC hash\n"
 	"crosec reboot [rw | ro | cold]  Reboot CROS-EC\n"
 	"crosec events              Read CROS-EC host events\n"
-	"crosec eventsb             Read CROS-EC host events_b\n"
 	"crosec clrevents [mask]    Clear CROS-EC host events\n"
 	"crosec regioninfo <ro|rw>  Read image info\n"
 	"crosec flashinfo           Read flash info\n"
