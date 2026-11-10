@@ -17,6 +17,7 @@ Device
 .. kernel-doc:: include/dm/device.h
 .. kernel-doc:: include/dm/devres.h
 .. kernel-doc:: include/dm/read.h
+.. kernel-doc:: include/dm/prop.h
 
 Device tree
 -----------
