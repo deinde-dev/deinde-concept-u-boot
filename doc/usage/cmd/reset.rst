@@ -47,3 +47,5 @@ See also
 * :doc:`panic<panic>` for stopping the board after reporting a problem
 * :doc:`wdt<wdt>` for a watchdog timer, which resets the board when it is
   left unserviced
+* :doc:`crosec<crosec>` for restarting the embedded controller of a Chromebook
+  rather than the board

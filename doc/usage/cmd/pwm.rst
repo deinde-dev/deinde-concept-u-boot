@@ -83,3 +83,9 @@ Configuration
 -------------
 
 The ``pwm`` command is only available if CONFIG_CMD_PWM=y.
+
+See also
+--------
+
+* :doc:`crosec<crosec>` for the embedded controller which provides the PWM
+  channels on a Chromebook
