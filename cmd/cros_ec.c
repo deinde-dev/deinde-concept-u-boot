@@ -519,10 +519,8 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 			}
 		}
 
-		if (ret) {
+		if (ret)
 			debug("%s: Could not access LDO%d\n", __func__, index);
-			return ret;
-		}
 	} else if (!strcmp("sku", cmd)) {
 		ret = cros_ec_get_sku_id(dev);
 
