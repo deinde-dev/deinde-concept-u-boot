@@ -34,14 +34,14 @@ to more efficient storage of the data.
 How it works
 ------------
 
-The feature is enabled by CONFIG OF_PLATDATA. This is only available in
-SPL/TPL and should be tested with:
+The feature is enabled by CONFIG_SPL_OF_PLATDATA or CONFIG_TPL_OF_PLATDATA.
+This is only available in SPL/TPL and should be tested with:
 
 .. code-block:: c
 
     #if IS_ENABLED(CONFIG_OF_PLATDATA)
 
-A tool called 'dtoc' converts a devicetree file either into a set of
+A tool called 'dtoc' converts a devicetree file into a set of
 struct declarations, one for each compatible node, and a set of
 `U_BOOT_DRVINFO()` declarations along with the actual platform data for each
 device.
@@ -76,10 +76,10 @@ As an example, consider this MMC node:
             num-slots = <1>;
             pinctrl-names = "default";
             pinctrl-0 = <&sdmmc_clk>, <&sdmmc_cmd>, <&sdmmc_cd>, <&sdmmc_bus4>;
-                vmmc-supply = <&vcc_sd>;
-                status = "okay";
-                bootph-all;
-        };
+            vmmc-supply = <&vcc_sd>;
+            status = "okay";
+            bootph-all;
+    };
 
 
 Some of these properties are dropped by U-Boot under control of the
@@ -118,14 +118,13 @@ and the following device declarations:
             .clock_freq_min_max     = {0x61a80, 0x8f0d180},
             .vmmc_supply            = 0xb,
             .num_slots              = 0x1,
-            .clocks                 = {{0, 456},
-                                       {0, 68},
-                                       {0, 114},
-                                       {0, 118}},
+            .clocks                 = {{0, {456}},
+                                       {0, {68}},
+                                       {0, {114}},
+                                       {0, {118}}},
             .cap_mmc_highspeed      = true,
             .disable_wp             = true,
             .bus_width              = 0x4,
-            .u_boot_dm_pre_reloc    = true,
             .reg                    = {0xff0c0000, 0x4000},
             .card_detect_delay      = 0xc8,
     };
@@ -158,7 +157,7 @@ each 'compatible' string.
 
 In order to make this a bit more flexible, the `DM_DRIVER_ALIAS()` macro can be
 used to declare an alias for a driver name, typically a 'compatible' string.
-This macro produces no code, but is used by dtoc tool. It must be located in the
+This macro produces no code, but is used by the dtoc tool. It must be located in the
 same file as its associated driver, ideally just after it.
 
 The parent_idx is the index of the parent `driver_info` structure within its
@@ -167,7 +166,7 @@ support `dev_get_parent()`.
 
 During the build process dtoc parses both `U_BOOT_DRIVER()` and
 `DM_DRIVER_ALIAS()` to build a list of valid driver names and driver aliases.
-If the 'compatible' string used for a device does not not match a valid driver
+If the 'compatible' string used for a device does not match a valid driver
 name, it will be checked against the list of driver aliases in order to get the
 right driver name to use. If in this step there is no match found a warning is
 issued to avoid run-time failures.
@@ -188,7 +187,7 @@ whenever configuration information is required. However this means that the
 driver will not be able to support devicetree, since the of-platdata
 structure is not available when devicetree is used. It would make no sense
 to use this structure if devicetree were available, since the structure has
-all the limitations metioned in caveats below.
+all the limitations mentioned in caveats below.
 
 Therefore it is recommended that the of-platdata structure should be used
 only in the `probe()` method of your driver. It cannot be used in the
@@ -200,7 +199,7 @@ How to structure your driver
 ----------------------------
 
 Drivers should always support devicetree as an option. The of-platdata
-feature is intended as a add-on to existing drivers.
+feature is intended as an add-on to existing drivers.
 
 Reading properties with the dev_prop helpers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -337,10 +336,11 @@ keep the use of each of-platdata struct to the smallest possible code area.
 There is just one driver C file for each struct, that can convert from the
 of-platdata struct to the standard one used by the driver.
 
-In the case where SPL_OF_PLATDATA is enabled, `plat_auto` is
-still used to allocate space for the platform data. This is different from
-the normal behaviour and is triggered by the use of of-platdata (strictly
-speaking it is a non-zero `plat_size` which triggers this).
+In the case where SPL_OF_PLATDATA is enabled, `plat_auto` is still used to
+allocate space for the platform data whenever it is larger than the
+`plat_size` given by dtoc, i.e. when the driver's plat struct has fields
+besides the of-platdata struct. This is different from the normal behaviour,
+where plat data provided by a `U_BOOT_DRVINFO()` is used as it is.
 
 The of-platdata struct contents is copied from the C structure data to the
 start of the newly allocated area. In the case where devicetree is used,
@@ -652,7 +652,7 @@ definition of that struct and use the file.
 
 In some cases, enums are used in drivers, typically with the `.data` field
 of `struct udevice_id`. Since dtoc does not support searching for these,
-you must use the `DM_HDR()` macro to tell dtoc which header to use. This works
+you must use the `DM_HEADER()` macro to tell dtoc which header to use. This works
 as a macro included in the driver definition::
 
    static const struct udevice_id apl_syscon_ids[] = {
@@ -725,6 +725,8 @@ compatible string is not actually needed at runtime.
 
 If the problem is simply that there are multiple compatible strings, the
 DM_DRIVER_ALIAS() macro can be used to tell dtoc about this and avoid a problem.
+This is not needed for a driver which uses the dev_prop helpers, since dtoc
+finds it from any of the compatible strings in its `of_match` table.
 
 Checks are also made to confirm that the referenced driver has a .compatible
 member and a .id member. The first provides the array of compatible strings and
@@ -831,30 +833,6 @@ Note that there is no dependency checking on the above, so U-Boot will not
 regenerate the dt-device.c file when you update the source file (here,
 `irq_sandbox.c`). You need to run `make mrproper` first to get a fresh build.
 
-Another error that can crop up is something like::
-
-   spl/dts/dt-device.c:257:38: error: invalid application of ‘sizeof’ to
-         incomplete type ‘struct sandbox_irq_priv’
-      257 | u8 _sandbox_irq_priv_irq_sbox[sizeof(struct sandbox_irq_priv)]
-          |                                      ^~~~~~
-
-This indicates that `struct sandbox_irq_priv` is not defined anywhere. The
-solution is to add a DM_HEADER() line, as below, so this is included in the
-dt-device.c file::
-
-   U_BOOT_DRIVER(sandbox_irq) = {
-      .name		= "sandbox_irq",
-      .id		= UCLASS_IRQ,
-      .of_match	= sandbox_irq_ids,
-      .ops		= &sandbox_irq_ops,
-      .priv_auto	= sizeof(struct sandbox_irq_priv),
-      DM_HEADER(<asm/irq.h>)
-   };
-
-Note that there is no dependency checking on the above, so U-Boot will not
-regenerate the dt-device.c file when you update the source file (here,
-`irq_sandbox.c`). You need to run `make mrproper` first to get a fresh build.
-
 
 Caveats
 -------
@@ -869,7 +847,8 @@ caveats include:
      is considered to be a 2-item integer array, and is byte-swapped. A
      boolean value that is not present means 'false', but cannot be
      included in the structures since there is generally no mention of it
-     in the devicetree file.
+     in the devicetree file. The dev_prop helpers avoid this for booleans,
+     since the struct has a member for each one the driver reads.
 
    - Naming of nodes and properties is automatic. This means that they follow
      the naming in the devicetree, which may result in C identifiers that
@@ -941,8 +920,8 @@ Otherwise (such as in U-Boot proper) these structs are not available. This
 prevents them being used inadvertently. All usage must be bracketed with
 `#if IS_ENABLED(CONFIG_OF_PLATDATA)`.
 
-The dt-plat.c file contains the device declarations and is is built in
-spl/dt-plat.c.
+The dt-plat.c file contains the device declarations and is built in
+spl/dts/dt-plat.c.
 
 
 CONFIG options
@@ -1092,7 +1071,7 @@ Accessor functions
    This macro is used to indicate which phase of U-Boot a driver is intended
    for. See above for details.
 
-`DM_HDR`
+`DM_HEADER`
    This macro is used to indicate which header file dtoc should use to allow
    a driver declaration to compile correctly. See above for details.
 
