@@ -17,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/types.h>
 #include <asm/io.h>
+#include <dm/prop.h>
 
 #define UART_LCRVAL UART_LCR_8N1		/* 8 data, 1 stop, no parity */
 #define UART_MCRVAL (UART_MCR_DTR | \
@@ -542,30 +543,35 @@ enum {
 };
 #endif
 
-#if IS_ENABLED(CONFIG_OF_REAL)
+#if IS_ENABLED(CONFIG_OF_CONTROL)
 int ns16550_serial_of_to_plat(struct udevice *dev)
 {
 	struct ns16550_plat *plat = dev_get_plat(dev);
 	const u32 port_type = dev_get_driver_data(dev);
+	DTPLAT(ns16550_serial, dt, dev);
 	fdt_size_t size = 0;
 	fdt_addr_t addr;
 	struct clk clk;
 	int err;
 
 	addr = not_xpl() ? dev_read_addr_size(dev, &size) :
-		dev_read_addr(dev);
+		dev_prop_addr(dev, dt);
 	err = ns16550_serial_assign_base(plat, addr, size);
 	if (err && !device_is_on_pci_bus(dev))
 		return err;
 
-	plat->reg_offset = dev_read_u32_default(dev, "reg-offset", 0);
-	plat->reg_shift = dev_read_u32_default(dev, "reg-shift", 0);
-	plat->reg_width = dev_read_u32_default(dev, "reg-io-width", 1);
+	plat->reg_offset = dev_prop_u32_default(dev, dt, reg_offset,
+						"reg-offset", 0);
+	plat->reg_shift = dev_prop_u32_default(dev, dt, reg_shift,
+					       "reg-shift", 0);
+	plat->reg_width = dev_prop_u32_default(dev, dt, reg_io_width,
+					       "reg-io-width", 1);
 
 	if (!plat->clock)
-		plat->clock = dev_read_u32_default(dev, "clock-frequency", 0);
+		plat->clock = dev_prop_u32_default(dev, dt, clock_frequency,
+						   "clock-frequency", 0);
 	if (!plat->clock) {
-		err = clk_get_by_index(dev, 0, &clk);
+		err = dev_prop_clk(dev, dt, clocks, "clocks", 0, &clk);
 		if (!err) {
 			err = clk_get_rate(&clk);
 			if (!IS_ERR_VALUE(err))
@@ -586,7 +592,7 @@ int ns16550_serial_of_to_plat(struct udevice *dev)
 	if (port_type == PORT_JZ4780)
 		plat->fcr |= UART_FCR_UME;
 
-	plat->skip_init = dev_read_bool(dev, "skip-init");
+	plat->skip_init = dev_prop_bool(dev, dt, skip_init, "skip-init");
 
 	return 0;
 }
@@ -624,11 +630,9 @@ static const struct udevice_id ns16550_serial_ids[] = {
 U_BOOT_DRIVER(ns16550_serial) = {
 	.name	= "ns16550_serial",
 	.id	= UCLASS_SERIAL,
-#if IS_ENABLED(CONFIG_OF_REAL)
-	.of_match = ns16550_serial_ids,
-	.of_to_plat = ns16550_serial_of_to_plat,
+	.of_match = of_match_ptr(ns16550_serial_ids),
+	.of_to_plat = of_to_plat_ptr(ns16550_serial_of_to_plat),
 	.plat_auto	= sizeof(struct ns16550_plat),
-#endif
 	.priv_auto	= sizeof(struct ns16550),
 	.probe = ns16550_serial_probe,
 	.ops	= &ns16550_serial_ops,
