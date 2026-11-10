@@ -104753,3 +104753,35 @@ The sample output in `doc/usage/cmd/scsiboot.rst`, `usbboot.rst` and `diskboot.r
 
 ---
 
+### Pipeline fix: 2026-11-10 (attempt 2)
+
+Branch: cherry-71f3bd694b3e
+
+Failed jobs:
+- efi-x86_64-uboot-iso-install (sjg-lab-slow)
+- colibrimx8 (sjg-lab)
+
+### Conversation log
+Let me find colibrimx8 and ISO-install jobs in earlier pipelines to compare.
+
+Both jobs passed on this MR's two earlier pipelines (11233 and 11235). Next I'll check what code changed between those runs and this one.
+
+Neither failure comes from the branch: both look like one-off lab problems. I made no code changes, did not create `cherry-71f3bd694b3e-fix2`, and ran no builds since there was nothing to verify. Re-running the two jobs should be enough.
+
+**Nothing in the code changed that could cause them.** Both jobs passed on this MR's two earlier pipelines (11233 and 11235). Since then the only code change is the one-line `test/cmd/scsiboot.c` fix from attempt 1. That test is only built for sandbox, not for colibrimx8 or the x86 ISO job.
+
+**colibrimx8 (`test_dm_compat`): console echo glitch.**
+- In this run the board echoed the `dm tree` command a second time on its own line. In the passing run (job 752743) it appears only once, on the prompt line.
+- The test treats the position of `Driver` in the whole output as the column offset. That only works when the header is the first line.
+- The extra line pushed that offset off by its length, so the test read tree-drawing characters instead of driver names. That is why the "missing drivers" it reports are `|`, `|--` and `` `-- ``.
+- The `dm tree` and `dm compat` output itself is normal: every driver in the tree is listed in `dm compat`.
+
+**efi-x86_64-uboot-iso-install: the Ubuntu installer stalled.**
+- U-Boot had already booted the ISO and the installer was well into the install. It then stopped at "configuring raid (mdadm) service" for about 18 minutes, until the 20-minute job limit killed it.
+- In the passing run on this MR (job 752774), that step finished and the job succeeded about 3.5 minutes later.
+- This is a hang inside the guest installer, after U-Boot's part is done.
+
+The colibrimx8 failure could happen again on any branch whenever that echo glitch occurs. Making `test_dm_compat` find the column from the header line itself would fix it, but that is a separate change from this MR.
+
+---
+
