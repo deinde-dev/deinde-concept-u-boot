@@ -319,7 +319,7 @@ struct udevice_id {
 #define of_match_ptr(_ptr)	(_ptr)
 #else
 #define of_match_ptr(_ptr)	NULL
-#endif /* IS_ENABLED(CONFIG_OF_CONTROL) */
+#endif /* IS_ENABLED(CONFIG_OF_REAL) */
 
 /**
  * struct driver - A driver for a feature or peripheral
