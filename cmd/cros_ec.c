@@ -278,17 +278,17 @@ static int do_cros_ec(struct getopt_state *gs)
 			device_remove(dev, DM_REMOVE_NORMAL);
 		ret = uclass_get_device(UCLASS_CROS_EC, 0, &dev);
 		if (ret) {
-			printf("Could not init cros_ec device (err %d)\n", ret);
-			return 1;
+			return cmd_fail(ret,
+					"Could not init cros_ec device (err %d)\n",
+					ret);
 		}
 		return 0;
 	}
 
 	ret = uclass_get_device(UCLASS_CROS_EC, 0, &dev);
-	if (ret) {
-		printf("Cannot get cros-ec device (err=%d)\n", ret);
-		return 1;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot get cros-ec device (err=%d)\n",
+				ret);
 	if (0 == strcmp("id", cmd)) {
 		char id[MSG_BYTES];
 
@@ -310,12 +310,12 @@ static int do_cros_ec(struct getopt_state *gs)
 		ret = do_show_features(dev);
 
 		if (ret)
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 	} else if (!strcmp("switches", cmd)) {
 		ret = do_show_switches(dev);
 
 		if (ret)
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 	} else if (0 == strcmp("curimage", cmd)) {
 		enum ec_image image;
 
@@ -369,7 +369,7 @@ static int do_cros_ec(struct getopt_state *gs)
 		ret = do_show_events(dev);
 
 		if (ret)
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 	} else if (0 == strcmp("clrevents", cmd)) {
 		uint32_t events = 0x7fffffff;
 
@@ -473,8 +473,8 @@ static int do_cros_ec(struct getopt_state *gs)
 		int result = cros_ec_test(dev);
 
 		if (result) {
-			printf("Test failed with error %d\n", result);
-			return 1;
+			return cmd_fail(result,
+					"Test failed with error %d\n", result);
 		}
 		puts("Test passed\n");
 	} else if (0 == strcmp("version", cmd)) {
@@ -531,15 +531,16 @@ static int do_cros_ec(struct getopt_state *gs)
 			printf("%d\n", ret);
 			ret = 0;
 		} else {
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 		}
 	} else {
 		return CMD_RET_USAGE;
 	}
 
 	if (ret < 0) {
-		printf("Error: CROS-EC command failed (error %d)\n", ret);
-		ret = 1;
+		return cmd_fail(ret,
+				"Error: CROS-EC command failed (error %d)\n",
+				ret);
 	}
 
 	return ret;
