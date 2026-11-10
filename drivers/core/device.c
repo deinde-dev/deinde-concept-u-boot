@@ -40,7 +40,8 @@ DECLARE_GLOBAL_DATA_PTR;
 static int device_bind_common(struct udevice *parent, const struct driver *drv,
 			      const char *name, void *plat,
 			      ulong driver_data, ofnode node,
-			      uint of_plat_size, struct udevice **devp)
+			      uint of_plat_size, const void *dtplat,
+			      struct udevice **devp)
 {
 	struct udevice *dev;
 	struct uclass *uc;
@@ -76,6 +77,7 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 	dev->driver_data = driver_data;
 	dev->name = name;
 	dev_set_ofnode(dev, node);
+	dev_set_dtplat(dev, dtplat);
 	dev->parent = parent;
 	dev->driver = drv;
 	dev->uclass = uc;
@@ -243,14 +245,14 @@ int device_bind_with_driver_data(struct udevice *parent,
 				 struct udevice **devp)
 {
 	return device_bind_common(parent, drv, name, NULL, driver_data, node,
-				  0, devp);
+				  0, NULL, devp);
 }
 
 int device_bind(struct udevice *parent, const struct driver *drv,
 		const char *name, void *plat, ofnode node,
 		struct udevice **devp)
 {
-	return device_bind_common(parent, drv, name, plat, 0, node, 0,
+	return device_bind_common(parent, drv, name, plat, 0, node, 0, NULL,
 				  devp);
 }
 
@@ -258,7 +260,6 @@ int device_bind_by_name(struct udevice *parent, bool pre_reloc_only,
 			const struct driver_info *info, struct udevice **devp)
 {
 	struct driver *drv;
-	uint plat_size = 0;
 	int ret;
 
 	drv = lists_driver_lookup_name(info->name);
@@ -267,11 +268,14 @@ int device_bind_by_name(struct udevice *parent, bool pre_reloc_only,
 	if (pre_reloc_only && !(drv->flags & DM_FLAG_PRE_RELOC))
 		return -EPERM;
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	plat_size = info->plat_size;
-#endif
+	/*
+	 * With of-platdata, info->plat is dtoc's generated data. A driver
+	 * which uses the dev_prop helpers reads it in place, while an older
+	 * one has plat_size set so that it is copied into its plat data
+	 */
 	ret = device_bind_common(parent, drv, info->name, (void *)info->plat, 0,
-				 ofnode_null(), plat_size, devp);
+				 ofnode_null(), driver_info_plat_size(info),
+				 info->plat, devp);
 	if (ret)
 		return ret;
 
