@@ -936,6 +936,19 @@ int device_get_by_ofplat_idx(uint idx, struct udevice **devp)
 
 	return device_get_device_tail(dev, dev ? 0 : -ENOENT, devp);
 }
+
+int dtplat_check_single(const struct udevice *dev, uint idx)
+{
+	struct driver_rt *drt = gd_dm_driver_rt() + idx;
+
+	if (drt->dev != dev) {
+		log_err("%s: Not bound from devicetree, so has no data\n",
+			dev->name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
 #endif
 
 int device_find_first_child(const struct udevice *parent, struct udevice **devp)

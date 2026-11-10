@@ -47,21 +47,56 @@
 #include <dm/read.h>
 #include <mapmem.h>
 
+/**
+ * dtplat_check_single() - Check a device for the only node of a driver
+ *
+ * When only one node uses a driver, DTPLAT() gives a device of that driver the
+ * node's data without looking at the device. With run-time binding, C code can
+ * bind further devices of the driver, which would then get the wrong data.
+ * This reports an error for such a device.
+ *
+ * @dev: Device being set up
+ * @idx: Index of the node's driver_info record
+ * Return: 0 if @dev was bound from the record, -EINVAL if not
+ */
+int dtplat_check_single(const struct udevice *dev, uint idx);
+
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 
 #include <dt-structs.h>
+#include <generated/dt-prop.h>
 
 /**
  * DTPLAT() - Declare a variable holding a device's generated devicetree data
  *
  * Without of-platdata this declares nothing
  *
+ * dtoc generates DTPLAT_GET_<driver>() to find the data. When only one node
+ * uses the driver, this refers to that node's data directly, so the compiler
+ * can see the values and drop code which is not needed. Otherwise it uses
+ * dev_get_dtplat()
+ *
  * @_drv: Name of the driver, as given to U_BOOT_DRIVER()
  * @_var: Name of the variable to declare
  * @_dev: Device whose data is wanted
  */
 #define DTPLAT(_drv, _var, _dev) \
-	const struct dtd_drv_##_drv *_var = dev_get_dtplat(_dev)
+	const struct dtd_drv_##_drv *_var = DTPLAT_GET_##_drv(_dev)
+
+/**
+ * DTPLAT_SINGLE() - Get the generated data for the only node of a driver
+ *
+ * dtoc uses this in DTPLAT_GET_<driver>() when only one node uses the driver.
+ * With OF_PLATDATA_CHECK, it checks that the device was bound from the node's
+ * record
+ *
+ * @_dev: Device whose data is wanted
+ * @_data: Generated data for the node
+ * @_idx: Index of the node's driver_info or udevice record
+ */
+#define DTPLAT_SINGLE(_dev, _data, _idx) \
+	((IS_ENABLED(CONFIG_OF_PLATDATA_CHECK) ? \
+	  dtplat_check_single(_dev, _idx) : 0), &(_data))
 
 /**
  * dev_prop_u32_default() - Read a 32-bit integer property, with a default

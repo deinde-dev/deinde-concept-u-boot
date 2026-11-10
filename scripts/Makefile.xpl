@@ -126,7 +126,8 @@ ifdef CONFIG_OF_PLATDATA
 # and each has its own devicetree. These are found before the top-level ones
 # since UBOOTINCLUDE puts $(obj)/include first
 platdata-hdr := $(obj)/include/generated/dt-structs-gen.h \
-	$(obj)/include/generated/dt-decl.h
+	$(obj)/include/generated/dt-decl.h \
+	$(obj)/include/generated/dt-prop.h
 platdata-inst := $(obj)/dts/dt-uclass.o $(obj)/dts/dt-device.o
 platdata-noinst := $(obj)/dts/dt-plat.o
 
