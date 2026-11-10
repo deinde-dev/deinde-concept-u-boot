@@ -105151,3 +105151,33 @@ The AI attribution line in the attribution reminder you gave me says `Co-Authore
 
 ---
 
+### Pipeline fix: 2026-11-10 (attempt 1)
+
+Branch: cherry-db02988d74d4
+
+Failed jobs:
+- qemu-arm64-win11-installed (sjg-lab)
+- colibrimx8 (sjg-lab)
+
+### Conversation log
+Neither failure looks related to the branch changes so far. Next I'm checking the full colibrimx8 log for the 'dm tree' output.
+
+Both failures look like lab or transient problems, not something this branch caused. I made no changes and did not create cherry-db02988d74d4-fix1. I also didn't run the builds, because there was nothing to fix.
+
+The branch only changes `boot/pxe_parse.c`, `boot/pxe_utils.c`, `cmd/host.c` (sandbox only), `fs/jffs2/jffs2_1pass.c` and a doc file. Neither board's defconfig enables JFFS2, PXE, BOOTMETH or the host command, and neither failing test touches code the branch changed.
+
+**qemu-arm64-win11-installed: timeout**
+- U-Boot does its part: `efi_mgr` finds `nvme 0`, loads the Windows boot manager and prints "Starting kernel ...".
+- After that the test waits for `UBOOT-WINDOWS-LOGON` and hits the 20-minute job limit ("execution took longer than 20m0s seconds").
+- The boot path is the EFI boot manager, not PXE. A Windows guest that is slow or stuck after the handoff is not something these commits affect.
+
+**colibrimx8: `test_dm_compat`**
+- The test reads the driver name from a fixed column in the `dm tree` output. Here it read the tree-drawing characters `|`, `|--` and `` `-- `` instead.
+- That happens when characters are dropped from a line on the serial console, which shifts the columns. It is not a real driver problem.
+- `.pickman-history` shows this has happened before on this board: an earlier run failed the same test with a garbled name (`gpi߾sunxi`), and there are other colibrimx8 lab connection failures.
+- Nothing on the branch touches `drivers/core` or the `dm` command output.
+
+Re-running both jobs should be enough. If `test_dm_compat` keeps failing on colibrimx8, the board's serial link needs looking at, not this MR.
+
+---
+
