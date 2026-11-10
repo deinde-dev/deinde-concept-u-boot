@@ -717,8 +717,8 @@ Missing .compatible or Missing .id
 Various things can cause dtoc to fail to find the driver and it tries to
 warn about these. For example::
 
-   rockchip_rk3188_uart: Missing .compatible in drivers/serial/serial_rockchip.c
-                    : WARNING: the driver rockchip_rk3188_uart was not found in the driver list
+   vendor_soc_uart: Missing .compatible in drivers/serial/serial_vendor.c
+                  : WARNING: the driver vendor_soc_uart was not found in the driver list
 
 Without a compatible string a driver cannot be used by dtoc, even if the
 compatible string is not actually needed at runtime.

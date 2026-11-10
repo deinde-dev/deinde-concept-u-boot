@@ -924,16 +924,6 @@ config PL01X_SERIAL
 	help
 	  Select this to enable a UART for platforms using PL010 or PL011.
 
-config ROCKCHIP_SERIAL
-	bool "Rockchip on-chip UART support"
-	depends on DM_SERIAL && ARCH_ROCKCHIP
-	select SYS_NS16550
-	help
-	  Select this to enable a debug UART for Rockchip devices when using
-	  OF_PLATDATA (i.e. a compiled-in device tree replacemenmt).
-	  This uses the ns16550 driver, converting the platdata from of-platdata
-	  to the ns16550 format.
-
 config S5P_SERIAL
 	bool "Support for Samsung S5P UART"
 	depends on ARCH_APPLE || ARCH_EXYNOS || ARCH_S5PC1XX
