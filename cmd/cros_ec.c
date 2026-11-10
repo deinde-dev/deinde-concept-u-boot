@@ -470,10 +470,11 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 	} else if (0 == strcmp("test", cmd)) {
 		int result = cros_ec_test(dev);
 
-		if (result)
+		if (result) {
 			printf("Test failed with error %d\n", result);
-		else
-			puts("Test passed\n");
+			return 1;
+		}
+		puts("Test passed\n");
 	} else if (0 == strcmp("version", cmd)) {
 		struct ec_response_get_version *p;
 		char *build_string;
