@@ -16,7 +16,7 @@
 
 /* the line the command prints once it has found the partition */
 #define LOADING_LINE \
-	"Loading from scsi device 0, partition 0: Name: Whole Disk  Type: U-Boot"
+	"Loading from scsi device 0, partition 0: Name: Whole Disk  Type: unknown"
 
 /**
  * scan_bus() - Scan the SCSI bus and check the emulated drive is readable

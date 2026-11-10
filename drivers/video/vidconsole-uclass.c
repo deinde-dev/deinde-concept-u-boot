@@ -111,7 +111,7 @@ static void vidconsole_newline(struct udevice *dev, struct vidconsole_ctx *ctx)
 
 	/* Check if we need to scroll the terminal */
 	if (vid_priv->rot % 2 ?
-	    ctx->ycur + ctx->x_charsize > vid_priv->xsize :
+	    ctx->ycur + ctx->y_charsize > vid_priv->xsize :
 	    ctx->ycur + ctx->y_charsize > vid_priv->ysize) {
 		vidconsole_move_rows(dev, 0, rows, ctx->rows - rows);
 		for (i = 0; i < rows; i++)
