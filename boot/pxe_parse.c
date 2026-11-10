@@ -83,6 +83,13 @@ static const struct token keywords[] = {
  * Since pxe(linux) files don't have a token to identify the start of a
  * literal, we have to keep track of when we're in a state where a literal is
  * expected vs when we're in a state a keyword is expected.
+ *
+ * @L_NORMAL: Outside any specific lexical context; whitespace is skipped
+ *	and the next non-blank token determines what is read
+ * @L_KEYWORD: A keyword is expected; the next word is matched against the
+ *	keyword table and tagged with the matching token type
+ * @L_SLITERAL: A string literal is expected; characters are read up to the
+ *	end of the line
  */
 enum lex_state {
 	L_NORMAL = 0,

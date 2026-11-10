@@ -101,6 +101,7 @@ int format_mac_pxe(char *outbuf, size_t outbuf_len)
  * @addrp: On entry, address to load file or 0 to reserve an address with lmb;
  * on exit, address to which the file was loaded
  * @align: Reservation alignment, if using lmb
+ * @type: Image type used to record the loaded file in the bootflow
  * @filesizep: If not NULL, returns the file size in bytes
  * Returns 1 for success, or < 0 on error
  */
@@ -167,6 +168,7 @@ int get_pxe_file(struct pxe_context *ctx, const char *file_path,
  *
  * @ctx: PXE context
  * @file: Filename to process (relative to pxelinux.cfg/)
+ * @pxefile_addr_r: Address to load the file to
  * Returns 1 for success, -ENAMETOOLONG if the resulting path is too long.
  *	or other value < 0 on other error
  */
