@@ -74,6 +74,8 @@
 
 &spi2 {
 	bootph-all;
+	/* SPL cannot read the flash reliably at the default of 50MHz */
+	spi-max-frequency = <20000000>;
 };
 
 &spi_flash {
