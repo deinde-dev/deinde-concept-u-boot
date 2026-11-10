@@ -10,6 +10,7 @@
 #include <cros_ec.h>
 #include <dm.h>
 #include <log.h>
+#include <mapmem.h>
 #include <dm/device-internal.h>
 #include <dm/uclass-internal.h>
 
@@ -55,6 +56,7 @@ static int do_read_write(struct udevice *dev, int is_write, int argc,
 	uint32_t offset, size = -1U, region_size;
 	unsigned long addr;
 	char *endp;
+	void *buf;
 	int region;
 	int ret;
 
@@ -80,9 +82,10 @@ static int do_read_write(struct udevice *dev, int is_write, int argc,
 	if (size == -1U)
 		size = region_size;
 
-	ret = is_write ?
-		cros_ec_flash_write(dev, (uint8_t *)addr, offset, size) :
-		cros_ec_flash_read(dev, (uint8_t *)addr, offset, size);
+	buf = map_sysmem(addr, size);
+	ret = is_write ? cros_ec_flash_write(dev, buf, offset, size) :
+		cros_ec_flash_read(dev, buf, offset, size);
+	unmap_sysmem(buf);
 	if (ret) {
 		debug("%s: Could not %s region\n", __func__,
 		      is_write ? "write" : "read");
