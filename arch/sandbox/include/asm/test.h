@@ -426,4 +426,30 @@ const char *sandbox_debug_get(struct udevice *dev);
  */
 void sandbox_debug_clear(struct udevice *dev);
 
+/**
+ * struct sandbox_dev_prop_plat - Values read by the sandbox_dev_prop_test driver
+ *
+ * This holds what the driver reads with the dev_prop_...() helpers, so a test
+ * can check that devicetree and of-platdata builds give the same results
+ *
+ * @base: Address from 'reg'
+ * @present: Value of a property which is present
+ * @absent: Value read for a property which is absent, i.e. its default
+ * @flag: Boolean property which is present
+ * @noflag: Boolean property which is absent
+ * @array: Values of an array property
+ * @array_ret: Return value from reading @array
+ * @missing_array_ret: Return value from reading an absent array property
+ */
+struct sandbox_dev_prop_plat {
+	ulong base;
+	u32 present;
+	u32 absent;
+	bool flag;
+	bool noflag;
+	u32 array[3];
+	int array_ret;
+	int missing_array_ret;
+};
+
 #endif

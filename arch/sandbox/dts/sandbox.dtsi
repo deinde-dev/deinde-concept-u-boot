@@ -294,6 +294,18 @@
 		};
 	};
 
+	dev-prop-test {
+		bootph-pre-ram;
+		compatible = "sandbox,dev-prop-test";
+		reg = <0x12340000 0x100>;
+		dev-prop-present = <42>;
+		dev-prop-flag;
+		dev-prop-array = <1 2 3>;
+
+		/* The driver does not read this, so of-platdata leaves it out */
+		dev-prop-unused = <99>;
+	};
+
 	spl-test {
 		bootph-pre-ram;
 		compatible = "sandbox,spl-test";

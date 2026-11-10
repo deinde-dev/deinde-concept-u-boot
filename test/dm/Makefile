@@ -6,9 +6,10 @@
 # Tests for particular subsystems - when enabling driver model for a new
 # subsystem you must add sandbox tests here.
 ifeq ($(CONFIG_XPL_BUILD),y)
-obj-$(CONFIG_SPL_OF_PLATDATA) += of_platdata.o
+obj-$(CONFIG_SPL_OF_PLATDATA) += of_platdata.o prop.o
 else
 obj-$(CONFIG_UT_DM) += bus.o
+obj-$(CONFIG_UT_DM) += prop.o
 obj-$(CONFIG_UT_DM) += test-driver.o
 obj-$(CONFIG_UT_DM) += test-fdt.o
 obj-$(CONFIG_UT_DM) += test-uclass.o
