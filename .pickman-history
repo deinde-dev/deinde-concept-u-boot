@@ -105287,3 +105287,61 @@ The rebase also rewrote the local `cherry-7f4b730691d2` branch, which now holds 
 
 ---
 
+## 2026-11-10: us/main
+
+Branch: cherry-7f4b730691d2
+
+Commits:
+- 7f4b730691d2 scripts: Check F: entries in all MAINTAINERS files
+- 87d8cb4abc62 MAINTAINERS: tegra: Update and correct entries
+- e315cf608bb3 MAINTAINERS: rockchip: Use N for rk3576-nanopi-r76s
+- 885803b47cc5 MAINTAINERS: Fix "typo" and similar incorrect entries
+- 9c9a2adf2db2 MAINTAINERS: Correct entries missed during renames
+- c062373ee773 MAINTAINERS: Removed files
+- 2ecc661447f9 CI: Run scripts/check_maintainers_files.sh in the existing MAINTAINERS job
+- b8e0086b5857 Merge patch series "Cleanup MAINTAINERS entries"
+
+### Conversation log
+Six commits applied cleanly; now resolving CI-file conflicts in the seventh.
+
+Simple conflicts: keep the target's venv setup and add the new script line plus the job rename.
+
+The merge commit's diff duplicates the series already applied, so I resolve by keeping the current versions.
+
+Adding the -x trailer that the manual commit dropped:
+
+All 8 present. Final build, plus running the new check script, since CI will now run it on this tree:
+
+I cherry-picked all 8 commits onto `cherry-7f4b730691d2` and the sandbox build passes. But the new MAINTAINERS check fails on this tree, so the CI job the series adds will fail until the entries below are fixed.
+
+| New hash | Original | Subject |
+|---|---|---|
+| c3bed6572b3a | 7f4b730691d2 | scripts: Check F: entries in all MAINTAINERS files |
+| 76fc180b4723 | 87d8cb4abc62 | MAINTAINERS: tegra: Update and correct entries |
+| 03cd20c08c4d | e315cf608bb3 | MAINTAINERS: rockchip: Use N for rk3576-nanopi-r76s |
+| 6e49d2fcdc25 | 885803b47cc5 | MAINTAINERS: Fix "typo" and similar incorrect entries |
+| 03716faf23f3 | 9c9a2adf2db2 | MAINTAINERS: Correct entries missed during renames |
+| f10a461313e7 | c062373ee773 | MAINTAINERS: Removed files |
+| 1e916209fff4 | 2ecc661447f9 | CI: Run scripts/check_maintainers_files.sh in the existing MAINTAINERS job |
+| 29a83769c6cd | b8e0086b5857 | Merge patch series "Cleanup MAINTAINERS entries" (empty) |
+
+- **Build:** ok, no warnings or errors, both after the first pick and at the end.
+- **split-check:** changed nothing in any of the commits.
+- **Deltas:** the first six commits have exactly the same file and line counts as the originals.
+
+**Fix-ups:**
+- **2ecc661447f9:** this conflicted in `.azure-pipelines.yml` and `.gitlab-ci.yml`, because ci/master runs buildman from a Python venv (`.test_suites`, `pip install`). I kept that setup, renamed the job and added the `./scripts/check_maintainers_files.sh` line. The diff stat (2 files, +4/−3) matches the original. I added this note to the commit message: "[Resolved conflicts in .azure-pipelines.yml and .gitlab-ci.yml to keep the venv setup]"
+- **Merge commit b8e0086b5857:** with `-m 1` it repeats the whole series diff, so it hit the same conflicts. I kept the current files and committed it empty with the original message. Because I finished it by hand I added the `(cherry picked from commit …)` trailer myself.
+
+**The check failure:** `./scripts/check_maintainers_files.sh` exits 1 with six errors. These entries point to files that exist in us/main but not in this tree, so they come from how the trees have diverged rather than from this series:
+- `MAINTAINERS`: `drivers/smem/msm_smem.c`, `configs/qemu_x86*` and `test/bloblist.c` don't exist here (this tree uses `qemu-x86*` names).
+- `board/qualcomm/dragonboard410c/MAINTAINERS`: `configs/qcom_dragonboard410c_defconfig` is `dragonboard410c_defconfig` here.
+- `board/qualcomm/dragonboard820c/MAINTAINERS`: `configs/qcom_dragonboard820c_defconfig` is `dragonboard820c_defconfig` here.
+- `board/samsung/starqltechn/MAINTAINERS`: `configs/qcom_sdm845_spl_defconfig` doesn't exist here.
+
+I left these alone because fixing them needs a new commit outside the series. Either a follow-up commit that corrects those six F: entries, or one that drops the CI line, would let the pipeline pass.
+
+The branch is ready to push and has not been merged anywhere.
+
+---
+
