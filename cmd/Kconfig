@@ -3483,6 +3483,7 @@ config CMD_TRACE
 config CMD_AVB
 	bool "avb - Android Verified Boot 2.0 operations"
 	depends on AVB_VERIFY
+	select GETOPT
 	help
 	  Enables a "avb" command to perform verification of partitions using
 	  Android Verified Boot 2.0 functionality. It includes such subcommands:

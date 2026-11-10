@@ -196,5 +196,6 @@ See also
   'ab_dump' work on
 * :doc:`abootimg<abootimg>` for reading the boot image which the chosen slot
   names
+* :doc:`avb<avb>` for verifying the images the control block asks for
 * :doc:`gpt<gpt>` for creating the 'misc' partition the block lives in
 * :doc:`part<part>` for listing the partitions of a device

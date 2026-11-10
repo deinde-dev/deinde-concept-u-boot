@@ -6,16 +6,33 @@
 #include <avb_verify.h>
 #include <command.h>
 #include <env.h>
+#include <errno.h>
+#include <getopt.h>
 #include <image.h>
 #include <malloc.h>
+#include <mapmem.h>
 #include <mmc.h>
 
 #define AVB_BOOTARGS	"avb_bootargs"
 
 static struct AvbOps *avb_ops;
 
-int do_avb_init(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+void avb_cmd_reset(void)
 {
+	avb_ops_free(avb_ops);
+	avb_ops = NULL;
+}
+
+static int avb_not_init(void)
+{
+	return cmd_fail(0,
+			"AVB is not initialized, please run 'avb init <id>'\n");
+}
+
+int do_avb_init(struct getopt_state *gs)
+{
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	unsigned long mmc_dev;
 
 	if (argc != 2)
@@ -27,29 +44,24 @@ int do_avb_init(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		avb_ops_free(avb_ops);
 
 	avb_ops = avb_ops_alloc(mmc_dev);
-	if (avb_ops)
-		return CMD_RET_SUCCESS;
-	else
-		printf("Can't allocate AvbOps");
+	if (!avb_ops)
+		return cmd_fail(-ENOMEM, "Failed to initialize AVB\n");
 
-	printf("Failed to initialize AVB\n");
-
-	return CMD_RET_FAILURE;
+	return CMD_RET_SUCCESS;
 }
 
-int do_avb_read_part(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+int do_avb_read_part(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	s64 offset;
 	size_t bytes, bytes_read = 0;
 	void *buffer;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 5)
 		return CMD_RET_USAGE;
@@ -57,34 +69,32 @@ int do_avb_read_part(struct cmd_tbl *cmdtp, int flag, int argc,
 	part = argv[1];
 	offset = hextoul(argv[2], NULL);
 	bytes = hextoul(argv[3], NULL);
-	buffer = (void *)hextoul(argv[4], NULL);
+	buffer = map_sysmem(hextoul(argv[4], NULL), bytes);
 
 	ret = avb_ops->read_from_partition(avb_ops, part, offset,
 					   bytes, buffer, &bytes_read);
+	unmap_sysmem(buffer);
 	if (ret == AVB_IO_RESULT_OK) {
 		printf("Read %zu bytes\n", bytes_read);
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Failed to read from partition '%s', err = %d\n",
-	       part, ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret, "Failed to read from partition '%s', err = %d\n",
+			part, ret);
 }
 
-int do_avb_read_part_hex(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+int do_avb_read_part_hex(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	s64 offset;
 	size_t bytes, bytes_read = 0;
-	char *buffer;
+	u8 *buffer;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 4)
 		return CMD_RET_USAGE;
@@ -94,10 +104,9 @@ int do_avb_read_part_hex(struct cmd_tbl *cmdtp, int flag, int argc,
 	bytes = hextoul(argv[3], NULL);
 
 	buffer = malloc(bytes);
-	if (!buffer) {
-		printf("Failed to tlb_allocate buffer for data\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!buffer)
+		return cmd_fail(-ENOMEM,
+				"Failed to tlb_allocate buffer for data\n");
 	memset(buffer, 0, bytes);
 
 	ret = avb_ops->read_from_partition(avb_ops, part, offset,
@@ -114,26 +123,24 @@ int do_avb_read_part_hex(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Failed to read from partition '%s', err = %d\n",
-	       part, ret);
-
 	free(buffer);
-	return CMD_RET_FAILURE;
+
+	return cmd_fail(ret, "Failed to read from partition '%s', err = %d\n",
+			part, ret);
 }
 
-int do_avb_write_part(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+int do_avb_write_part(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	s64 offset;
 	size_t bytes;
 	void *buffer;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 5)
 		return CMD_RET_USAGE;
@@ -141,32 +148,30 @@ int do_avb_write_part(struct cmd_tbl *cmdtp, int flag, int argc,
 	part = argv[1];
 	offset = hextoul(argv[2], NULL);
 	bytes = hextoul(argv[3], NULL);
-	buffer = (void *)hextoul(argv[4], NULL);
+	buffer = map_sysmem(hextoul(argv[4], NULL), bytes);
 
 	ret = avb_ops->write_to_partition(avb_ops, part, offset,
 					  bytes, buffer);
+	unmap_sysmem(buffer);
 	if (ret == AVB_IO_RESULT_OK) {
 		printf("Wrote %zu bytes\n", bytes);
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Failed to write in partition '%s', err = %d\n",
-	       part, ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret, "Failed to write in partition '%s', err = %d\n",
+			part, ret);
 }
 
-int do_avb_read_rb(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+int do_avb_read_rb(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	size_t index;
 	u64 rb_idx;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 2)
 		return CMD_RET_USAGE;
@@ -179,23 +184,21 @@ int do_avb_read_rb(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Failed to read rollback index id = %zu, err = %d\n",
-	       index, ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret,
+			"Failed to read rollback index id = %zu, err = %d\n",
+			index, ret);
 }
 
-int do_avb_write_rb(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+int do_avb_write_rb(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	size_t index;
 	u64 rb_idx;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 3)
 		return CMD_RET_USAGE;
@@ -207,23 +210,21 @@ int do_avb_write_rb(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (ret == AVB_IO_RESULT_OK)
 		return CMD_RET_SUCCESS;
 
-	printf("Failed to write rollback index id = %zu, err = %d\n",
-	       index, ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret,
+			"Failed to write rollback index id = %zu, err = %d\n",
+			index, ret);
 }
 
-int do_avb_get_uuid(struct cmd_tbl *cmdtp, int flag,
-		    int argc, char *const argv[])
+int do_avb_get_uuid(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *part;
 	char buffer[UUID_STR_LEN + 1];
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 2)
 		return CMD_RET_USAGE;
@@ -238,15 +239,14 @@ int do_avb_get_uuid(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Failed to read partition '%s' UUID, err = %d\n",
-	       part, ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret, "Failed to read partition '%s' UUID, err = %d\n",
+			part, ret);
 }
 
-int do_avb_verify_part(struct cmd_tbl *cmdtp, int flag,
-		       int argc, char *const argv[])
+int do_avb_verify_part(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char * const requested_partitions[] = {"boot", NULL};
 	AvbSlotVerifyResult slot_result;
 	AvbSlotVerifyData *out_data;
@@ -259,10 +259,8 @@ int do_avb_verify_part(struct cmd_tbl *cmdtp, int flag,
 	bool unlocked = false;
 	int res = CMD_RET_FAILURE;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc < 1 || argc > 2)
 		return CMD_RET_USAGE;
@@ -274,11 +272,10 @@ int do_avb_verify_part(struct cmd_tbl *cmdtp, int flag,
 	       avb_version_string());
 
 	ret = avb_ops->read_is_device_unlocked(avb_ops, &unlocked);
-	if (ret != AVB_IO_RESULT_OK) {
-		printf("Can't determine device lock state, err = %d\n",
-		       ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret != AVB_IO_RESULT_OK)
+		return cmd_fail(ret,
+				"Can't determine device lock state, err = %d\n",
+				ret);
 
 	slot_result =
 		avb_slot_verify(avb_ops,
@@ -315,7 +312,8 @@ int do_avb_verify_part(struct cmd_tbl *cmdtp, int flag,
 
 		res = CMD_RET_SUCCESS;
 	} else {
-		printf("Verification failed, reason: %s\n", str_avb_slot_error(slot_result));
+		cmd_err("Verification failed, reason: %s\n",
+			str_avb_slot_error(slot_result));
 	}
 
 	if (out_data)
@@ -324,21 +322,13 @@ int do_avb_verify_part(struct cmd_tbl *cmdtp, int flag,
 	return res;
 }
 
-int do_avb_is_unlocked(struct cmd_tbl *cmdtp, int flag,
-		       int argc, char *const argv[])
+int do_avb_is_unlocked(struct getopt_state *gs)
 {
 	bool unlock;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
-
-	if (argc != 1) {
-		printf("--%s(-1)\n", __func__);
-		return CMD_RET_USAGE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	ret = avb_ops->read_is_device_unlocked(avb_ops, &unlock);
 	if (ret == AVB_IO_RESULT_OK) {
@@ -346,15 +336,14 @@ int do_avb_is_unlocked(struct cmd_tbl *cmdtp, int flag,
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Can't determine device lock state, err = %d\n",
-	       ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret, "Can't determine device lock state, err = %d\n",
+			ret);
 }
 
-int do_avb_read_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+int do_avb_read_pvalue(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *name;
 	size_t bytes;
 	size_t bytes_read;
@@ -362,10 +351,8 @@ int do_avb_read_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
 	char *endp;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 3)
 		return CMD_RET_USAGE;
@@ -388,24 +375,22 @@ int do_avb_read_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Failed to read persistent value, err = %d\n", ret);
-
 	free(buffer);
 
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret, "Failed to read persistent value, err = %d\n",
+			ret);
 }
 
-int do_avb_write_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+int do_avb_write_pvalue(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *name;
 	const char *value;
 	int ret;
 
-	if (!avb_ops) {
-		printf("AVB is not initialized, please run 'avb init <id>'\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!avb_ops)
+		return avb_not_init();
 
 	if (argc != 3)
 		return CMD_RET_USAGE;
@@ -421,47 +406,35 @@ int do_avb_write_pvalue(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 	}
 
-	printf("Failed to write persistent value `%s` = `%s`, err = %d\n",
-	       name, value, ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret,
+			"Failed to write persistent value `%s` = `%s`, err = %d\n",
+			name, value, ret);
 }
 
 static struct cmd_tbl cmd_avb[] = {
-	U_BOOT_CMD_MKENT(init, 2, 0, do_avb_init, "", ""),
-	U_BOOT_CMD_MKENT(read_rb, 2, 0, do_avb_read_rb, "", ""),
-	U_BOOT_CMD_MKENT(write_rb, 3, 0, do_avb_write_rb, "", ""),
-	U_BOOT_CMD_MKENT(is_unlocked, 1, 0, do_avb_is_unlocked, "", ""),
-	U_BOOT_CMD_MKENT(get_uuid, 2, 0, do_avb_get_uuid, "", ""),
-	U_BOOT_CMD_MKENT(read_part, 5, 0, do_avb_read_part, "", ""),
-	U_BOOT_CMD_MKENT(read_part_hex, 4, 0, do_avb_read_part_hex, "", ""),
-	U_BOOT_CMD_MKENT(write_part, 5, 0, do_avb_write_part, "", ""),
-	U_BOOT_CMD_MKENT(verify, 2, 0, do_avb_verify_part, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(init, 2, 0, do_avb_init, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_rb, 2, 0, do_avb_read_rb, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_rb, 3, 0, do_avb_write_rb, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(is_unlocked, 1, 0, do_avb_is_unlocked, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(get_uuid, 2, 0, do_avb_get_uuid, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_part, 5, 0, do_avb_read_part, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_part_hex, 4, 0, do_avb_read_part_hex, "",
+				""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_part, 5, 0, do_avb_write_part, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(verify, 2, 0, do_avb_verify_part, "", ""),
 #ifdef CONFIG_OPTEE_TA_AVB
-	U_BOOT_CMD_MKENT(read_pvalue, 3, 0, do_avb_read_pvalue, "", ""),
-	U_BOOT_CMD_MKENT(write_pvalue, 3, 0, do_avb_write_pvalue, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read_pvalue, 3, 0, do_avb_read_pvalue, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_pvalue, 3, 0, do_avb_write_pvalue, "",
+				""),
 #endif
 };
 
-static int do_avb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_avb(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	cp = find_cmd_tbl(argv[1], cmd_avb, ARRAY_SIZE(cmd_avb));
-
-	argc--;
-	argv++;
-
-	if (!cp || argc > cp->maxargs)
-		return CMD_RET_USAGE;
-
-	if (flag == CMD_FLAG_REPEAT)
-		return CMD_RET_FAILURE;
-
-	return cmd_invoke(cp, flag, argc, argv);
+	return cmd_dispatch_subcmd(gs, cmd_avb, ARRAY_SIZE(cmd_avb));
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	avb, 29, 0, do_avb,
 	"Provides commands for testing Android Verified Boot 2.0 functionality",
 	"init <dev> - initialize avb2 for <dev>\n"

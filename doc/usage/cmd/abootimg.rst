@@ -153,6 +153,8 @@ See also
 * :doc:`fdt<fdt>` for working with a DT blob from the DTB area
 * :doc:`bcb<bcb>` for the Bootloader Control Block, which says what to boot
   and which A/B slot to take it from
+* :doc:`avb<avb>` for verifying a boot image against the signed vbmeta
+  structure before it is started
 * :doc:`bootflow<bootflow>` for the standard-boot method which boots Android
   without any of these sub-commands
 * :doc:`../../android/boot-image` for the format of the images themselves
