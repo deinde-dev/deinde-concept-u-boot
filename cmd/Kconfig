@@ -3107,6 +3107,7 @@ config CMD_CROS_EC
 	bool "Enable crosec command"
 	depends on CROS_EC
 	default y
+	select GETOPT
 	help
 	  Enable command-line access to the Chrome OS EC (Embedded
 	  Controller). This provides the 'crosec' command which has

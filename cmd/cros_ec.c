@@ -9,6 +9,7 @@
 #include <command.h>
 #include <cros_ec.h>
 #include <dm.h>
+#include <getopt.h>
 #include <log.h>
 #include <mapmem.h>
 #include <dm/device-internal.h>
@@ -258,9 +259,10 @@ static int do_show_events(struct udevice *dev)
 	return 0;
 }
 
-static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_cros_ec(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	const char *cmd;
 	int ret = 0;
@@ -543,7 +545,7 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 	return ret;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	crosec,	6,	1,	do_cros_ec,
 	"CROS-EC utility command",
 	"init                Re-init CROS-EC (done on startup automatically)\n"
