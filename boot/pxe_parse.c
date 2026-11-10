@@ -59,6 +59,7 @@ static const struct token keywords[] = {
 	{"linux", T_LINUX},
 	{"localboot", T_LOCALBOOT},
 	{"append", T_APPEND},
+	{"options", T_APPEND},
 	{"initrd", T_INITRD},
 	{"include", T_INCLUDE},
 	{"devicetree", T_FDT},
@@ -83,6 +84,13 @@ static const struct token keywords[] = {
  * Since pxe(linux) files don't have a token to identify the start of a
  * literal, we have to keep track of when we're in a state where a literal is
  * expected vs when we're in a state a keyword is expected.
+ *
+ * @L_NORMAL: Outside any specific lexical context; whitespace is skipped
+ *	and the next non-blank token determines what is read
+ * @L_KEYWORD: A keyword is expected; the next word is matched against the
+ *	keyword table and tagged with the matching token type
+ * @L_SLITERAL: A string literal is expected; characters are read up to the
+ *	end of the line
  */
 enum lex_state {
 	L_NORMAL = 0,
@@ -627,6 +635,8 @@ static int parse_label(struct pxe_context *ctx, char **c, struct pxe_menu *cfg,
 			break;
 		case T_APPEND:
 			err = parse_sliteral(c, &label->append, limit);
+			if (err < 0)
+				break;
 			if (IS_ENABLED(CONFIG_PXE_INITRD_LIST)) {
 				if (label->initrds.count)
 					break;
@@ -637,14 +647,13 @@ static int parse_label(struct pxe_context *ctx, char **c, struct pxe_menu *cfg,
 			s = strstr(label->append, "initrd=");
 			if (!s)
 				break;
-			s += 7;
-			len = (int)(strchr(s, ' ') - s);
-			initrd_path = malloc(len + 1);
+			s += strlen("initrd=");
+			len = strcspn(s, " ");
+			initrd_path = strndup(s, len);
 			if (!initrd_path) {
 				err = -ENOMEM;
 				break;
 			}
-			strlcpy(initrd_path, s, len + 1);
 			if (IS_ENABLED(CONFIG_PXE_INITRD_LIST)) {
 				if (!alist_add(&label->initrds, initrd_path)) {
 					free(initrd_path);

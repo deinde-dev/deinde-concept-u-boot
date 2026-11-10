@@ -104785,3 +104785,399 @@ The colibrimx8 failure could happen again on any branch whenever that echo glitc
 
 ---
 
+## 2026-11-09: us/main
+
+Branch: cherry-db02988d74d4
+
+Commits:
+- db02988d74d4 cmd/host: allow to retrieve sequence number for label
+- 52673196da57 fs: jffs2: set part->jffs2_priv to NULL after freeing cache
+- 7ac3028f4796 jffs2: initialize datacrc for inode/dirent entries built from scan
+- 42f268c89f8d pxe_utils: fix W=1 kernel-doc warnings
+- 7c38bac6abf4 pxe_utils: accept "options" as synonym for "append"
+- 5f80d8614ca2 pxe_utils: harden the "append" parser against malformed input
+- bb7b839e7147 pxe_utils: extract per-entry key parsing into parse_label_keys()
+- eb38123ead89 pxe_utils: export per-entry label helpers
+- 98fdc9b50233 pxe_utils: optionally ignore unknown keys in parse_label_keys()
+- df3f0a81e91e pxe_utils: accept "title" inside a label as a synonym for "menu label"
+- bb3beb6c802a bootmeth: share the pxelinux getfile helper
+- 17756b69064c boot: add a minimal bootmeth for the Boot Loader Specification
+- b8b69a660231 test: bootstd: add a BLS entry to the Fedora fixture image
+- f1ca59e93017 sandbox: enable BLS boot method
+- 8aa74cad35f8 test: bootstd: cover BLS entries below a prefix
+- 4d2d6d080620 doc: bootstd: describe the BLS bootmeth
+- d27c992cebb9 Merge patch series "pxe_utils: small fixups, implement BLS type 1 boot on top of them"
+
+### Conversation log
+The first pick conflicts, so before going further I'll check whether the series is already in ci/master.
+
+That one is done and builds cleanly. The remaining commits follow the same per-commit routine, so I'll script it to stop at the first conflict, split-check change or build failure.
+
+**The cherry-pick stopped at commit 4 of 17, so the series is incomplete and the branch shouldn't be pushed as the finished series.** `42f268c89f8d` hit a conflict that can't be auto-resolved, so I ran `git cherry-pick --abort`. The tree is clean on `cherry-db02988d74d4`, 3 commits ahead of `ci/master`. None of the 17 commits were already in `ci/master`, so I didn't write `.pickman-signal`.
+
+| Commit | Subject | Result |
+|---|---|---|
+| `db02988d74d4` | cmd/host: retrieve sequence number for label | Picked as `d5af43c0155a`, with a fix-up |
+| `52673196da57` | jffs2: NULL `jffs2_priv` after freeing cache | Picked as `9c9dfdf96c28` |
+| `7ac3028f4796` | jffs2: initialise `datacrc` | Picked as `6f620d69883c` |
+| `42f268c89f8d` and the next 13 | pxe_utils and BLS series, including the merge | Not applied |
+
+- **Build:** sandbox built without warnings or errors after each of the 3 picks, and the last of those builds is the current HEAD.
+- **Deltas and split-check:** line counts and files match the originals for all 3, and `split-check` changed nothing.
+- **Fix-up:** in `cmd/host.c` I kept the target's `<fs_cmd.h>` instead of `<fs.h>` when adding `<env.h>`, and recorded that in a note at the end of the commit message. I didn't add an AI attribution tag to it, since the task puts that note last.
+
+## Why it can't be resolved
+The target has diverged from this series in two ways:
+
+1. **The parser has moved:** `boot/pxe_parse.c` now holds the parser, with a `limit` argument added to its functions, and `pxe_menu_init()` and a new `parse_pxefile()` signature are in place. Git therefore treats the upstream parser in `pxe_utils.c` as conflicting.
+2. **The target already has its own BLS support:** your commits added `boot/bootmeth_bls.c`, `boot/bls_parse.c`, `doc/develop/bootstd/bls.rst` and `BOOTMETH_BLS`. Upstream's `17756b69064c` adds a different `bootmeth_bls.c` built on `parse_label_keys()` and an exported `label_boot()`, neither of which exists in the target. The later sandbox, test and doc commits depend on that version.
+
+## What needs deciding
+- **BLS commits (`bb3beb6c802a` to `4d2d6d080620`):** they duplicate the target's BLS work, so I'd skip them unless you want to replace your implementation. `bb3beb6c802a` is only a helper refactor for them.
+- **Parser fixes:** these could be ported by hand to `boot/pxe_parse.c`:
+  - `42f268c89f8d`: kernel-doc fixes.
+  - `7c38bac6abf4`: accept "options" as a synonym for "append".
+  - `5f80d8614ca2`: harden the "append" parser. This is the most useful one, because `ci/master` still does `strchr(s, ' ') - s` unchecked, which goes wrong when `initrd=` is the last item on the line.
+- **Label helper commits (`bb7b839e7147`, `eb38123ead89`, `98fdc9b50233`, `df3f0a81e91e`):** these mainly exist to support upstream's BLS, so they probably aren't needed.
+
+If you go that way, the 3 good commits plus the hand-ported parser fixes could go out as a reduced series, with the rest marked as skipped in pickman.
+
+---
+
+### Review: 2026-11-10
+
+Branch: cherry-db02988d74d4
+
+Comments addressed:
+- [sjg]: pickman: Yes please hand-pick the fixes...
+
+### Conversation log
+Resolving a .pickman-history conflict by keeping both entries (HEAD's then ours).
+
+Rebase done. Now checking deltas and building each rebased commit.
+
+Rebase is clean. Now examining the three upstream parser fixes to hand-port.
+
+Now applying the three ports to `boot/pxe_parse.c` / `boot/pxe_utils.c`, one commit each.
+
+Now the hardening fix, adapted to the target's initrd-list handling.
+
+Those clangd diagnostics come from missing include paths and aren't real errors; buildman is the actual check. Committing.
+
+The pickman record commit should sit on top of the picks, so I'll reorder it using the git-surgeon skill.
+
+Base directory for this skill: /home/sglass/.claude/skills/git-surgeon
+
+# git-surgeon
+
+CLI for hunk-level git operations without interactive prompts. Useful for AI
+agents that need precise control over which changes to stage, unstage, discard,
+or undo.
+
+## Commands
+
+```bash
+# List unstaged hunks (shows ID, file, +/- counts, preview)
+git-surgeon hunks
+
+# List staged hunks
+git-surgeon hunks --staged
+
+# Filter to one file
+git-surgeon hunks --file=src/main.rs
+
+# List hunks from a specific commit
+git-surgeon hunks --commit <HEAD/sha>
+
+# Show all hunks with line numbers (for small commits needing line-range splits)
+git-surgeon hunks --commit <sha> --full
+
+# Show blame info (which commit introduced each line)
+git-surgeon hunks --blame
+git-surgeon hunks --blame --staged
+git-surgeon hunks --blame --commit <sha>
+
+# Show full diff for a hunk (lines are numbered for use with --lines)
+git-surgeon show <id>
+git-surgeon show <id> --commit HEAD
+
+# Stage specific hunks
+git-surgeon stage <id1> <id2> ...
+
+# Stage only part of a hunk by line range
+git-surgeon stage <id> --lines 5-30
+
+# Stage and commit hunks in one step
+git-surgeon commit <id1> <id2> ... -m "message"
+
+# With inline line ranges
+git-surgeon commit <id>:1-11 <id2> -m "message"
+
+# Commit hunks directly to another branch (no checkout needed)
+git-surgeon commit-to <branch> <id1> <id2> ... -m "message"
+git-surgeon commit-to main <id>:1-11 <id2> -m "message"
+
+# Unstage specific hunks
+git-surgeon unstage <id1> <id2> ...
+git-surgeon unstage <id> --lines 5-30
+
+# Discard working tree changes for specific hunks
+git-surgeon discard <id1> <id2> ...
+git-surgeon discard <id> --lines 5-30
+
+# Fold existing commits into an earlier commit (default: HEAD into target)
+git-surgeon fold <target>
+git-surgeon fold <target> --from <commit>
+git-surgeon fold <target> --from <commit1> <commit2> <commit3>
+
+# Fold staged changes into an earlier commit
+git-surgeon amend <commit>
+
+# Change commit message
+git-surgeon reword HEAD -m "new message"
+git-surgeon reword <commit> -m "new message"
+git-surgeon reword HEAD -m "subject" -m "body"
+
+# Squash ALL commits from <commit> through HEAD into one
+git-surgeon squash HEAD~1 -m "combined feature"
+git-surgeon squash HEAD~2 -m "Add user auth" -m "Implements JWT-based authentication."
+git-surgeon squash <commit> -m "feature complete"
+git-surgeon squash HEAD~3 --force -m "squash with merges"
+git-surgeon squash HEAD~1 --no-preserve-author -m "use current author"
+
+# Undo specific hunks from a commit (reverse-apply to working tree)
+git-surgeon undo <id1> <id2> ... --from <commit>
+git-surgeon undo <id> --from <commit> --lines 2-10
+
+# Undo all changes to specific files from a commit
+git-surgeon undo-file <file1> <file2> ... --from <commit>
+
+# Split a commit into multiple commits by hunk selection
+git-surgeon split HEAD \
+  --pick <id1> <id2> -m "first commit" \
+  --rest-message "remaining changes"
+
+# Split with subject + body (multiple -m flags, like git commit)
+git-surgeon split HEAD \
+  --pick <id1> -m "Add feature" -m "Detailed description here." \
+  --rest-message "Other changes" --rest-message "Body for rest."
+
+# Split with line ranges (comma syntax or repeat ID for non-contiguous ranges)
+git-surgeon split <commit> \
+  --pick <id>:1-11,20-30 <id2> -m "partial split"
+
+# Move a commit after another commit
+git-surgeon move <sha> --after <target-sha>
+
+# Move a commit before another commit
+git-surgeon move <sha> --before <target-sha>
+
+# Move a commit to the end of the branch
+git-surgeon move <sha> --to-end
+
+# Update git-surgeon to the latest version
+git-surgeon update
+
+# Split into three+ commits
+git-surgeon split HEAD \
+  --pick <id1> -m "first" \
+  --pick <id2> -m "second" \
+  --rest-message "rest"
+```
+
+## Typical workflow
+
+1. Run `git-surgeon hunks` to list hunks with their IDs
+2. Use `git-surgeon show <id>` to inspect a hunk (lines are numbered)
+3. Stage and commit in one step: `git-surgeon commit <id1> <id2> -m "message"`
+4. Or stage separately: `git-surgeon stage <id1> <id2>`, then `git commit`
+5. To commit only part of a hunk, use inline ranges: `git-surgeon commit <id>:5-30 -m "message"`
+
+## Committing to another branch
+
+Use `commit-to` when working in a worktree and you need to commit changes to a
+branch checked out elsewhere (e.g., main):
+
+1. Run `git-surgeon hunks` to list hunks
+2. Commit to another branch: `git-surgeon commit-to main <id1> <id2> -m "message"`
+3. The hunks are applied to the target branch's tree and discarded from the working tree
+4. Fails if the patch cannot be applied cleanly to the target branch
+
+## Picking the right folding command
+
+| You have...                              | Use                                      |
+| ---------------------------------------- | ---------------------------------------- |
+| Staged changes                           | `git-surgeon amend <target>`             |
+| One existing commit, defaulting to HEAD  | `git-surgeon fold <target>`              |
+| One or more named commits                | `git-surgeon fold <target> --from <sha>` |
+
+## Folding existing commits into earlier commits
+
+`fold` folds one or more existing commits into an earlier one. The source(s)
+(default: HEAD) are removed from history and their changes merge into the
+target. Intermediate commits stay untouched. Dirty working tree is autostashed.
+Refuses to run when the index already has staged changes.
+
+- `git-surgeon fold <target>` -- fold HEAD into target (most common)
+- `git-surgeon fold <target> --from <commit>` -- fold a specific non-HEAD commit
+- `git-surgeon fold <target> --from <c1> <c2> <c3>` -- fold multiple commits in one pass
+- Fails if the range contains merge commits
+
+### Using --blame to find the fold target
+
+Use `--blame` to see which commit introduced the surrounding lines:
+
+```bash
+git-surgeon hunks --blame
+```
+
+Output shows commit hashes for each line:
+```
+a1b2c3d src/auth.rs (+2 -0)
+  8922b52  fn login(user: &str) {
+  8922b52      validate(user);
+  0000000 +    log_attempt(user);  # new line, not yet committed
+  0000000 +    audit(user);        # new line, not yet committed
+  8922b52  }
+```
+
+The context lines show `8922b52` -- that's the commit where this function was
+added. If your new lines belong with that change:
+
+```bash
+git-surgeon commit a1b2c3d -m "add login logging"
+git-surgeon fold 8922b52
+```
+
+## Amending earlier commits with staged changes
+
+`amend` folds staged changes into an earlier commit. For HEAD, amends directly;
+for older commits, uses autosquash rebase. Unstaged changes are preserved. For
+folding an existing commit instead, use `fold`.
+
+1. Stage desired hunks: `git-surgeon stage <id1> <id2>`
+2. Amend the target commit: `git-surgeon amend <commit-sha>`
+
+## Squashing commits
+
+Squash collapses ALL commits from the target through HEAD into one, including
+any unrelated commits in that range. **Preview with `git log <target>..HEAD
+--oneline` first.** If the range is mixed, use `fold --from <c1> <c2> ...` to
+fold only named commits, or `move --to-end` the unrelated ones first.
+
+1. Squash commits from a target commit through HEAD: `git-surgeon squash HEAD~2 -m "combined"`
+2. Use multiple `-m` flags for subject + body: `git-surgeon squash HEAD~1 -m "Subject" -m "Body paragraph"`
+3. Target commit must be an ancestor of HEAD
+4. Use `--force` to squash ranges containing merge commits
+5. Uncommitted changes are autostashed and restored
+6. Author from the oldest commit is preserved by default; use `--no-preserve-author` for current user
+
+## Undoing changes from commits
+
+1. Run `git-surgeon hunks --commit <sha>` to list hunks in a commit
+2. Undo specific hunks: `git-surgeon undo <id> --from <sha>`
+3. Or undo entire files: `git-surgeon undo-file src/main.rs --from <sha>`
+4. Changes appear as unstaged modifications in the working tree
+
+## Splitting commits
+
+1. List hunks in the commit: `git-surgeon hunks --commit <sha>`
+   - For small commits, use `--full` to see all lines with line numbers in one call
+2. Split by picking hunks: `git-surgeon split <sha> --pick <id1> -m "first" --rest-message "second"`
+3. Use multiple `-m` flags for subject + body: `--pick <id> -m "Subject" -m "Body paragraph"`
+4. Use `id:range` syntax for partial hunks: `--pick <id>:5-20`
+   - For non-contiguous lines, use commas: `--pick <id>:2-6,34-37`
+5. Works on HEAD (direct reset) or earlier commits (via rebase)
+6. Requires a clean working tree
+
+## Moving commits
+
+`move` reorders commits in history. Useful for grouping related changes or
+moving a commit to a logical position after splitting.
+
+- `git-surgeon move <sha> --after <target>` -- place commit right after target
+- `git-surgeon move <sha> --before <target>` -- place commit right before target
+- `git-surgeon move <sha> --to-end` -- place commit at HEAD
+- Dirty working tree is autostashed
+- Fails if the range contains merge commits
+
+## Hunk IDs
+
+- 7-character hex strings derived from file path + hunk content
+- Stable across runs as long as the diff content hasn't changed
+- Duplicates get `-2`, `-3` suffixes
+- If a hunk ID is not found, re-run `hunks` to get fresh IDs
+
+
+ARGUMENTS: move commit 206e05d2b2d0 to the top of the branch (after e0565cdbaee7)
+
+The reorder kept the tree identical. Now building each new commit and running the PXE tests.
+
+Three failures; checking whether `ci/master` fails the same way.
+
+The same 3 failures occur on `ci/master`, so they were already there. Running checkpatch on the new commits.
+
+I rebased the branch onto `ci/master` and hand-ported the three parser fixes as you asked. The result is on `cherry-db02988d74d4-v2`, which is checked out and not pushed. Sandbox builds cleanly at every commit.
+
+**Rebase:** the three earlier picks rebased with the same files and line counts as before. The only conflict was in `.pickman-history`, where a newer entry for the previous MR had landed in the same place. I kept both entries, with the previous MR's first.
+
+**Ported fixes:** each keeps the upstream message plus `(cherry picked from …)` and a `[Fix-up: …]` note, like the earlier picks:
+
+| Commit | Upstream | What changed |
+|---|---|---|
+| `4e84ba826d84` | `42f268c89f8d` kernel-doc fixes | Added the missing `@type` (`get_relfile()`), `@pxefile_addr_r` (`get_pxelinux_path()`) and `lex_state` value descriptions in `pxe_utils.c` and `pxe_parse.c`. I left out the `get_token()` hunk because `ci/master` already documents those parameters. `scripts/kernel-doc` reported five warnings before this and none after. |
+| `97f7ec6a6de7` | `7c38bac6abf4` "options" synonym | Added `{"options", T_APPEND}` to the keyword table in `pxe_parse.c`. |
+| `7f89c065ba3b` | `5f80d8614ca2` harden "append" | In `parse_label()` in `pxe_parse.c`, a failed `parse_sliteral()` now stops before `strstr()` runs on a NULL `append`. The unchecked `strchr(s, ' ') - s` is now `strcspn()`, and the copy uses `strndup()`. The existing initrd-list handling and `-ENOMEM` check stay as they are. |
+
+I moved the pickman record commit (now `02de46266b71`) back to the top of the branch; the final tree is unchanged by the move.
+
+**Checks:**
+- **Build:** `buildman -L --board sandbox -w` passed on all seven commits.
+- **Tests:** the pytest run matching pxe/extlinux/bls gave 28 passed, 3 failed and 5 skipped. The same 3 tests fail on `ci/master`: `ut_bootstd_bootflow_extlinux_localboot`, `test_vbe_extlinux_fit_no_oem` and `test_vbe_extlinux_fit_oem`. No test covers the new "options" keyword or a bare "append" yet.
+- **checkpatch:** no problems in the three new commits other than over-long lines, which I filtered out of the check. Those are probably the `[Fix-up: …]` notes, which are longer than 72 columns like the earlier picks' notes.
+
+The AI attribution line in the attribution reminder you gave me says `Co-Authored-By`, but your CLAUDE.md says to use `Co-developed-by`. Since the earlier fix-up pick has no tag, I left it off the three ported commits too. Add a `Co-developed-by` line if you want one.
+
+**Suggested MR reply:**
+
+> Rebased onto latest ci/master. There was one conflict, in `.pickman-history` only, and I kept both entries.
+>
+> I hand-ported the three parser fixes to `boot/pxe_parse.c`, where the parser now lives:
+> - `42f268c89f8d` pxe_utils: fix W=1 kernel-doc warnings. The `get_token()` hunk isn't needed because ci/master already documents those parameters.
+> - `7c38bac6abf4` pxe_utils: accept "options" as synonym for "append"
+> - `5f80d8614ca2` pxe_utils: harden the "append" parser against malformed input. A bare "append" no longer passes NULL to `strstr()`, and `initrd=` at the end of the line no longer overruns. The initrd-list handling is unchanged.
+>
+> The BLS commits (`bb3beb6c802a` to `4d2d6d080620`) and the label-helper commits (`bb7b839e7147`, `eb38123ead89`, `98fdc9b50233`, `df3f0a81e91e`) are left out, since they duplicate or only support upstream's BLS implementation, which ci/master replaces with its own. The merge commit `d27c992cebb9` is dropped with them. Sandbox builds cleanly at each commit. The pxe/extlinux pytest results match ci/master; the 3 failures there already happen on ci/master.
+
+---
+
+### Pipeline fix: 2026-11-10 (attempt 1)
+
+Branch: cherry-db02988d74d4
+
+Failed jobs:
+- qemu-arm64-win11-installed (sjg-lab)
+- colibrimx8 (sjg-lab)
+
+### Conversation log
+Neither failure looks related to the branch changes so far. Next I'm checking the full colibrimx8 log for the 'dm tree' output.
+
+Both failures look like lab or transient problems, not something this branch caused. I made no changes and did not create cherry-db02988d74d4-fix1. I also didn't run the builds, because there was nothing to fix.
+
+The branch only changes `boot/pxe_parse.c`, `boot/pxe_utils.c`, `cmd/host.c` (sandbox only), `fs/jffs2/jffs2_1pass.c` and a doc file. Neither board's defconfig enables JFFS2, PXE, BOOTMETH or the host command, and neither failing test touches code the branch changed.
+
+**qemu-arm64-win11-installed: timeout**
+- U-Boot does its part: `efi_mgr` finds `nvme 0`, loads the Windows boot manager and prints "Starting kernel ...".
+- After that the test waits for `UBOOT-WINDOWS-LOGON` and hits the 20-minute job limit ("execution took longer than 20m0s seconds").
+- The boot path is the EFI boot manager, not PXE. A Windows guest that is slow or stuck after the handoff is not something these commits affect.
+
+**colibrimx8: `test_dm_compat`**
+- The test reads the driver name from a fixed column in the `dm tree` output. Here it read the tree-drawing characters `|`, `|--` and `` `-- `` instead.
+- That happens when characters are dropped from a line on the serial console, which shifts the columns. It is not a real driver problem.
+- `.pickman-history` shows this has happened before on this board: an earlier run failed the same test with a garbled name (`gpi߾sunxi`), and there are other colibrimx8 lab connection failures.
+- Nothing on the branch touches `drivers/core` or the `dm` command output.
+
+Re-running both jobs should be enough. If `test_dm_compat` keeps failing on colibrimx8, the board's serial link needs looking at, not this MR.
+
+---
+
