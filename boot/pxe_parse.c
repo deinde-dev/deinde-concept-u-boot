@@ -635,6 +635,8 @@ static int parse_label(struct pxe_context *ctx, char **c, struct pxe_menu *cfg,
 			break;
 		case T_APPEND:
 			err = parse_sliteral(c, &label->append, limit);
+			if (err < 0)
+				break;
 			if (IS_ENABLED(CONFIG_PXE_INITRD_LIST)) {
 				if (label->initrds.count)
 					break;
@@ -645,14 +647,13 @@ static int parse_label(struct pxe_context *ctx, char **c, struct pxe_menu *cfg,
 			s = strstr(label->append, "initrd=");
 			if (!s)
 				break;
-			s += 7;
-			len = (int)(strchr(s, ' ') - s);
-			initrd_path = malloc(len + 1);
+			s += strlen("initrd=");
+			len = strcspn(s, " ");
+			initrd_path = strndup(s, len);
 			if (!initrd_path) {
 				err = -ENOMEM;
 				break;
 			}
-			strlcpy(initrd_path, s, len + 1);
 			if (IS_ENABLED(CONFIG_PXE_INITRD_LIST)) {
 				if (!alist_add(&label->initrds, initrd_path)) {
 					free(initrd_path);
