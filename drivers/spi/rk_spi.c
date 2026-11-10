@@ -12,7 +12,6 @@
 
 #include <clk.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <log.h>
 #include <spi.h>
@@ -22,6 +21,7 @@
 #include <asm/io.h>
 #include <asm/arch-rockchip/clock.h>
 #include <asm/arch-rockchip/periph.h>
+#include <dm/prop.h>
 #include <dm/pinctrl.h>
 #include "rk_spi.h"
 
@@ -40,9 +40,6 @@ struct rockchip_spi_params {
 };
 
 struct rockchip_spi_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3288_spi of_plat;
-#endif
 	s32 frequency;		/* Default clock frequency, -1 for none */
 	uintptr_t base;
 	uint deactivate_delay_us;	/* Delay to wait after deactivate */
@@ -172,51 +169,34 @@ static void spi_cs_deactivate(struct udevice *dev, uint cs)
 		priv->last_transaction_us = timer_get_us();
 }
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int conv_of_plat(struct udevice *dev)
-{
-	struct rockchip_spi_plat *plat = dev_get_plat(dev);
-	struct dtd_rockchip_rk3288_spi *dtplat = &plat->of_plat;
-	struct rockchip_spi_priv *priv = dev_get_priv(dev);
-	int ret;
-
-	plat->base = dtplat->reg[0];
-	plat->frequency = 20000000;
-	ret = clk_get_by_phandle(dev, dtplat->clocks, &priv->clk);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-#endif
-
 static int rockchip_spi_of_to_plat(struct udevice *bus)
 {
 	struct rockchip_spi_plat *plat = dev_get_plat(bus);
 	struct rockchip_spi_priv *priv = dev_get_priv(bus);
+	DTPLAT(rockchip_rk3288_spi, dt, bus);
 	int ret;
 
-	if (IS_ENABLED(CONFIG_OF_REAL)) {
-		plat->base = dev_read_addr(bus);
+	plat->base = dev_prop_addr(bus, dt);
 
-		ret = clk_get_by_index(bus, 0, &priv->clk);
-		if (ret < 0) {
-			debug("%s: Could not get clock for %s: %d\n", __func__,
-			      bus->name, ret);
-			return ret;
-		}
-
-		plat->frequency = dev_read_u32_default(bus, "spi-max-frequency",
-						       50000000);
-		plat->deactivate_delay_us =
-			dev_read_u32_default(bus, "spi-deactivate-delay", 0);
-		plat->activate_delay_us =
-			dev_read_u32_default(bus, "spi-activate-delay", 0);
-
-		debug("%s: base=%x, max-frequency=%d, deactivate_delay=%d\n",
-		      __func__, (uint)plat->base, plat->frequency,
-		      plat->deactivate_delay_us);
+	ret = dev_prop_clk(bus, dt, clocks, "clocks", 0, &priv->clk);
+	if (ret < 0) {
+		debug("%s: Could not get clock for %s: %d\n", __func__,
+		      bus->name, ret);
+		return ret;
 	}
+
+	plat->frequency = dev_prop_u32_default(bus, dt, spi_max_frequency,
+					       "spi-max-frequency", 50000000);
+	plat->deactivate_delay_us =
+		dev_prop_u32_default(bus, dt, spi_deactivate_delay,
+				     "spi-deactivate-delay", 0);
+	plat->activate_delay_us =
+		dev_prop_u32_default(bus, dt, spi_activate_delay,
+				     "spi-activate-delay", 0);
+
+	debug("%s: base=%x, max-frequency=%d, deactivate_delay=%d\n",
+	      __func__, (uint)plat->base, plat->frequency,
+	      plat->deactivate_delay_us);
 
 	return 0;
 }
@@ -256,11 +236,6 @@ static int rockchip_spi_probe(struct udevice *bus)
 	int ret;
 
 	debug("%s: probe\n", __func__);
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	ret = conv_of_plat(bus);
-	if (ret)
-		return ret;
-#endif
 	priv->regs = (struct rockchip_spi *)plat->base;
 
 	priv->last_transaction_us = timer_get_us();
