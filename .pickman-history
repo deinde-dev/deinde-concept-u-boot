@@ -105400,3 +105400,42 @@ All 15 commits are on branch `cherry-1e8c7615f1ce`, which is based on ci/master 
 
 ---
 
+### Pipeline fix: 2026-11-10 (attempt 1)
+
+Branch: cherry-1e8c7615f1ce
+
+Failed jobs:
+- efi-x86_64-uboot-iso-install (sjg-lab-slow)
+- bob (sjg-lab)
+
+### Conversation log
+The bob failure is infrastructure: the labgrid place was held by another user. I'll look further into the ISO-install log.
+
+I'll check whether any file on the branch could affect the efi-x86_app64 build.
+
+The changes are all MediaTek-specific. The only shared file is drivers/power/domain/Kconfig, so I'll check that it can't change the x86 config.
+
+Everything on the branch is MediaTek-only. I'll run a quick sandbox build as a sanity check.
+
+I made no changes and did not create cherry-1e8c7615f1ce-fix1. Both failures look unrelated to this MR, so re-running the two jobs should be enough. The sandbox build of the branch passes with no warnings; I didn't run the buildman build for the three boards because there was nothing to change.
+
+**bob (job 755396): lab infrastructure problem.** The test run stopped while configuring, before any U-Boot code ran:
+```
+labgrid-client: Error: place bob is not acquired by your user, acquired by labgrid.
+...
+place bob is acquired by a different user (kea/labgrid)
+```
+Another labgrid user held the board, so the job couldn't get it.
+
+**efi-x86_64-uboot-iso-install (job 755442): not caused by this MR, probably flaky.** U-Boot booted the Ubuntu ISO kernel, but the kernel then panicked with `VFS: Cannot open root device "" or unknown-block(0,0)`. That means the kernel found no root filesystem or initrd. test_distro_ubuntu_iso_install timed out waiting for the installer.
+
+None of the 15 commits can change the efi-x86_app64 build:
+- **New options:** PWM_MTK_DISP and MTK_POWER_DOMAIN both depend on ARCH_MEDIATEK. PANEL_STARTEK_KD070FHFID015 is off by default and only depends on generic options, and efi-x86_app64_defconfig doesn't enable it.
+- **Makefile changes:** the new power-domain objects only build when CONFIG_MTK_POWER_DOMAIN is set. The panel object needs its own option, which is off on that board.
+- **common/spl/Kconfig:** the only change is `default n if MTK_GENIO_BOOT_IMAGES`, which is a MediaTek option.
+- **Other files:** everything else is MediaTek device trees, MediaTek configs, docs and MAINTAINERS.
+
+So the efi-x86_app64 build is the same as on ci/master. If the ISO-install job fails the same way on the re-run, it will be failing on ci/master too and needs looking at separately.
+
+---
+
