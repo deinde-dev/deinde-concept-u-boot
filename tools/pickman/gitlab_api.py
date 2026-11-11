@@ -900,6 +900,39 @@ def get_pipeline_jobs(remote, pipeline_id):
         return None
 
 
+def get_last_pipeline(remote, mr_iid):
+    """Get the newest pipeline for a merge request which was not skipped
+
+    A push with ci.skip leaves a skipped pipeline, which says nothing about
+    the merge request, so the head pipeline may not be the one which last
+    ran. The list includes the pipelines which pickman starts on the branch
+    to run only some jobs.
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request IID
+
+    Returns:
+        tuple: (pipeline_id, status), or None if no pipeline has run or the
+            pipelines cannot be read
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return None
+        pipelines = [pipe for pipe in
+                     project.mergerequests.get(mr_iid).pipelines.list(
+                         get_all=True)
+                     if pipe.status != 'skipped']
+        if not pipelines:
+            return None
+        newest = max(pipelines, key=lambda pipe: pipe.id)
+        return newest.id, newest.status
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'MR !{mr_iid}: could not read its pipelines: {exc}')
+        return None
+
+
 def only_jobs_regex(names):
     """Make a regex for ONLY_JOBS which matches just the given job names
 

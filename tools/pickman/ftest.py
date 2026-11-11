@@ -11209,12 +11209,16 @@ class TestHistoryConflict(HistoryRepo):
         database.Database.instances.clear()
         super().tearDown()
 
-    def _review(self, pipeline_status='failed', push_error=None):
-        """Process the MR, as GitLab reports that it has conflicts
+    def _review(self, last=(200, 'failed'), push_error=None,
+                conflicts=True):
+        """Process the MR, as GitLab reports that it needs a rebase
 
         Args:
-            pipeline_status (str): Status of the MR's pipeline
+            last (tuple): (pipeline_id, status) of the MR's last pipeline
+                which ran, or None
             push_error (Exception): Error for the push to raise, or None
+            conflicts (bool): True if GitLab reports that the MR has
+                conflicts, False if it is just behind
 
         Returns:
             tuple: (result, Mock, Mock, Mock) for the result of
@@ -11224,13 +11228,15 @@ class TestHistoryConflict(HistoryRepo):
         merge_req = gitlab.PickmanMr(
             iid=100, title='[pickman] Test MR', source_branch='cherry',
             description='Test', web_url='https://gitlab.com/mr/100',
-            has_conflicts=True, needs_rebase=True,
-            pipeline_status=pipeline_status, pipeline_id=200)
+            has_conflicts=conflicts, needs_rebase=True,
+            pipeline_status='skipped', pipeline_id=201)
         with terminal.capture():
             dbs = database.Database(self.db_path)
             dbs.start()
             with mock.patch.object(gitlab, 'get_mr_comments',
                                    return_value=[]), \
+                 mock.patch.object(gitlab, 'get_last_pipeline',
+                                   return_value=last), \
                  mock.patch.object(agent, 'handle_mr_comments',
                                    return_value=(False, 'No')) as m_agent, \
                  mock.patch.object(gitlab, 'push_branch',
@@ -11273,14 +11279,57 @@ class TestHistoryConflict(HistoryRepo):
         push.assert_not_called()
         reply.assert_not_called()
 
+    def test_rebased_passed(self):
+        """Test that a passing pipeline is not run again after a rebase"""
+        result, m_agent, push, reply = self._review((200, 'success'))
+        self.assertEqual(1, result)
+        m_agent.assert_not_called()
+        push.assert_called_once_with('ci', 'cherry', force=True, skip_ci=True)
+        self.assertIn('Pipeline 200 passed, so it is not run again',
+                      reply.call_args[0][2])
+
     def test_waits_for_pipeline(self):
         """Test that a running pipeline is left to finish first"""
-        result, m_agent, push, _ = self._review('running')
+        for conflicts in (True, False):
+            result, m_agent, push, _ = self._review((200, 'running'),
+                                                    conflicts=conflicts)
+            self.assertEqual(0, result)
+            m_agent.assert_not_called()
+            push.assert_not_called()
+            self.assertEqual(['Record cherry', 'Change a.c', 'Initial'],
+                             self._log('cherry'))
+
+    def test_behind_passed(self):
+        """Test rebasing a branch which is behind, once its pipeline passes"""
+        result, m_agent, push, reply = self._review((200, 'success'),
+                                                    conflicts=False)
+        self.assertEqual(1, result)
+        m_agent.assert_not_called()
+        self.assertEqual(['Record cherry', 'Change a.c', 'Record other',
+                          'Initial'], self._log('cherry'))
+        push.assert_called_once_with('ci', 'cherry', force=True, skip_ci=True)
+        reply.assert_not_called()
+
+    def test_behind_not_passed(self):
+        """Test that a branch which is behind waits for a pipeline to pass"""
+        for last in ((200, 'failed'), (200, 'canceled'), None):
+            result, m_agent, push, reply = self._review(last,
+                                                        conflicts=False)
+            self.assertEqual(0, result)
+            m_agent.assert_not_called()
+            push.assert_not_called()
+            reply.assert_not_called()
+            self.assertEqual(['Record cherry', 'Change a.c', 'Initial'],
+                             self._log('cherry'))
+
+    def test_behind_subtree(self):
+        """Test that a subtree update which is behind is left alone"""
+        with mock.patch.object(control, 'mr_subtree', return_value='dts'):
+            result, m_agent, push, _ = self._review((200, 'success'),
+                                                    conflicts=False)
         self.assertEqual(0, result)
         m_agent.assert_not_called()
         push.assert_not_called()
-        self.assertEqual(['Record cherry', 'Change a.c', 'Initial'],
-                         self._log('cherry'))
 
     def test_rebased_push_fails(self):
         """Test that a rebased branch which cannot be pushed is reported"""
