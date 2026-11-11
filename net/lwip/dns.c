@@ -35,23 +35,17 @@ static void dns_cb(const char *name, const ip_addr_t *ipaddr, void *arg)
 	ip_addr_set(&dns_cb_arg->host_ipaddr, ipaddr);
 }
 
-static int dns_loop(struct udevice *udev, const char *name, const char *var)
+static int dns_loop(struct net_lwip_ctx *net, const char *name,
+		    const char *var)
 {
 	struct dns_cb_arg dns_cb_arg = { };
-	struct netif *netif;
 	const char *ipstr;
 	ip_addr_t ipaddr;
 	ulong start;
 	int ret;
 
-	netif = net_lwip_new_netif(udev);
-	if (!netif)
+	if (net_lwip_dns_init())
 		return CMD_RET_FAILURE;
-
-	if (net_lwip_dns_init()) {
-		net_lwip_remove_netif(netif);
-		return CMD_RET_FAILURE;
-	}
 
 	dns_cb_arg.done = false;
 
@@ -63,7 +57,7 @@ static int dns_loop(struct udevice *udev, const char *name, const char *var)
 		start = get_timer(0);
 		sys_timeout(DNS_RESEND_MS, do_dns_tmr, NULL);
 		do {
-			net_lwip_rx(udev, netif);
+			net_lwip_poll();
 			if (dns_cb_arg.done)
 				break;
 			if (ctrlc()) {
@@ -72,9 +66,8 @@ static int dns_loop(struct udevice *udev, const char *name, const char *var)
 			}
 		} while (get_timer(start) < DNS_TIMEOUT_MS);
 		sys_untimeout(do_dns_tmr, NULL);
+		dns_cancel(dns_cb, &dns_cb_arg);
 	}
-
-	net_lwip_remove_netif(netif);
 
 	if (dns_cb_arg.done && !ip_addr_isany(&dns_cb_arg.host_ipaddr)) {
 		ipstr = ipaddr_ntoa(&dns_cb_arg.host_ipaddr);
@@ -90,14 +83,15 @@ static int dns_loop(struct udevice *udev, const char *name, const char *var)
 
 int net_lwip_dns_lookup(const char *name, const char *var)
 {
+	struct net_lwip_ctx net = {};
 	int ret;
 
-	if (net_lwip_eth_start() < 0)
+	if (net_lwip_start(&net, NET_LWIP_ADDR_ENV_STRICT))
 		return CMD_RET_FAILURE;
 
-	ret = dns_loop(eth_get_dev(), name, var);
+	ret = dns_loop(&net, name, var);
 
-	net_lwip_eth_stop();
+	net_lwip_stop(&net);
 
 	return ret;
 }

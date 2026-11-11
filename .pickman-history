@@ -105439,3 +105439,119 @@ So the efi-x86_app64 build is the same as on ci/master. If the ISO-install job f
 
 ---
 
+## 2026-11-11: us/main
+
+Branch: cherry-cb9f124b4341
+
+Commits:
+- cb9f124b4341 net: split netconsole transport from stdio frontend
+- 492ab21b291f net: netconsole: use unsigned port numbers
+- 547a93ef610b net: netconsole: cache environment settings
+- d6db3760fe6f net: lwip: share one network runtime between clients
+- d57012ecc74f test: dm: cover the shared lwIP runtime
+- 58d3a3fd9393 net: netconsole: add an lwIP transport
+- 2e03ff463e2d net: lwip: support syslog
+- 41c9a8e32652 cmd: ethsw: support lwIP
+- 949840ee76e3 net: pcap: support lwIP
+- 66ebf9948377 net: sandbox: support raw Ethernet with lwIP
+- 805693c5923b dhcpv6: support rapid commit dhcp6 option
+- 84d16d576658 Merge tag 'net-next-20260923' of https://git.u-boot-project.org/u-boot/custodians/u-boot-net into next
+
+### Conversation log
+Building fine so far; picked commit 1 of 12. Continuing with the rest.
+
+Now I'll resolve the three conflicts.
+
+Commit 4 had conflicts (resolved). Since sandbox uses legacy networking, I'll also build sandbox64_lwip as a supplementary check.
+
+Picked 7 of 12; now amending commit 7 with the split-check fix and building.
+
+Resolving a small conflict in commit 9 (pcap hook next to an already-converted IS_ENABLED line).
+
+Upstream matches the target here (pcap.o still only built for NET_LEGACY in both), so this is faithful. Amending and continuing.
+
+The merge commit re-applies the series diff that is already present, so it conflicts against my adapted versions. Checking whether it adds anything beyond the 11 commits:
+
+The merge's first-parent diff is exactly the 11 commits already applied, so I'll keep HEAD's versions and record an empty merge commit.
+
+All 12 commits are in place. As a last check, I'll run the new lwIP and netconsole dm tests on sandbox64_lwip.
+
+All 12 commits are cherry-picked onto `cherry-cb9f124b4341`, based on ci/master. The final sandbox build passes with no warnings or errors, and the branch is ready to push.
+
+Because sandbox uses legacy networking, it doesn't build most of the lwIP code. So I also built `sandbox64_lwip` after each commit, and it passed every time. Its only warnings are dtc warnings from the sandbox device tree, not from these changes. On that board, the two new tests (`ut dm lwip_runtime` and `ut dm lwip_netconsole`) pass.
+
+| # | Commit | What I had to do |
+|---|---|---|
+| 1–3 | netconsole split, unsigned ports, cache env | Clean |
+| 4 | net: lwip: share one network runtime | Conflicts in `dns.c`, `tftp.c` and `wget.c` (see below); split-check also converted one config macro |
+| 5 | test: dm: cover the shared lwIP runtime | Split-check converted the config macros and added PROT_DHCP_LWIP, PROT_DNS_LWIP and WGET to `conf_nospl` |
+| 6 | net: netconsole: add an lwIP transport | Clean |
+| 7 | net: lwip: support syslog | Split-check converted the config macros |
+| 8 | cmd: ethsw: support lwIP | Kconfig conflict (see below) |
+| 9 | net: pcap: support lwIP | Small conflict (see below); split-check converted the config macros and added CMD_PCAP to `conf_nospl` |
+| 10–11 | sandbox raw Ethernet, dhcpv6 rapid commit | Clean |
+| 12 | Merge tag 'net-next-20260923' | Kept as an empty commit (see below) |
+
+Each fix-up is recorded as a `[pickman]` note at the end of that commit's message:
+
+- **Commit 4:** ci/master has already rewritten these commands to use getopt. I kept that version and applied the upstream switch to `net_lwip_start()`/`net_lwip_stop()` on top of it.
+- **Commit 8:** this commit moves the `CMD_ETHSW` Kconfig entry. ci/master has `select GETOPT` on that entry, so I kept it in the moved copy.
+- **Commit 9:** I added the new pcap hook next to a line ci/master had already converted to `IS_ENABLED()`.
+- **Commit 12:** with `-m 1`, the merge diff is exactly the 11 commits, so it conflicted with the versions I had already adapted. I kept the branch versions and recorded the merge as an empty commit.
+
+The file stats match the originals for every commit, so none has a concerning delta.
+
+One thing to know about commit 9: its message says it builds the packet recorder for either network stack, but `net/Makefile` still builds `pcap.o` only for legacy networking. Upstream has the same gap at that commit, so the pick is faithful, but `pcap` won't actually work with lwIP yet.
+
+---
+
+### Pipeline fix: 2026-11-11 (attempt 1)
+
+Branch: cherry-cb9f124b4341
+
+Failed jobs:
+- epyc-opensil (sjg-lab-slow)
+- epyc (sjg-lab-slow)
+- epyc-cb (sjg-lab-slow)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+The epyc jobs are a lab infrastructure issue (place acquired by another user). Now to find what failed in make check.
+
+sandbox_noinst SPL fails to link: net_loop() references wget_start().
+
+net.c is unchanged, so the build rule for wget.o must have changed. Let me check what the branch did to net/Makefile and the WGET config.
+
+Adding WGET to conf_nospl looks suspicious. Let me see how that file is used.
+
+With WGET in conf_nospl, wget.o is no longer built in SPL, but CMD_WGET still reaches SPL, so the SPL net.c still calls wget_start(). Next I'll check why commit 6e4a02952f94 added it.
+
+The test only uses IS_ENABLED(CONFIG_WGET), so I need to know whether the split-check requires WGET to be in conf_nospl. Let me look at the checker.
+
+History is linear and has one empty commit, which git keeps by default. I'll rebase to 6e4a02952f94 (HEAD~8).
+
+All 12 commits survived the rebase. Now I'll build sandbox, then use buildman on the failing board (sandbox_noinst), the lwIP board and the epyc boards.
+
+I fixed the make check / qcheck failure by amending one commit. The three epyc failures were a lab problem, not the code, so I changed nothing for them. The fix is on local branch `cherry-cb9f124b4341-fix1` and has not been pushed.
+
+**epyc, epyc-cb, epyc-opensil (infrastructure):** All three failed during labgrid setup, before any test ran: `place epyc is not acquired by your user, acquired by labgrid ... (kea/labgrid)`. Someone else had the board reserved, so these jobs should pass on a retry once it is free.
+
+**Check make check / Check make qcheck (real failure):**
+- **Symptom:** The SPL link for `sandbox_noinst` fails with `net/net.c:553: undefined reference to 'wget_start'`.
+- **Responsible commit:** `6e4a02952f94 test: dm: cover the shared lwIP runtime`. When it was picked, the config conversion added `PROT_DHCP_LWIP`, `PROT_DNS_LWIP` and `WGET` to `scripts/conf_nospl`.
+- **Root cause:** `sandbox_noinst` builds networking into SPL. Listing `WGET` in `conf_nospl` stops `wget.o` being built for SPL. But `CMD_WGET` still reaches SPL, so `net_loop()` there still calls `wget_start()`, which no longer exists. The entry was not needed anyway: the new `test/dm/lwip.o` is only built for U-Boot proper.
+- **Fix:** I removed the `WGET` line from `scripts/conf_nospl` in that commit and appended this note to its message:
+  `[pickman] Drop WGET from conf_nospl since SPL net.c calls wget_start() when CMD_WGET is enabled, e.g. sandbox_noinst`
+  I left the two `PROT_*_LWIP` entries alone because they caused no failure.
+- **History:** All 12 commits rebased cleanly, including the empty merge record, and the only difference from the original branch is that one deleted line.
+
+**Verification:**
+- `um build sandbox` passes.
+- buildman builds all 9 sandbox boards, including `sandbox_noinst`, `sandbox_spl` and `sandbox64_lwip`. The only warnings are the dtc warnings from the sandbox device tree, which were already there.
+- Locally I only confirmed that the link error is gone; I didn't re-run the test.py suites.
+- I couldn't build the epyc names with buildman because they are lab roles, not board configs.
+- My first buildman run in `/tmp/pickman` failed for `sandbox` because a stale RISC-V object (`examples/ulib/demo.o`) was left in that directory. A rebuild in a fresh output directory passed, so that error has nothing to do with this branch.
+
+---
+
