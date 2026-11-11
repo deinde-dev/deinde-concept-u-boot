@@ -517,7 +517,9 @@ struct driver {
  *
  * With of-platdata, dtoc generates a C structure holding the devicetree
  * properties which the device's driver reads with the dev_prop helpers (see
- * dm/prop.h). This returns it
+ * dm/prop.h). This returns it, except where the device is the only one for its
+ * driver, since then the driver refers to the data directly. Drivers should
+ * use DTPLAT() instead, which handles both cases
  *
  * @dev:	Device to check
  * Return: generated data, or NULL if none (always NULL without of-platdata)

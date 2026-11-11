@@ -126,7 +126,8 @@ ifdef CONFIG_OF_PLATDATA
 # and each has its own devicetree. These are found before the top-level ones
 # since UBOOTINCLUDE puts $(obj)/include first
 platdata-hdr := $(obj)/include/generated/dt-structs-gen.h \
-	$(obj)/include/generated/dt-decl.h
+	$(obj)/include/generated/dt-decl.h \
+	$(obj)/include/generated/dt-prop.h
 platdata-inst := $(obj)/dts/dt-uclass.o $(obj)/dts/dt-device.o
 platdata-noinst := $(obj)/dts/dt-plat.o
 
@@ -241,6 +242,12 @@ spl/boot.bin: $(obj)/$(XPL_BIN)-align.bin FORCE
 endif
 
 INPUTS-y	+= $(obj)/$(XPL_BIN).bin $(obj)/$(XPL_BIN).sym
+
+ifdef CONFIG_OF_PLATDATA
+ifndef CONFIG_OF_PLATDATA_INST
+INPUTS-y	+= $(obj)/.$(XPL_BIN).dtoc-check
+endif
+endif
 
 ifneq ($(CONFIG_ARCH_EXYNOS)$(CONFIG_ARCH_S5PC1XX),)
 INPUTS-y	+= $(obj)/$(BOARD)-spl.bin
@@ -529,6 +536,16 @@ $(obj)/$(XPL_BIN): $(u-boot-spl-platdata) $(u-boot-spl-init) \
 		$(u-boot-spl-main) $(u-boot-spl-keep-syms-lto) \
 		$(obj)/u-boot-spl.lds FORCE
 	$(call if_changed,u-boot-spl)
+
+# With of-platdata, check that the image has only dtoc's driver_info records,
+# each time it is linked
+quiet_cmd_dtoc_records = CHKDTOC $2
+cmd_dtoc_records = $(srctree)/scripts/check_dtoc_records.sh "$(NM)" $2 \
+	$(obj)/dts/dt-plat.c
+
+$(obj)/.$(XPL_BIN).dtoc-check: $(obj)/$(XPL_BIN)
+	$(call cmd,dtoc_records,$<)
+	@touch $@
 
 $(sort $(u-boot-spl-init) $(u-boot-spl-main)): $(u-boot-spl-dirs) ;
 

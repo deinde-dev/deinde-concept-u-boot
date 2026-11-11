@@ -537,6 +537,20 @@ config SPL_OF_PLATDATA_DRIVER_RT
 	  of-platdata-inst is not used. It allows finding devices by their
 	  driver data.
 
+config SPL_OF_PLATDATA_CHECK
+	bool "Check devices bound by C code for single-node drivers"
+	depends on !SPL_OF_PLATDATA_INST
+	default y if SANDBOX
+	help
+	  When only one devicetree node uses a driver which reads its
+	  properties with the dev_prop helpers, the driver uses that node's
+	  data directly, without looking at the device. A device of that
+	  driver which is bound at run time by C code, rather than from the
+	  devicetree, would then get the node's data.
+
+	  This adds a check which reports an error for such a device. It adds
+	  some code, so is mainly useful when developing and testing.
+
 endif
 
 config TPL_OF_REAL
@@ -614,6 +628,20 @@ config TPL_OF_PLATDATA_DRIVER_RT
 	  This enables the driver_rt information, used with of-platdata when
 	  of-platdata-inst is not used. It allows finding devices by their
 	  driver data.
+
+config TPL_OF_PLATDATA_CHECK
+	bool "Check devices bound by C code for single-node drivers"
+	depends on !TPL_OF_PLATDATA_INST
+	default y if SANDBOX
+	help
+	  When only one devicetree node uses a driver which reads its
+	  properties with the dev_prop helpers, the driver uses that node's
+	  data directly, without looking at the device. A device of that
+	  driver which is bound at run time by C code, rather than from the
+	  devicetree, would then get the node's data.
+
+	  This adds a check which reports an error for such a device. It adds
+	  some code, so is mainly useful when developing and testing.
 
 endif
 

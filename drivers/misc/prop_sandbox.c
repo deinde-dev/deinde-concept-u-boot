@@ -45,3 +45,35 @@ U_BOOT_DRIVER(sandbox_dev_prop_test) = {
 	.plat_auto = sizeof(struct sandbox_dev_prop_plat),
 	.flags	= DM_FLAG_PRE_RELOC,
 };
+
+/*
+ * A driver with just one node, so that with of-platdata its data is visible to
+ * the compiler, rather than being found from the device
+ */
+static int sandbox_dev_prop_single_of_to_plat(struct udevice *dev)
+{
+	struct sandbox_dev_prop_plat *plat = dev_get_plat(dev);
+	DTPLAT(sandbox_dev_prop_single, dt, dev);
+
+	plat->base = dev_prop_addr(dev, dt);
+	plat->present = dev_prop_u32_default(dev, dt, dev_prop_present,
+					     "dev-prop-present", 7);
+	plat->absent = dev_prop_u32_default(dev, dt, dev_prop_absent,
+					    "dev-prop-absent", 9);
+
+	return 0;
+}
+
+static const struct udevice_id sandbox_dev_prop_single_ids[] = {
+	{ .compatible = "sandbox,dev-prop-single", },
+	{}
+};
+
+U_BOOT_DRIVER(sandbox_dev_prop_single) = {
+	.name	= "sandbox_dev_prop_single",
+	.id	= UCLASS_MISC,
+	.of_match = sandbox_dev_prop_single_ids,
+	.of_to_plat = sandbox_dev_prop_single_of_to_plat,
+	.plat_auto = sizeof(struct sandbox_dev_prop_plat),
+	.flags	= DM_FLAG_PRE_RELOC,
+};
