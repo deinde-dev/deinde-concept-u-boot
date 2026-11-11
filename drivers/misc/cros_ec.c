@@ -1665,8 +1665,10 @@ int cros_ec_read_batt_charge(struct udevice *dev, uint *chargep)
 	req.cmd = CHARGE_STATE_CMD_GET_STATE;
 	ret = ec_command(dev, EC_CMD_CHARGE_STATE, 0, &req, sizeof(req),
 			 &resp, sizeof(resp));
-	if (ret)
+	if (ret < 0)
 		return log_msg_ret("read", ret);
+	if (ret != sizeof(resp.get_state))
+		return log_msg_ret("len", -EINVAL);
 
 	*chargep = resp.get_state.batt_state_of_charge;
 
