@@ -105637,3 +105637,65 @@ Re-running the pine64 job should be enough. If it fails again in the same way, t
 
 ---
 
+## 2026-11-11: us/main
+
+Branch: cherry-bdc04bcabfd8
+
+Commits:
+- bdc04bcabfd8 MAINTAINERS: add new SpacemiT custodians
+- 2a8df8759350 pinctrl: k1: fix drive strength configuration
+- b42233010428 pinctrl: k1: add IO power domain configuration support
+- d6a1d4c0723b pinctrl: spacemit: configure drive strength based on power source
+- aa3091dcd701 spacemit: k1: select boot device via config registers
+- 18e9745c9327 mmc: k1: add sdhci platform driver
+- c8d4129cb9a4 dts: k1: enable mmc devices in SPL
+- f570dfb74e7d configs: k1: enable SD and eMMC support
+- a75e1ed839a3 MAINTAINER: update Spacemit K1 entry
+- 69d82789fe6f doc: spacemit: flash on K1 SoC based boards
+- 6f8c134610b9 spacemit: k1: fix product name detection and DTB matching in SPL
+- 57eb5723d5fe phy: spacemit: add K1 PCIe/USB3 combo PHY driver
+- c8764b8db670 pci: spacemit: add DesignWare PCIe host controller driver
+- d70d03392804 configs: k1: enable PCIe and NVMe support
+- dfa681ec397a MAINTAINER: add K1 PCIe driver to Spacemit entry
+- f7f62bbc1422 Merge tag 'spacemit-next-20260929' of https://git.u-boot-project.org/u-boot/custodians/u-boot-spacemit into next
+
+### Conversation log
+Four of 16 picked cleanly so far: each builds on sandbox and split-check changes nothing. Continuing with the rest.
+
+Resolving: add only linux/bitfield.h, keep the target's u8 i2c_buf alongside the new mode variable, and use upstream's boot-mode switch while keeping USB boot on the target's DFU path.
+
+Only the missing OpenSBI blob fails, so the code compiles. From now on I'll build K1 with -M as well.
+
+Now adding the conflict note to the boot-device commit (HEAD~1).
+
+Keeping the MMC options but dropping the SPI flash options, since the target doesn't have the SPI NOR series.
+
+The savedefconfig differences are only ordering (the target file was already unsorted) plus HS200, which is implied. Keeping upstream's layout so the diff stays minimal.
+
+K1 builds with the MMC driver in both phases, and SPL is 163305 bytes, under the 0x33000 limit. Continuing.
+
+Another defconfig conflict on commit 14 (PCIe/NVMe). Looking at it now.
+
+The merge commit replays the whole series against the target, so it conflicts. First I'll check whether the merge adds anything beyond the 15 commits.
+
+The merge adds nothing of its own, so I'm resetting the tree to HEAD and recording it as an empty commit.
+
+All 16 commits are on cherry-bdc04bcabfd8, based on ci/master and not pushed or merged. Five needed conflict fixes and two ended up as empty commits. The sandbox build passes with no warnings after each pick and at the end. Sandbox doesn't build any of the K1 code, so I also built spacemit_k1 after each pick (with missing blobs allowed). It builds, the new MMC, PCIe and PHY drivers compile in, and SPL is 164681 bytes, under its 0x33000 limit. The only warning is the expected missing OpenSBI blob (fw_dynamic.bin). None of this has been tried on hardware.
+
+**Clean picks with deltas matching the originals:** bdc04bcabfd8, 2a8df8759350, b42233010428, d6a1d4c0723b, 69d82789fe6f, 57eb5723d5fe, c8764b8db670, dfa681ec397a.
+
+**Fix-ups (each has a `[pickman]` note at the end of its commit message):**
+- **18e9745c9327 (mmc: k1: sdhci driver):** split-check changed 'CONFIG_IS_ENABLED(...)' to 'IS_ENABLED(CONFIG_...)' in spacemit_sdhci.c, and I amended the commit with its note.
+- **aa3091dcd701 (select boot device via config registers):** this clashed in spl.c with the target's USB DFU boot path. I kept the target's includes and its 'i2c_buf' variable, and took upstream's boot-mode switch. One change from upstream: when the BootROM reports USB boot, SPL now uses BOOT_DEVICE_DFU instead of BOOT_DEVICE_USB, so the target's current DFU loading still works. Please check you're happy with that mapping.
+- **c8d4129cb9a4 (dts: enable mmc in SPL):** I added only the 'emmc' and 'sdhci0' nodes to the BPI-F3 dtsi; the target's version had already dropped the 'resets' lines this commit removes. I left out the k1-musepi-pro-u-boot.dtsi changes because that file doesn't exist in the target.
+- **f570dfb74e7d (enable SD/eMMC) and d70d03392804 (enable PCIe/NVMe):** both defconfig conflicts came from upstream's SPI flash options, which the target lacks because it doesn't have the SPI NOR boot commit (e63500cab0c0). I added only the MMC and PCIe/NVMe options.
+- **a75e1ed839a3 (MAINTAINER update):** I replaced Guodong Xu with Eric Chung and kept the target's Huan Zhou line. That line already has a typo in the target ('pericycle.cc@@gmail.com', with a doubled @), which upstream has fixed; I left it alone.
+
+**Empty commits you should look at:**
+- **6f8c134610b9 (fix product name detection and DTB matching):** this is empty. It fixes multi-DTB board matching ('product_name', board_fit_config_name_match()) that comes from upstream a823fbf0cfbd, which isn't in the target. I didn't mark it [FAILED], because there is nothing in the target for it to fix. If you want this behaviour, a823fbf0cfbd has to be picked first.
+- **f7f62bbc1422 (merge):** this is empty because the merge makes no changes of its own beyond the 15 commits, so it only keeps the merge message.
+
+Line counts match the originals for every non-empty pick except three. Commit aa3091dcd701 has 101+/6- against 97+/1-, because of the DFU comment. Commit c8d4129cb9a4 has 10 lines against 21+/127-, because the musepi-pro and 'resets' parts were dropped. Commit d70d03392804 matches at 10+.
+
+---
+
