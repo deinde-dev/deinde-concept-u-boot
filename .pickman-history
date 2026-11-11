@@ -105345,3 +105345,58 @@ The branch is ready to push and has not been merged anywhere.
 
 ---
 
+## 2026-11-10: us/main
+
+Branch: cherry-1e8c7615f1ce
+
+Commits:
+- 1e8c7615f1ce video: panel: Support for startek-kd070fhfid015 MIPI-DSI panel
+- 4cb8deb4dbeb pwm: add MediaTek display PWM driver
+- bb348b1bf456 power: domain: mtk: simplify Kconfig
+- a4f6819f78b6 configs: mediatek: drop no longer needed POWER_DOMAIN options
+- c53069b058ac power: domain: mtk: support two-phase bus protection
+- 403557b96c2c power: domain: mtk: add MT8189 power domain
+- 236503924b4e arm: dts: mediatek: mt8189: add the power controller
+- 63a44d01ae8f configs: mt8189: enable the power domain driver
+- 8b3cf38413bb arm: dts: mediatek: prepare Genio 510 and 700 devices for SPL
+- 124dd672b821 configs: mt8188: enable eMMC FIT boot from SPL
+- 906823e14712 arm: mediatek: build Genio 510 and 700 boot images with binman
+- db6afce2c7cc arm: dts: mediatek: support signed Genio 510 and 700 bootloader FIT
+- d08ebdc88db4 arm: dts: mediatek: emit the Genio 510 and 700 BootROM payload
+- ca1c29c01bbd doc: board: mediatek: document Genio 510 and 700 SPL boot
+- 0a61439db5e3 Merge tag 'mediatek-for-next-2026-09-21' of https://git.u-boot-project.org/u-boot/custodians/u-boot-mediatek into next
+
+### Conversation log
+First commit conflicts; checking whether it's already applied.
+
+Not already applied; the conflicts are simple. Resolving them.
+
+Delta matches. Building.
+
+Now a helper to pick each remaining commit, run split-check, compare stats and build, stopping on any problem.
+
+Fine. Continuing.
+
+Eight of 15 commits are picked and building cleanly. Only the first commit needed conflict fixes. Continuing with the SPL/binman commits.
+
+14 of 15 commits are picked. I'm checking the new doc for phase macros, then picking the merge commit.
+
+The merge re-applies the whole series, which is already present. I'll resolve it by keeping the current tree.
+
+`--continue` refuses an empty commit, so I'll commit it directly from the prepared message.
+
+All 15 commits are on branch `cherry-1e8c7615f1ce`, which is based on ci/master and ready to push. The sandbox build passes with no warnings or errors, both after each commit and at the end.
+
+**Fix-ups (each noted at the end of its commit message):**
+- **`1e8c7615f1ce` (startek panel):** two simple conflicts.
+  - In `MAINTAINERS`, ci/master has a new STANDARD PASSAGE entry at the same spot, so I kept both and put the STARTEK KD070FHFID015 PANEL entry after it in alphabetical order.
+  - In `drivers/video/Makefile`, I added the new panel line and kept the target's `obj-$(CONFIG_SIMPLE_PANEL)` form instead of the source's `$(PHASE_)` form.
+- **`0a61439db5e3` (merge):** it hit the same two conflicts again, because the series was already in the tree. I kept the current files, so it is an empty commit that preserves the merge message.
+
+**Other checks:**
+- **split-check:** it changed nothing in any of the 15 commits, and I found no phase macros in the new doc file.
+- **Deltas:** each picked commit's files and line counts match the original exactly, so none are concerning.
+- **Already-applied check:** the first commit conflicted, so I checked first. It is not already in ci/master, so I carried on with the normal pick.
+
+---
+
