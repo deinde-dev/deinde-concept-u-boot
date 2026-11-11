@@ -48,7 +48,17 @@
  * the flash geometry. The protect messages are supported but no protection is
  * implemented.
  *
- * 6. Hashing of the EC image, again to support software sync.
+ * 6. Hashing of the EC image, again to support software sync. A test flag
+ * makes the hash take a while to finish.
+ *
+ * 7. Information about the EC: its versions, build, keyboard matrix and SKU,
+ * along with the features it supports.
+ *
+ * 8. Host-event masks, LDOs, PWM channels, vstore slots, and a battery and
+ * charger, so that the library functions which use them can be tested.
+ *
+ * Like a real EC, the emulator sends back an error code (EC_RES_...) when it
+ * refuses a command, e.g. one which it does not know or with a bad parameter.
  *
  * Other features can be added, although a better path is probably to link
  * the EC image in with U-Boot (Vic has demonstrated a prototype for this).

@@ -158,6 +158,19 @@ This runs the sub-commands which sandbox's emulated EC answers::
     00000000
     => crosec test
     Test passed
+    => crosec version
+    RO version:    sandbox_ro
+    RW version:    sandbox_rw
+    Firmware copy: RO
+    Build info:    sandbox_ec 1.0
+    => crosec info
+    rows     = 8
+    cols     = 13
+    => crosec ldo 1
+    LDO1: off
+    => crosec ldo 1 1
+    => crosec ldo 1
+    LDO1: on
 
 The flash sub-commands work on the emulated EC's flash::
 
@@ -172,15 +185,11 @@ The flash sub-commands work on the emulated EC's flash::
     offset:  0x00010000
     size:    0x00000002
     digest:  d021c38903eefed7e83e17fe8b952f0102a1109da26f83d16f90c2bb219114f4
-
-Sandbox's EC has no keyboard matrix, no flash geometry, no LDOs and no build
-information, so 'info', 'flashinfo', 'read', 'ldo' and 'version' report an
-error there. On a Chromebook, whose keyboard is 8 rows of 13 columns, 'info'
-shows the matrix instead::
-
-    => crosec info
-    rows     = 8
-    cols     = 13
+    => crosec read rw 2000 2
+    => crosec flashinfo
+    Flash size:         131072
+    Write block size:   4
+    Erase block size:   2048
 
 Return value
 ------------
