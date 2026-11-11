@@ -71,6 +71,7 @@ enum {
 	VSTORE_SLOT_COUNT	= 4,
 	PWM_CHANNEL_COUNT	= 4,
 	LDO_COUNT		= 4,
+	HOST_EVENT_MASK_COUNT	= EC_HOST_EVENT_LAZY_WAKE_MASK_S5 + 1,
 
 	/* Flash geometry, as on an STM32 */
 	FLASH_WRITE_BLOCK	= 4,
@@ -104,6 +105,9 @@ struct ec_pwm_channel {
  * @slot_locked: Locked vstore slots (mask)
  * @pwm: Information per PWM channel
  * @ldo: State of each LDO (EC_LDO_STATE_...)
+ * @host_event_mask: Host-event masks, indexed by enum ec_host_event_mask_type.
+ *	The entries for EC_HOST_EVENT_MAIN and EC_HOST_EVENT_B are not used,
+ *	since those are the events themselves
  */
 struct ec_state {
 	bool valid;
@@ -120,6 +124,7 @@ struct ec_state {
 	struct vstore_slot slot[VSTORE_SLOT_COUNT];
 	struct ec_pwm_channel pwm[PWM_CHANNEL_COUNT];
 	u8 ldo[LDO_COUNT];
+	u64 host_event_mask[HOST_EVENT_MASK_COUNT];
 } s_state, *g_state;
 
 /**
@@ -312,6 +317,102 @@ static int cros_ec_keyscan(struct ec_state *ec, uint8_t *scan)
 }
 
 /**
+ * get_host_events() - Get the host events which the EC has pending
+ *
+ * @ec: Current emulated EC state
+ * Return: events, as a mask of EC_HOST_EVENT_MASK() bits
+ */
+static u64 get_host_events(struct ec_state *ec)
+{
+	u64 events = 0;
+
+	if (ec->recovery_req)
+		events |= EC_HOST_EVENT_MASK(EC_HOST_EVENT_KEYBOARD_RECOVERY);
+	if (ec->test_flags & CROSECT_LID_OPEN)
+		events |= EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN);
+
+	return events;
+}
+
+/**
+ * clear_host_events() - Clear some of the host events which the EC has pending
+ *
+ * @ec: Current emulated EC state
+ * @mask: Events to clear, as a mask of EC_HOST_EVENT_MASK() bits
+ */
+static void clear_host_events(struct ec_state *ec, u64 mask)
+{
+	if (mask & EC_HOST_EVENT_MASK(EC_HOST_EVENT_KEYBOARD_RECOVERY))
+		ec->recovery_req = false;
+	if (mask & EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN))
+		ec->test_flags &= ~CROSECT_LID_OPEN;
+}
+
+/**
+ * mask_type() - Get the mask which an older host-event mask command uses
+ *
+ * @cmd: Command, e.g. EC_CMD_HOST_EVENT_GET_SCI_MASK
+ * Return: mask type (enum ec_host_event_mask_type)
+ */
+static uint mask_type(uint cmd)
+{
+	switch (cmd) {
+	case EC_CMD_HOST_EVENT_GET_SCI_MASK:
+	case EC_CMD_HOST_EVENT_SET_SCI_MASK:
+		return EC_HOST_EVENT_SCI_MASK;
+	case EC_CMD_HOST_EVENT_GET_SMI_MASK:
+	case EC_CMD_HOST_EVENT_SET_SMI_MASK:
+		return EC_HOST_EVENT_SMI_MASK;
+	default:
+		return EC_HOST_EVENT_ACTIVE_WAKE_MASK;
+	}
+}
+
+/**
+ * host_event_cmd() - Handle EC_CMD_HOST_EVENT, for the unified host events
+ *
+ * @ec: Current emulated EC state
+ * @req: Request
+ * @resp: Place to put the response
+ * Return: length of response, or -EC_RES_INVALID_PARAM for a bad request
+ */
+static int host_event_cmd(struct ec_state *ec,
+			  const struct ec_params_host_event *req,
+			  struct ec_response_host_event *resp)
+{
+	bool events = req->mask_type == EC_HOST_EVENT_MAIN ||
+		req->mask_type == EC_HOST_EVENT_B;
+	u64 *mask;
+
+	if (req->mask_type >= HOST_EVENT_MASK_COUNT)
+		return -EC_RES_INVALID_PARAM;
+	mask = &ec->host_event_mask[req->mask_type];
+	resp->value = 0;
+
+	switch (req->action) {
+	case EC_HOST_EVENT_GET:
+		resp->value = events ? get_host_events(ec) : *mask;
+		break;
+	case EC_HOST_EVENT_SET:
+		/* only the EC can set events */
+		if (events)
+			return -EC_RES_INVALID_PARAM;
+		*mask |= req->value;
+		break;
+	case EC_HOST_EVENT_CLEAR:
+		if (events)
+			clear_host_events(ec, req->value);
+		else
+			*mask &= ~req->value;
+		break;
+	default:
+		return -EC_RES_INVALID_PARAM;
+	}
+
+	return sizeof(*resp);
+}
+
+/**
  * flash_range_ok() - Check that a range lies within the EC's flash
  *
  * @ec: Current emulated EC state
@@ -413,25 +514,39 @@ static int process_cmd(struct ec_state *ec,
 	case EC_CMD_HOST_EVENT_GET_B: {
 		struct ec_response_host_event_mask *resp = resp_data;
 
-		resp->mask = 0;
-		if (ec->recovery_req) {
-			resp->mask |= EC_HOST_EVENT_MASK(
-					EC_HOST_EVENT_KEYBOARD_RECOVERY);
-		}
-		if (ec->test_flags & CROSECT_LID_OPEN)
-			resp->mask |=
-				EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN);
+		resp->mask = get_host_events(ec);
 		len = sizeof(*resp);
 		break;
 	}
+	case EC_CMD_HOST_EVENT_CLEAR:
 	case EC_CMD_HOST_EVENT_CLEAR_B: {
 		const struct ec_params_host_event_mask *req = req_data;
 
-		if (req->mask & EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN))
-			ec->test_flags &= ~CROSECT_LID_OPEN;
+		clear_host_events(ec, req->mask);
 		len = 0;
 		break;
-		}
+	}
+	case EC_CMD_HOST_EVENT_GET_SCI_MASK:
+	case EC_CMD_HOST_EVENT_GET_SMI_MASK:
+	case EC_CMD_HOST_EVENT_GET_WAKE_MASK: {
+		struct ec_response_host_event_mask *resp = resp_data;
+
+		resp->mask = ec->host_event_mask[mask_type(req_hdr->command)];
+		len = sizeof(*resp);
+		break;
+	}
+	case EC_CMD_HOST_EVENT_SET_SCI_MASK:
+	case EC_CMD_HOST_EVENT_SET_SMI_MASK:
+	case EC_CMD_HOST_EVENT_SET_WAKE_MASK: {
+		const struct ec_params_host_event_mask *req = req_data;
+
+		ec->host_event_mask[mask_type(req_hdr->command)] = req->mask;
+		len = 0;
+		break;
+	}
+	case EC_CMD_HOST_EVENT:
+		len = host_event_cmd(ec, req_data, resp_data);
+		break;
 	case EC_CMD_VBOOT_HASH: {
 		const struct ec_params_vboot_hash *req = req_data;
 		struct ec_response_vboot_hash *resp = resp_data;

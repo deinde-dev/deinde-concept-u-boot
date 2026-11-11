@@ -196,3 +196,49 @@ static int dm_test_cros_ec_flash(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_cros_ec_flash, UTF_SCAN_FDT);
+
+/* Test the host-event masks, and the events read through EC_CMD_HOST_EVENT */
+static int dm_test_cros_ec_host_event_mask(struct unit_test_state *uts)
+{
+	u64 lid_open = EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN);
+	struct udevice *dev;
+	u32 mask;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+
+	/* the EC supports unified host events, so these use them */
+	ut_asserteq(0, cros_ec_get_events_b(dev));
+	sandbox_cros_ec_set_test_flags(dev, CROSECT_LID_OPEN);
+	ut_asserteq(lid_open, cros_ec_get_events_b(dev));
+	ut_assertok(cros_ec_clear_events_b(dev, lid_open));
+	ut_asserteq(0, cros_ec_get_events_b(dev));
+
+	/* each mask is separate */
+	ut_assertok(cros_ec_set_event_mask(dev, EC_CMD_HOST_EVENT_SET_SCI_MASK,
+					   0x1234));
+	ut_assertok(cros_ec_set_event_mask(dev, EC_CMD_HOST_EVENT_SET_WAKE_MASK,
+					   0x5678));
+	ut_assertok(cros_ec_get_event_mask(dev, EC_CMD_HOST_EVENT_GET_SCI_MASK,
+					   &mask));
+	ut_asserteq(0x1234, mask);
+	ut_assertok(cros_ec_get_event_mask(dev, EC_CMD_HOST_EVENT_GET_WAKE_MASK,
+					   &mask));
+	ut_asserteq(0x5678, mask);
+
+	/* the lid-shutdown setting is a bit in the SMI mask */
+	ut_asserteq(0, cros_ec_get_lid_shutdown_mask(dev));
+	ut_assertok(cros_ec_set_lid_shutdown_mask(dev, true));
+	ut_assert_nextline("EC: enabled lid close event");
+	ut_asserteq(1, cros_ec_get_lid_shutdown_mask(dev));
+	ut_assertok(cros_ec_get_event_mask(dev, EC_CMD_HOST_EVENT_GET_SMI_MASK,
+					   &mask));
+	ut_asserteq(EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_CLOSED), mask);
+
+	ut_assertok(cros_ec_set_lid_shutdown_mask(dev, false));
+	ut_assert_nextline("EC: disabled lid close event");
+	ut_asserteq(0, cros_ec_get_lid_shutdown_mask(dev));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_host_event_mask, UTF_SCAN_FDT | UTF_CONSOLE);
