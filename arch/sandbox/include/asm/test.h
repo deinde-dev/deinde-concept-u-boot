@@ -73,6 +73,7 @@ enum cros_ec_test_t {
 	CROSECT_BREAK_HELLO	= BIT(1),
 	CROSECT_LID_OPEN	= BIT(2),
 	CROSECT_LIMIT_POWER	= BIT(3),	/* charger asks to limit power */
+	CROSECT_SLOW_HASH	= BIT(4),	/* hash is busy for a while */
 };
 
 /**

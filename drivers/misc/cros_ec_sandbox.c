@@ -73,6 +73,9 @@ enum {
 	LDO_COUNT		= 4,
 	HOST_EVENT_MASK_COUNT	= EC_HOST_EVENT_LAZY_WAKE_MASK_S5 + 1,
 
+	/* Times the hash reports that it is busy, with CROSECT_SLOW_HASH */
+	HASH_BUSY_POLLS		= 2,
+
 	/* The battery and charger, which is on AC power */
 	BATT_CHARGE_PCT		= 75,
 	CHG_VOLTAGE_MV		= 8400,
@@ -117,6 +120,7 @@ struct ec_pwm_channel {
  * @battery_cutoff: Flags of the last request to cut off the battery
  *	(EC_BATTERY_CUTOFF_FLAG_...), or -1 if there has been none
  * @powerbtn_flags: Power-button flags (EC_POWER_BUTTON_...)
+ * @hash_polls: Number of times the hash has reported that it is busy
  */
 struct ec_state {
 	bool valid;
@@ -136,6 +140,7 @@ struct ec_state {
 	u64 host_event_mask[HOST_EVENT_MASK_COUNT];
 	int battery_cutoff;
 	uint powerbtn_flags;
+	int hash_polls;
 } s_state, *g_state;
 
 /**
@@ -567,8 +572,19 @@ static int process_cmd(struct ec_state *ec,
 		entry = &ec->ec_config.region[EC_FLASH_REGION_ACTIVE];
 
 		switch (req->cmd) {
+		case EC_VBOOT_HASH_START:
 		case EC_VBOOT_HASH_RECALC:
 		case EC_VBOOT_HASH_GET:
+			/* a slow hash takes a while to finish */
+			if ((ec->test_flags & CROSECT_SLOW_HASH) &&
+			    ec->hash_polls < HASH_BUSY_POLLS) {
+				ec->hash_polls++;
+				memset(resp, '\0', sizeof(*resp));
+				resp->status = EC_VBOOT_HASH_STATUS_BUSY;
+				len = sizeof(*resp);
+				break;
+			}
+			ec->hash_polls = 0;
 			size = SHA256_SUM_LEN;
 			len = get_image_used(ec, entry);
 			ret = hash_block("sha256",

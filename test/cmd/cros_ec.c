@@ -146,6 +146,7 @@ CMD_TEST(cmd_test_crosec_events, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 /* Test the sub-commands which work on the EC's flash */
 static int cmd_test_crosec_flash(struct unit_test_state *uts)
 {
+	struct udevice *dev;
 	u8 *buf;
 
 	if (gd->ram_base > IMAGE_ADDR)
@@ -176,6 +177,16 @@ static int cmd_test_crosec_flash(struct unit_test_state *uts)
 	ut_assert_nextline("offset:  0x%08x", RW_OFFSET);
 	ut_assert_nextline("size:    0x%08x", IMAGE_SIZE);
 	ut_assert_nextline("digest:  " IMAGE_DIGEST);
+
+	/* a slow hash gives the same result, once the EC is done */
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	sandbox_cros_ec_set_test_flags(dev, CROSECT_SLOW_HASH);
+	ut_assertok(run_command("crosec hash", 0));
+	ut_assert_nextline("type:    SHA-256");
+	ut_assert_nextline("offset:  0x%08x", RW_OFFSET);
+	ut_assert_nextline("size:    0x%08x", IMAGE_SIZE);
+	ut_assert_nextline("digest:  " IMAGE_DIGEST);
+	sandbox_cros_ec_set_test_flags(dev, 0);
 
 	/* read the image back */
 	buf = map_sysmem(READ_ADDR, IMAGE_SIZE);
