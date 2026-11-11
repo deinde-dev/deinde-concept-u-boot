@@ -105181,3 +105181,167 @@ Re-running both jobs should be enough. If `test_dm_compat` keeps failing on coli
 
 ---
 
+## 2026-11-10: us/main
+
+Branch: cherry-7f4b730691d2
+
+Commits:
+- 7f4b730691d2 scripts: Check F: entries in all MAINTAINERS files
+- 87d8cb4abc62 MAINTAINERS: tegra: Update and correct entries
+- e315cf608bb3 MAINTAINERS: rockchip: Use N for rk3576-nanopi-r76s
+- 885803b47cc5 MAINTAINERS: Fix "typo" and similar incorrect entries
+- 9c9a2adf2db2 MAINTAINERS: Correct entries missed during renames
+- c062373ee773 MAINTAINERS: Removed files
+- 2ecc661447f9 CI: Run scripts/check_maintainers_files.sh in the existing MAINTAINERS job
+- b8e0086b5857 Merge patch series "Cleanup MAINTAINERS entries"
+
+### Conversation log
+Six commits applied cleanly; now resolving CI-file conflicts in the seventh.
+
+Simple conflicts: keep the target's venv setup and add the new script line plus the job rename.
+
+The merge commit's diff duplicates the series already applied, so I resolve by keeping the current versions.
+
+Adding the -x trailer that the manual commit dropped:
+
+All 8 present. Final build, plus running the new check script, since CI will now run it on this tree:
+
+I cherry-picked all 8 commits onto `cherry-7f4b730691d2` and the sandbox build passes. But the new MAINTAINERS check fails on this tree, so the CI job the series adds will fail until the entries below are fixed.
+
+| New hash | Original | Subject |
+|---|---|---|
+| c3bed6572b3a | 7f4b730691d2 | scripts: Check F: entries in all MAINTAINERS files |
+| 76fc180b4723 | 87d8cb4abc62 | MAINTAINERS: tegra: Update and correct entries |
+| 03cd20c08c4d | e315cf608bb3 | MAINTAINERS: rockchip: Use N for rk3576-nanopi-r76s |
+| 6e49d2fcdc25 | 885803b47cc5 | MAINTAINERS: Fix "typo" and similar incorrect entries |
+| 03716faf23f3 | 9c9a2adf2db2 | MAINTAINERS: Correct entries missed during renames |
+| f10a461313e7 | c062373ee773 | MAINTAINERS: Removed files |
+| 1e916209fff4 | 2ecc661447f9 | CI: Run scripts/check_maintainers_files.sh in the existing MAINTAINERS job |
+| 29a83769c6cd | b8e0086b5857 | Merge patch series "Cleanup MAINTAINERS entries" (empty) |
+
+- **Build:** ok, no warnings or errors, both after the first pick and at the end.
+- **split-check:** changed nothing in any of the commits.
+- **Deltas:** the first six commits have exactly the same file and line counts as the originals.
+
+**Fix-ups:**
+- **2ecc661447f9:** this conflicted in `.azure-pipelines.yml` and `.gitlab-ci.yml`, because ci/master runs buildman from a Python venv (`.test_suites`, `pip install`). I kept that setup, renamed the job and added the `./scripts/check_maintainers_files.sh` line. The diff stat (2 files, +4/−3) matches the original. I added this note to the commit message: "[Resolved conflicts in .azure-pipelines.yml and .gitlab-ci.yml to keep the venv setup]"
+- **Merge commit b8e0086b5857:** with `-m 1` it repeats the whole series diff, so it hit the same conflicts. I kept the current files and committed it empty with the original message. Because I finished it by hand I added the `(cherry picked from commit …)` trailer myself.
+
+**The check failure:** `./scripts/check_maintainers_files.sh` exits 1 with six errors. These entries point to files that exist in us/main but not in this tree, so they come from how the trees have diverged rather than from this series:
+- `MAINTAINERS`: `drivers/smem/msm_smem.c`, `configs/qemu_x86*` and `test/bloblist.c` don't exist here (this tree uses `qemu-x86*` names).
+- `board/qualcomm/dragonboard410c/MAINTAINERS`: `configs/qcom_dragonboard410c_defconfig` is `dragonboard410c_defconfig` here.
+- `board/qualcomm/dragonboard820c/MAINTAINERS`: `configs/qcom_dragonboard820c_defconfig` is `dragonboard820c_defconfig` here.
+- `board/samsung/starqltechn/MAINTAINERS`: `configs/qcom_sdm845_spl_defconfig` doesn't exist here.
+
+I left these alone because fixing them needs a new commit outside the series. Either a follow-up commit that corrects those six F: entries, or one that drops the CI line, would let the pipeline pass.
+
+The branch is ready to push and has not been merged anywhere.
+
+---
+
+### Pipeline fix: 2026-11-10 (attempt 1)
+
+Branch: cherry-7f4b730691d2
+
+Failed jobs:
+- bob (sjg-lab)
+- Check all configs are in MAINTAINERS and validate MAINTAINERS (test_suites)
+
+### Conversation log
+Those extra errors are expected at this point in the rebase, because the later commits in the series fix them. Amending now and finishing the rebase:
+
+The check script passes now. Next I'll run buildman's maintainer check, the sandbox build and the board builds:
+
+The sandbox build dir is stale: it's configured for a different source tree (cosarm). I'll build in a fresh directory instead:
+
+The trees are identical, but the blank line before the pickman note got lost. One more amend on the fix branch:
+
+I fixed the MAINTAINERS job failure on local branch `cherry-7f4b730691d2-fix1` (not pushed). The bob failure is a flaky test, so I left it alone.
+
+**1. MAINTAINERS check: a real failure, caused by `MAINTAINERS: Correct entries missed during renames` (originally 9c9a2adf2db2)**
+
+That upstream commit points some `F:` entries at file names that exist in us/main but not in this tree. buildman reports a board as unmaintained when the `F:` entry for its defconfig is wrong, so `buildman --maintainer-check` gave "no maintainers" warnings for `dragonboard410c` and `dragonboard820c`. The job failed at that step, before the new `scripts/check_maintainers_files.sh` ran. That script would have failed next, with the six errors noted in the MR description.
+
+I amended that commit and added a `[pickman]` note to its message. All the changes are `F:` entries:
+- `board/qualcomm/dragonboard410c/MAINTAINERS`: changed back to `configs/dragonboard410c_defconfig`, the name used in this tree.
+- `board/qualcomm/dragonboard820c/MAINTAINERS`: changed back to `configs/dragonboard820c_defconfig`.
+- `board/samsung/starqltechn/MAINTAINERS`: removed the `configs/qcom_sdm845_spl_defconfig` line, since that file doesn't exist here.
+- `MAINTAINERS`: three entries that were already stale in this tree:
+  - `drivers/smem/msm_smem.c` → `drivers/soc/qcom/smem.c` (the old file is gone after "smem: drop drivers/smem").
+  - `configs/qemu_x86*` → `configs/qemu-x86*`.
+  - `test/bloblist.c` → `test/common/bloblist.c`.
+
+The last three aren't caused by the series, but the CI check it adds would fail on them. They match what the commit does, so I put them in the same commit rather than a separate fixup.
+
+**2. bob (sjg-lab): a flaky test**
+
+The only failure was `test_sleep`: a 3-second sleep took 3.32 s, just over the 3.25 s limit, while 43 other tests passed. That is timing jitter on the lab board, so a re-run should clear it.
+
+**Verification**
+- `./scripts/check_maintainers_files.sh` prints "All MAINTAINERS F: entries exist."
+- `buildman --maintainer-check` passes with no warnings.
+- The sandbox build passes in a fresh directory. `um build sandbox` failed to link because `/tmp/b/sandbox` is set up for the cosarm tree, which has nothing to do with this branch.
+- `buildman -o /tmp/pickman chromebook_bob dragonboard410c dragonboard820c` builds all three boards; the only warnings are the usual missing firmware blobs. The suggested target list was just words from the job names, so I picked the relevant boards instead.
+
+The rebase also rewrote the local `cherry-7f4b730691d2` branch, which now holds an earlier version of the fix whose pickman note is missing the blank line before it. Push `cherry-7f4b730691d2-fix1`, the final version.
+
+---
+
+## 2026-11-10: us/main
+
+Branch: cherry-7f4b730691d2
+
+Commits:
+- 7f4b730691d2 scripts: Check F: entries in all MAINTAINERS files
+- 87d8cb4abc62 MAINTAINERS: tegra: Update and correct entries
+- e315cf608bb3 MAINTAINERS: rockchip: Use N for rk3576-nanopi-r76s
+- 885803b47cc5 MAINTAINERS: Fix "typo" and similar incorrect entries
+- 9c9a2adf2db2 MAINTAINERS: Correct entries missed during renames
+- c062373ee773 MAINTAINERS: Removed files
+- 2ecc661447f9 CI: Run scripts/check_maintainers_files.sh in the existing MAINTAINERS job
+- b8e0086b5857 Merge patch series "Cleanup MAINTAINERS entries"
+
+### Conversation log
+Six commits applied cleanly; now resolving CI-file conflicts in the seventh.
+
+Simple conflicts: keep the target's venv setup and add the new script line plus the job rename.
+
+The merge commit's diff duplicates the series already applied, so I resolve by keeping the current versions.
+
+Adding the -x trailer that the manual commit dropped:
+
+All 8 present. Final build, plus running the new check script, since CI will now run it on this tree:
+
+I cherry-picked all 8 commits onto `cherry-7f4b730691d2` and the sandbox build passes. But the new MAINTAINERS check fails on this tree, so the CI job the series adds will fail until the entries below are fixed.
+
+| New hash | Original | Subject |
+|---|---|---|
+| c3bed6572b3a | 7f4b730691d2 | scripts: Check F: entries in all MAINTAINERS files |
+| 76fc180b4723 | 87d8cb4abc62 | MAINTAINERS: tegra: Update and correct entries |
+| 03cd20c08c4d | e315cf608bb3 | MAINTAINERS: rockchip: Use N for rk3576-nanopi-r76s |
+| 6e49d2fcdc25 | 885803b47cc5 | MAINTAINERS: Fix "typo" and similar incorrect entries |
+| 03716faf23f3 | 9c9a2adf2db2 | MAINTAINERS: Correct entries missed during renames |
+| f10a461313e7 | c062373ee773 | MAINTAINERS: Removed files |
+| 1e916209fff4 | 2ecc661447f9 | CI: Run scripts/check_maintainers_files.sh in the existing MAINTAINERS job |
+| 29a83769c6cd | b8e0086b5857 | Merge patch series "Cleanup MAINTAINERS entries" (empty) |
+
+- **Build:** ok, no warnings or errors, both after the first pick and at the end.
+- **split-check:** changed nothing in any of the commits.
+- **Deltas:** the first six commits have exactly the same file and line counts as the originals.
+
+**Fix-ups:**
+- **2ecc661447f9:** this conflicted in `.azure-pipelines.yml` and `.gitlab-ci.yml`, because ci/master runs buildman from a Python venv (`.test_suites`, `pip install`). I kept that setup, renamed the job and added the `./scripts/check_maintainers_files.sh` line. The diff stat (2 files, +4/−3) matches the original. I added this note to the commit message: "[Resolved conflicts in .azure-pipelines.yml and .gitlab-ci.yml to keep the venv setup]"
+- **Merge commit b8e0086b5857:** with `-m 1` it repeats the whole series diff, so it hit the same conflicts. I kept the current files and committed it empty with the original message. Because I finished it by hand I added the `(cherry picked from commit …)` trailer myself.
+
+**The check failure:** `./scripts/check_maintainers_files.sh` exits 1 with six errors. These entries point to files that exist in us/main but not in this tree, so they come from how the trees have diverged rather than from this series:
+- `MAINTAINERS`: `drivers/smem/msm_smem.c`, `configs/qemu_x86*` and `test/bloblist.c` don't exist here (this tree uses `qemu-x86*` names).
+- `board/qualcomm/dragonboard410c/MAINTAINERS`: `configs/qcom_dragonboard410c_defconfig` is `dragonboard410c_defconfig` here.
+- `board/qualcomm/dragonboard820c/MAINTAINERS`: `configs/qcom_dragonboard820c_defconfig` is `dragonboard820c_defconfig` here.
+- `board/samsung/starqltechn/MAINTAINERS`: `configs/qcom_sdm845_spl_defconfig` doesn't exist here.
+
+I left these alone because fixing them needs a new commit outside the series. Either a follow-up commit that corrects those six F: entries, or one that drops the CI line, would let the pipeline pass.
+
+The branch is ready to push and has not been merged anywhere.
+
+---
+
