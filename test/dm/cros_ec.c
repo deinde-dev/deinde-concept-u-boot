@@ -275,3 +275,22 @@ static int dm_test_cros_ec_power(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_cros_ec_power, UTF_SCAN_FDT);
+
+/*
+ * Test a command which the EC does not support. The emulator, like an older
+ * EC, has no EC_CMD_EFS_VERIFY, which the library takes to mean that the EC
+ * does not use early firmware selection
+ */
+static int dm_test_cros_ec_unsupported(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	ut_assertok(cros_ec_efs_verify(dev, EC_FLASH_REGION_ACTIVE));
+	ut_assert_nextline_regex("EFS: EC is verifying updated image");
+	ut_assert_nextline_regex("EFS: EC doesn't support EFS_VERIFY");
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_unsupported, UTF_SCAN_FDT | UTF_CONSOLE);
