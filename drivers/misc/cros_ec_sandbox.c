@@ -70,6 +70,7 @@ struct ec_keymatrix_entry {
 enum {
 	VSTORE_SLOT_COUNT	= 4,
 	PWM_CHANNEL_COUNT	= 4,
+	LDO_COUNT		= 4,
 
 	/* Flash geometry, as on an STM32 */
 	FLASH_WRITE_BLOCK	= 4,
@@ -102,6 +103,7 @@ struct ec_pwm_channel {
  * @test_flags: Flags that control behaviour for tests
  * @slot_locked: Locked vstore slots (mask)
  * @pwm: Information per PWM channel
+ * @ldo: State of each LDO (EC_LDO_STATE_...)
  */
 struct ec_state {
 	bool valid;
@@ -117,6 +119,7 @@ struct ec_state {
 	uint test_flags;
 	struct vstore_slot slot[VSTORE_SLOT_COUNT];
 	struct ec_pwm_channel pwm[PWM_CHANNEL_COUNT];
+	u8 ldo[LDO_COUNT];
 } s_state, *g_state;
 
 /**
@@ -649,6 +652,25 @@ static int process_cmd(struct ec_state *ec,
 			return -EC_RES_INVALID_PARAM;
 		pwm = &ec->pwm[req->index];
 		pwm->duty = req->duty;
+		len = 0;
+		break;
+	}
+	case EC_CMD_LDO_GET: {
+		const struct ec_params_ldo_get *req = req_data;
+		struct ec_response_ldo_get *resp = resp_data;
+
+		if (req->index >= LDO_COUNT)
+			return -EC_RES_INVALID_PARAM;
+		resp->state = ec->ldo[req->index];
+		len = sizeof(*resp);
+		break;
+	}
+	case EC_CMD_LDO_SET: {
+		const struct ec_params_ldo_set *req = req_data;
+
+		if (req->index >= LDO_COUNT || req->state > EC_LDO_STATE_ON)
+			return -EC_RES_INVALID_PARAM;
+		ec->ldo[req->index] = req->state;
 		len = 0;
 		break;
 	}

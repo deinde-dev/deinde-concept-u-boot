@@ -196,20 +196,39 @@ static int cmd_test_crosec_flash(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_crosec_flash, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
-/* Test the sub-commands which the emulated EC does not implement */
-static int cmd_test_crosec_missing(struct unit_test_state *uts)
+/* Test switching an LDO on and off, which the EC starts with off */
+static int cmd_test_crosec_ldo(struct unit_test_state *uts)
 {
+	ut_assertok(run_command("crosec ldo 1", 0));
+	ut_assert_nextline("LDO1: off");
+
+	ut_assertok(run_command("crosec ldo 1 1", 0));
+	ut_assertok(run_command("crosec ldo 1", 0));
+	ut_assert_nextline("LDO1: on");
+
+	/* the others are not affected */
+	ut_assertok(run_command("crosec ldo 2", 0));
+	ut_assert_nextline("LDO2: off");
+
+	ut_assertok(run_command("crosec ldo 1 0", 0));
+	ut_assertok(run_command("crosec ldo 1", 0));
+	ut_assert_nextline("LDO1: off");
+
 	/*
-	 * the emulator has no LDOs. This checks that the error is reported rather than
-	 * being returned from the handler, where -1 means CMD_RET_USAGE
+	 * the EC has no LDO 9. This checks that the error is reported rather
+	 * than being returned from the handler, where -1 means CMD_RET_USAGE
 	 */
-	ut_asserteq(1, run_command("crosec ldo 1", 0));
-	ut_assert_skip_to_line("Error: CROS-EC command failed (error -1)");
+	ut_asserteq(1, run_command("crosec ldo 9", 0));
+	ut_assert_nextline("Error: CROS-EC command failed (error -1)");
+
+	/* nor a state other than off and on */
+	ut_asserteq(1, run_command("crosec ldo 1 2", 0));
+	ut_assert_nextline("Error: CROS-EC command failed (error -1)");
 	ut_assert_console_end();
 
 	return 0;
 }
-CMD_TEST(cmd_test_crosec_missing, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
+CMD_TEST(cmd_test_crosec_ldo, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
 /* Test that a broken handshake is reported as a failure */
 static int cmd_test_crosec_test(struct unit_test_state *uts)
