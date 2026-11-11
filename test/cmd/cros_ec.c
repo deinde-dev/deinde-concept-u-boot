@@ -95,15 +95,14 @@ static int cmd_test_crosec_base(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_crosec_base, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
-/* Test 'crosec version', which the emulator answers only in part */
+/* Test 'crosec version', which shows the EC's versions and build */
 static int cmd_test_crosec_version(struct unit_test_state *uts)
 {
-	/* the emulator has no build information, so the command fails */
-	ut_asserteq(1, run_command("crosec version", 0));
+	ut_assertok(run_command("crosec version", 0));
 	ut_assert_nextline("RO version:    sandbox_ro");
 	ut_assert_nextline("RW version:    sandbox_rw");
 	ut_assert_nextline("Firmware copy: RO");
-	ut_assert_skip_to_line("Error: CROS-EC command failed (error -1)");
+	ut_assert_nextline("Build info:    sandbox_ec 1.0");
 	ut_assert_console_end();
 
 	return 0;

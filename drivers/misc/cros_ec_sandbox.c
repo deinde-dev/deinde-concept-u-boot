@@ -57,6 +57,9 @@
 #define KEYBOARD_ROWS	8
 #define KEYBOARD_COLS	13
 
+/* What the emulated EC reports as its build information */
+#define BUILD_INFO	"sandbox_ec 1.0"
+
 /* A single entry of the key matrix */
 struct ec_keymatrix_entry {
 	int row;	/* key matrix row */
@@ -360,6 +363,10 @@ static int process_cmd(struct ec_state *ec,
 		len = sizeof(*resp);
 		break;
 	}
+	case EC_CMD_GET_BUILD_INFO:
+		memcpy(resp_data, BUILD_INFO, sizeof(BUILD_INFO));
+		len = sizeof(BUILD_INFO);
+		break;
 	case EC_CMD_VBNV_CONTEXT: {
 		const struct ec_params_vbnvcontext *req = req_data;
 		struct ec_response_vbnvcontext *resp = resp_data;
