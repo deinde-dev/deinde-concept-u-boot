@@ -11,28 +11,22 @@
 #include <blk.h>
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <rkmtd.h>
 #include <stdio.h>
 #include <dm/device-internal.h>
 #include <dm/uclass-internal.h>
 
-static int do_rkmtd_bind(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_rkmtd_bind(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	const char *label;
 	int ret;
 
-	argc--;
-	argv++;
-
-	if (argc < 1)
+	if (gs->argc != 2)
 		return CMD_RET_USAGE;
 
-	if (argc > 1)
-		return CMD_RET_USAGE;
-
-	label = argv[0];
+	label = gs->argv[1];
 	ret = rkmtd_create_attach_mtd(label, &dev);
 	if (ret) {
 		printf("Cannot create device / bind mtd\n");
@@ -62,17 +56,16 @@ static struct udevice *parse_rkmtd_label(const char *label)
 	return dev;
 }
 
-static int do_rkmtd_unbind(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_rkmtd_unbind(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	const char *label;
 	int ret;
 
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
-	label = argv[1];
+	label = gs->argv[1];
 	dev = parse_rkmtd_label(label);
 	if (!dev)
 		return CMD_RET_FAILURE;
@@ -109,17 +102,16 @@ static void show_rkmtd_dev(struct udevice *dev)
 	printf("%12lu %-15s\n", (unsigned long)desc->lba, plat->label);
 }
 
-static int do_rkmtd_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_rkmtd_info(struct getopt_state *gs)
 {
 	struct udevice *dev;
 
-	if (argc < 1)
+	if (gs->argc < 1)
 		return CMD_RET_USAGE;
 
 	dev = NULL;
-	if (argc >= 2) {
-		dev = parse_rkmtd_label(argv[1]);
+	if (gs->argc >= 2) {
+		dev = parse_rkmtd_label(gs->argv[1]);
 		if (!dev)
 			return CMD_RET_FAILURE;
 	}
@@ -137,16 +129,14 @@ static int do_rkmtd_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_rkmtd_dev(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_rkmtd_dev(struct getopt_state *gs)
 {
 	struct udevice *dev;
-	const char *label;
 
-	if (argc < 1 || argc > 3)
+	if (gs->argc < 1 || gs->argc > 3)
 		return CMD_RET_USAGE;
 
-	if (argc == 1) {
+	if (gs->argc == 1) {
 		struct rkmtd_dev *plat;
 
 		dev = rkmtd_get_cur_dev();
@@ -160,8 +150,7 @@ static int do_rkmtd_dev(struct cmd_tbl *cmdtp, int flag, int argc,
 		return 0;
 	}
 
-	label = argv[1];
-	dev = parse_rkmtd_label(argv[1]);
+	dev = parse_rkmtd_label(gs->argv[1]);
 	if (!dev)
 		return CMD_RET_FAILURE;
 
@@ -171,16 +160,20 @@ static int do_rkmtd_dev(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 static struct cmd_tbl cmd_rkmtd_sub[] = {
-	U_BOOT_CMD_MKENT(bind, 4, 0, do_rkmtd_bind, "", ""),
-	U_BOOT_CMD_MKENT(unbind, 4, 0, do_rkmtd_unbind, "", ""),
-	U_BOOT_CMD_MKENT(info, 3, 0, do_rkmtd_info, "", ""),
-	U_BOOT_CMD_MKENT(dev, 0, 1, do_rkmtd_dev, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(bind, 4, 0, do_rkmtd_bind, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(unbind, 4, 0, do_rkmtd_unbind, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, 3, 0, do_rkmtd_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dev, 0, 1, do_rkmtd_dev, "", ""),
 };
 
-static int do_rkmtd(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_rkmtd(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct cmd_tbl *c;
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
 
 	argc--;
 	argv++;
@@ -188,12 +181,12 @@ static int do_rkmtd(struct cmd_tbl *cmdtp, int flag, int argc,
 	c = find_cmd_tbl(argv[0], cmd_rkmtd_sub, ARRAY_SIZE(cmd_rkmtd_sub));
 
 	if (c)
-		return cmd_invoke(c, flag, argc, argv);
+		return cmd_invoke(c, gs->cmd_flag, argc, argv);
 	else
 		return CMD_RET_USAGE;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	rkmtd, 8, 1, do_rkmtd,
 	"Rockchip MTD sub-system",
 	"bind <label>      - bind RKMTD device\n"

@@ -233,6 +233,10 @@ static int dm_test_rkmtd_cmd_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("rkmtd bind test1 test2", 0));
 	ut_assertok(check_usage(uts));
 
+	/* an option is refused rather than taken as a label */
+	ut_asserteq(1, run_command("rkmtd bind -x", 0));
+	ut_assertok(check_usage(uts));
+
 	/* 'unbind' wants a label too */
 	ut_asserteq(1, run_command("rkmtd unbind", 0));
 	ut_assertok(check_usage(uts));
