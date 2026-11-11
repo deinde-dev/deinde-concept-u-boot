@@ -28,10 +28,8 @@ static int do_rkmtd_bind(struct getopt_state *gs)
 
 	label = gs->argv[1];
 	ret = rkmtd_create_attach_mtd(label, &dev);
-	if (ret) {
-		printf("Cannot create device / bind mtd\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot create device / bind mtd\n");
 
 	return 0;
 }
@@ -48,7 +46,7 @@ static struct udevice *parse_rkmtd_label(const char *label)
 		devnum = hextoul(label, &ep);
 		if (*ep ||
 		    uclass_find_device_by_seq(UCLASS_RKMTD, devnum, &dev)) {
-			printf("No such device '%s'\n", label);
+			cmd_err("No such device '%s'\n", label);
 			return NULL;
 		}
 	}
@@ -71,16 +69,12 @@ static int do_rkmtd_unbind(struct getopt_state *gs)
 		return CMD_RET_FAILURE;
 
 	ret = rkmtd_detach(dev);
-	if (ret) {
-		printf("Cannot detach mtd\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot detach mtd\n");
 
 	ret = device_unbind(dev);
-	if (ret) {
-		printf("Cannot unbind device '%s'\n", dev->name);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot unbind device '%s'\n", dev->name);
 
 	return 0;
 }
@@ -140,10 +134,8 @@ static int do_rkmtd_dev(struct getopt_state *gs)
 		struct rkmtd_dev *plat;
 
 		dev = rkmtd_get_cur_dev();
-		if (!dev) {
-			printf("No current rkmtd device\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!dev)
+			return cmd_fail(0, "No current rkmtd device\n");
 		plat = dev_get_plat(dev);
 		printf("Current rkmtd device: %d: %s\n", dev_seq(dev),
 		       plat->label);
