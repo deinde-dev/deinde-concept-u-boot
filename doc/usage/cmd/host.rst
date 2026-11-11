@@ -121,3 +121,5 @@ See also
 
 * :doc:`lsblk<lsblk>` for the host devices listed with the block devices of
   every other driver
+* :doc:`rkmtd<rkmtd>` for a command which binds and unbinds block devices the
+  same way, on real Rockchip hardware

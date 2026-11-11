@@ -92,3 +92,5 @@ See also
 * :doc:`blkcache<blkcache>` for the cache which sits in front of these devices
 * :doc:`host<host>` for attaching a file on the host to the sandbox host driver
 * :doc:`mmcinfo<mmcinfo>` for the details of the current MMC device
+* :doc:`rkmtd<rkmtd>` for the devices the rkmtd_blk driver lists, which hold
+  the Rockchip boot blocks of a NAND chip
