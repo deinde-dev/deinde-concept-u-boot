@@ -735,10 +735,15 @@ comments. If the only conflict is in ``.pickman-history``, as happens when
 another pickman MR is merged, since GitLab cannot tell that both sides only
 add entries, pickman rebases the MR itself, keeping the entries from both, and
 says so on the MR. It waits for any running pipeline to finish first, so that
-the pipeline's results are not lost. An MR which is only behind its target is rebased only while the agent
-is addressing comments: each rebase needs a full pipeline, so rebasing every
-open MR whenever the target moves would use a lot of CI time for little gain.
-Such an MR can be rebased when it is merged.
+the pipeline's results are not lost.
+
+An MR which is only behind its target is rebased once its pipeline passes, so
+that it is ready to merge. Since the series is the same and is known to pass,
+the rebased branch is pushed without running the pipeline again, as is one
+rebased for a conflict in ``.pickman-history`` after its pipeline passes.
+Otherwise each rebase would need a full pipeline, using a lot of CI time each
+time the target moves. Until its pipeline passes, such an MR is rebased only
+while the agent is addressing comments.
 
 After processing, pickman:
 

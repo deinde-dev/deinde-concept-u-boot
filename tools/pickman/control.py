@@ -4974,15 +4974,14 @@ def process_single_mr(remote, merge_req, dbs, target):
         return processed
 
     # Rebase when there are conflicts, or when the agent is changing the
-    # branch anyway. A branch which is only behind its target is left alone:
-    # rebasing it each time the target moves would need a full pipeline each
-    # time, and it can be rebased when it is merged
+    # branch anyway. A branch which is only behind its target is left to
+    # _rebase_without_agent()
     needs_rebase = merge_req.has_conflicts or (
         bool(unresolved) and merge_req.needs_rebase)
 
-    # A conflict only in the history needs no agent
-    if needs_rebase and not unresolved:
-        done = _rebase_history_conflict(remote, merge_req, target)
+    # Being behind, or a conflict only in the history, needs no agent
+    if not unresolved and (merge_req.needs_rebase or merge_req.has_conflicts):
+        done = _rebase_without_agent(remote, merge_req, target)
         if done is not None:
             processed += done
             needs_rebase = False
@@ -5265,28 +5264,37 @@ PIPELINE_BUSY = ('created', 'waiting_for_resource', 'preparing', 'pending',
                  'running')
 
 
-def _rebase_history_conflict(remote, merge_req, target):
-    """Rebase a branch if it conflicts with its target only in the history
+def _rebase_without_agent(remote, merge_req, target):
+    """Rebase a branch if that needs no agent
 
-    This needs no agent, since rebase_onto() keeps the entries from both
-    sides. Wait for any pipeline to finish first, so that its results are
-    not lost. A subtree update is pulled again instead, so is left alone.
+    A branch which conflicts with its target only in the history needs no
+    agent, since rebase_onto() keeps the entries from both sides. Nor does
+    one which is just behind, but that is only rebased once its pipeline
+    passes, so that it is ready to merge: rebasing it each time the target
+    moves would otherwise mean a pipeline each time.
+
+    Once the pipeline passes, the series is known to be good, so the rebase
+    is pushed without running the pipeline again. Wait for any pipeline to
+    finish first, so that its results are not lost. A subtree update is
+    pulled again instead, so is left alone.
 
     Args:
         remote (str): Remote name
-        merge_req (PickmanMr): MR which has conflicts
+        merge_req (PickmanMr): MR which is behind or has conflicts
         target (str): Target branch
 
     Returns:
-        int: 1 if the branch is dealt with, 0 if the pipeline has yet to
-            finish, or None to leave the branch to the agent, since there is
-            a real conflict, or it cannot be rebased after all
+        int: 1 if the branch is dealt with, 0 if it is already rebased or
+            the pipeline has yet to finish, or None to leave the branch as
+            it is, or to the agent if it has a real conflict or cannot be
+            rebased after all
     """
     mr_iid = merge_req.iid
     branch = merge_req.source_branch
     upstream = f'{remote}/{target}'
-    if mr_subtree(merge_req) or not history_only_conflict(
-            upstream, f'{remote}/{branch}'):
+    conflicts = merge_req.has_conflicts
+    if mr_subtree(merge_req) or (conflicts and not history_only_conflict(
+            upstream, f'{remote}/{branch}')):
         return None
 
     # GitLab may not yet have noticed an earlier rebase
@@ -5295,27 +5303,39 @@ def _rebase_history_conflict(remote, merge_req, target):
         return 0
     except command.CommandExc:
         pass
-    if merge_req.pipeline_status in PIPELINE_BUSY:
-        tout.info(f'MR !{mr_iid}: conflicts only in {HISTORY_FILE}; waiting '
-                  f'for pipeline {merge_req.pipeline_id} before rebasing')
+    pipeline_id, status = (gitlab_api.get_last_pipeline(remote, mr_iid) or
+                           (None, None))
+    if status in PIPELINE_BUSY:
+        tout.info(f'MR !{mr_iid}: waiting for pipeline {pipeline_id} before '
+                  f'rebasing')
         return 0
+    passed = status == 'success'
+    if not conflicts and not passed:
+        return None
 
     tout.info('')
-    tout.info(f'MR !{mr_iid}: conflicts only in {HISTORY_FILE}, rebasing...')
+    why = f'conflicts only in {HISTORY_FILE}' if conflicts else 'is behind'
+    tout.info(f'MR !{mr_iid}: {why}, rebasing...')
     checkout_mr_branch(remote, branch)
     if not rebase_onto(upstream)[0]:
-        tout.warning(f'MR !{mr_iid}: cannot rebase, leaving it to the agent')
+        tout.warning(f'MR !{mr_iid}: cannot rebase without the agent')
         return None
     try:
-        gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
+        gitlab_api.push_branch(remote, branch, force=True, skip_ci=passed)
     except command.CommandExc:
         _push_failed(remote, mr_iid, 'the rebased branch')
-        return 1
-    gitlab_api.reply_to_mr(
-        remote, mr_iid,
-        f'Rebased onto {target}, since the only conflict is in '
-        f'{HISTORY_FILE}, where both sides add entries. Both are kept and '
-        f'no other change is made.')
+    else:
+        if passed:
+            tout.info(f'MR !{mr_iid}: pipeline {pipeline_id} passed, so it '
+                      f'is not run again')
+        if conflicts:
+            msg = (f'Rebased onto {target}, since the only conflict is in '
+                   f'{HISTORY_FILE}, where both sides add entries. Both are '
+                   f'kept and no other change is made.')
+            if passed:
+                msg += (f' Pipeline {pipeline_id} passed, so it is not run '
+                        f'again.')
+            gitlab_api.reply_to_mr(remote, mr_iid, msg)
     return 1
 
 
