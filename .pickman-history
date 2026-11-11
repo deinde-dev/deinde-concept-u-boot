@@ -105505,3 +105505,53 @@ One thing to know about commit 9: its message says it builds the packet recorder
 
 ---
 
+### Pipeline fix: 2026-11-11 (attempt 1)
+
+Branch: cherry-cb9f124b4341
+
+Failed jobs:
+- epyc-opensil (sjg-lab-slow)
+- epyc (sjg-lab-slow)
+- epyc-cb (sjg-lab-slow)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+The epyc jobs are a lab infrastructure issue (place acquired by another user). Now to find what failed in make check.
+
+sandbox_noinst SPL fails to link: net_loop() references wget_start().
+
+net.c is unchanged, so the build rule for wget.o must have changed. Let me check what the branch did to net/Makefile and the WGET config.
+
+Adding WGET to conf_nospl looks suspicious. Let me see how that file is used.
+
+With WGET in conf_nospl, wget.o is no longer built in SPL, but CMD_WGET still reaches SPL, so the SPL net.c still calls wget_start(). Next I'll check why commit 6e4a02952f94 added it.
+
+The test only uses IS_ENABLED(CONFIG_WGET), so I need to know whether the split-check requires WGET to be in conf_nospl. Let me look at the checker.
+
+History is linear and has one empty commit, which git keeps by default. I'll rebase to 6e4a02952f94 (HEAD~8).
+
+All 12 commits survived the rebase. Now I'll build sandbox, then use buildman on the failing board (sandbox_noinst), the lwIP board and the epyc boards.
+
+I fixed the make check / qcheck failure by amending one commit. The three epyc failures were a lab problem, not the code, so I changed nothing for them. The fix is on local branch `cherry-cb9f124b4341-fix1` and has not been pushed.
+
+**epyc, epyc-cb, epyc-opensil (infrastructure):** All three failed during labgrid setup, before any test ran: `place epyc is not acquired by your user, acquired by labgrid ... (kea/labgrid)`. Someone else had the board reserved, so these jobs should pass on a retry once it is free.
+
+**Check make check / Check make qcheck (real failure):**
+- **Symptom:** The SPL link for `sandbox_noinst` fails with `net/net.c:553: undefined reference to 'wget_start'`.
+- **Responsible commit:** `6e4a02952f94 test: dm: cover the shared lwIP runtime`. When it was picked, the config conversion added `PROT_DHCP_LWIP`, `PROT_DNS_LWIP` and `WGET` to `scripts/conf_nospl`.
+- **Root cause:** `sandbox_noinst` builds networking into SPL. Listing `WGET` in `conf_nospl` stops `wget.o` being built for SPL. But `CMD_WGET` still reaches SPL, so `net_loop()` there still calls `wget_start()`, which no longer exists. The entry was not needed anyway: the new `test/dm/lwip.o` is only built for U-Boot proper.
+- **Fix:** I removed the `WGET` line from `scripts/conf_nospl` in that commit and appended this note to its message:
+  `[pickman] Drop WGET from conf_nospl since SPL net.c calls wget_start() when CMD_WGET is enabled, e.g. sandbox_noinst`
+  I left the two `PROT_*_LWIP` entries alone because they caused no failure.
+- **History:** All 12 commits rebased cleanly, including the empty merge record, and the only difference from the original branch is that one deleted line.
+
+**Verification:**
+- `um build sandbox` passes.
+- buildman builds all 9 sandbox boards, including `sandbox_noinst`, `sandbox_spl` and `sandbox64_lwip`. The only warnings are the dtc warnings from the sandbox device tree, which were already there.
+- Locally I only confirmed that the link error is gone; I didn't re-run the test.py suites.
+- I couldn't build the epyc names with buildman because they are lab roles, not board configs.
+- My first buildman run in `/tmp/pickman` failed for `sandbox` because a stale RISC-V object (`examples/ulib/demo.o`) was left in that directory. A rebuild in a fresh output directory passed, so that error has nothing to do with this branch.
+
+---
+
