@@ -85,6 +85,11 @@ static int cmd_test_crosec_base(struct unit_test_state *uts)
 	ut_assertok(run_command("crosec test", 0));
 	ut_assert_nextline("Test passed");
 
+	/* the size of the keyboard matrix */
+	ut_assertok(run_command("crosec info", 0));
+	ut_assert_nextline("rows     = 8");
+	ut_assert_nextline("cols     = 13");
+
 	/* re-probing the EC leaves it answering as before */
 	ut_assertok(run_command("crosec init", 0));
 	ut_assertok(run_command("crosec id", 0));
@@ -194,11 +199,8 @@ CMD_TEST(cmd_test_crosec_flash, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 /* Test the sub-commands which the emulated EC does not implement */
 static int cmd_test_crosec_missing(struct unit_test_state *uts)
 {
-	/* the emulator has no keyboard matrix */
-	ut_asserteq(1, run_command("crosec info", 0));
-
 	/*
-	 * nor any LDOs. This checks that the error is reported rather than
+	 * the emulator has no LDOs. This checks that the error is reported rather than
 	 * being returned from the handler, where -1 means CMD_RET_USAGE
 	 */
 	ut_asserteq(1, run_command("crosec ldo 1", 0));

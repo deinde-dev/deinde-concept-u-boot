@@ -549,6 +549,18 @@ static int process_cmd(struct ec_state *ec,
 	case EC_CMD_MKBP_STATE:
 		len = cros_ec_keyscan(ec, resp_data);
 		break;
+	case EC_CMD_MKBP_INFO: {
+		struct ec_response_mkbp_info *resp = resp_data;
+
+		/* an EC with no keyboard does not have this command */
+		if (!ec->matrix)
+			return -EC_RES_INVALID_COMMAND;
+		resp->rows = KEYBOARD_ROWS;
+		resp->cols = KEYBOARD_COLS;
+		resp->reserved = 0;
+		len = sizeof(*resp);
+		break;
+	}
 	case EC_CMD_GET_NEXT_EVENT: {
 		struct ec_response_get_next_event *resp = resp_data;
 
