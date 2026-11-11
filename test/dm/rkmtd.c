@@ -114,6 +114,24 @@ static int dm_test_rkmtd_dup(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_rkmtd_dup, UTF_SCAN_FDT);
 
+/* Check that the command has just shown its usage message */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("rkmtd - Rockchip MTD sub-system");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("rkmtd bind <label>      - bind RKMTD device");
+	ut_assert_nextline("rkmtd unbind <label>    - unbind RKMTD device");
+	ut_assert_nextline(
+		"rkmtd info [<label>]    - show all available RKMTD devices");
+	ut_assert_nextline(
+		"rkmtd dev [<label>]     - show or set current RKMTD device");
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
+	return 0;
+}
+
 /* Basic test of the 'rkmtd' command */
 static int dm_test_rkmtd_cmd(struct unit_test_state *uts)
 {
@@ -197,3 +215,31 @@ static int dm_test_rkmtd_cmd(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_rkmtd_cmd, UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test the arguments the 'rkmtd' command refuses */
+static int dm_test_rkmtd_cmd_usage(struct unit_test_state *uts)
+{
+	/* A missing or unknown sub-command shows the usage message */
+	ut_asserteq(1, run_command("rkmtd", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("rkmtd nosuch", 0));
+	ut_assertok(check_usage(uts));
+
+	/* 'bind' wants exactly one label */
+	ut_asserteq(1, run_command("rkmtd bind", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("rkmtd bind test1 test2", 0));
+	ut_assertok(check_usage(uts));
+
+	/* 'unbind' wants a label too */
+	ut_asserteq(1, run_command("rkmtd unbind", 0));
+	ut_assertok(check_usage(uts));
+
+	/* none of that binds a device */
+	ut_asserteq(0, uclass_id_count(UCLASS_RKMTD));
+
+	return 0;
+}
+DM_TEST(dm_test_rkmtd_cmd_usage, UTF_SCAN_FDT | UTF_CONSOLE);
