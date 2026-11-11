@@ -9,7 +9,9 @@
 #include <command.h>
 #include <cros_ec.h>
 #include <dm.h>
+#include <getopt.h>
 #include <log.h>
+#include <mapmem.h>
 #include <dm/device-internal.h>
 #include <dm/uclass-internal.h>
 
@@ -55,6 +57,7 @@ static int do_read_write(struct udevice *dev, int is_write, int argc,
 	uint32_t offset, size = -1U, region_size;
 	unsigned long addr;
 	char *endp;
+	void *buf;
 	int region;
 	int ret;
 
@@ -80,9 +83,10 @@ static int do_read_write(struct udevice *dev, int is_write, int argc,
 	if (size == -1U)
 		size = region_size;
 
-	ret = is_write ?
-		cros_ec_flash_write(dev, (uint8_t *)addr, offset, size) :
-		cros_ec_flash_read(dev, (uint8_t *)addr, offset, size);
+	buf = map_sysmem(addr, size);
+	ret = is_write ? cros_ec_flash_write(dev, buf, offset, size) :
+		cros_ec_flash_read(dev, buf, offset, size);
+	unmap_sysmem(buf);
 	if (ret) {
 		debug("%s: Could not %s region\n", __func__,
 		      is_write ? "write" : "read");
@@ -255,9 +259,10 @@ static int do_show_events(struct udevice *dev)
 	return 0;
 }
 
-static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_cros_ec(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	const char *cmd;
 	int ret = 0;
@@ -273,17 +278,17 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 			device_remove(dev, DM_REMOVE_NORMAL);
 		ret = uclass_get_device(UCLASS_CROS_EC, 0, &dev);
 		if (ret) {
-			printf("Could not init cros_ec device (err %d)\n", ret);
-			return 1;
+			return cmd_fail(ret,
+					"Could not init cros_ec device (err %d)\n",
+					ret);
 		}
 		return 0;
 	}
 
 	ret = uclass_get_device(UCLASS_CROS_EC, 0, &dev);
-	if (ret) {
-		printf("Cannot get cros-ec device (err=%d)\n", ret);
-		return 1;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot get cros-ec device (err=%d)\n",
+				ret);
 	if (0 == strcmp("id", cmd)) {
 		char id[MSG_BYTES];
 
@@ -305,12 +310,12 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = do_show_features(dev);
 
 		if (ret)
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 	} else if (!strcmp("switches", cmd)) {
 		ret = do_show_switches(dev);
 
 		if (ret)
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 	} else if (0 == strcmp("curimage", cmd)) {
 		enum ec_image image;
 
@@ -364,7 +369,7 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = do_show_events(dev);
 
 		if (ret)
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 	} else if (0 == strcmp("clrevents", cmd)) {
 		uint32_t events = 0x7fffffff;
 
@@ -467,10 +472,11 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 	} else if (0 == strcmp("test", cmd)) {
 		int result = cros_ec_test(dev);
 
-		if (result)
-			printf("Test failed with error %d\n", result);
-		else
-			puts("Test passed\n");
+		if (result) {
+			return cmd_fail(result,
+					"Test failed with error %d\n", result);
+		}
+		puts("Test passed\n");
 	} else if (0 == strcmp("version", cmd)) {
 		struct ec_response_get_version *p;
 		char *build_string;
@@ -516,10 +522,8 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 			}
 		}
 
-		if (ret) {
+		if (ret)
 			debug("%s: Could not access LDO%d\n", __func__, index);
-			return ret;
-		}
 	} else if (!strcmp("sku", cmd)) {
 		ret = cros_ec_get_sku_id(dev);
 
@@ -527,21 +531,22 @@ static int do_cros_ec(struct cmd_tbl *cmdtp, int flag, int argc,
 			printf("%d\n", ret);
 			ret = 0;
 		} else {
-			printf("Error: %d\n", ret);
+			cmd_err("Error: %d\n", ret);
 		}
 	} else {
 		return CMD_RET_USAGE;
 	}
 
 	if (ret < 0) {
-		printf("Error: CROS-EC command failed (error %d)\n", ret);
-		ret = 1;
+		return cmd_fail(ret,
+				"Error: CROS-EC command failed (error %d)\n",
+				ret);
 	}
 
 	return ret;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	crosec,	6,	1,	do_cros_ec,
 	"CROS-EC utility command",
 	"init                Re-init CROS-EC (done on startup automatically)\n"
@@ -553,7 +558,6 @@ U_BOOT_CMD(
 	"crosec hash                Read CROS-EC hash\n"
 	"crosec reboot [rw | ro | cold]  Reboot CROS-EC\n"
 	"crosec events              Read CROS-EC host events\n"
-	"crosec eventsb             Read CROS-EC host events_b\n"
 	"crosec clrevents [mask]    Clear CROS-EC host events\n"
 	"crosec regioninfo <ro|rw>  Read image info\n"
 	"crosec flashinfo           Read flash info\n"

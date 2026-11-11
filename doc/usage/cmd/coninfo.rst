@@ -90,3 +90,5 @@ See also
 * :doc:`ufetch<ufetch>` for the console assignment alongside the other board
   details
 * :doc:`cls<cls>` for clearing the display which these devices drive
+* :doc:`crosec<crosec>` for the embedded controller which provides the
+  cros-ec-keyb keyboard
