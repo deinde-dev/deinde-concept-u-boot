@@ -169,3 +169,30 @@ static int dm_test_cros_ec_vstore(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_cros_ec_vstore, UTF_SCAN_FDT);
+
+/* Test that the EC refuses flash accesses which go past the end of its flash */
+static int dm_test_cros_ec_flash(struct unit_test_state *uts)
+{
+	struct ec_response_flash_info info;
+	u8 data[4] = {1, 2, 3, 4}, buf[4];
+	struct udevice *dev;
+	uint size;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	ut_assertok(cros_ec_read_flashinfo(dev, &info));
+	size = info.flash_size;
+
+	/* the last few bytes can be written and read back */
+	ut_assertok(cros_ec_flash_write(dev, data, size - 4, 4));
+	ut_assertok(cros_ec_flash_read(dev, buf, size - 4, 4));
+	ut_asserteq_mem(data, buf, 4);
+
+	/* but nothing past the end */
+	ut_asserteq(-EC_RES_INVALID_PARAM,
+		    cros_ec_flash_erase(dev, size - 4, 8));
+	ut_asserteq(-1, cros_ec_flash_write(dev, data, size - 2, 4));
+	ut_asserteq(-1, cros_ec_flash_read(dev, buf, size - 2, 4));
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_flash, UTF_SCAN_FDT);

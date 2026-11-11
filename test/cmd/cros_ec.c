@@ -22,6 +22,9 @@ DECLARE_GLOBAL_DATA_PTR;
 /* Size of that image, which is as small as the emulator accepts */
 #define IMAGE_SIZE	2
 
+/* Where the image is read back to */
+#define READ_ADDR	(IMAGE_ADDR + 0x100)
+
 /*
  * Last byte of an EC image, which the emulator looks for to work out how much
  * of a region holds an image
@@ -36,7 +39,8 @@ DECLARE_GLOBAL_DATA_PTR;
 #define HELLO_IN	0x12345678
 #define HELLO_ADD	0x01020304
 
-/* The RW region of the emulated EC's flash */
+/* The emulated EC's flash, and its RW region */
+#define FLASH_SIZE	0x20000
 #define RW_OFFSET	0x10000
 #define RW_SIZE		0x10000
 
@@ -168,6 +172,20 @@ static int cmd_test_crosec_flash(struct unit_test_state *uts)
 	ut_assert_nextline("offset:  0x%08x", RW_OFFSET);
 	ut_assert_nextline("size:    0x%08x", IMAGE_SIZE);
 	ut_assert_nextline("digest:  " IMAGE_DIGEST);
+
+	/* read the image back */
+	buf = map_sysmem(READ_ADDR, IMAGE_SIZE);
+	memset(buf, '\xff', IMAGE_SIZE);
+	ut_assertok(run_commandf("crosec read rw %lx %x", READ_ADDR,
+				 IMAGE_SIZE));
+	ut_asserteq(0, buf[0]);
+	ut_asserteq(IMAGE_END, buf[IMAGE_SIZE - 1]);
+	unmap_sysmem(buf);
+
+	ut_assertok(run_command("crosec flashinfo", 0));
+	ut_assert_nextline("Flash size:         %u", FLASH_SIZE);
+	ut_assert_nextline("Write block size:   4");
+	ut_assert_nextline("Erase block size:   2048");
 	ut_assert_console_end();
 
 	return 0;
@@ -179,15 +197,6 @@ static int cmd_test_crosec_missing(struct unit_test_state *uts)
 {
 	/* the emulator has no keyboard matrix */
 	ut_asserteq(1, run_command("crosec info", 0));
-
-	/* nor any flash geometry */
-	ut_asserteq(1, run_command("crosec flashinfo", 0));
-	ut_assert_nextline("Error: CROS-EC command failed (error -1)");
-
-	/* nor a way of reading its flash back */
-	ut_asserteq(1, run_commandf("crosec read rw %lx %x", IMAGE_ADDR,
-				    IMAGE_SIZE));
-	ut_assert_skip_to_line("Error: CROS-EC command failed (error -1)");
 
 	/*
 	 * nor any LDOs. This checks that the error is reported rather than

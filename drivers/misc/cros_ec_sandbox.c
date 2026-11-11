@@ -44,8 +44,9 @@
  * to enter recovery mode. The EC passes this to U-Boot through the normal
  * event message.
  *
- * 5. Flash read/write/erase support, so that software sync works. The
- * protect messages are supported but no protection is implemented.
+ * 5. Flash read/write/erase support, so that software sync works, along with
+ * the flash geometry. The protect messages are supported but no protection is
+ * implemented.
  *
  * 6. Hashing of the EC image, again to support software sync.
  *
@@ -66,6 +67,11 @@ struct ec_keymatrix_entry {
 enum {
 	VSTORE_SLOT_COUNT	= 4,
 	PWM_CHANNEL_COUNT	= 4,
+
+	/* Flash geometry, as on an STM32 */
+	FLASH_WRITE_BLOCK	= 4,
+	FLASH_ERASE_BLOCK	= 0x800,
+	FLASH_PROTECT_BLOCK	= 0x1000,
 };
 
 struct vstore_slot {
@@ -300,6 +306,20 @@ static int cros_ec_keyscan(struct ec_state *ec, uint8_t *scan)
 }
 
 /**
+ * flash_range_ok() - Check that a range lies within the EC's flash
+ *
+ * @ec: Current emulated EC state
+ * @offset: Offset of the start of the range
+ * @size: Size of the range in bytes
+ * Return: true if the range is within the flash, false if not
+ */
+static bool flash_range_ok(struct ec_state *ec, uint offset, uint size)
+{
+	return offset <= ec->flash_data_len &&
+	       size <= ec->flash_data_len - offset;
+}
+
+/**
  * Process an emulated EC command
  *
  * @param ec		Current emulated EC state
@@ -478,9 +498,30 @@ static int process_cmd(struct ec_state *ec,
 		}
 		break;
 	}
+	case EC_CMD_FLASH_INFO: {
+		struct ec_response_flash_info *resp = resp_data;
+
+		resp->flash_size = ec->flash_data_len;
+		resp->write_block_size = FLASH_WRITE_BLOCK;
+		resp->erase_block_size = FLASH_ERASE_BLOCK;
+		resp->protect_block_size = FLASH_PROTECT_BLOCK;
+		len = sizeof(*resp);
+		break;
+	}
+	case EC_CMD_FLASH_READ: {
+		const struct ec_params_flash_read *req = req_data;
+
+		if (!flash_range_ok(ec, req->offset, req->size))
+			return -EC_RES_INVALID_PARAM;
+		memcpy(resp_data, ec->flash_data + req->offset, req->size);
+		len = req->size;
+		break;
+	}
 	case EC_CMD_FLASH_ERASE: {
 		const struct ec_params_flash_erase *req = req_data;
 
+		if (!flash_range_ok(ec, req->offset, req->size))
+			return -EC_RES_INVALID_PARAM;
 		memset(ec->flash_data + req->offset,
 		       ec->ec_config.flash_erase_value,
 		       req->size);
@@ -490,6 +531,10 @@ static int process_cmd(struct ec_state *ec,
 	case EC_CMD_FLASH_WRITE: {
 		const struct ec_params_flash_write *req = req_data;
 
+		/* the data must be in the request, and fit in the flash */
+		if (req->size > req_hdr->data_len - sizeof(*req) ||
+		    !flash_range_ok(ec, req->offset, req->size))
+			return -EC_RES_INVALID_PARAM;
 		memcpy(ec->flash_data + req->offset, req + 1, req->size);
 		len = 0;
 		break;
