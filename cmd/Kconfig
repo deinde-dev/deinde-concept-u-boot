@@ -2009,6 +2009,7 @@ config CMD_USB_SDP
 
 config CMD_RKMTD
 	bool "rkmtd"
+	select GETOPT
 	select RKMTD
 	help
 	  Enable the command "rkmtd" to create a virtual block device to transfer

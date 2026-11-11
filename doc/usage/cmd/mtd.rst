@@ -281,3 +281,5 @@ See also
   select rather than by MTD name
 * :doc:`nand<nand>` for the older NAND-only command, which this one
   supersedes
+* :doc:`rkmtd<rkmtd>` for the Rockchip boot blocks, which sit in a layout
+  this command cannot address

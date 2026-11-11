@@ -69,3 +69,5 @@ See also
 * :doc:`part<part>` for listing the partitions a device offers
 * :doc:`fastboot<fastboot>` for the other way of talking to a host over USB,
   where the host sends images rather than reading blocks
+* :doc:`rkmtd<rkmtd>` for making a block device out of the Rockchip boot
+  blocks of a NAND chip, so that this command can export them

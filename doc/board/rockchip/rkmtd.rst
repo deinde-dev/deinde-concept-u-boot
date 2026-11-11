@@ -38,6 +38,8 @@ Available rkmtd commands
         rkmtd info [<label>]    - show all available RKMTD devices
         rkmtd dev [<label>]     - show or set current RKMTD device
 
+See :doc:`../../usage/cmd/rkmtd` for what each of these does.
+
 U-boot settings
 ---------------
 
