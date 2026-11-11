@@ -159,18 +159,14 @@ This runs the sub-commands which sandbox's emulated EC answers::
     => crosec test
     Test passed
 
-The flash sub-commands work on the emulated EC's flash. The emulator prints a
-line of its own for each region it is asked about::
+The flash sub-commands work on the emulated EC's flash::
 
     => crosec regioninfo rw
-    EC flash region 1: offset=0x10000, size=0x10000
     Region: RW
     Offset: 10000
     Size:   10000
     => crosec erase rw
-    EC flash region 1: offset=0x10000, size=0x10000
     => crosec write rw 1000 2
-    EC flash region 1: offset=0x10000, size=0x10000
     => crosec hash
     type:    SHA-256
     offset:  0x00010000

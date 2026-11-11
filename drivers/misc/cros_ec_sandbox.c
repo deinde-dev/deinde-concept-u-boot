@@ -307,7 +307,8 @@ static int cros_ec_keyscan(struct ec_state *ec, uint8_t *scan)
  * @param req_data	Pointer to body of request
  * @param resp_hdr	Pointer to place to put response header
  * @param resp_data	Pointer to place to put response data, if any
- * Return: length of response data, or 0 for no response data, or -1 on error
+ * Return: length of response data, or 0 for no response data, or -ve EC result
+ *	code (-EC_RES_...) if the EC refuses the command
  */
 static int process_cmd(struct ec_state *ec,
 		       struct ec_host_request *req_hdr, const void *req_data,
@@ -355,16 +356,16 @@ static int process_cmd(struct ec_state *ec,
 			len = 0;
 			break;
 		default:
-			printf("   ** Unknown vbnv_context command %#02x\n",
-			       req->op);
-			return -1;
+			log_debug("Unknown vbnv_context command %#02x\n",
+				  req->op);
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
 	case EC_CMD_REBOOT_EC: {
 		const struct ec_params_reboot_ec *req = req_data;
 
-		printf("Request reboot type %d\n", req->cmd);
+		log_debug("Request reboot type %d\n", req->cmd);
 		switch (req->cmd) {
 		case EC_REBOOT_DISABLE_JUMP:
 			len = 0;
@@ -374,8 +375,8 @@ static int process_cmd(struct ec_state *ec,
 			len = 0;
 			break;
 		default:
-			puts("   ** Unknown type");
-			return -1;
+			log_debug("Unknown reboot type %d\n", req->cmd);
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
@@ -418,8 +419,8 @@ static int process_cmd(struct ec_state *ec,
 					 ec->flash_data + entry->offset,
 					 len, resp->hash_digest, &size);
 			if (ret) {
-				printf("   ** hash_block() failed\n");
-				return -1;
+				log_debug("hash_block() failed\n");
+				return -EC_RES_ERROR;
 			}
 			resp->status = EC_VBOOT_HASH_STATUS_DONE;
 			resp->hash_type = EC_VBOOT_HASH_TYPE_SHA256;
@@ -430,9 +431,9 @@ static int process_cmd(struct ec_state *ec,
 			len = sizeof(*resp);
 			break;
 		default:
-			printf("   ** EC_CMD_VBOOT_HASH: Unknown command %d\n",
-			       req->cmd);
-			return -1;
+			log_debug("EC_CMD_VBOOT_HASH: Unknown command %d\n",
+				  req->cmd);
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
@@ -442,7 +443,7 @@ static int process_cmd(struct ec_state *ec,
 		uint32_t expect = EC_FLASH_PROTECT_ALL_NOW |
 				EC_FLASH_PROTECT_ALL_AT_BOOT;
 
-		printf("mask=%#x, flags=%#x\n", req->mask, req->flags);
+		log_debug("mask=%#x, flags=%#x\n", req->mask, req->flags);
 		if (req->flags == expect || req->flags == 0) {
 			resp->flags = req->flags ? EC_FLASH_PROTECT_ALL_NOW :
 								0;
@@ -450,8 +451,8 @@ static int process_cmd(struct ec_state *ec,
 			resp->writable_flags = 0;
 			len = sizeof(*resp);
 		} else {
-			puts("   ** unexpected flash protect request\n");
-			return -1;
+			log_debug("Unexpected flash protect request\n");
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
@@ -468,12 +469,12 @@ static int process_cmd(struct ec_state *ec,
 			resp->offset = entry->offset;
 			resp->size = entry->length;
 			len = sizeof(*resp);
-			printf("EC flash region %d: offset=%#x, size=%#x\n",
-			       req->region, resp->offset, resp->size);
+			log_debug("EC flash region %d: offset=%#x, size=%#x\n",
+				  req->region, resp->offset, resp->size);
 			break;
 		default:
-			printf("** Unknown flash region %d\n", req->region);
-			return -1;
+			log_debug("Unknown flash region %d\n", req->region);
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
@@ -541,7 +542,7 @@ static int process_cmd(struct ec_state *ec,
 		struct vstore_slot *slot;
 
 		if (req->slot >= VSTORE_SLOT_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		slot = &ec->slot[req->slot];
 		slot->locked = true;
 		memcpy(slot->data, req->data, EC_VSTORE_SLOT_SIZE);
@@ -554,7 +555,7 @@ static int process_cmd(struct ec_state *ec,
 		struct vstore_slot *slot;
 
 		if (req->slot >= VSTORE_SLOT_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		slot = &ec->slot[req->slot];
 		memcpy(resp->data, slot->data, EC_VSTORE_SLOT_SIZE);
 		len = sizeof(*resp);
@@ -566,9 +567,9 @@ static int process_cmd(struct ec_state *ec,
 		struct ec_pwm_channel *pwm;
 
 		if (req->pwm_type != EC_PWM_TYPE_GENERIC)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		if (req->index >= PWM_CHANNEL_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		pwm = &ec->pwm[req->index];
 		resp->duty = pwm->duty;
 		len = sizeof(*resp);
@@ -579,17 +580,17 @@ static int process_cmd(struct ec_state *ec,
 		struct ec_pwm_channel *pwm;
 
 		if (req->pwm_type != EC_PWM_TYPE_GENERIC)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		if (req->index >= PWM_CHANNEL_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		pwm = &ec->pwm[req->index];
 		pwm->duty = req->duty;
 		len = 0;
 		break;
 	}
 	default:
-		printf("   ** Unknown EC command %#02x\n", req_hdr->command);
-		return -1;
+		log_debug("Unknown EC command %#02x\n", req_hdr->command);
+		return -EC_RES_INVALID_COMMAND;
 	}
 	debug(" - EC command %#0x, result %d\n", req_hdr->command, len);
 
@@ -606,12 +607,15 @@ int cros_ec_sandbox_packet(struct udevice *udev, int out_bytes, int in_bytes)
 	void *resp_data = resp_hdr + 1;
 	int len;
 
+	/* A refused command sends back its result code, with no data */
 	len = process_cmd(ec, req_hdr, req_data, resp_hdr, resp_data);
-	if (len < 0)
-		return len;
+	resp_hdr->result = EC_RES_SUCCESS;
+	if (len < 0) {
+		resp_hdr->result = -len;
+		len = 0;
+	}
 
 	resp_hdr->struct_version = 3;
-	resp_hdr->result = EC_RES_SUCCESS;
 	resp_hdr->data_len = len;
 	resp_hdr->reserved = 0;
 	len += sizeof(*resp_hdr);

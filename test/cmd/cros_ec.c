@@ -144,19 +144,16 @@ static int cmd_test_crosec_flash(struct unit_test_state *uts)
 		return -EAGAIN;
 
 	ut_assertok(run_command("crosec regioninfo ro", 0));
-	ut_assert_nextline("EC flash region 0: offset=0x0, size=0xf000");
 	ut_assert_nextline("Region: RO");
 	ut_assert_nextline("Offset: 0");
 	ut_assert_nextline("Size:   f000");
 
 	ut_assertok(run_commandf("crosec regioninfo rw"));
-	ut_assert_nextlinen("EC flash region 1: ");
 	ut_assert_nextline("Region: RW");
 	ut_assert_nextline("Offset: %x", RW_OFFSET);
 	ut_assert_nextline("Size:   %x", RW_SIZE);
 
 	ut_assertok(run_command("crosec erase rw", 0));
-	console_record_reset();
 
 	/* write a tiny image to the region, so that it can be hashed */
 	buf = map_sysmem(IMAGE_ADDR, IMAGE_SIZE);
@@ -165,7 +162,6 @@ static int cmd_test_crosec_flash(struct unit_test_state *uts)
 	unmap_sysmem(buf);
 	ut_assertok(run_commandf("crosec write rw %lx %x", IMAGE_ADDR,
 				 IMAGE_SIZE));
-	console_record_reset();
 
 	ut_assertok(run_command("crosec hash", 0));
 	ut_assert_nextline("type:    SHA-256");
@@ -183,11 +179,9 @@ static int cmd_test_crosec_missing(struct unit_test_state *uts)
 {
 	/* the emulator has no keyboard matrix */
 	ut_asserteq(1, run_command("crosec info", 0));
-	ut_assert_nextline("   ** Unknown EC command 0x61");
 
 	/* nor any flash geometry */
 	ut_asserteq(1, run_command("crosec flashinfo", 0));
-	ut_assert_nextline("   ** Unknown EC command 0x10");
 	ut_assert_nextline("Error: CROS-EC command failed (error -1)");
 
 	/* nor a way of reading its flash back */
