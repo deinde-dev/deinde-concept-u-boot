@@ -242,3 +242,36 @@ static int dm_test_cros_ec_host_event_mask(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_cros_ec_host_event_mask, UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test the battery and charger, and what the EC is asked to do with power */
+static int dm_test_cros_ec_power(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	int cutoff, limit;
+	uint charge, btn;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	ut_assertok(cros_ec_read_batt_charge(dev, &charge));
+	ut_asserteq(75, charge);
+
+	/* the charger asks the AP to limit its power only when told to */
+	ut_assertok(cros_ec_read_limit_power(dev, &limit));
+	ut_asserteq(0, limit);
+	sandbox_cros_ec_set_test_flags(dev, CROSECT_LIMIT_POWER);
+	ut_assertok(cros_ec_read_limit_power(dev, &limit));
+	ut_asserteq(1, limit);
+
+	sandbox_cros_ec_get_power(dev, &cutoff, &btn);
+	ut_asserteq(-1, cutoff);
+	ut_asserteq(0, btn);
+
+	ut_assertok(cros_ec_battery_cutoff(dev,
+					   EC_BATTERY_CUTOFF_FLAG_AT_SHUTDOWN));
+	ut_assertok(cros_ec_config_powerbtn(dev, EC_POWER_BUTTON_ENABLE_PULSE));
+	sandbox_cros_ec_get_power(dev, &cutoff, &btn);
+	ut_asserteq(EC_BATTERY_CUTOFF_FLAG_AT_SHUTDOWN, cutoff);
+	ut_asserteq(EC_POWER_BUTTON_ENABLE_PULSE, btn);
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_power, UTF_SCAN_FDT);

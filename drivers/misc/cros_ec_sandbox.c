@@ -73,6 +73,12 @@ enum {
 	LDO_COUNT		= 4,
 	HOST_EVENT_MASK_COUNT	= EC_HOST_EVENT_LAZY_WAKE_MASK_S5 + 1,
 
+	/* The battery and charger, which is on AC power */
+	BATT_CHARGE_PCT		= 75,
+	CHG_VOLTAGE_MV		= 8400,
+	CHG_CURRENT_MA		= 1000,
+	CHG_INPUT_CURRENT_MA	= 3000,
+
 	/* Flash geometry, as on an STM32 */
 	FLASH_WRITE_BLOCK	= 4,
 	FLASH_ERASE_BLOCK	= 0x800,
@@ -108,6 +114,9 @@ struct ec_pwm_channel {
  * @host_event_mask: Host-event masks, indexed by enum ec_host_event_mask_type.
  *	The entries for EC_HOST_EVENT_MAIN and EC_HOST_EVENT_B are not used,
  *	since those are the events themselves
+ * @battery_cutoff: Flags of the last request to cut off the battery
+ *	(EC_BATTERY_CUTOFF_FLAG_...), or -1 if there has been none
+ * @powerbtn_flags: Power-button flags (EC_POWER_BUTTON_...)
  */
 struct ec_state {
 	bool valid;
@@ -125,6 +134,8 @@ struct ec_state {
 	struct ec_pwm_channel pwm[PWM_CHANNEL_COUNT];
 	u8 ldo[LDO_COUNT];
 	u64 host_event_mask[HOST_EVENT_MASK_COUNT];
+	int battery_cutoff;
+	uint powerbtn_flags;
 } s_state, *g_state;
 
 /**
@@ -770,6 +781,46 @@ static int process_cmd(struct ec_state *ec,
 		len = 0;
 		break;
 	}
+	case EC_CMD_CHARGE_STATE: {
+		const struct ec_params_charge_state *req = req_data;
+		struct ec_response_charge_state *resp = resp_data;
+
+		switch (req->cmd) {
+		case CHARGE_STATE_CMD_GET_STATE:
+			resp->get_state.ac = 1;
+			resp->get_state.chg_voltage = CHG_VOLTAGE_MV;
+			resp->get_state.chg_current = CHG_CURRENT_MA;
+			resp->get_state.chg_input_current = CHG_INPUT_CURRENT_MA;
+			resp->get_state.batt_state_of_charge = BATT_CHARGE_PCT;
+			len = sizeof(resp->get_state);
+			break;
+		case CHARGE_STATE_CMD_GET_PARAM:
+			if (req->get_param.param != CS_PARAM_LIMIT_POWER)
+				return -EC_RES_INVALID_PARAM;
+			resp->get_param.value =
+				!!(ec->test_flags & CROSECT_LIMIT_POWER);
+			len = sizeof(resp->get_param);
+			break;
+		default:
+			return -EC_RES_INVALID_PARAM;
+		}
+		break;
+	}
+	case EC_CMD_BATTERY_CUT_OFF: {
+		const struct ec_params_battery_cutoff *req = req_data;
+
+		/* version 0 has no flags */
+		ec->battery_cutoff = req_hdr->command_version ? req->flags : 0;
+		len = 0;
+		break;
+	}
+	case EC_CMD_CONFIG_POWER_BUTTON: {
+		const struct ec_params_config_power_button *req = req_data;
+
+		ec->powerbtn_flags = req->flags;
+		len = 0;
+		break;
+	}
 	case EC_CMD_LDO_GET: {
 		const struct ec_params_ldo_get *req = req_data;
 		struct ec_response_ldo_get *resp = resp_data;
@@ -875,6 +926,15 @@ int sandbox_cros_ec_get_pwm_duty(struct udevice *dev, uint index, uint *duty)
 	return 0;
 }
 
+void sandbox_cros_ec_get_power(struct udevice *dev, int *cutoffp,
+			       uint *powerbtnp)
+{
+	struct ec_state *ec = dev_get_priv(dev);
+
+	*cutoffp = ec->battery_cutoff;
+	*powerbtnp = ec->powerbtn_flags;
+}
+
 int cros_ec_probe(struct udevice *dev)
 {
 	struct ec_state *ec = dev_get_priv(dev);
@@ -887,6 +947,7 @@ int cros_ec_probe(struct udevice *dev)
 		memcpy(ec, &s_state, sizeof(*ec));
 	else
 		ec->current_image = EC_IMAGE_RO;
+	ec->battery_cutoff = -1;
 	err = cros_ec_decode_ec_flash(dev, &ec->ec_config);
 	if (err) {
 		debug("%s: Cannot device EC flash\n", __func__);
