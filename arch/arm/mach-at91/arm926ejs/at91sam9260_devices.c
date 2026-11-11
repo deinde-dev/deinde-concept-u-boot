@@ -211,7 +211,11 @@ void at91_sdram_hw_init(void)
 	at91_set_a_periph(AT91_PIO_PORTC, 31, 0);
 }
 
-/* Platform data for the GPIOs */
+/*
+ * Platform data for the GPIOs. With of-platdata, dtoc creates the GPIO devices
+ * from the devicetree instead, and other records are not allowed
+ */
+#if !IS_ENABLED(CONFIG_OF_PLATDATA)
 static const struct at91_port_plat at91sam9260_plat[] = {
 	{ ATMEL_BASE_PIOA, "PA" },
 	{ ATMEL_BASE_PIOB, "PB" },
@@ -223,3 +227,4 @@ U_BOOT_DRVINFOS(at91sam9260_gpios) = {
 	{ "atmel_at91rm9200_gpio", &at91sam9260_plat[1] },
 	{ "atmel_at91rm9200_gpio", &at91sam9260_plat[2] },
 };
+#endif
