@@ -513,9 +513,19 @@ bool video_is_active(void);
  * video_get_u_boot_logo() - Get a pointer to the U-Boot logo
  *
  * @sizep: If non-null, returns the size of the logic in bytes
- * Returns: Pointer to logo
+ * Returns: Pointer to logo, or NULL if CONFIG_VIDEO_LOGO is disabled
  */
+#if IS_ENABLED(CONFIG_VIDEO_LOGO)
 void *video_get_u_boot_logo(int *sizep);
+#else
+static inline void *video_get_u_boot_logo(int *sizep)
+{
+	if (sizep)
+		*sizep = 0;
+
+	return NULL;
+}
+#endif
 
 /*
  * bmp_display() - Display BMP (bitmap) data located in memory
