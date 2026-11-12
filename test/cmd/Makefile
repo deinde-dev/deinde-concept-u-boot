@@ -85,6 +85,7 @@ endif
 endif
 obj-$(CONFIG_CMD_FDT) += fdt.o
 ifdef CONFIG_CONSOLE_RECORD
+obj-$(CONFIG_CMD_FPGA) += fpga.o
 ifdef CONFIG_CMD_VFS
 obj-y += fstypes.o
 else
