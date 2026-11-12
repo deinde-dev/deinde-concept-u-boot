@@ -26,6 +26,9 @@
 #define FPGA_LOADS_ARGS		6
 #define FPGA_LOADFS_ARGS	7
 
+/* message shown when a FIT subimage cannot be read, too long to write inline */
+#define MSG_SUBIMAGE	"Could not load '%s' subimage (err %d)\n"
+
 static long do_fpga_get_device(char *arg)
 {
 	long dev = FPGA_INVALID_DEVICE;
@@ -352,11 +355,8 @@ static int do_fpga_loadmk(struct getopt_state *gs)
 
 		err = fit_get_data_node(fit_hdr, fit_uname, &fit_data,
 					&data_size);
-		if (err) {
-			printf("Could not load '%s' subimage (err %d)\n",
-			       fit_uname, err);
-			return CMD_RET_FAILURE;
-		}
+		if (err)
+			return cmd_fail(err, MSG_SUBIMAGE, fit_uname, err);
 
 		return fpga_load(dev, fit_data, data_size, BIT_FULL, 0);
 	}
