@@ -106017,3 +106017,45 @@ The other commits are unchanged apart from being rebased; the only difference fr
 
 ---
 
+## 2026-11-12: us/main
+
+Branch: cherry-4d4c01c5ff86
+
+Commits:
+- 4d4c01c5ff86 tee: optee: Factor out service enumeration and binding functions
+- 2b2cbf7fb804 tee: optee: Avoid binding a service twice
+- bfa8cfbf64e9 tee: optee: Add support for enumerating services that only need RPMB
+- 61a7f22e5942 tee: optee: Do not warn about TEE_ERROR_STORAGE_NOT_AVAILABLE
+- 78c667a33340 mmc: Call back to optee after a successful mmc_init
+- b2951beb6fb6 mmc: Make "MMC Device not found" a debug output
+- 65f340d8fcde cmd: optee_rpmb: sanitize TEE_ERROR -> E* translations
+- b79987c3c613 optee_ta_avb.h: add TA_AVB_CMD_READ_PERSIST_VALUE2 define
+- df1c7866b87f tee: sandbox: support new TA_AVB_CMD_READ_PERSIST_VALUE2
+- 1de39d17d657 cmd: optee_rpmb: allocate large enough buffer when reading persistent value
+- 0871cc74cbd9 cmd: optee_rpmb: make it usable by scripts
+- 8fca3a6500d2 Merge tag 'optee-next-30092026' of https://git.u-boot-project.org/u-boot/custodians/u-boot-tpm into next
+
+### Conversation log
+Picks 1–3 are applied and build cleanly. On pick 3, split-check converted some config macros, so I'm checking that diff before I amend.
+
+The changes look right. Next I'll amend the commit with the note and rebuild.
+
+Commits 1–9 are applied and build cleanly. Now picking the last three, including the merge.
+
+The merge commit conflicts. With -m 1 it reapplies the series we already picked, so the clash is probably just the split-check macro conversions. Checking:
+
+As expected, the only conflicts are the split-check conversions. I'll keep the HEAD side, which gives an empty merge commit.
+
+All 12 commits are on branch `cherry-4d4c01c5ff86`, based on `ci/master`, and the sandbox build passes with no warnings or errors. The branch is ready to push and I haven't merged it anywhere.
+
+**Fix-ups (each noted at the end of the commit message):**
+- **bfa8cfbf64e9** (tee: optee: Add support for enumerating services that only need RPMB): split-check changed `CONFIG_IS_ENABLED(SUPPORT_EMMC_RPMB)` to `IS_ENABLED(CONFIG_SUPPORT_EMMC_RPMB)` in `drivers/tee/optee/core.c` and added `SUPPORT_EMMC_RPMB` to `scripts/conf_nospl`.
+- **78c667a33340** (mmc: Call back to optee after a successful mmc_init): split-check changed `CONFIG_IS_ENABLED(OPTEE)` to `IS_ENABLED(CONFIG_OPTEE)` in `drivers/mmc/mmc.c` and added `OPTEE` to `scripts/conf_nospl`.
+- **8fca3a6500d2** (the merge): it conflicted in `drivers/mmc/mmc.c` and `drivers/tee/optee/core.c`. With `-m 1` the merge reapplies the series that was already picked, so the only clash was the original `CONFIG_IS_ENABLED()` lines against the converted ones. I kept the converted versions, which leaves the merge as an empty commit, kept to preserve the history.
+
+**Deltas:** all 11 regular commits match their originals exactly in files and line counts. Compared with the original merge, the whole series has one extra file, `scripts/conf_nospl`, with 2 extra lines; those are the two `conf_nospl` entries added by split-check.
+
+**Builds:** sandbox passed after every pick, after each amend, and in the final run. split-check found nothing it couldn't convert, and none of the commits were already in `ci/master`.
+
+---
+
