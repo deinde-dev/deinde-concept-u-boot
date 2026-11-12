@@ -6,62 +6,44 @@
  */
 
 #include <dm.h>
-#include <log.h>
+#include <regmap.h>
 #include <syscon.h>
 #include <asm/arch-rockchip/clock.h>
+#include <dm/prop.h>
 
-static const struct udevice_id rk3368_syscon_ids[] = {
-	{ .compatible = "rockchip,rk3368-grf",
-	  .data = ROCKCHIP_SYSCON_GRF },
-	{ .compatible = "rockchip,rk3368-pmugrf",
-	  .data = ROCKCHIP_SYSCON_PMUGRF },
-	{ .compatible = "rockchip,rk3368-msch",
-	  .data = ROCKCHIP_SYSCON_MSCH },
-	{ .compatible = "rockchip,rk3368-sgrf",
-	  .data = ROCKCHIP_SYSCON_SGRF },
-	{ }
-};
-
-U_BOOT_DRIVER(syscon_rk3368) = {
-	.name = "rk3368_syscon",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3368_syscon_ids,
-};
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int rk3368_syscon_bind_of_plat(struct udevice *dev)
+static int rk3368_syscon_bind(struct udevice *dev)
 {
-	dev->driver_data = dev->driver->of_match->data;
-	debug("syscon: %s %d\n", dev->name, (uint)dev->driver_data);
+	DTPLAT(syscon_rk3368, dt, dev);
+
+	/* With of-platdata, nothing else sets the driver data */
+	dev->driver_data = dev_prop_driver_data(dev, dt);
 
 	return 0;
 }
 
-U_BOOT_DRIVER(rockchip_rk3368_grf) = {
-	.name = "rockchip_rk3368_grf",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3368_syscon_ids,
-	.bind = rk3368_syscon_bind_of_plat,
+/* With a devicetree, the syscon uclass sets up the regmap instead */
+static int rk3368_syscon_of_to_plat(struct udevice *dev)
+{
+	struct syscon_uc_info *priv = dev_get_uclass_priv(dev);
+	DTPLAT(syscon_rk3368, dt, dev);
+
+	return dev_prop_regmap(dev, dt, &priv->regmap);
+}
+
+static __maybe_unused const struct udevice_id rk3368_syscon_ids[] = {
+	{ .compatible = "rockchip,rk3368-grf", .data = ROCKCHIP_SYSCON_GRF },
+	{ .compatible = "rockchip,rk3368-pmugrf", .data = ROCKCHIP_SYSCON_PMUGRF },
+	{ .compatible = "rockchip,rk3368-msch", .data = ROCKCHIP_SYSCON_MSCH },
+	{ .compatible = "rockchip,rk3368-sgrf", .data = ROCKCHIP_SYSCON_SGRF },
+	{ }
 };
 
-U_BOOT_DRIVER(rockchip_rk3368_pmugrf) = {
-	.name = "rockchip_rk3368_pmugrf",
+U_BOOT_DRIVER(syscon_rk3368) = {
+	.name = "syscon_rk3368",
 	.id = UCLASS_SYSCON,
-	.of_match = rk3368_syscon_ids + 1,
-	.bind = rk3368_syscon_bind_of_plat,
+	.of_match = of_match_ptr(rk3368_syscon_ids),
+	.bind = rk3368_syscon_bind,
+	.of_to_plat = IS_ENABLED(CONFIG_OF_PLATDATA) ?
+		rk3368_syscon_of_to_plat : NULL,
+	DM_HEADER(<asm/arch-rockchip/clock.h>)
 };
-
-U_BOOT_DRIVER(rockchip_rk3368_msch) = {
-	.name = "rockchip_rk3368_msch",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3368_syscon_ids + 2,
-	.bind = rk3368_syscon_bind_of_plat,
-};
-
-U_BOOT_DRIVER(rockchip_rk3368_sgrf) = {
-	.name = "rockchip_rk3368_sgrf",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3368_syscon_ids + 3,
-	.bind = rk3368_syscon_bind_of_plat,
-};
-#endif
