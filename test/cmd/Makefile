@@ -171,6 +171,7 @@ obj-$(CONFIG_CMD_DHRYSTONE) += dhry.o
 obj-$(CONFIG_CMD_FASTBOOT) += fastboot.o
 obj-$(CONFIG_CONSOLE_TRUETYPE) += font.o
 obj-$(CONFIG_CMD_GO) += go.o
+obj-$(CONFIG_CMD_I2C) += i2c.o
 ifdef CONFIG_CMD_PCI
 obj-$(CONFIG_CMD_IO) += io.o
 endif

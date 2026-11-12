@@ -114,6 +114,7 @@ usage message instead.
 See also
 --------
 
+* :doc:`i2c<i2c>` for the same sort of access to devices on an I2C bus
 * :doc:`i3c<i3c>` for the same sort of access to devices on an I3C bus
 * :doc:`sspi<sspi>` for sending bytes to a device on a SPI bus by hand
 * :doc:`dm<dm>` for the driver model tree, which shows the bus as the parent

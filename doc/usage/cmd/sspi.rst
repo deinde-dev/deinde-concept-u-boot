@@ -114,5 +114,5 @@ See also
 * :doc:`sf<sf>` for reading and writing a SPI flash chip through its driver,
   rather than sending it commands by hand
 * :doc:`i3c<i3c>` for talking to devices on an I3C bus
-* *i2c* for talking to devices on an I2C bus
+* :doc:`i2c<i2c>` for talking to devices on an I2C bus
 * :doc:`w1<w1>` for reading an EEPROM on a 1-Wire bus

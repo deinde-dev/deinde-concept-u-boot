@@ -119,6 +119,8 @@ See also
 * :doc:`mw<mw>` for writing a value to memory, which md then shows
 * :doc:`ms<ms>` for finding where a value appears in memory
 * :doc:`base<base>` for the offset md adds to the address it is given
+* :doc:`i2c<i2c>` for showing the contents of a chip on an I2C bus in the same
+  layout
 * :doc:`hash<hash>` for a digest of a region of memory, rather than its
   contents
 * :doc:`crc32<crc32>` for a checksum of a region of memory
