@@ -1036,7 +1036,8 @@ static int do_i2c_loop(struct cmd_tbl *cmdtp, int flag, int argc,
 	 * Length is the number of objects, not number of bytes.
 	 */
 	length = 1;
-	length = hextoul(argv[3], NULL);
+	if (argc > 3)
+		length = hextoul(argv[3], NULL);
 	if (length > sizeof(bytes))
 		length = sizeof(bytes);
 
@@ -1044,7 +1045,7 @@ static int do_i2c_loop(struct cmd_tbl *cmdtp, int flag, int argc,
 	 * The delay time (uSec) is optional.
 	 */
 	delay = 1000;
-	if (argc > 3)
+	if (argc > 4)
 		delay = dectoul(argv[4], NULL);
 	/*
 	 * Run the loop...
