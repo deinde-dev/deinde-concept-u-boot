@@ -105839,3 +105839,78 @@ I also briefly tried reordering the boot-mode detection, on the theory that SPL 
 
 ---
 
+## 2026-11-12: us/main
+
+Branch: cherry-32a5245e97e1
+
+Commits:
+- 32a5245e97e1 rtc: ds1307: support register offsets
+- 9ae91ba55829 rtc: ds1307: add initial support for EPSON RX8130
+- e86a83b57929 Merge patch series "rtc: ds1307: support register offsets"
+
+### Conversation log
+The first two commits are picked and building cleanly; I'm now committing the merge commit, which comes out empty.
+
+All three commits are cherry-picked onto the new branch `cherry-32a5245e97e1` (based on ci/master), and the sandbox build passes with no warnings or errors.
+
+| Original | New | Notes |
+|---|---|---|
+| 32a5245e97e1 rtc: ds1307: support register offsets | b30695ff848c | Same file and line counts as the original (+61/−26 in `drivers/rtc/ds1307.c`) |
+| 9ae91ba55829 rtc: ds1307: add initial support for EPSON RX8130 | 3b46d4d625fa | Same file and line counts as the original (+134/−3 in `drivers/rtc/ds1307.c`) |
+| e86a83b57929 Merge patch series "rtc: ds1307: support register offsets" | 9c1d50595fbd | Merge commit, empty as expected, kept with `--allow-empty` |
+
+- **Build:** sandbox built cleanly after each pick and again at the end.
+- **Fix-ups:** none. There were no conflicts, and `pickman split-check` changed nothing on any of the three commits.
+- **Deltas:** none of concern.
+
+The branch is ready to push; I haven't merged it anywhere.
+
+---
+
+### Pipeline fix: 2026-11-12 (attempt 1)
+
+Branch: cherry-32a5245e97e1
+
+Failed jobs:
+- build all PowerPC platforms (world_build)
+- pine64 (sjg-lab)
+
+### Conversation log
+Found it: the turris_1x_sdcard image is now 0x240 bytes over its 1 MiB limit. Commit 1 also breaks the build on its own (an undeclared 'plat'). Checking both against upstream next.
+
+Fits with about 1.2 KiB to spare. Now amending the commits:
+
+Resolving by taking commit 2's version, then adding the defconfig change to that commit (where the overflow first appears):
+
+Commit 2 lost its original author; fixing that.
+
+Now the pine64 failure ('bootmeth_fel' in test_dm_compat). The RTC series doesn't touch it, so checking where it comes from:
+
+pine64 doesn't enable RTC_DS1307, so this series can't affect it. That failure has another cause and I'll leave it alone. Now building:
+
+No errors in the 105 builds; the warnings are the usual migration and dtc ones. Checking each commit builds for turris_1x and sandbox:
+
+I fixed the PowerPC failure by amending the two cherry-picked commits. The pine64 failure isn't caused by this series, so I left it alone. The result is on local branch `cherry-32a5245e97e1-fix1` (not pushed).
+
+**1. PowerPC world build (turris_1x_sdcard): real failure, fixed**
+- **Root cause:** turris_1x_sdcard enables RTC_DS1307. On ci/master its `u-boot-nodtb.bin` already sits only 577 bytes under the 1 MiB limit. The RX8130 support adds about 1.1 KiB to the ds1307 driver, which puts the image 0x240 bytes over.
+- **Responsible commit:** "rtc: ds1307: add initial support for EPSON RX8130" (3b46d4d625fa, now 3eeb76cc59d8).
+- **Fix:** I removed `CONFIG_CMD_WDT=y` from `configs/turris_1x_sdcard_defconfig`, with a `[pickman]` note in the commit message. An earlier pickman fix on master did the same for turris_1x_nor when zstd grew. The image is now 1046859 bytes, leaving about 1.2 KiB spare.
+
+**2. Second problem found while bisecting: fixed**
+- The first commit, "rtc: ds1307: support register offsets" (b30695ff848c, now b57b93ebcedc), doesn't build on its own: `ds1307_rtc_set()` uses `plat->offset`, but `plat` isn't declared there.
+- The same typo is in upstream 32a5245e97e1, and upstream's next commit fixes it.
+- I changed it to `data->offset` in the first commit, with a `[pickman]` note. The rebase conflict this caused in the next commit resolved to that commit's original code, and its original author is kept.
+- Apart from these changes, the final tree is identical to the original branch except for the one-line defconfig change.
+
+**3. pine64 lab job (test_dm_compat reports 'bootmeth_fel'): not caused by this series, no change**
+- pine64 doesn't enable RTC_DS1307, so none of the changed code is built for it.
+- 'bootmeth_fel' comes from `boot/bootmeth_fel.c`, which this series doesn't touch. The failure most likely already exists on master or is a lab problem.
+
+**Verification**
+- `um build sandbox` is clean.
+- buildman rejected the given board list ("No matching boards found"), so I built `powerpc pine64 sandbox` instead: 105 boards with no errors, only the warnings that were already there (DM migration, dtc, lto).
+- Each commit on the branch now builds without errors for turris_1x_sdcard, turris_1x_nor and sandbox.
+
+---
+
