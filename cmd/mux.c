@@ -128,22 +128,17 @@ static int do_mux_select(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	mux = cmd_mux_find(argv);
-	if (IS_ERR_OR_NULL(mux)) {
-		printf("Failed to find the specified mux\n");
-		return CMD_RET_FAILURE;
-	}
+	if (IS_ERR_OR_NULL(mux))
+		return cmd_fail(PTR_ERR(mux),
+				"Failed to find the specified mux\n");
 
 	ret = strict_strtoul(argv[3], 16, &state);
-	if (ret) {
-		printf("Invalid state\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Invalid state\n");
 
 	ret = mux_control_select(mux, state);
-	if (ret) {
-		printf("Failed to select requested state\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to select requested state\n");
 
 	return CMD_RET_SUCCESS;
 }
@@ -158,16 +153,13 @@ static int do_mux_deselect(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	mux = cmd_mux_find(argv);
-	if (IS_ERR_OR_NULL(mux)) {
-		printf("Failed to find the specified mux\n");
-		return CMD_RET_FAILURE;
-	}
+	if (IS_ERR_OR_NULL(mux))
+		return cmd_fail(PTR_ERR(mux),
+				"Failed to find the specified mux\n");
 
 	ret = mux_control_deselect(mux);
-	if (ret) {
-		printf("Failed to deselect mux\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to deselect mux\n");
 
 	return CMD_RET_SUCCESS;
 }
