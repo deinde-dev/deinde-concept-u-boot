@@ -576,6 +576,26 @@ int cros_ec_read_limit_power(struct udevice *dev, int *limit_powerp);
 int cros_ec_config_powerbtn(struct udevice *dev, uint32_t flags);
 
 /**
+ * cros_ec_get_event_mask() - Read a host-event mask
+ *
+ * @dev: CROS-EC device
+ * @type: Command which reads the mask, e.g. EC_CMD_HOST_EVENT_GET_SMI_MASK
+ * @mask: Returns the mask
+ * Return: 0 if OK, -ve on error
+ */
+int cros_ec_get_event_mask(struct udevice *dev, uint type, uint32_t *mask);
+
+/**
+ * cros_ec_set_event_mask() - Write a host-event mask
+ *
+ * @dev: CROS-EC device
+ * @type: Command which writes the mask, e.g. EC_CMD_HOST_EVENT_SET_SMI_MASK
+ * @mask: Mask to write
+ * Return: 0 if OK, -ve on error
+ */
+int cros_ec_set_event_mask(struct udevice *dev, uint type, uint32_t mask);
+
+/**
  * cros_ec_get_lid_shutdown_mask() - Set the lid shutdown mask
  *
  * Determines whether a lid close event is reported

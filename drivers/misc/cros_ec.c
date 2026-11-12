@@ -1399,13 +1399,15 @@ static int cros_ec_uhepi_cmd(struct udevice *dev, uint mask, uint action,
 		*value = 0;
 	ret = ec_command(dev, EC_CMD_HOST_EVENT, 0, &req, sizeof(req), &rsp,
 			 sizeof(rsp));
-
-	if (action != EC_HOST_EVENT_GET)
+	if (ret < 0)
 		return ret;
-	if (ret == 0)
+	if (action == EC_HOST_EVENT_GET) {
+		if (ret != sizeof(rsp))
+			return -EINVAL;
 		*value = rsp.value;
+	}
 
-	return ret;
+	return 0;
 }
 
 static int cros_ec_handle_non_uhepi_cmd(struct udevice *dev, uint hcmd,
@@ -1424,12 +1426,15 @@ static int cros_ec_handle_non_uhepi_cmd(struct udevice *dev, uint hcmd,
 		*value = 0;
 
 	ret = ec_command(dev, hcmd, 0, &req, sizeof(req), &rsp, sizeof(rsp));
-	if (action != EC_HOST_EVENT_GET)
+	if (ret < 0)
 		return ret;
-	if (ret == 0)
+	if (action == EC_HOST_EVENT_GET) {
+		if (ret != sizeof(rsp))
+			return -EINVAL;
 		*value = rsp.mask;
+	}
 
-	return ret;
+	return 0;
 }
 
 bool cros_ec_is_uhepi_supported(struct udevice *dev)
@@ -1449,7 +1454,7 @@ bool cros_ec_is_uhepi_supported(struct udevice *dev)
 	return uhepi_support == UHEPI_SUPPORTED;
 }
 
-static int cros_ec_get_mask(struct udevice *dev, uint type)
+static u64 cros_ec_get_mask(struct udevice *dev, uint type)
 {
 	u64 value = 0;
 
@@ -1660,8 +1665,10 @@ int cros_ec_read_batt_charge(struct udevice *dev, uint *chargep)
 	req.cmd = CHARGE_STATE_CMD_GET_STATE;
 	ret = ec_command(dev, EC_CMD_CHARGE_STATE, 0, &req, sizeof(req),
 			 &resp, sizeof(resp));
-	if (ret)
+	if (ret < 0)
 		return log_msg_ret("read", ret);
+	if (ret != sizeof(resp.get_state))
+		return log_msg_ret("len", -EINVAL);
 
 	*chargep = resp.get_state.batt_state_of_charge;
 

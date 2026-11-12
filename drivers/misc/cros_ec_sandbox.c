@@ -44,10 +44,21 @@
  * to enter recovery mode. The EC passes this to U-Boot through the normal
  * event message.
  *
- * 5. Flash read/write/erase support, so that software sync works. The
- * protect messages are supported but no protection is implemented.
+ * 5. Flash read/write/erase support, so that software sync works, along with
+ * the flash geometry. The protect messages are supported but no protection is
+ * implemented.
  *
- * 6. Hashing of the EC image, again to support software sync.
+ * 6. Hashing of the EC image, again to support software sync. A test flag
+ * makes the hash take a while to finish.
+ *
+ * 7. Information about the EC: its versions, build, keyboard matrix and SKU,
+ * along with the features it supports.
+ *
+ * 8. Host-event masks, LDOs, PWM channels, vstore slots, and a battery and
+ * charger, so that the library functions which use them can be tested.
+ *
+ * Like a real EC, the emulator sends back an error code (EC_RES_...) when it
+ * refuses a command, e.g. one which it does not know or with a bad parameter.
  *
  * Other features can be added, although a better path is probably to link
  * the EC image in with U-Boot (Vic has demonstrated a prototype for this).
@@ -55,6 +66,9 @@
 
 #define KEYBOARD_ROWS	8
 #define KEYBOARD_COLS	13
+
+/* What the emulated EC reports as its build information */
+#define BUILD_INFO	"sandbox_ec 1.0"
 
 /* A single entry of the key matrix */
 struct ec_keymatrix_entry {
@@ -66,6 +80,22 @@ struct ec_keymatrix_entry {
 enum {
 	VSTORE_SLOT_COUNT	= 4,
 	PWM_CHANNEL_COUNT	= 4,
+	LDO_COUNT		= 4,
+	HOST_EVENT_MASK_COUNT	= EC_HOST_EVENT_LAZY_WAKE_MASK_S5 + 1,
+
+	/* Times the hash reports that it is busy, with CROSECT_SLOW_HASH */
+	HASH_BUSY_POLLS		= 2,
+
+	/* The battery and charger, which is on AC power */
+	BATT_CHARGE_PCT		= 75,
+	CHG_VOLTAGE_MV		= 8400,
+	CHG_CURRENT_MA		= 1000,
+	CHG_INPUT_CURRENT_MA	= 3000,
+
+	/* Flash geometry, as on an STM32 */
+	FLASH_WRITE_BLOCK	= 4,
+	FLASH_ERASE_BLOCK	= 0x800,
+	FLASH_PROTECT_BLOCK	= 0x1000,
 };
 
 struct vstore_slot {
@@ -93,6 +123,14 @@ struct ec_pwm_channel {
  * @test_flags: Flags that control behaviour for tests
  * @slot_locked: Locked vstore slots (mask)
  * @pwm: Information per PWM channel
+ * @ldo: State of each LDO (EC_LDO_STATE_...)
+ * @host_event_mask: Host-event masks, indexed by enum ec_host_event_mask_type.
+ *	The entries for EC_HOST_EVENT_MAIN and EC_HOST_EVENT_B are not used,
+ *	since those are the events themselves
+ * @battery_cutoff: Flags of the last request to cut off the battery
+ *	(EC_BATTERY_CUTOFF_FLAG_...), or -1 if there has been none
+ * @powerbtn_flags: Power-button flags (EC_POWER_BUTTON_...)
+ * @hash_polls: Number of times the hash has reported that it is busy
  */
 struct ec_state {
 	bool valid;
@@ -108,6 +146,11 @@ struct ec_state {
 	uint test_flags;
 	struct vstore_slot slot[VSTORE_SLOT_COUNT];
 	struct ec_pwm_channel pwm[PWM_CHANNEL_COUNT];
+	u8 ldo[LDO_COUNT];
+	u64 host_event_mask[HOST_EVENT_MASK_COUNT];
+	int battery_cutoff;
+	uint powerbtn_flags;
+	int hash_polls;
 } s_state, *g_state;
 
 /**
@@ -300,6 +343,116 @@ static int cros_ec_keyscan(struct ec_state *ec, uint8_t *scan)
 }
 
 /**
+ * get_host_events() - Get the host events which the EC has pending
+ *
+ * @ec: Current emulated EC state
+ * Return: events, as a mask of EC_HOST_EVENT_MASK() bits
+ */
+static u64 get_host_events(struct ec_state *ec)
+{
+	u64 events = 0;
+
+	if (ec->recovery_req)
+		events |= EC_HOST_EVENT_MASK(EC_HOST_EVENT_KEYBOARD_RECOVERY);
+	if (ec->test_flags & CROSECT_LID_OPEN)
+		events |= EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN);
+
+	return events;
+}
+
+/**
+ * clear_host_events() - Clear some of the host events which the EC has pending
+ *
+ * @ec: Current emulated EC state
+ * @mask: Events to clear, as a mask of EC_HOST_EVENT_MASK() bits
+ */
+static void clear_host_events(struct ec_state *ec, u64 mask)
+{
+	if (mask & EC_HOST_EVENT_MASK(EC_HOST_EVENT_KEYBOARD_RECOVERY))
+		ec->recovery_req = false;
+	if (mask & EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN))
+		ec->test_flags &= ~CROSECT_LID_OPEN;
+}
+
+/**
+ * mask_type() - Get the mask which an older host-event mask command uses
+ *
+ * @cmd: Command, e.g. EC_CMD_HOST_EVENT_GET_SCI_MASK
+ * Return: mask type (enum ec_host_event_mask_type)
+ */
+static uint mask_type(uint cmd)
+{
+	switch (cmd) {
+	case EC_CMD_HOST_EVENT_GET_SCI_MASK:
+	case EC_CMD_HOST_EVENT_SET_SCI_MASK:
+		return EC_HOST_EVENT_SCI_MASK;
+	case EC_CMD_HOST_EVENT_GET_SMI_MASK:
+	case EC_CMD_HOST_EVENT_SET_SMI_MASK:
+		return EC_HOST_EVENT_SMI_MASK;
+	default:
+		return EC_HOST_EVENT_ACTIVE_WAKE_MASK;
+	}
+}
+
+/**
+ * host_event_cmd() - Handle EC_CMD_HOST_EVENT, for the unified host events
+ *
+ * @ec: Current emulated EC state
+ * @req: Request
+ * @resp: Place to put the response
+ * Return: length of response, or -EC_RES_INVALID_PARAM for a bad request
+ */
+static int host_event_cmd(struct ec_state *ec,
+			  const struct ec_params_host_event *req,
+			  struct ec_response_host_event *resp)
+{
+	bool events = req->mask_type == EC_HOST_EVENT_MAIN ||
+		req->mask_type == EC_HOST_EVENT_B;
+	u64 *mask;
+
+	if (req->mask_type >= HOST_EVENT_MASK_COUNT)
+		return -EC_RES_INVALID_PARAM;
+	mask = &ec->host_event_mask[req->mask_type];
+	resp->value = 0;
+
+	switch (req->action) {
+	case EC_HOST_EVENT_GET:
+		resp->value = events ? get_host_events(ec) : *mask;
+		break;
+	case EC_HOST_EVENT_SET:
+		/* only the EC can set events */
+		if (events)
+			return -EC_RES_INVALID_PARAM;
+		*mask |= req->value;
+		break;
+	case EC_HOST_EVENT_CLEAR:
+		if (events)
+			clear_host_events(ec, req->value);
+		else
+			*mask &= ~req->value;
+		break;
+	default:
+		return -EC_RES_INVALID_PARAM;
+	}
+
+	return sizeof(*resp);
+}
+
+/**
+ * flash_range_ok() - Check that a range lies within the EC's flash
+ *
+ * @ec: Current emulated EC state
+ * @offset: Offset of the start of the range
+ * @size: Size of the range in bytes
+ * Return: true if the range is within the flash, false if not
+ */
+static bool flash_range_ok(struct ec_state *ec, uint offset, uint size)
+{
+	return offset <= ec->flash_data_len &&
+	       size <= ec->flash_data_len - offset;
+}
+
+/**
  * Process an emulated EC command
  *
  * @param ec		Current emulated EC state
@@ -307,7 +460,8 @@ static int cros_ec_keyscan(struct ec_state *ec, uint8_t *scan)
  * @param req_data	Pointer to body of request
  * @param resp_hdr	Pointer to place to put response header
  * @param resp_data	Pointer to place to put response data, if any
- * Return: length of response data, or 0 for no response data, or -1 on error
+ * Return: length of response data, or 0 for no response data, or -ve EC result
+ *	code (-EC_RES_...) if the EC refuses the command
  */
 static int process_cmd(struct ec_state *ec,
 		       struct ec_host_request *req_hdr, const void *req_data,
@@ -339,6 +493,10 @@ static int process_cmd(struct ec_state *ec,
 		len = sizeof(*resp);
 		break;
 	}
+	case EC_CMD_GET_BUILD_INFO:
+		memcpy(resp_data, BUILD_INFO, sizeof(BUILD_INFO));
+		len = sizeof(BUILD_INFO);
+		break;
 	case EC_CMD_VBNV_CONTEXT: {
 		const struct ec_params_vbnvcontext *req = req_data;
 		struct ec_response_vbnvcontext *resp = resp_data;
@@ -355,16 +513,16 @@ static int process_cmd(struct ec_state *ec,
 			len = 0;
 			break;
 		default:
-			printf("   ** Unknown vbnv_context command %#02x\n",
-			       req->op);
-			return -1;
+			log_debug("Unknown vbnv_context command %#02x\n",
+				  req->op);
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
 	case EC_CMD_REBOOT_EC: {
 		const struct ec_params_reboot_ec *req = req_data;
 
-		printf("Request reboot type %d\n", req->cmd);
+		log_debug("Request reboot type %d\n", req->cmd);
 		switch (req->cmd) {
 		case EC_REBOOT_DISABLE_JUMP:
 			len = 0;
@@ -374,33 +532,47 @@ static int process_cmd(struct ec_state *ec,
 			len = 0;
 			break;
 		default:
-			puts("   ** Unknown type");
-			return -1;
+			log_debug("Unknown reboot type %d\n", req->cmd);
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
 	case EC_CMD_HOST_EVENT_GET_B: {
 		struct ec_response_host_event_mask *resp = resp_data;
 
-		resp->mask = 0;
-		if (ec->recovery_req) {
-			resp->mask |= EC_HOST_EVENT_MASK(
-					EC_HOST_EVENT_KEYBOARD_RECOVERY);
-		}
-		if (ec->test_flags & CROSECT_LID_OPEN)
-			resp->mask |=
-				EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN);
+		resp->mask = get_host_events(ec);
 		len = sizeof(*resp);
 		break;
 	}
+	case EC_CMD_HOST_EVENT_CLEAR:
 	case EC_CMD_HOST_EVENT_CLEAR_B: {
 		const struct ec_params_host_event_mask *req = req_data;
 
-		if (req->mask & EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN))
-			ec->test_flags &= ~CROSECT_LID_OPEN;
+		clear_host_events(ec, req->mask);
 		len = 0;
 		break;
-		}
+	}
+	case EC_CMD_HOST_EVENT_GET_SCI_MASK:
+	case EC_CMD_HOST_EVENT_GET_SMI_MASK:
+	case EC_CMD_HOST_EVENT_GET_WAKE_MASK: {
+		struct ec_response_host_event_mask *resp = resp_data;
+
+		resp->mask = ec->host_event_mask[mask_type(req_hdr->command)];
+		len = sizeof(*resp);
+		break;
+	}
+	case EC_CMD_HOST_EVENT_SET_SCI_MASK:
+	case EC_CMD_HOST_EVENT_SET_SMI_MASK:
+	case EC_CMD_HOST_EVENT_SET_WAKE_MASK: {
+		const struct ec_params_host_event_mask *req = req_data;
+
+		ec->host_event_mask[mask_type(req_hdr->command)] = req->mask;
+		len = 0;
+		break;
+	}
+	case EC_CMD_HOST_EVENT:
+		len = host_event_cmd(ec, req_data, resp_data);
+		break;
 	case EC_CMD_VBOOT_HASH: {
 		const struct ec_params_vboot_hash *req = req_data;
 		struct ec_response_vboot_hash *resp = resp_data;
@@ -410,16 +582,27 @@ static int process_cmd(struct ec_state *ec,
 		entry = &ec->ec_config.region[EC_FLASH_REGION_ACTIVE];
 
 		switch (req->cmd) {
+		case EC_VBOOT_HASH_START:
 		case EC_VBOOT_HASH_RECALC:
 		case EC_VBOOT_HASH_GET:
+			/* a slow hash takes a while to finish */
+			if ((ec->test_flags & CROSECT_SLOW_HASH) &&
+			    ec->hash_polls < HASH_BUSY_POLLS) {
+				ec->hash_polls++;
+				memset(resp, '\0', sizeof(*resp));
+				resp->status = EC_VBOOT_HASH_STATUS_BUSY;
+				len = sizeof(*resp);
+				break;
+			}
+			ec->hash_polls = 0;
 			size = SHA256_SUM_LEN;
 			len = get_image_used(ec, entry);
 			ret = hash_block("sha256",
 					 ec->flash_data + entry->offset,
 					 len, resp->hash_digest, &size);
 			if (ret) {
-				printf("   ** hash_block() failed\n");
-				return -1;
+				log_debug("hash_block() failed\n");
+				return -EC_RES_ERROR;
 			}
 			resp->status = EC_VBOOT_HASH_STATUS_DONE;
 			resp->hash_type = EC_VBOOT_HASH_TYPE_SHA256;
@@ -430,9 +613,9 @@ static int process_cmd(struct ec_state *ec,
 			len = sizeof(*resp);
 			break;
 		default:
-			printf("   ** EC_CMD_VBOOT_HASH: Unknown command %d\n",
-			       req->cmd);
-			return -1;
+			log_debug("EC_CMD_VBOOT_HASH: Unknown command %d\n",
+				  req->cmd);
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
@@ -442,7 +625,7 @@ static int process_cmd(struct ec_state *ec,
 		uint32_t expect = EC_FLASH_PROTECT_ALL_NOW |
 				EC_FLASH_PROTECT_ALL_AT_BOOT;
 
-		printf("mask=%#x, flags=%#x\n", req->mask, req->flags);
+		log_debug("mask=%#x, flags=%#x\n", req->mask, req->flags);
 		if (req->flags == expect || req->flags == 0) {
 			resp->flags = req->flags ? EC_FLASH_PROTECT_ALL_NOW :
 								0;
@@ -450,8 +633,8 @@ static int process_cmd(struct ec_state *ec,
 			resp->writable_flags = 0;
 			len = sizeof(*resp);
 		} else {
-			puts("   ** unexpected flash protect request\n");
-			return -1;
+			log_debug("Unexpected flash protect request\n");
+			return -EC_RES_INVALID_PARAM;
 		}
 		break;
 	}
@@ -468,18 +651,39 @@ static int process_cmd(struct ec_state *ec,
 			resp->offset = entry->offset;
 			resp->size = entry->length;
 			len = sizeof(*resp);
-			printf("EC flash region %d: offset=%#x, size=%#x\n",
-			       req->region, resp->offset, resp->size);
+			log_debug("EC flash region %d: offset=%#x, size=%#x\n",
+				  req->region, resp->offset, resp->size);
 			break;
 		default:
-			printf("** Unknown flash region %d\n", req->region);
-			return -1;
+			log_debug("Unknown flash region %d\n", req->region);
+			return -EC_RES_INVALID_PARAM;
 		}
+		break;
+	}
+	case EC_CMD_FLASH_INFO: {
+		struct ec_response_flash_info *resp = resp_data;
+
+		resp->flash_size = ec->flash_data_len;
+		resp->write_block_size = FLASH_WRITE_BLOCK;
+		resp->erase_block_size = FLASH_ERASE_BLOCK;
+		resp->protect_block_size = FLASH_PROTECT_BLOCK;
+		len = sizeof(*resp);
+		break;
+	}
+	case EC_CMD_FLASH_READ: {
+		const struct ec_params_flash_read *req = req_data;
+
+		if (!flash_range_ok(ec, req->offset, req->size))
+			return -EC_RES_INVALID_PARAM;
+		memcpy(resp_data, ec->flash_data + req->offset, req->size);
+		len = req->size;
 		break;
 	}
 	case EC_CMD_FLASH_ERASE: {
 		const struct ec_params_flash_erase *req = req_data;
 
+		if (!flash_range_ok(ec, req->offset, req->size))
+			return -EC_RES_INVALID_PARAM;
 		memset(ec->flash_data + req->offset,
 		       ec->ec_config.flash_erase_value,
 		       req->size);
@@ -489,6 +693,10 @@ static int process_cmd(struct ec_state *ec,
 	case EC_CMD_FLASH_WRITE: {
 		const struct ec_params_flash_write *req = req_data;
 
+		/* the data must be in the request, and fit in the flash */
+		if (req->size > req_hdr->data_len - sizeof(*req) ||
+		    !flash_range_ok(ec, req->offset, req->size))
+			return -EC_RES_INVALID_PARAM;
 		memcpy(ec->flash_data + req->offset, req + 1, req->size);
 		len = 0;
 		break;
@@ -496,6 +704,18 @@ static int process_cmd(struct ec_state *ec,
 	case EC_CMD_MKBP_STATE:
 		len = cros_ec_keyscan(ec, resp_data);
 		break;
+	case EC_CMD_MKBP_INFO: {
+		struct ec_response_mkbp_info *resp = resp_data;
+
+		/* an EC with no keyboard does not have this command */
+		if (!ec->matrix)
+			return -EC_RES_INVALID_COMMAND;
+		resp->rows = KEYBOARD_ROWS;
+		resp->cols = KEYBOARD_COLS;
+		resp->reserved = 0;
+		len = sizeof(*resp);
+		break;
+	}
 	case EC_CMD_GET_NEXT_EVENT: {
 		struct ec_response_get_next_event *resp = resp_data;
 
@@ -541,7 +761,7 @@ static int process_cmd(struct ec_state *ec,
 		struct vstore_slot *slot;
 
 		if (req->slot >= VSTORE_SLOT_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		slot = &ec->slot[req->slot];
 		slot->locked = true;
 		memcpy(slot->data, req->data, EC_VSTORE_SLOT_SIZE);
@@ -554,7 +774,7 @@ static int process_cmd(struct ec_state *ec,
 		struct vstore_slot *slot;
 
 		if (req->slot >= VSTORE_SLOT_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		slot = &ec->slot[req->slot];
 		memcpy(resp->data, slot->data, EC_VSTORE_SLOT_SIZE);
 		len = sizeof(*resp);
@@ -566,9 +786,9 @@ static int process_cmd(struct ec_state *ec,
 		struct ec_pwm_channel *pwm;
 
 		if (req->pwm_type != EC_PWM_TYPE_GENERIC)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		if (req->index >= PWM_CHANNEL_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		pwm = &ec->pwm[req->index];
 		resp->duty = pwm->duty;
 		len = sizeof(*resp);
@@ -579,17 +799,76 @@ static int process_cmd(struct ec_state *ec,
 		struct ec_pwm_channel *pwm;
 
 		if (req->pwm_type != EC_PWM_TYPE_GENERIC)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		if (req->index >= PWM_CHANNEL_COUNT)
-			return -EINVAL;
+			return -EC_RES_INVALID_PARAM;
 		pwm = &ec->pwm[req->index];
 		pwm->duty = req->duty;
 		len = 0;
 		break;
 	}
+	case EC_CMD_CHARGE_STATE: {
+		const struct ec_params_charge_state *req = req_data;
+		struct ec_response_charge_state *resp = resp_data;
+
+		switch (req->cmd) {
+		case CHARGE_STATE_CMD_GET_STATE:
+			resp->get_state.ac = 1;
+			resp->get_state.chg_voltage = CHG_VOLTAGE_MV;
+			resp->get_state.chg_current = CHG_CURRENT_MA;
+			resp->get_state.chg_input_current = CHG_INPUT_CURRENT_MA;
+			resp->get_state.batt_state_of_charge = BATT_CHARGE_PCT;
+			len = sizeof(resp->get_state);
+			break;
+		case CHARGE_STATE_CMD_GET_PARAM:
+			if (req->get_param.param != CS_PARAM_LIMIT_POWER)
+				return -EC_RES_INVALID_PARAM;
+			resp->get_param.value =
+				!!(ec->test_flags & CROSECT_LIMIT_POWER);
+			len = sizeof(resp->get_param);
+			break;
+		default:
+			return -EC_RES_INVALID_PARAM;
+		}
+		break;
+	}
+	case EC_CMD_BATTERY_CUT_OFF: {
+		const struct ec_params_battery_cutoff *req = req_data;
+
+		/* version 0 has no flags */
+		ec->battery_cutoff = req_hdr->command_version ? req->flags : 0;
+		len = 0;
+		break;
+	}
+	case EC_CMD_CONFIG_POWER_BUTTON: {
+		const struct ec_params_config_power_button *req = req_data;
+
+		ec->powerbtn_flags = req->flags;
+		len = 0;
+		break;
+	}
+	case EC_CMD_LDO_GET: {
+		const struct ec_params_ldo_get *req = req_data;
+		struct ec_response_ldo_get *resp = resp_data;
+
+		if (req->index >= LDO_COUNT)
+			return -EC_RES_INVALID_PARAM;
+		resp->state = ec->ldo[req->index];
+		len = sizeof(*resp);
+		break;
+	}
+	case EC_CMD_LDO_SET: {
+		const struct ec_params_ldo_set *req = req_data;
+
+		if (req->index >= LDO_COUNT || req->state > EC_LDO_STATE_ON)
+			return -EC_RES_INVALID_PARAM;
+		ec->ldo[req->index] = req->state;
+		len = 0;
+		break;
+	}
 	default:
-		printf("   ** Unknown EC command %#02x\n", req_hdr->command);
-		return -1;
+		log_debug("Unknown EC command %#02x\n", req_hdr->command);
+		return -EC_RES_INVALID_COMMAND;
 	}
 	debug(" - EC command %#0x, result %d\n", req_hdr->command, len);
 
@@ -606,12 +885,15 @@ int cros_ec_sandbox_packet(struct udevice *udev, int out_bytes, int in_bytes)
 	void *resp_data = resp_hdr + 1;
 	int len;
 
+	/* A refused command sends back its result code, with no data */
 	len = process_cmd(ec, req_hdr, req_data, resp_hdr, resp_data);
-	if (len < 0)
-		return len;
+	resp_hdr->result = EC_RES_SUCCESS;
+	if (len < 0) {
+		resp_hdr->result = -len;
+		len = 0;
+	}
 
 	resp_hdr->struct_version = 3;
-	resp_hdr->result = EC_RES_SUCCESS;
 	resp_hdr->data_len = len;
 	resp_hdr->reserved = 0;
 	len += sizeof(*resp_hdr);
@@ -670,6 +952,15 @@ int sandbox_cros_ec_get_pwm_duty(struct udevice *dev, uint index, uint *duty)
 	return 0;
 }
 
+void sandbox_cros_ec_get_power(struct udevice *dev, int *cutoffp,
+			       uint *powerbtnp)
+{
+	struct ec_state *ec = dev_get_priv(dev);
+
+	*cutoffp = ec->battery_cutoff;
+	*powerbtnp = ec->powerbtn_flags;
+}
+
 int cros_ec_probe(struct udevice *dev)
 {
 	struct ec_state *ec = dev_get_priv(dev);
@@ -682,6 +973,7 @@ int cros_ec_probe(struct udevice *dev)
 		memcpy(ec, &s_state, sizeof(*ec));
 	else
 		ec->current_image = EC_IMAGE_RO;
+	ec->battery_cutoff = -1;
 	err = cros_ec_decode_ec_flash(dev, &ec->ec_config);
 	if (err) {
 		debug("%s: Cannot device EC flash\n", __func__);

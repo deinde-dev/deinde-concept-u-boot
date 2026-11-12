@@ -72,6 +72,8 @@ enum {
 enum cros_ec_test_t {
 	CROSECT_BREAK_HELLO	= BIT(1),
 	CROSECT_LID_OPEN	= BIT(2),
+	CROSECT_LIMIT_POWER	= BIT(3),	/* charger asks to limit power */
+	CROSECT_SLOW_HASH	= BIT(4),	/* hash is busy for a while */
 };
 
 /**
@@ -325,6 +327,17 @@ void sandbox_cros_ec_set_test_flags(struct udevice *dev, uint flags);
  * Return: 0 if OK, -ENOSPC if the PWM number is invalid
  */
 int sandbox_cros_ec_get_pwm_duty(struct udevice *dev, uint index, uint *duty);
+
+/**
+ * sandbox_cros_ec_get_power() - Get what the EC was asked to do with power
+ *
+ * @dev: Device to check
+ * @cutoffp: Returns the flags of the last request to cut off the battery
+ *	(EC_BATTERY_CUTOFF_FLAG_...), or -1 if there has been none
+ * @powerbtnp: Returns the power-button flags (EC_POWER_BUTTON_...)
+ */
+void sandbox_cros_ec_get_power(struct udevice *dev, int *cutoffp,
+			       uint *powerbtnp);
 
 /**
  * sandbox_set_fake_efi_mgr_dev() - Control EFI bootmgr producing valid bootflow

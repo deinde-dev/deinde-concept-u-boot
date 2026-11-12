@@ -22,6 +22,9 @@ DECLARE_GLOBAL_DATA_PTR;
 /* Size of that image, which is as small as the emulator accepts */
 #define IMAGE_SIZE	2
 
+/* Where the image is read back to */
+#define READ_ADDR	(IMAGE_ADDR + 0x100)
+
 /*
  * Last byte of an EC image, which the emulator looks for to work out how much
  * of a region holds an image
@@ -36,7 +39,8 @@ DECLARE_GLOBAL_DATA_PTR;
 #define HELLO_IN	0x12345678
 #define HELLO_ADD	0x01020304
 
-/* The RW region of the emulated EC's flash */
+/* The emulated EC's flash, and its RW region */
+#define FLASH_SIZE	0x20000
 #define RW_OFFSET	0x10000
 #define RW_SIZE		0x10000
 
@@ -81,6 +85,11 @@ static int cmd_test_crosec_base(struct unit_test_state *uts)
 	ut_assertok(run_command("crosec test", 0));
 	ut_assert_nextline("Test passed");
 
+	/* the size of the keyboard matrix */
+	ut_assertok(run_command("crosec info", 0));
+	ut_assert_nextline("rows     = 8");
+	ut_assert_nextline("cols     = 13");
+
 	/* re-probing the EC leaves it answering as before */
 	ut_assertok(run_command("crosec init", 0));
 	ut_assertok(run_command("crosec id", 0));
@@ -91,15 +100,14 @@ static int cmd_test_crosec_base(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_crosec_base, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
-/* Test 'crosec version', which the emulator answers only in part */
+/* Test 'crosec version', which shows the EC's versions and build */
 static int cmd_test_crosec_version(struct unit_test_state *uts)
 {
-	/* the emulator has no build information, so the command fails */
-	ut_asserteq(1, run_command("crosec version", 0));
+	ut_assertok(run_command("crosec version", 0));
 	ut_assert_nextline("RO version:    sandbox_ro");
 	ut_assert_nextline("RW version:    sandbox_rw");
 	ut_assert_nextline("Firmware copy: RO");
-	ut_assert_skip_to_line("Error: CROS-EC command failed (error -1)");
+	ut_assert_nextline("Build info:    sandbox_ec 1.0");
 	ut_assert_console_end();
 
 	return 0;
@@ -138,25 +146,23 @@ CMD_TEST(cmd_test_crosec_events, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 /* Test the sub-commands which work on the EC's flash */
 static int cmd_test_crosec_flash(struct unit_test_state *uts)
 {
+	struct udevice *dev;
 	u8 *buf;
 
 	if (gd->ram_base > IMAGE_ADDR)
 		return -EAGAIN;
 
 	ut_assertok(run_command("crosec regioninfo ro", 0));
-	ut_assert_nextline("EC flash region 0: offset=0x0, size=0xf000");
 	ut_assert_nextline("Region: RO");
 	ut_assert_nextline("Offset: 0");
 	ut_assert_nextline("Size:   f000");
 
 	ut_assertok(run_commandf("crosec regioninfo rw"));
-	ut_assert_nextlinen("EC flash region 1: ");
 	ut_assert_nextline("Region: RW");
 	ut_assert_nextline("Offset: %x", RW_OFFSET);
 	ut_assert_nextline("Size:   %x", RW_SIZE);
 
 	ut_assertok(run_command("crosec erase rw", 0));
-	console_record_reset();
 
 	/* write a tiny image to the region, so that it can be hashed */
 	buf = map_sysmem(IMAGE_ADDR, IMAGE_SIZE);
@@ -165,47 +171,75 @@ static int cmd_test_crosec_flash(struct unit_test_state *uts)
 	unmap_sysmem(buf);
 	ut_assertok(run_commandf("crosec write rw %lx %x", IMAGE_ADDR,
 				 IMAGE_SIZE));
-	console_record_reset();
 
 	ut_assertok(run_command("crosec hash", 0));
 	ut_assert_nextline("type:    SHA-256");
 	ut_assert_nextline("offset:  0x%08x", RW_OFFSET);
 	ut_assert_nextline("size:    0x%08x", IMAGE_SIZE);
 	ut_assert_nextline("digest:  " IMAGE_DIGEST);
+
+	/* a slow hash gives the same result, once the EC is done */
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	sandbox_cros_ec_set_test_flags(dev, CROSECT_SLOW_HASH);
+	ut_assertok(run_command("crosec hash", 0));
+	ut_assert_nextline("type:    SHA-256");
+	ut_assert_nextline("offset:  0x%08x", RW_OFFSET);
+	ut_assert_nextline("size:    0x%08x", IMAGE_SIZE);
+	ut_assert_nextline("digest:  " IMAGE_DIGEST);
+	sandbox_cros_ec_set_test_flags(dev, 0);
+
+	/* read the image back */
+	buf = map_sysmem(READ_ADDR, IMAGE_SIZE);
+	memset(buf, '\xff', IMAGE_SIZE);
+	ut_assertok(run_commandf("crosec read rw %lx %x", READ_ADDR,
+				 IMAGE_SIZE));
+	ut_asserteq(0, buf[0]);
+	ut_asserteq(IMAGE_END, buf[IMAGE_SIZE - 1]);
+	unmap_sysmem(buf);
+
+	ut_assertok(run_command("crosec flashinfo", 0));
+	ut_assert_nextline("Flash size:         %u", FLASH_SIZE);
+	ut_assert_nextline("Write block size:   4");
+	ut_assert_nextline("Erase block size:   2048");
 	ut_assert_console_end();
 
 	return 0;
 }
 CMD_TEST(cmd_test_crosec_flash, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
-/* Test the sub-commands which the emulated EC does not implement */
-static int cmd_test_crosec_missing(struct unit_test_state *uts)
+/* Test switching an LDO on and off, which the EC starts with off */
+static int cmd_test_crosec_ldo(struct unit_test_state *uts)
 {
-	/* the emulator has no keyboard matrix */
-	ut_asserteq(1, run_command("crosec info", 0));
-	ut_assert_nextline("   ** Unknown EC command 0x61");
+	ut_assertok(run_command("crosec ldo 1", 0));
+	ut_assert_nextline("LDO1: off");
 
-	/* nor any flash geometry */
-	ut_asserteq(1, run_command("crosec flashinfo", 0));
-	ut_assert_nextline("   ** Unknown EC command 0x10");
-	ut_assert_nextline("Error: CROS-EC command failed (error -1)");
+	ut_assertok(run_command("crosec ldo 1 1", 0));
+	ut_assertok(run_command("crosec ldo 1", 0));
+	ut_assert_nextline("LDO1: on");
 
-	/* nor a way of reading its flash back */
-	ut_asserteq(1, run_commandf("crosec read rw %lx %x", IMAGE_ADDR,
-				    IMAGE_SIZE));
-	ut_assert_skip_to_line("Error: CROS-EC command failed (error -1)");
+	/* the others are not affected */
+	ut_assertok(run_command("crosec ldo 2", 0));
+	ut_assert_nextline("LDO2: off");
+
+	ut_assertok(run_command("crosec ldo 1 0", 0));
+	ut_assertok(run_command("crosec ldo 1", 0));
+	ut_assert_nextline("LDO1: off");
 
 	/*
-	 * nor any LDOs. This checks that the error is reported rather than
-	 * being returned from the handler, where -1 means CMD_RET_USAGE
+	 * the EC has no LDO 9. This checks that the error is reported rather
+	 * than being returned from the handler, where -1 means CMD_RET_USAGE
 	 */
-	ut_asserteq(1, run_command("crosec ldo 1", 0));
-	ut_assert_skip_to_line("Error: CROS-EC command failed (error -1)");
+	ut_asserteq(1, run_command("crosec ldo 9", 0));
+	ut_assert_nextline("Error: CROS-EC command failed (error -1)");
+
+	/* nor a state other than off and on */
+	ut_asserteq(1, run_command("crosec ldo 1 2", 0));
+	ut_assert_nextline("Error: CROS-EC command failed (error -1)");
 	ut_assert_console_end();
 
 	return 0;
 }
-CMD_TEST(cmd_test_crosec_missing, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
+CMD_TEST(cmd_test_crosec_ldo, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
 /* Test that a broken handshake is reported as a failure */
 static int cmd_test_crosec_test(struct unit_test_state *uts)

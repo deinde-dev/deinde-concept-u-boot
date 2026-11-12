@@ -11,6 +11,15 @@ struct cros_ec_pwm_priv {
 	uint duty;
 };
 
+/*
+ * The EC reports an invalid channel with EC_RES_INVALID_PARAM, which callers
+ * of the PWM uclass expect as -EINVAL
+ */
+static int cros_ec_pwm_err(int ret)
+{
+	return ret == -EC_RES_INVALID_PARAM ? -EINVAL : ret;
+}
+
 static int cros_ec_pwm_set_config(struct udevice *dev, uint channel,
 				  uint period_ns, uint duty_ns)
 {
@@ -35,7 +44,7 @@ static int cros_ec_pwm_set_config(struct udevice *dev, uint channel,
 	ret = cros_ec_set_pwm_duty(dev->parent, channel, duty);
 	if (ret) {
 		debug("%s: duty=%#x failed\n", __func__, duty);
-		return ret;
+		return cros_ec_pwm_err(ret);
 	}
 
 	priv->duty = duty;
@@ -54,7 +63,7 @@ static int cros_ec_pwm_set_enable(struct udevice *dev, uint channel,
 				   enable ? priv->duty : 0);
 	if (ret) {
 		debug("%s: enable=%d failed\n", __func__, enable);
-		return ret;
+		return cros_ec_pwm_err(ret);
 	}
 
 	priv->enabled = enable;

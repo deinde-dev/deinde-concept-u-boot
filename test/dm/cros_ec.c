@@ -169,3 +169,128 @@ static int dm_test_cros_ec_vstore(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_cros_ec_vstore, UTF_SCAN_FDT);
+
+/* Test that the EC refuses flash accesses which go past the end of its flash */
+static int dm_test_cros_ec_flash(struct unit_test_state *uts)
+{
+	struct ec_response_flash_info info;
+	u8 data[4] = {1, 2, 3, 4}, buf[4];
+	struct udevice *dev;
+	uint size;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	ut_assertok(cros_ec_read_flashinfo(dev, &info));
+	size = info.flash_size;
+
+	/* the last few bytes can be written and read back */
+	ut_assertok(cros_ec_flash_write(dev, data, size - 4, 4));
+	ut_assertok(cros_ec_flash_read(dev, buf, size - 4, 4));
+	ut_asserteq_mem(data, buf, 4);
+
+	/* but nothing past the end */
+	ut_asserteq(-EC_RES_INVALID_PARAM,
+		    cros_ec_flash_erase(dev, size - 4, 8));
+	ut_asserteq(-1, cros_ec_flash_write(dev, data, size - 2, 4));
+	ut_asserteq(-1, cros_ec_flash_read(dev, buf, size - 2, 4));
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_flash, UTF_SCAN_FDT);
+
+/* Test the host-event masks, and the events read through EC_CMD_HOST_EVENT */
+static int dm_test_cros_ec_host_event_mask(struct unit_test_state *uts)
+{
+	u64 lid_open = EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_OPEN);
+	struct udevice *dev;
+	u32 mask;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+
+	/* the EC supports unified host events, so these use them */
+	ut_asserteq(0, cros_ec_get_events_b(dev));
+	sandbox_cros_ec_set_test_flags(dev, CROSECT_LID_OPEN);
+	ut_asserteq(lid_open, cros_ec_get_events_b(dev));
+	ut_assertok(cros_ec_clear_events_b(dev, lid_open));
+	ut_asserteq(0, cros_ec_get_events_b(dev));
+
+	/* each mask is separate */
+	ut_assertok(cros_ec_set_event_mask(dev, EC_CMD_HOST_EVENT_SET_SCI_MASK,
+					   0x1234));
+	ut_assertok(cros_ec_set_event_mask(dev, EC_CMD_HOST_EVENT_SET_WAKE_MASK,
+					   0x5678));
+	ut_assertok(cros_ec_get_event_mask(dev, EC_CMD_HOST_EVENT_GET_SCI_MASK,
+					   &mask));
+	ut_asserteq(0x1234, mask);
+	ut_assertok(cros_ec_get_event_mask(dev, EC_CMD_HOST_EVENT_GET_WAKE_MASK,
+					   &mask));
+	ut_asserteq(0x5678, mask);
+
+	/* the lid-shutdown setting is a bit in the SMI mask */
+	ut_asserteq(0, cros_ec_get_lid_shutdown_mask(dev));
+	ut_assertok(cros_ec_set_lid_shutdown_mask(dev, true));
+	ut_assert_nextline("EC: enabled lid close event");
+	ut_asserteq(1, cros_ec_get_lid_shutdown_mask(dev));
+	ut_assertok(cros_ec_get_event_mask(dev, EC_CMD_HOST_EVENT_GET_SMI_MASK,
+					   &mask));
+	ut_asserteq(EC_HOST_EVENT_MASK(EC_HOST_EVENT_LID_CLOSED), mask);
+
+	ut_assertok(cros_ec_set_lid_shutdown_mask(dev, false));
+	ut_assert_nextline("EC: disabled lid close event");
+	ut_asserteq(0, cros_ec_get_lid_shutdown_mask(dev));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_host_event_mask, UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test the battery and charger, and what the EC is asked to do with power */
+static int dm_test_cros_ec_power(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	int cutoff, limit;
+	uint charge, btn;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	ut_assertok(cros_ec_read_batt_charge(dev, &charge));
+	ut_asserteq(75, charge);
+
+	/* the charger asks the AP to limit its power only when told to */
+	ut_assertok(cros_ec_read_limit_power(dev, &limit));
+	ut_asserteq(0, limit);
+	sandbox_cros_ec_set_test_flags(dev, CROSECT_LIMIT_POWER);
+	ut_assertok(cros_ec_read_limit_power(dev, &limit));
+	ut_asserteq(1, limit);
+
+	sandbox_cros_ec_get_power(dev, &cutoff, &btn);
+	ut_asserteq(-1, cutoff);
+	ut_asserteq(0, btn);
+
+	ut_assertok(cros_ec_battery_cutoff(dev,
+					   EC_BATTERY_CUTOFF_FLAG_AT_SHUTDOWN));
+	ut_assertok(cros_ec_config_powerbtn(dev, EC_POWER_BUTTON_ENABLE_PULSE));
+	sandbox_cros_ec_get_power(dev, &cutoff, &btn);
+	ut_asserteq(EC_BATTERY_CUTOFF_FLAG_AT_SHUTDOWN, cutoff);
+	ut_asserteq(EC_POWER_BUTTON_ENABLE_PULSE, btn);
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_power, UTF_SCAN_FDT);
+
+/*
+ * Test a command which the EC does not support. The emulator, like an older
+ * EC, has no EC_CMD_EFS_VERIFY, which the library takes to mean that the EC
+ * does not use early firmware selection
+ */
+static int dm_test_cros_ec_unsupported(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+
+	ut_assertok(uclass_first_device_err(UCLASS_CROS_EC, &dev));
+	ut_assertok(cros_ec_efs_verify(dev, EC_FLASH_REGION_ACTIVE));
+	ut_assert_nextline_regex("EFS: EC is verifying updated image");
+	ut_assert_nextline_regex("EFS: EC doesn't support EFS_VERIFY");
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cros_ec_unsupported, UTF_SCAN_FDT | UTF_CONSOLE);
