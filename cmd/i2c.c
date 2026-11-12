@@ -1960,7 +1960,7 @@ static int do_i2c(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 /***************************************************/
 U_BOOT_LONGHELP(i2c,
 #if IS_ENABLED(CONFIG_SYS_I2C_LEGACY) || IS_ENABLED(CONFIG_DM_I2C)
-	"bus [muxtype:muxaddr:muxchannel] - show I2C bus info\n"
+	"bus [n] - show I2C bus info\n"
 	"i2c " /* That's the prefix for the crc32 command below. */
 #endif
 	"crc32 chip address[.0, .1, .2] count - compute CRC32 checksum\n"
