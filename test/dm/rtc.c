@@ -8,6 +8,8 @@
 #include <dm.h>
 #include <i2c.h>
 #include <log.h>
+#include <malloc.h>
+#include <mapmem.h>
 #include <rtc.h>
 #include <asm/io.h>
 #include <asm/rtc.h>
@@ -240,6 +242,108 @@ static int dm_test_rtc_cmd_rw(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_rtc_cmd_rw, UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test 'rtc read' and 'rtc write' with a memory address */
+static int dm_test_rtc_cmd_mem(struct unit_test_state *uts)
+{
+	ulong addr;
+	u8 *buf;
+
+	buf = calloc(1, 4);
+	ut_assertnonnull(buf);
+	addr = map_to_sysmem(buf);
+
+	ut_assertok(run_command("rtc dev 0", 0));
+	ut_assert_nextline("RTC #0 - rtc@43");
+
+	/* write the four aux registers from memory */
+	buf[0] = 0x12;
+	buf[1] = 0x34;
+	buf[2] = 0x56;
+	buf[3] = 0x78;
+	ut_assertok(run_commandf("rtc write 0x30 4 0x%lx", addr));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rtc read 0x30 4", 0));
+	ut_assert_nextline("00000030: 12 34 56 78                                      .4Vx");
+	ut_assert_console_end();
+
+	/* read them back into memory, which shows nothing */
+	memset(buf, '\0', 4);
+	ut_assertok(run_commandf("rtc read 0x30 4 0x%lx", addr));
+	ut_assert_console_end();
+
+	ut_asserteq(0x12, buf[0]);
+	ut_asserteq(0x34, buf[1]);
+	ut_asserteq(0x56, buf[2]);
+	ut_asserteq(0x78, buf[3]);
+
+	free(buf);
+
+	return 0;
+}
+DM_TEST(dm_test_rtc_cmd_mem, UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test the errors which the rtc command reports */
+static int dm_test_rtc_cmd_err(struct unit_test_state *uts)
+{
+	ut_assertok(run_command("rtc dev 0", 0));
+	ut_assert_nextline("RTC #0 - rtc@43");
+
+	/* a device which does not exist leaves the current one alone */
+	ut_asserteq(1, run_command("rtc dev 2", 0));
+	ut_assert_nextline("Cannot find RTC #2: err=-19");
+	ut_assertok(run_command("rtc dev", 0));
+	ut_assert_nextline("RTC #0 - rtc@43");
+
+	/* a hex string with an odd number of digits */
+	ut_asserteq(1, run_command("rtc write 0x30 abc", 0));
+	ut_assert_nextline("invalid hex string");
+
+	/* a hex string which is not hex */
+	ut_asserteq(1, run_command("rtc write 0x30 zz", 0));
+	ut_assert_nextline("invalid hex string");
+
+	/* a count of zero reads nothing */
+	ut_assertok(run_command("rtc read 0x30 0", 0));
+
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_rtc_cmd_err, UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test the rtc command showing its usage message */
+static int dm_test_rtc_cmd_usage(struct unit_test_state *uts)
+{
+	static const char * const cmds[] = {
+		"rtc",				/* no sub-command */
+		"rtc bogus",			/* an unknown sub-command */
+		"rtc -x",			/* an option, which it has none of */
+		"rtc read",			/* no register */
+		"rtc read 0x30",		/* no count */
+		"rtc read 0x30 4 1000 2000",	/* too many arguments */
+		"rtc write 0x30",		/* nothing to write */
+	};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
+		ut_asserteq(1, run_command(cmds[i], 0));
+		ut_assert_nextline("rtc - RTC subsystem");
+		ut_assert_nextline_empty();
+
+		/*
+		 * The rest of the message is the long help, which
+		 * CONFIG_SYS_LONGHELP can leave out
+		 */
+		console_record_reset();
+	}
+
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_rtc_cmd_usage, UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
 
 /* Reset the time */
 static int dm_test_rtc_reset(struct unit_test_state *uts)
