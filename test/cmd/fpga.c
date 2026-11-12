@@ -117,6 +117,13 @@ static int cmd_test_fpga_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("fpga", 0));
 	ut_assertok(check_usage(uts));
 
+	/* an option is refused, before and after the sub-command name */
+	ut_asserteq(1, run_command("fpga -x info", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("fpga info -x", 0));
+	ut_assertok(check_usage(uts));
+
 	/* a sub-command which does not exist */
 	ut_asserteq(1, run_command("fpga bogus", 0));
 	ut_assertok(check_log(uts, FUNC_WRAPPER, "Non existing command"));

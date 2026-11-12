@@ -1369,6 +1369,7 @@ config CMD_FLASH
 config CMD_FPGA
 	bool "fpga"
 	depends on FPGA
+	select GETOPT
 	default y
 	help
 	  FPGA support.
