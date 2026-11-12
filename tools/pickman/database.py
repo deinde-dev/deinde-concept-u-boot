@@ -586,6 +586,24 @@ class Database:  # pylint: disable=too-many-public-methods
             (mr_iid, pipeline_id))
         return res.fetchone() is not None
 
+    def pfix_status(self, mr_iid, pipeline_id):
+        """Get how a pipeline was handled
+
+        Args:
+            mr_iid (int): Merge request IID
+            pipeline_id (int): Pipeline ID
+
+        Return:
+            str: Status recorded for the pipeline, e.g. 'shared', or None if
+                it has not been handled
+        """
+        res = self.execute(
+            'SELECT status FROM pipeline_fix '
+            'WHERE mr_iid = ? AND pipeline_id = ?',
+            (mr_iid, pipeline_id))
+        row = res.fetchone()
+        return row[0] if row else None
+
     # ci_run functions
 
     def cirun_add(self, mr_iid, pipeline_id, sha, base_id, jobs):

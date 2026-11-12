@@ -4934,7 +4934,7 @@ def do_rewind(args, dbs):
 
 
 # pylint: disable=too-many-locals,too-many-branches,too-many-statements
-def process_single_mr(remote, merge_req, dbs, target):
+def process_single_mr(remote, merge_req, dbs, target, fixing=False):
     """Process review comments on a single MR
 
     Args:
@@ -4942,6 +4942,7 @@ def process_single_mr(remote, merge_req, dbs, target):
         merge_req (PickmanMr): MR object from get_open_pickman_mrs()
         dbs (Database): Database instance for tracking processed comments
         target (str): Target branch for rebase operations
+        fixing (bool): True if pipeline failures are fixed after this
 
     Returns:
         int: 1 if MR was processed, 0 otherwise
@@ -4981,7 +4982,8 @@ def process_single_mr(remote, merge_req, dbs, target):
 
     # Being behind, or a conflict only in the history, needs no agent
     if not unresolved and (merge_req.needs_rebase or merge_req.has_conflicts):
-        done = _rebase_without_agent(remote, merge_req, target)
+        done = _rebase_without_agent(remote, merge_req, dbs, target,
+                                     fixing=fixing)
         if done is not None:
             processed += done
             needs_rebase = False
@@ -5068,7 +5070,7 @@ def process_single_mr(remote, merge_req, dbs, target):
     return processed + 1
 
 
-def process_mr_reviews(remote, mrs, dbs, target='master'):
+def process_mr_reviews(remote, mrs, dbs, target='master', fixing=False):
     """Process review comments on open MRs
 
     Checks each MR for unresolved comments and uses Claude agent to address
@@ -5079,6 +5081,7 @@ def process_mr_reviews(remote, mrs, dbs, target='master'):
         mrs (list): List of MR dicts from get_open_pickman_mrs()
         dbs (Database): Database instance for tracking processed comments
         target (str): Target branch for rebase operations
+        fixing (bool): True if pipeline failures are fixed after this
 
     Returns:
         int: Number of MRs with comments processed
@@ -5092,7 +5095,8 @@ def process_mr_reviews(remote, mrs, dbs, target='master'):
 
     processed = 0
     for merge_req in mrs:
-        processed += process_single_mr(remote, merge_req, dbs, target)
+        processed += process_single_mr(remote, merge_req, dbs, target,
+                                       fixing)
 
     # Restore original branch
     if processed:
@@ -5263,8 +5267,11 @@ def history_only_conflict(upstream, ref):
 PIPELINE_BUSY = ('created', 'waiting_for_resource', 'preparing', 'pending',
                  'running')
 
+# How the pipeline fix records a failure which the series is not to blame for
+PFIX_NOT_SERIES = ('shared', 'lab')
 
-def _rebase_without_agent(remote, merge_req, target):
+
+def _rebase_without_agent(remote, merge_req, dbs, target, *, fixing):
     """Rebase a branch if that needs no agent
 
     A branch which conflicts with its target only in the history needs no
@@ -5273,21 +5280,26 @@ def _rebase_without_agent(remote, merge_req, target):
     passes, so that it is ready to merge: rebasing it each time the target
     moves would otherwise mean a pipeline each time.
 
-    Once the pipeline passes, the series is known to be good, so the rebase
-    is pushed without running the pipeline again. Wait for any pipeline to
-    finish first, so that its results are not lost. A subtree update is
-    pulled again instead, so is left alone.
+    Once the pipeline passes, or fails only where the pipeline fix finds
+    that the series is not to blame, the series is known to be good, so the
+    rebase is pushed without running the pipeline again. Wait for any
+    pipeline to finish first, and for the pipeline fix to look at a failure,
+    so that the results are not lost. A subtree update is pulled again
+    instead, so is left alone.
 
     Args:
         remote (str): Remote name
         merge_req (PickmanMr): MR which is behind or has conflicts
+        dbs (Database): Database instance, for how a failure was handled
         target (str): Target branch
+        fixing (bool): True if the pipeline fix runs after this, so that it
+            can be left to look at a failure first
 
     Returns:
         int: 1 if the branch is dealt with, 0 if it is already rebased or
-            the pipeline has yet to finish, or None to leave the branch as
-            it is, or to the agent if it has a real conflict or cannot be
-            rebased after all
+            the pipeline has yet to be dealt with, or None to leave the
+            branch as it is, or to the agent if it has a real conflict or
+            cannot be rebased after all
     """
     mr_iid = merge_req.iid
     branch = merge_req.source_branch
@@ -5305,12 +5317,19 @@ def _rebase_without_agent(remote, merge_req, target):
         pass
     pipeline_id, status = (gitlab_api.get_last_pipeline(remote, mr_iid) or
                            (None, None))
-    if status in PIPELINE_BUSY:
-        tout.info(f'MR !{mr_iid}: waiting for pipeline {pipeline_id} before '
-                  f'rebasing')
+    fix = dbs.pfix_status(mr_iid, pipeline_id) if status == 'failed' else None
+    if status in PIPELINE_BUSY or (status == 'failed' and fixing and not fix):
+        tout.info(f'MR !{mr_iid}: waiting for pipeline {pipeline_id} to be '
+                  f'dealt with before rebasing')
         return 0
-    passed = status == 'success'
-    if not conflicts and not passed:
+    if status == 'success':
+        good = f'Pipeline {pipeline_id} passed'
+    elif fix in PFIX_NOT_SERIES:
+        good = (f'Pipeline {pipeline_id} failed only in jobs which fail in '
+                f'other merge requests too, or in the lab')
+    else:
+        good = None
+    if not conflicts and not good:
         return None
 
     tout.info('')
@@ -5321,20 +5340,19 @@ def _rebase_without_agent(remote, merge_req, target):
         tout.warning(f'MR !{mr_iid}: cannot rebase without the agent')
         return None
     try:
-        gitlab_api.push_branch(remote, branch, force=True, skip_ci=passed)
+        gitlab_api.push_branch(remote, branch, force=True,
+                               skip_ci=bool(good))
     except command.CommandExc:
         _push_failed(remote, mr_iid, 'the rebased branch')
     else:
-        if passed:
-            tout.info(f'MR !{mr_iid}: pipeline {pipeline_id} passed, so it '
-                      f'is not run again')
+        if good:
+            tout.info(f'MR !{mr_iid}: {good}, so it is not run again')
         if conflicts:
             msg = (f'Rebased onto {target}, since the only conflict is in '
                    f'{HISTORY_FILE}, where both sides add entries. Both are '
                    f'kept and no other change is made.')
-            if passed:
-                msg += (f' Pipeline {pipeline_id} passed, so it is not run '
-                        f'again.')
+            if good:
+                msg += f' {good}, so it is not run again.'
             gitlab_api.reply_to_mr(remote, mr_iid, msg)
     return 1
 
@@ -6149,7 +6167,8 @@ def _do_step(args, dbs):
 
         # Process any review comments on all open MRs (including skipped,
         # in case they have an unskip request)
-        process_mr_reviews(remote, mrs, dbs, args.target)
+        process_mr_reviews(remote, mrs, dbs, args.target,
+                           fixing=args.fix_retries > 0)
 
         # Process pipeline failures on active MRs only
         if active_mrs and args.fix_retries > 0:

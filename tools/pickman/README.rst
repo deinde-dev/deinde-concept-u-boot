@@ -745,6 +745,12 @@ Otherwise each rebase would need a full pipeline, using a lot of CI time each
 time the target moves. Until its pipeline passes, such an MR is rebased only
 while the agent is addressing comments.
 
+A pipeline which fails only in jobs which the pipeline fix leaves alone, since
+they also fail in other MRs or test/py gave up on the lab board, counts as
+passing here, since the series is not to blame. pickman waits for the pipeline
+fix to look at a failed pipeline before rebasing, so that it knows which kind
+of failure it is.
+
 After processing, pickman:
 
 - Marks comments as processed in the database (to avoid reprocessing)
