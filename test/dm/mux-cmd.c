@@ -169,3 +169,104 @@ static int dm_test_cmd_mux_deselect(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_cmd_mux_deselect, UTF_SCAN_PDATA | UTF_SCAN_FDT);
+
+/* Test the errors which 'mux select' reports */
+static int dm_test_cmd_mux_select_err(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	struct mux_chip *chip;
+
+	ut_assertok(uclass_get_device_by_name(UCLASS_MUX, "a-mux-controller",
+					      &dev));
+	chip = dev_get_uclass_priv(dev);
+	ut_assertnonnull(chip);
+
+	/* a chip which does not exist */
+	ut_asserteq(1, run_command("mux select no-such-mux 0 1", 0));
+	ut_assert_nextline("Failed to find the specified mux");
+
+	/* a controller the chip does not have */
+	ut_asserteq(1, run_commandf("mux select a-mux-controller %d 1",
+				    chip->controllers));
+	ut_assert_nextline("Failed to find the specified mux");
+
+	/* a controller number which is not a number */
+	ut_asserteq(1, run_command("mux select a-mux-controller x 1", 0));
+	ut_assert_nextline("Failed to find the specified mux");
+
+	/* a state which is not a hex number */
+	ut_asserteq(1, run_command("mux select a-mux-controller 1 zz", 0));
+	ut_assert_nextline("Invalid state");
+
+	/* a controller which something already holds */
+	ut_assertok(run_command("mux select a-mux-controller 1 5", 0));
+	ut_asserteq(1, run_command("mux select a-mux-controller 1 5", 0));
+	ut_assert_nextline("Failed to select requested state");
+	ut_assertok(mux_control_deselect(&chip->mux[1]));
+
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cmd_mux_select_err,
+	UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test the errors which 'mux deselect' reports */
+static int dm_test_cmd_mux_deselect_err(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	struct mux_chip *chip;
+
+	ut_assertok(uclass_get_device_by_name(UCLASS_MUX, "a-mux-controller",
+					      &dev));
+	chip = dev_get_uclass_priv(dev);
+	ut_assertnonnull(chip);
+
+	/* a chip which does not exist */
+	ut_asserteq(1, run_command("mux deselect no-such-mux 0", 0));
+	ut_assert_nextline("Failed to find the specified mux");
+
+	/* a controller the chip does not have */
+	ut_asserteq(1, run_commandf("mux deselect a-mux-controller %d",
+				    chip->controllers));
+	ut_assert_nextline("Failed to find the specified mux");
+
+	/* releasing a controller which nothing holds is not an error */
+	ut_assertok(run_command("mux deselect a-mux-controller 1", 0));
+
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cmd_mux_deselect_err,
+	UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test the mux command showing its usage message */
+static int dm_test_cmd_mux_usage(struct unit_test_state *uts)
+{
+	static const char * const cmds[] = {
+		"mux",				/* no sub-command */
+		"mux bogus",			/* an unknown sub-command */
+		"mux list extra",		/* too many arguments */
+		"mux select a-mux-controller 1",	/* too few */
+		"mux deselect a-mux-controller",	/* too few */
+	};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
+		ut_asserteq(1, run_command(cmds[i], 0));
+		ut_assert_nextline("mux - List, select, and deselect muxes");
+		ut_assert_nextline_empty();
+
+		/*
+		 * The rest of the message is the long help, which
+		 * CONFIG_SYS_LONGHELP can leave out
+		 */
+		console_record_reset();
+	}
+
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cmd_mux_usage, UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
