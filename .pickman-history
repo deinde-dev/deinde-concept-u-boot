@@ -105839,3 +105839,31 @@ I also briefly tried reordering the boot-mode detection, on the theory that SPL 
 
 ---
 
+## 2026-11-12: us/main
+
+Branch: cherry-32a5245e97e1
+
+Commits:
+- 32a5245e97e1 rtc: ds1307: support register offsets
+- 9ae91ba55829 rtc: ds1307: add initial support for EPSON RX8130
+- e86a83b57929 Merge patch series "rtc: ds1307: support register offsets"
+
+### Conversation log
+The first two commits are picked and building cleanly; I'm now committing the merge commit, which comes out empty.
+
+All three commits are cherry-picked onto the new branch `cherry-32a5245e97e1` (based on ci/master), and the sandbox build passes with no warnings or errors.
+
+| Original | New | Notes |
+|---|---|---|
+| 32a5245e97e1 rtc: ds1307: support register offsets | b30695ff848c | Same file and line counts as the original (+61/−26 in `drivers/rtc/ds1307.c`) |
+| 9ae91ba55829 rtc: ds1307: add initial support for EPSON RX8130 | 3b46d4d625fa | Same file and line counts as the original (+134/−3 in `drivers/rtc/ds1307.c`) |
+| e86a83b57929 Merge patch series "rtc: ds1307: support register offsets" | 9c1d50595fbd | Merge commit, empty as expected, kept with `--allow-empty` |
+
+- **Build:** sandbox built cleanly after each pick and again at the end.
+- **Fix-ups:** none. There were no conflicts, and `pickman split-check` changed nothing on any of the three commits.
+- **Deltas:** none of concern.
+
+The branch is ready to push; I haven't merged it anywhere.
+
+---
+
