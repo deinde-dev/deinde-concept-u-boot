@@ -173,6 +173,26 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	map_sysmem((_dt)->reg[0], 0)
 
 /**
+ * dev_prop_regmap() - Set up a regmap from a device's 'reg' property
+ *
+ * This creates a regmap with a range for each address/size pair in 'reg'.
+ * With of-platdata, the addresses are used as they are in the devicetree, as
+ * with dev_prop_addr(), and the number of ranges is that of the node with
+ * the most, so a node with fewer has empty ranges at the end.
+ *
+ * Use regmap_uninit() to free the regmap
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_mapp: Returns the regmap
+ * Return: 0 if OK, -ENOMEM if out of memory, or another error from
+ * regmap_init_mem()
+ */
+#define dev_prop_regmap(_dev, _dt, _mapp) \
+	regmap_init_mem_plat(_dev, (void *)(_dt)->reg, sizeof((_dt)->reg[0]), \
+			     ARRAY_SIZE((_dt)->reg) / 2, _mapp)
+
+/**
  * dev_prop_clk() - Get a clock from a device's 'clocks' property
  *
  * @_dev: Device to read from
@@ -206,6 +226,9 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define dev_prop_addr_ptr(_dev, _dt) \
 	dev_read_addr_ptr(_dev)
+
+#define dev_prop_regmap(_dev, _dt, _mapp) \
+	regmap_init_mem(dev_ofnode(_dev), _mapp)
 
 #define dev_prop_clk(_dev, _dt, _member, _name, _idx, _clkp) \
 	clk_get_by_index(_dev, _idx, _clkp)

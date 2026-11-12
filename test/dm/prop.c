@@ -8,6 +8,7 @@
 
 #include <dm.h>
 #include <errno.h>
+#include <regmap.h>
 #include <asm/global_data.h>
 #include <asm/test.h>
 #include <dm/device-internal.h>
@@ -69,6 +70,9 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_asserteq(2, plat->array[1]);
 	ut_asserteq(3, plat->array[2]);
 	ut_asserteq(-EINVAL, plat->missing_array_ret);
+	ut_asserteq(1, plat->map->range_count);
+	ut_asserteq(0x12340000, plat->map->ranges[0].start);
+	ut_asserteq(0x100, plat->map->ranges[0].size);
 
 	/* Two nodes use the driver, so the data is found from the device */
 	if (IS_ENABLED(CONFIG_OF_PLATDATA))
@@ -100,6 +104,11 @@ static int dm_test_dev_prop_single(struct unit_test_state *uts)
 	ut_asserteq(0x12360000, plat->base);
 	ut_asserteq(5, plat->present);
 	ut_asserteq(9, plat->absent);
+	ut_asserteq(2, plat->map->range_count);
+	ut_asserteq(0x12360000, plat->map->ranges[0].start);
+	ut_asserteq(0x100, plat->map->ranges[0].size);
+	ut_asserteq(0x12368000, plat->map->ranges[1].start);
+	ut_asserteq(0x40, plat->map->ranges[1].size);
 
 	/* With of-platdata, the device does not point to the data */
 	if (IS_ENABLED(CONFIG_OF_PLATDATA))

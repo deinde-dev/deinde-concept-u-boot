@@ -6,6 +6,7 @@
  */
 
 #include <dm.h>
+#include <regmap.h>
 #include <asm/test.h>
 #include <dm/prop.h>
 
@@ -29,7 +30,18 @@ static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 						     "dev-prop-none", none,
 						     ARRAY_SIZE(none));
 
-	return 0;
+	/* sandbox_vpl has no regmap support in TPL and VPL */
+	if (!IS_ENABLED(CONFIG_REGMAP))
+		return 0;
+
+	return dev_prop_regmap(dev, dt, &plat->map);
+}
+
+static int sandbox_dev_prop_remove(struct udevice *dev)
+{
+	struct sandbox_dev_prop_plat *plat = dev_get_plat(dev);
+
+	return IS_ENABLED(CONFIG_REGMAP) ? regmap_uninit(plat->map) : 0;
 }
 
 static const struct udevice_id sandbox_dev_prop_ids[] = {
@@ -42,6 +54,7 @@ U_BOOT_DRIVER(sandbox_dev_prop_test) = {
 	.id	= UCLASS_MISC,
 	.of_match = sandbox_dev_prop_ids,
 	.of_to_plat = sandbox_dev_prop_of_to_plat,
+	.remove	= sandbox_dev_prop_remove,
 	.plat_auto = sizeof(struct sandbox_dev_prop_plat),
 	.flags	= DM_FLAG_PRE_RELOC,
 };
@@ -61,7 +74,10 @@ static int sandbox_dev_prop_single_of_to_plat(struct udevice *dev)
 	plat->absent = dev_prop_u32_default(dev, dt, dev_prop_absent,
 					    "dev-prop-absent", 9);
 
-	return 0;
+	if (!IS_ENABLED(CONFIG_REGMAP))
+		return 0;
+
+	return dev_prop_regmap(dev, dt, &plat->map);
 }
 
 static const struct udevice_id sandbox_dev_prop_single_ids[] = {
@@ -74,6 +90,7 @@ U_BOOT_DRIVER(sandbox_dev_prop_single) = {
 	.id	= UCLASS_MISC,
 	.of_match = sandbox_dev_prop_single_ids,
 	.of_to_plat = sandbox_dev_prop_single_of_to_plat,
+	.remove	= sandbox_dev_prop_remove,
 	.plat_auto = sizeof(struct sandbox_dev_prop_plat),
 	.flags	= DM_FLAG_PRE_RELOC,
 };

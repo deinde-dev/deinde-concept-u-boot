@@ -268,6 +268,9 @@ dev_prop_bool()
 dev_prop_u32_array()
     Array of 32-bit integers; returns -EINVAL if the property is absent
 
+dev_prop_regmap()
+    Regmap with a range for each address/size pair in the 'reg' property
+
 dev_prop_clk()
     Clock from the 'clocks' property, by index
 
@@ -475,12 +478,15 @@ Some limitations follow from the generated data:
   holds only the properties read with the helpers, so a driver cannot read
   other properties from it by hand.
 
-- With of-platdata, `dev_prop_addr()` returns the address as it is in the
-  devicetree, without translation through the 'ranges' properties of parent
-  nodes.
+- With of-platdata, `dev_prop_addr()` and `dev_prop_regmap()` use the
+  addresses as they are in the devicetree, without translation through the
+  'ranges' properties of parent nodes.
 
 - With of-platdata, an array property shorter than the count passed to
   `dev_prop_u32_array()` is padded with zeroes rather than giving an error.
+
+- With of-platdata, `dev_prop_regmap()` gives each node as many ranges as the
+  node with the most, so a node with fewer has empty ranges at the end.
 
 The helpers need a version of dtoc which supports them. The version which
 U-Boot needs is in `tools/dtoc/requirements.txt`.

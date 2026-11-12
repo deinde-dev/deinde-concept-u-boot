@@ -2150,7 +2150,7 @@
 	/* The only node for its driver */
 	dev-prop-single {
 		compatible = "sandbox,dev-prop-single";
-		reg = <0x12360000 0x100>;
+		reg = <0x12360000 0x100 0x12368000 0x40>;
 		dev-prop-present = <5>;
 	};
 

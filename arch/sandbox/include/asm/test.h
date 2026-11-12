@@ -453,6 +453,7 @@ void sandbox_debug_clear(struct udevice *dev);
  * @array: Values of an array property
  * @array_ret: Return value from reading @array
  * @missing_array_ret: Return value from reading an absent array property
+ * @map: Regmap set up from 'reg'
  */
 struct sandbox_dev_prop_plat {
 	ulong base;
@@ -463,6 +464,7 @@ struct sandbox_dev_prop_plat {
 	u32 array[3];
 	int array_ret;
 	int missing_array_ret;
+	struct regmap *map;
 };
 
 #endif
