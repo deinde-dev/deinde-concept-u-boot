@@ -20,7 +20,7 @@ Description
 
 The date command shows and sets the time of day held by the board's real-time
 clock. The clock is the first RTC device in the system, so a board with more
-than one can only reach the others with the *rtc* command.
+than one can only reach the others with the :doc:`rtc<rtc>` command.
 
 With no argument the command reads the clock and prints the date, the day of
 the week and the time. The day of the week comes from the RTC itself, not from
@@ -112,8 +112,8 @@ date format is bad, or if more than one argument is given.
 See also
 --------
 
-* *rtc* for reading and writing individual RTC registers, and for reaching an
-  RTC other than the first
+* :doc:`rtc<rtc>` for reading and writing individual RTC registers, and for
+  reaching an RTC other than the first
 * :doc:`sntp<sntp>` for setting the clock from a time server on the network
 * :doc:`gettime<gettime>` for the time since U-Boot started, which does not
   need an RTC
