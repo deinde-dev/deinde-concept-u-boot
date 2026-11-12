@@ -7,11 +7,9 @@
 #include <clk-uclass.h>
 #include <div64.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <log.h>
 #include <malloc.h>
-#include <mapmem.h>
 #include <syscon.h>
 #include <asm/global_data.h>
 #include <asm/arch-rockchip/clock.h>
@@ -21,6 +19,7 @@
 #include <dt-bindings/clock/rk3288-cru.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
+#include <dm/prop.h>
 #include <dm/uclass-internal.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
@@ -29,12 +28,6 @@
 #include <linux/stringify.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-struct rk3288_clk_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3288_cru dtd;
-#endif
-};
 
 struct pll_div {
 	u32 nr;
@@ -956,11 +949,10 @@ static struct clk_ops rk3288_clk_ops = {
 
 static int rk3288_clk_of_to_plat(struct udevice *dev)
 {
-	if (IS_ENABLED(CONFIG_OF_REAL)) {
-		struct rk3288_clk_priv *priv = dev_get_priv(dev);
+	struct rk3288_clk_priv *priv = dev_get_priv(dev);
+	DTPLAT(rockchip_rk3288_cru, dt, dev);
 
-		priv->cru = dev_read_addr_ptr(dev);
-	}
+	priv->cru = dev_prop_addr_ptr(dev, dt);
 
 	return 0;
 }
@@ -974,11 +966,6 @@ static int rk3288_clk_probe(struct udevice *dev)
 	if (IS_ERR(priv->grf))
 		return PTR_ERR(priv->grf);
 #ifdef CONFIG_XPL_BUILD
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct rk3288_clk_plat *plat = dev_get_plat(dev);
-
-	priv->cru = map_sysmem(plat->dtd.reg[0], plat->dtd.reg[1]);
-#endif
 	init_clocks = true;
 #endif
 	if (!(gd->flags & GD_FLG_RELOC)) {
@@ -1041,7 +1028,6 @@ U_BOOT_DRIVER(rockchip_rk3288_cru) = {
 	.id		= UCLASS_CLK,
 	.of_match	= rk3288_clk_ids,
 	.priv_auto	= sizeof(struct rk3288_clk_priv),
-	.plat_auto	= sizeof(struct rk3288_clk_plat),
 	.ops		= &rk3288_clk_ops,
 	.bind		= rk3288_clk_bind,
 	.of_to_plat	= rk3288_clk_of_to_plat,
