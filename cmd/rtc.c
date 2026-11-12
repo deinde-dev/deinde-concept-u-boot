@@ -28,20 +28,16 @@ static int do_rtc_read(struct udevice *dev, int argc, char * const argv[])
 		addr = map_sysmem(hextoul(argv[2], NULL), len);
 		ret = dm_rtc_read(dev, reg, addr, len);
 		unmap_sysmem(addr);
-		if (ret) {
-			printf("dm_rtc_read() failed: %d\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "dm_rtc_read() failed: %d\n", ret);
 		return CMD_RET_SUCCESS;
 	}
 
 	while (len) {
 		r = min_t(int, len, sizeof(buf));
 		ret = dm_rtc_read(dev, reg, buf, r);
-		if (ret) {
-			printf("dm_rtc_read() failed: %d\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "dm_rtc_read() failed: %d\n", ret);
 		print_buffer(reg, buf, 1, r, 0);
 		len -= r;
 		reg += r;
@@ -69,33 +65,25 @@ static int do_rtc_write(struct udevice *dev, int argc, char * const argv[])
 		addr = map_sysmem(hextoul(argv[2], NULL), len);
 		ret = dm_rtc_write(dev, reg, addr, len);
 		unmap_sysmem(addr);
-		if (ret) {
-			printf("dm_rtc_write() failed: %d\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "dm_rtc_write() failed: %d\n", ret);
 		return CMD_RET_SUCCESS;
 	}
 
 	s = argv[1];
 	slen = strlen(s);
 
-	if (slen % 2) {
-		printf("invalid hex string\n");
-		return CMD_RET_FAILURE;
-	}
+	if (slen % 2)
+		return cmd_fail(0, "invalid hex string\n");
 
 	while (slen) {
 		len = min_t(int, slen / 2, sizeof(buf));
-		if (hex2bin(buf, s, len)) {
-			printf("invalid hex string\n");
-			return CMD_RET_FAILURE;
-		}
+		if (hex2bin(buf, s, len))
+			return cmd_fail(0, "invalid hex string\n");
 
 		ret = dm_rtc_write(dev, reg, buf, len);
-		if (ret) {
-			printf("dm_rtc_write() failed: %d\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "dm_rtc_write() failed: %d\n", ret);
 		s += 2 * len;
 		slen -= 2 * len;
 	}
@@ -124,10 +112,8 @@ int do_rtc(struct getopt_state *gs)
 		uclass_id_foreach_dev(UCLASS_RTC, dev, uc) {
 			printf("RTC #%d - %s\n", idx++, dev->name);
 		}
-		if (!idx) {
-			printf("*** no RTC devices available ***\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!idx)
+			return cmd_fail(0, "*** no RTC devices available ***\n");
 		return CMD_RET_SUCCESS;
 	}
 
@@ -136,10 +122,8 @@ int do_rtc(struct getopt_state *gs)
 		idx = dectoul(argv[1], NULL);
 
 	ret = uclass_get_device(UCLASS_RTC, idx, &dev);
-	if (ret) {
-		printf("Cannot find RTC #%d: err=%d\n", idx, ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot find RTC #%d: err=%d\n", idx, ret);
 
 	if (!strcmp(argv[0], "dev")) {
 		/* Show the existing or newly selected RTC */
