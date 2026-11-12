@@ -74,6 +74,7 @@
 #include <i2c.h>
 #include <log.h>
 #include <malloc.h>
+#include <mapmem.h>
 #include <asm/byteorder.h>
 #include <linux/compiler.h>
 #include <linux/delay.h>
@@ -247,7 +248,8 @@ static int do_i2c_read(struct cmd_tbl *cmdtp, int flag, int argc,
 	uint	chip;
 	uint	devaddr, length;
 	int alen;
-	u_char  *memaddr;
+	ulong	memaddr;
+	u_char	*buf;
 	int ret;
 #if IS_ENABLED(CONFIG_DM_I2C)
 	struct udevice *dev;
@@ -278,17 +280,19 @@ static int do_i2c_read(struct cmd_tbl *cmdtp, int flag, int argc,
 	/*
 	 * memaddr is the address where to store things in memory
 	 */
-	memaddr = (u_char *)hextoul(argv[4], NULL);
+	memaddr = hextoul(argv[4], NULL);
 
+	buf = map_sysmem(memaddr, length);
 #if IS_ENABLED(CONFIG_DM_I2C)
 	ret = i2c_get_cur_bus_chip(chip, &dev);
 	if (!ret && alen != -1)
 		ret = i2c_set_chip_offset_len(dev, alen);
 	if (!ret)
-		ret = dm_i2c_read(dev, devaddr, memaddr, length);
+		ret = dm_i2c_read(dev, devaddr, buf, length);
 #else
-	ret = i2c_read(chip, devaddr, alen, memaddr, length);
+	ret = i2c_read(chip, devaddr, alen, buf, length);
 #endif
+	unmap_sysmem(buf);
 	if (ret)
 		return i2c_report_err(ret, I2C_ERR_READ);
 
@@ -302,7 +306,8 @@ static int do_i2c_write(struct cmd_tbl *cmdtp, int flag, int argc,
 	uint	devaddr;
 	int length;
 	int alen;
-	u_char  *memaddr;
+	ulong	memaddr;
+	u_char	*buf, *ptr;
 	int ret;
 #if IS_ENABLED(CONFIG_DM_I2C)
 	struct udevice *dev;
@@ -315,7 +320,7 @@ static int do_i2c_write(struct cmd_tbl *cmdtp, int flag, int argc,
 	/*
 	 * memaddr is the address where to store things in memory
 	 */
-	memaddr = (u_char *)hextoul(argv[1], NULL);
+	memaddr = hextoul(argv[1], NULL);
 
 	/*
 	 * I2C chip address
@@ -347,6 +352,9 @@ static int do_i2c_write(struct cmd_tbl *cmdtp, int flag, int argc,
 		return i2c_report_err(ret, I2C_ERR_WRITE);
 #endif
 
+	buf = map_sysmem(memaddr, length);
+	ptr = buf;
+
 	if (argc == 6 && !strcmp(argv[5], "-s")) {
 		/*
 		 * Write all bytes in a single I2C transaction. If the target
@@ -356,12 +364,14 @@ static int do_i2c_write(struct cmd_tbl *cmdtp, int flag, int argc,
 		 */
 #if IS_ENABLED(CONFIG_DM_I2C)
 		i2c_chip->flags &= ~DM_I2C_CHIP_WR_ADDRESS;
-		ret = dm_i2c_write(dev, devaddr, memaddr, length);
+		ret = dm_i2c_write(dev, devaddr, buf, length);
 #else
-		ret = i2c_write(chip, devaddr, alen, memaddr, length);
+		ret = i2c_write(chip, devaddr, alen, buf, length);
 #endif
-		if (ret)
+		if (ret) {
+			unmap_sysmem(buf);
 			return i2c_report_err(ret, I2C_ERR_WRITE);
+		}
 	} else {
 		/*
 		 * Repeated addressing - perform <length> separate
@@ -370,12 +380,14 @@ static int do_i2c_write(struct cmd_tbl *cmdtp, int flag, int argc,
 		while (length-- > 0) {
 #if IS_ENABLED(CONFIG_DM_I2C)
 			i2c_chip->flags |= DM_I2C_CHIP_WR_ADDRESS;
-			ret = dm_i2c_write(dev, devaddr++, memaddr++, 1);
+			ret = dm_i2c_write(dev, devaddr++, ptr++, 1);
 #else
-			ret = i2c_write(chip, devaddr++, alen, memaddr++, 1);
+			ret = i2c_write(chip, devaddr++, alen, ptr++, 1);
 #endif
-			if (ret)
+			if (ret) {
+				unmap_sysmem(buf);
 				return i2c_report_err(ret, I2C_ERR_WRITE);
+			}
 /*
  * No write delay with FRAM devices.
  */
@@ -384,6 +396,8 @@ static int do_i2c_write(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 		}
 	}
+	unmap_sysmem(buf);
+
 	return 0;
 }
 
