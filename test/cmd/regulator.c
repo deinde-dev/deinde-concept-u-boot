@@ -43,6 +43,10 @@ static int cmd_test_regulator_base(struct unit_test_state *uts)
 	ut_assertok(run_command("regulator list", 0));
 	ut_assert_nextline("| %-20s| %-32s| %s", "Device", "regulator-name",
 			   "Parent");
+	ut_assert_nextline("| %-20s| %-32s| %s", "fixed-gpio-reg",
+			   "fixed-gpio-enabled", "root_driver");
+	ut_assert_nextline("| %-20s| %-32s| %s", "gpio-reg", "gpio-switched",
+			   "root_driver");
 	ut_assert_nextline("| %-20s| %-32s| %s", "buck1", "SUPPLY_1.2V",
 			   "sandbox_pmic@40");
 	ut_assert_skip_to_line("| %-20s| %-32s| %s", "ldo1", REG_EMMC,
@@ -125,6 +129,11 @@ static int cmd_test_regulator_status(struct unit_test_state *uts)
 	ut_assertok(run_command("regulator status -a", 0));
 	ut_assert_nextline("%-20s %-10s %10s %10s %-10s %s", "Name", "Enabled",
 			   "uV", "mA", "Mode", "Status");
+	ut_assert_nextline("%-20s %-10s %10d %10s %-10s %i",
+			   "fixed-gpio-enabled", "disabled", 3300000, "-", "-",
+			   0);
+	ut_assert_nextline("%-20s %-10s %10d %10s %-10s %i", "gpio-switched",
+			   "enabled", 1800000, "-", "-", 0);
 	ut_assert_nextline("%-20s %-10s %10d %10d %-10s %i", "SUPPLY_1.2V",
 			   "enabled", 1200000, 200000, "ON", 0);
 

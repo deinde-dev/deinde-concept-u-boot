@@ -105914,3 +105914,106 @@ I fixed the PowerPC failure by amending the two cherry-picked commits. The pine6
 
 ---
 
+## 2026-11-12: us/main
+
+Branch: cherry-4cf32565c3c4
+
+Commits:
+- 4cf32565c3c4 gpio: add a way to parse a GPIO now and request it later
+- 61665f113d37 regulator: claim the enable GPIO at probe time, not in of_to_plat()
+- 6cca7e5498a7 doc: driver-model: state that of_to_plat() must not probe or claim
+- a338b718373b test: dm: check the regulators claim their GPIOs at probe time
+- ad2b0f0ef2a2 Merge patch series "dm: gpio: read GPIOs in of_to_plat(), request them in probe()"
+
+### Conversation log
+Resolving a simple conflict in regulator_common.c (the target uses IS_ENABLED(CONFIG_DM_GPIO)).
+
+Conflict resolved. Committing, then running split-check to convert the remaining CONFIG_IS_ENABLED() calls.
+
+Commits 3 and 4 applied cleanly. Checking the defconfig changes in commit 4 against the split config.
+
+No phase issues there. Building and running the new tests.
+
+Tests pass. Now the merge commit.
+
+The merge commit replays the whole series, which is already applied, so I'll resolve by keeping our version and check the result is empty.
+
+The commit message picked up the '# Conflicts' comment lines, so I'll strip them out.
+
+I've cherry-picked all five commits onto `cherry-4cf32565c3c4` (based on ci/master). The final sandbox build is ok, with no warnings or errors.
+
+| Commit | Result |
+|---|---|
+| `9a8a45b0c337` gpio: add a way to parse a GPIO now and request it later | Clean; split-check made no changes |
+| `7f5ec6373ddc` regulator: claim the enable GPIO at probe time, not in of_to_plat() | Conflict resolved and macros converted (see fix-ups) |
+| `596af846e8e6` doc: driver-model: state that of_to_plat() must not probe or claim | Clean |
+| `e58d115a51d6` test: dm: check the regulators claim their GPIOs at probe time | Clean |
+| `eae35bcfebe6` Merge patch series "dm: gpio: read GPIOs in of_to_plat(), request them in probe()" | Empty commit, kept for history |
+
+**Fix-ups**
+- **Regulator commit:** there was a conflict in `regulator_common.c` because ci/master already uses IS_ENABLED(CONFIG_DM_GPIO) where the source uses CONFIG_IS_ENABLED(DM_GPIO). I took the new gpio_parse_by_name() code and kept the target's IS_ENABLED() form. split-check then converted the CONFIG_IS_ENABLED() in the new regulator_common_probe() as well. I added two notes to the end of the commit message:
+  - `[pickman] Resolve a conflict in regulator_common.c using IS_ENABLED(CONFIG_DM_GPIO)`
+  - `[pickman] convert to per-phase config macros`
+- **Merge commit:** replaying it with `-m 1` re-applies the whole series, which was already on the branch, so it hit the same conflict. I kept our version, which left no changes, so it is an empty commit. I also removed the `# Conflicts:` lines git had put in its message.
+
+**Deltas and checks**
+- The changed files and line counts match the originals for every commit: 133+, 48+/8-, 11+/5-, 82+, and empty for the merge.
+- The test commit adds CONFIG_DM_REGULATOR_GPIO=y to the sandbox defconfigs. That needs no conf_nospl entry, because the target Kconfig still has a separate SPL_DM_REGULATOR_GPIO.
+- The `ut dm power_regulator*` tests (13) and `ut dm gpio*` tests (15) all pass, including the new ones.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
+### Pipeline fix: 2026-11-12 (attempt 3)
+
+Branch: cherry-4cf32565c3c4
+
+Failed jobs:
+- sandbox with clang test.py (test.py)
+- sandbox test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox64_lwip test.py (test.py)
+- sandbox64 test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Both regulator command tests fail because two new GPIO regulators show up in the list. Checking the test commit.
+
+Reproduced. Now checking the separate hwids_to_dtsi failure in make check/qcheck, which looks unrelated to this series.
+
+All regulator command tests pass. Running the dm regulator tests and the pytest wrappers too.
+
+Now the full board build, plus creating the fix branch.
+
+That board list is built from words in the job names, so most of the entries aren't boards. I'll build the sandbox boards those jobs actually use.
+
+The sandbox link error comes from a leftover RISC-V object (EM 243) in a reused buildman work directory, not from this change. I'll rebuild sandbox in a clean output directory to confirm.
+
+I fixed the failures with a small change to the test commit; the result is on local branch `cherry-4cf32565c3c4-fix3`, not pushed. Locally the two failing tests now pass and all the sandbox boards build cleanly.
+
+**Root cause:** all eight jobs fail on the same two tests, `ut cmd cmd_test_regulator_base` and `ut cmd cmd_test_regulator_status`. The commit "test: dm: check the regulators claim their GPIOs at probe time" (originally a338b718373b) adds two regulators to `arch/sandbox/dts/test.dts` (`fixed-gpio-reg`, named "fixed-gpio-enabled", and `gpio-reg`, named "gpio-switched"). It also turns on CONFIG_DM_REGULATOR_GPIO for the sandbox boards. Both new regulators now come first in `regulator list` and `regulator status -a`. The target tree has `test/cmd/regulator.c`, which doesn't exist upstream, and it expects `buck1` / "SUPPLY_1.2V" to be the first entry.
+
+The "hwids_to_dtsi: Tests FAILED" line in the Check make check/qcheck jobs is not a separate failure. `test/run` prints each test name without a newline, so the final summary lands on that line. When run on its own, the hwids_to_dtsi script passes (11 tests).
+
+**Fix:** I amended that test commit so `test/cmd/regulator.c` expects the two new regulators first:
+- **List:** `fixed-gpio-reg` and `gpio-reg`, both under `root_driver`.
+- **Status:** `fixed-gpio-enabled` (disabled, 3300000 uV, no current or mode) and `gpio-switched` (enabled, 1800000 uV, no current or mode).
+
+I added this note to the end of the commit message:
+`[pickman] Update test/cmd/regulator.c for the two new GPIO regulators`
+
+The other commits are unchanged apart from being rebased; the only difference from the old branch tip is 9 added lines in `test/cmd/regulator.c`.
+
+**Verification:**
+- `um build sandbox` is clean.
+- `ut cmd cmd_test_regulator*` passes all 7 tests, with both live and flat trees.
+- `ut dm power_regulator*` (13 tests) and `ut dm gpio*` (15 tests) pass.
+- `um py -B sandbox regulator` passes 20 tests.
+- I ran buildman on the sandbox boards because the board list in the instructions comes from words in the job names and matches no boards. In a fresh output directory, all 9 builds succeeded, with only dtc warnings on sandbox64 and sandbox64_lwip (the `reg_format` / `ranges_format` warnings for `sandbox.dtsi`).
+- The first buildman run, into `/tmp/pickman`, failed to link `examples/ulib/demo` for sandbox. The cause is an old RISC-V object (EM 243) left in the reused work directory; the build was fine in a fresh directory. You may want to clear `/tmp/pickman/.bm-work`.
+
+---
+
