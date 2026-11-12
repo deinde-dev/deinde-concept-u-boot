@@ -11210,7 +11210,7 @@ class TestHistoryConflict(HistoryRepo):
         super().tearDown()
 
     def _review(self, last=(200, 'failed'), push_error=None,
-                conflicts=True):
+                conflicts=True, fix=None):
         """Process the MR, as GitLab reports that it needs a rebase
 
         Args:
@@ -11219,6 +11219,8 @@ class TestHistoryConflict(HistoryRepo):
             push_error (Exception): Error for the push to raise, or None
             conflicts (bool): True if GitLab reports that the MR has
                 conflicts, False if it is just behind
+            fix (str): How the pipeline fix handled pipeline 200, '' if it
+                has yet to look at it, or None if it does not run
 
         Returns:
             tuple: (result, Mock, Mock, Mock) for the result of
@@ -11233,6 +11235,8 @@ class TestHistoryConflict(HistoryRepo):
         with terminal.capture():
             dbs = database.Database(self.db_path)
             dbs.start()
+            if fix:
+                dbs.pfix_add(100, 200, 0, fix)
             with mock.patch.object(gitlab, 'get_mr_comments',
                                    return_value=[]), \
                  mock.patch.object(gitlab, 'get_last_pipeline',
@@ -11243,7 +11247,8 @@ class TestHistoryConflict(HistoryRepo):
                                    side_effect=push_error) as push, \
                  mock.patch.object(gitlab, 'reply_to_mr') as reply:
                 result = control.process_single_mr('ci', merge_req, dbs,
-                                                   'master')
+                                                   'master',
+                                                   fix is not None)
             dbs.close()
         return result, m_agent, push, reply
 
@@ -11307,6 +11312,37 @@ class TestHistoryConflict(HistoryRepo):
         m_agent.assert_not_called()
         self.assertEqual(['Record cherry', 'Change a.c', 'Record other',
                           'Initial'], self._log('cherry'))
+        push.assert_called_once_with('ci', 'cherry', force=True, skip_ci=True)
+        reply.assert_not_called()
+
+    def test_waits_for_fix(self):
+        """Test that a failure is left to the pipeline fix to look at"""
+        result, m_agent, push, _ = self._review(fix='')
+        self.assertEqual(0, result)
+        m_agent.assert_not_called()
+        push.assert_not_called()
+
+    def test_not_series(self):
+        """Test that failures which are not the series' do not run again"""
+        result, _, push, reply = self._review(fix='shared')
+        self.assertEqual(1, result)
+        push.assert_called_once_with('ci', 'cherry', force=True, skip_ci=True)
+        self.assertIn('Pipeline 200 failed only in jobs which fail in other '
+                      'merge requests too, or in the lab, so it is not run '
+                      'again.', reply.call_args[0][2])
+
+    def test_series_failure(self):
+        """Test that a failure which may be the series' runs again"""
+        result, _, push, reply = self._review(fix='failure')
+        self.assertEqual(1, result)
+        push.assert_called_once_with('ci', 'cherry', force=True,
+                                     skip_ci=False)
+        self.assertNotIn('not run again', reply.call_args[0][2])
+
+    def test_behind_lab(self):
+        """Test rebasing a branch which is behind, after a lab failure"""
+        result, _, push, reply = self._review(conflicts=False, fix='lab')
+        self.assertEqual(1, result)
         push.assert_called_once_with('ci', 'cherry', force=True, skip_ci=True)
         reply.assert_not_called()
 
