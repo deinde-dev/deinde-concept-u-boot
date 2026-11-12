@@ -106017,3 +106017,132 @@ The other commits are unchanged apart from being rebased; the only difference fr
 
 ---
 
+## 2026-11-12: us/main
+
+Branch: cherry-4d4c01c5ff86
+
+Commits:
+- 4d4c01c5ff86 tee: optee: Factor out service enumeration and binding functions
+- 2b2cbf7fb804 tee: optee: Avoid binding a service twice
+- bfa8cfbf64e9 tee: optee: Add support for enumerating services that only need RPMB
+- 61a7f22e5942 tee: optee: Do not warn about TEE_ERROR_STORAGE_NOT_AVAILABLE
+- 78c667a33340 mmc: Call back to optee after a successful mmc_init
+- b2951beb6fb6 mmc: Make "MMC Device not found" a debug output
+- 65f340d8fcde cmd: optee_rpmb: sanitize TEE_ERROR -> E* translations
+- b79987c3c613 optee_ta_avb.h: add TA_AVB_CMD_READ_PERSIST_VALUE2 define
+- df1c7866b87f tee: sandbox: support new TA_AVB_CMD_READ_PERSIST_VALUE2
+- 1de39d17d657 cmd: optee_rpmb: allocate large enough buffer when reading persistent value
+- 0871cc74cbd9 cmd: optee_rpmb: make it usable by scripts
+- 8fca3a6500d2 Merge tag 'optee-next-30092026' of https://git.u-boot-project.org/u-boot/custodians/u-boot-tpm into next
+
+### Conversation log
+Picks 1–3 are applied and build cleanly. On pick 3, split-check converted some config macros, so I'm checking that diff before I amend.
+
+The changes look right. Next I'll amend the commit with the note and rebuild.
+
+Commits 1–9 are applied and build cleanly. Now picking the last three, including the merge.
+
+The merge commit conflicts. With -m 1 it reapplies the series we already picked, so the clash is probably just the split-check macro conversions. Checking:
+
+As expected, the only conflicts are the split-check conversions. I'll keep the HEAD side, which gives an empty merge commit.
+
+All 12 commits are on branch `cherry-4d4c01c5ff86`, based on `ci/master`, and the sandbox build passes with no warnings or errors. The branch is ready to push and I haven't merged it anywhere.
+
+**Fix-ups (each noted at the end of the commit message):**
+- **bfa8cfbf64e9** (tee: optee: Add support for enumerating services that only need RPMB): split-check changed `CONFIG_IS_ENABLED(SUPPORT_EMMC_RPMB)` to `IS_ENABLED(CONFIG_SUPPORT_EMMC_RPMB)` in `drivers/tee/optee/core.c` and added `SUPPORT_EMMC_RPMB` to `scripts/conf_nospl`.
+- **78c667a33340** (mmc: Call back to optee after a successful mmc_init): split-check changed `CONFIG_IS_ENABLED(OPTEE)` to `IS_ENABLED(CONFIG_OPTEE)` in `drivers/mmc/mmc.c` and added `OPTEE` to `scripts/conf_nospl`.
+- **8fca3a6500d2** (the merge): it conflicted in `drivers/mmc/mmc.c` and `drivers/tee/optee/core.c`. With `-m 1` the merge reapplies the series that was already picked, so the only clash was the original `CONFIG_IS_ENABLED()` lines against the converted ones. I kept the converted versions, which leaves the merge as an empty commit, kept to preserve the history.
+
+**Deltas:** all 11 regular commits match their originals exactly in files and line counts. Compared with the original merge, the whole series has one extra file, `scripts/conf_nospl`, with 2 extra lines; those are the two `conf_nospl` entries added by split-check.
+
+**Builds:** sandbox passed after every pick, after each amend, and in the final run. split-check found nothing it couldn't convert, and none of the commits were already in `ci/master`.
+
+---
+
+### Pipeline fix: 2026-11-12 (attempt 2)
+
+Branch: cherry-4d4c01c5ff86
+
+Failed jobs:
+- efi-x86_64-uboot-iso-install (sjg-lab-slow)
+- Build allyesconfig, tools-only and envtools (test_suites)
+
+### Conversation log
+The ISO-install failure (initramfs unpacking timeout inside an x86 EFI app) is unrelated to OP-TEE; it looks like a lab/transient problem. Now on to the link error.
+
+The allyesconfig failure is a real link error: `rpmb.c` calls functions in `core.c`, which isn't built when OP-TEE is off. Checking the header before I fix it.
+
+The fix belongs in 5677dd6de2ea ("tee: optee: Add support for enumerating services that only need RPMB"). I'll create the fix2 branch and amend that commit with a rebase.
+
+The clangd diagnostics are just from missing include paths, so I'm ignoring them.
+
+The sandbox build passes. Amending the commit and finishing the rebase.
+
+Rebase done. Now running buildman on the affected boards.
+
+The board list given in the instructions matches nothing in buildman, so I'm checking how CI runs that job.
+
+The summary shows one sandbox board with an error. Checking which one and why.
+
+I fixed the allyesconfig link failure on the local branch `cherry-4d4c01c5ff86-fix2`, which is not pushed. The ISO-install failure is probably a lab problem, so I made no change for it.
+
+**1. Build allyesconfig, tools-only and envtools: a real bug**
+- **Error:** the link fails with undefined references to `optee_open_enum_session` and `optee_bind_services`, called from `optee_rpmb_available()` in `drivers/tee/optee/rpmb.c`.
+- **Cause:** allyesconfig on x86 has `CONFIG_SANDBOX_TEE=y` and `CONFIG_SUPPORT_EMMC_RPMB=y` but `CONFIG_OPTEE=n`, because OP-TEE depends on ARM_SMCCC. `SANDBOX_TEE` still builds `drivers/tee/optee/`, so `rpmb.o` is compiled, but `core.o`, which defines those two functions, is not. Upstream has the same code; the failure only shows up with this combination of options.
+- **Responsible commit:** 5677dd6de2ea "tee: optee: Add support for enumerating services that only need RPMB" (upstream bfa8cfbf64e9). It added `optee_rpmb_available()` to `rpmb.c` with calls into `core.c`.
+- **Fix:** I wrapped `optee_rpmb_available()` in `rpmb.c` in `#if IS_ENABLED(CONFIG_OPTEE)`. This matches `include/tee/optee.h`, which only declares the real function when both `CONFIG_OPTEE` and `CONFIG_SUPPORT_EMMC_RPMB` are set and gives an empty inline stub otherwise. The only caller, in `mmc.c`, is already behind `IS_ENABLED(CONFIG_OPTEE)`. I amended the commit (now 0a7797955564) and added a `[pickman]` note to its message; the later 10 commits rebased cleanly.
+
+**2. efi-x86_64-uboot-iso-install: no change**
+The Linux kernel booted and reported "Initramfs unpacking failed: invalid magic at start of compressed archive", then the test timed out waiting for ` login: `. The board is an x86 EFI app with no OP-TEE or eMMC RPMB, and nothing in this series touches x86 or EFI boot code. The likely cause is a corrupt or stale ISO/initrd image on the lab runner, so it's worth a retry.
+
+**Builds**
+- `um build sandbox` passes.
+- I ran the CI recipe for allyesconfig locally (`yes 0 | make allyesconfig oldconfig all`) and it now links. The only warnings are tmpnam warnings from the host's libasan.
+- The tools-only and envtools builds pass, with one `-Wmaybe-uninitialized` warning in `tools/env/fw_env.c`. This series doesn't touch that file.
+- buildman (with `-m`) builds all 10 sandbox boards, efi-x86_app64 and tools-only with no errors; the only warnings are sandbox device-tree ones. The board list in the instructions (`allyesconfig,,and,...`) matched no boards in buildman, so I listed the boards by name instead.
+- The first buildman run failed on sandbox because `/tmp/pickman` held a RISC-V `examples/ulib/demo.o` from an earlier build. The clean rebuild passed, so that was not a code problem.
+
+---
+
+## 2026-11-12: us/main
+
+Branch: cherry-4d4c01c5ff86
+
+Commits:
+- 4d4c01c5ff86 tee: optee: Factor out service enumeration and binding functions
+- 2b2cbf7fb804 tee: optee: Avoid binding a service twice
+- bfa8cfbf64e9 tee: optee: Add support for enumerating services that only need RPMB
+- 61a7f22e5942 tee: optee: Do not warn about TEE_ERROR_STORAGE_NOT_AVAILABLE
+- 78c667a33340 mmc: Call back to optee after a successful mmc_init
+- b2951beb6fb6 mmc: Make "MMC Device not found" a debug output
+- 65f340d8fcde cmd: optee_rpmb: sanitize TEE_ERROR -> E* translations
+- b79987c3c613 optee_ta_avb.h: add TA_AVB_CMD_READ_PERSIST_VALUE2 define
+- df1c7866b87f tee: sandbox: support new TA_AVB_CMD_READ_PERSIST_VALUE2
+- 1de39d17d657 cmd: optee_rpmb: allocate large enough buffer when reading persistent value
+- 0871cc74cbd9 cmd: optee_rpmb: make it usable by scripts
+- 8fca3a6500d2 Merge tag 'optee-next-30092026' of https://git.u-boot-project.org/u-boot/custodians/u-boot-tpm into next
+
+### Conversation log
+Picks 1–3 are applied and build cleanly. On pick 3, split-check converted some config macros, so I'm checking that diff before I amend.
+
+The changes look right. Next I'll amend the commit with the note and rebuild.
+
+Commits 1–9 are applied and build cleanly. Now picking the last three, including the merge.
+
+The merge commit conflicts. With -m 1 it reapplies the series we already picked, so the clash is probably just the split-check macro conversions. Checking:
+
+As expected, the only conflicts are the split-check conversions. I'll keep the HEAD side, which gives an empty merge commit.
+
+All 12 commits are on branch `cherry-4d4c01c5ff86`, based on `ci/master`, and the sandbox build passes with no warnings or errors. The branch is ready to push and I haven't merged it anywhere.
+
+**Fix-ups (each noted at the end of the commit message):**
+- **bfa8cfbf64e9** (tee: optee: Add support for enumerating services that only need RPMB): split-check changed `CONFIG_IS_ENABLED(SUPPORT_EMMC_RPMB)` to `IS_ENABLED(CONFIG_SUPPORT_EMMC_RPMB)` in `drivers/tee/optee/core.c` and added `SUPPORT_EMMC_RPMB` to `scripts/conf_nospl`.
+- **78c667a33340** (mmc: Call back to optee after a successful mmc_init): split-check changed `CONFIG_IS_ENABLED(OPTEE)` to `IS_ENABLED(CONFIG_OPTEE)` in `drivers/mmc/mmc.c` and added `OPTEE` to `scripts/conf_nospl`.
+- **8fca3a6500d2** (the merge): it conflicted in `drivers/mmc/mmc.c` and `drivers/tee/optee/core.c`. With `-m 1` the merge reapplies the series that was already picked, so the only clash was the original `CONFIG_IS_ENABLED()` lines against the converted ones. I kept the converted versions, which leaves the merge as an empty commit, kept to preserve the history.
+
+**Deltas:** all 11 regular commits match their originals exactly in files and line counts. Compared with the original merge, the whole series has one extra file, `scripts/conf_nospl`, with 2 extra lines; those are the two `conf_nospl` entries added by split-check.
+
+**Builds:** sandbox passed after every pick, after each amend, and in the final run. split-check found nothing it couldn't convert, and none of the commits were already in `ci/master`.
+
+---
+
