@@ -106059,3 +106059,48 @@ All 12 commits are on branch `cherry-4d4c01c5ff86`, based on `ci/master`, and th
 
 ---
 
+### Pipeline fix: 2026-11-12 (attempt 2)
+
+Branch: cherry-4d4c01c5ff86
+
+Failed jobs:
+- efi-x86_64-uboot-iso-install (sjg-lab-slow)
+- Build allyesconfig, tools-only and envtools (test_suites)
+
+### Conversation log
+The ISO-install failure (initramfs unpacking timeout inside an x86 EFI app) is unrelated to OP-TEE; it looks like a lab/transient problem. Now on to the link error.
+
+The allyesconfig failure is a real link error: `rpmb.c` calls functions in `core.c`, which isn't built when OP-TEE is off. Checking the header before I fix it.
+
+The fix belongs in 5677dd6de2ea ("tee: optee: Add support for enumerating services that only need RPMB"). I'll create the fix2 branch and amend that commit with a rebase.
+
+The clangd diagnostics are just from missing include paths, so I'm ignoring them.
+
+The sandbox build passes. Amending the commit and finishing the rebase.
+
+Rebase done. Now running buildman on the affected boards.
+
+The board list given in the instructions matches nothing in buildman, so I'm checking how CI runs that job.
+
+The summary shows one sandbox board with an error. Checking which one and why.
+
+I fixed the allyesconfig link failure on the local branch `cherry-4d4c01c5ff86-fix2`, which is not pushed. The ISO-install failure is probably a lab problem, so I made no change for it.
+
+**1. Build allyesconfig, tools-only and envtools: a real bug**
+- **Error:** the link fails with undefined references to `optee_open_enum_session` and `optee_bind_services`, called from `optee_rpmb_available()` in `drivers/tee/optee/rpmb.c`.
+- **Cause:** allyesconfig on x86 has `CONFIG_SANDBOX_TEE=y` and `CONFIG_SUPPORT_EMMC_RPMB=y` but `CONFIG_OPTEE=n`, because OP-TEE depends on ARM_SMCCC. `SANDBOX_TEE` still builds `drivers/tee/optee/`, so `rpmb.o` is compiled, but `core.o`, which defines those two functions, is not. Upstream has the same code; the failure only shows up with this combination of options.
+- **Responsible commit:** 5677dd6de2ea "tee: optee: Add support for enumerating services that only need RPMB" (upstream bfa8cfbf64e9). It added `optee_rpmb_available()` to `rpmb.c` with calls into `core.c`.
+- **Fix:** I wrapped `optee_rpmb_available()` in `rpmb.c` in `#if IS_ENABLED(CONFIG_OPTEE)`. This matches `include/tee/optee.h`, which only declares the real function when both `CONFIG_OPTEE` and `CONFIG_SUPPORT_EMMC_RPMB` are set and gives an empty inline stub otherwise. The only caller, in `mmc.c`, is already behind `IS_ENABLED(CONFIG_OPTEE)`. I amended the commit (now 0a7797955564) and added a `[pickman]` note to its message; the later 10 commits rebased cleanly.
+
+**2. efi-x86_64-uboot-iso-install: no change**
+The Linux kernel booted and reported "Initramfs unpacking failed: invalid magic at start of compressed archive", then the test timed out waiting for ` login: `. The board is an x86 EFI app with no OP-TEE or eMMC RPMB, and nothing in this series touches x86 or EFI boot code. The likely cause is a corrupt or stale ISO/initrd image on the lab runner, so it's worth a retry.
+
+**Builds**
+- `um build sandbox` passes.
+- I ran the CI recipe for allyesconfig locally (`yes 0 | make allyesconfig oldconfig all`) and it now links. The only warnings are tmpnam warnings from the host's libasan.
+- The tools-only and envtools builds pass, with one `-Wmaybe-uninitialized` warning in `tools/env/fw_env.c`. This series doesn't touch that file.
+- buildman (with `-m`) builds all 10 sandbox boards, efi-x86_app64 and tools-only with no errors; the only warnings are sandbox device-tree ones. The board list in the instructions (`allyesconfig,,and,...`) matched no boards in buildman, so I listed the boards by name instead.
+- The first buildman run failed on sandbox because `/tmp/pickman` held a RISC-V `examples/ulib/demo.o` from an earlier build. The clean rebuild passed, so that was not a code problem.
+
+---
+
