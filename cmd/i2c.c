@@ -71,6 +71,7 @@
 #include <dm.h>
 #include <edid.h>
 #include <errno.h>
+#include <getopt.h>
 #include <i2c.h>
 #include <log.h>
 #include <malloc.h>
@@ -1930,16 +1931,15 @@ static struct cmd_tbl cmd_i2c_sub[] = {
 
 /**
  * do_i2c() - Handle the "i2c" command-line command
- * @cmdtp:	Command data struct pointer
- * @flag:	Command flag
- * @argc:	Command-line argument count
- * @argv:	Array of command-line arguments
+ * @gs:		getopt state
  *
  * Returns zero on success, CMD_RET_USAGE in case of misuse and negative
  * on error.
  */
-static int do_i2c(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_i2c(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct cmd_tbl *c;
 
 	if (argc < 2)
@@ -1952,7 +1952,7 @@ static int do_i2c(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	c = find_cmd_tbl(argv[0], &cmd_i2c_sub[0], ARRAY_SIZE(cmd_i2c_sub));
 
 	if (c)
-		return cmd_invoke(c, flag, argc, argv);
+		return cmd_invoke(c, gs->cmd_flag, argc, argv);
 	else
 		return CMD_RET_USAGE;
 }
@@ -1989,7 +1989,7 @@ U_BOOT_LONGHELP(i2c,
 #endif
 	"i2c speed [speed] - show or set I2C bus speed");
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	i2c, 7, 1, do_i2c,
 	"I2C sub-system",
 	i2c_help_text
