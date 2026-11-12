@@ -9,19 +9,12 @@
 #include <log.h>
 #include <asm/global_data.h>
 #include <dm/ofnode.h>
-#include <mapmem.h>
+#include <dm/prop.h>
 #include <asm/arch-rockchip/timer.h>
-#include <dt-structs.h>
 #include <timer.h>
 #include <asm/io.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-struct rockchip_timer_plat {
-	struct dtd_rockchip_rk3288_timer dtd;
-};
-#endif
 
 /* Driver private data. Contains timer id. Could be either 0 or 1. */
 struct rockchip_timer_priv {
@@ -97,13 +90,20 @@ static u64 rockchip_timer_get_count(struct udevice *dev)
 
 static int rockchip_clk_of_to_plat(struct udevice *dev)
 {
-	if (IS_ENABLED(CONFIG_OF_REAL)) {
-		struct rockchip_timer_priv *priv = dev_get_priv(dev);
+	struct timer_dev_priv *uc_priv = dev_get_uclass_priv(dev);
+	struct rockchip_timer_priv *priv = dev_get_priv(dev);
+	DTPLAT(rockchip_rk3288_timer, dt, dev);
 
-		priv->timer = dev_read_addr_ptr(dev);
-		if (!priv->timer)
-			return -ENOENT;
-	}
+	priv->timer = dev_prop_addr_ptr(dev, dt);
+	if (!priv->timer)
+		return -ENOENT;
+
+	/* With a devicetree, the timer uclass reads the clock rate instead */
+	if (IS_ENABLED(CONFIG_OF_PLATDATA))
+		uc_priv->clock_rate = dev_prop_u32_default(dev, dt,
+							   clock_frequency,
+							   "clock-frequency",
+							   0);
 
 	return 0;
 }
@@ -134,15 +134,6 @@ static int rockchip_timer_start(struct udevice *dev)
 
 static int rockchip_timer_probe(struct udevice *dev)
 {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct timer_dev_priv *uc_priv = dev_get_uclass_priv(dev);
-	struct rockchip_timer_priv *priv = dev_get_priv(dev);
-	struct rockchip_timer_plat *plat = dev_get_plat(dev);
-
-	priv->timer = map_sysmem(plat->dtd.reg[0], plat->dtd.reg[1]);
-	uc_priv->clock_rate = plat->dtd.clock_frequency;
-#endif
-
 	return rockchip_timer_start(dev);
 }
 
@@ -162,8 +153,5 @@ U_BOOT_DRIVER(rockchip_rk3288_timer) = {
 	.probe = rockchip_timer_probe,
 	.ops	= &rockchip_timer_ops,
 	.priv_auto	= sizeof(struct rockchip_timer_priv),
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	.plat_auto	= sizeof(struct rockchip_timer_plat),
-#endif
 	.of_to_plat = rockchip_clk_of_to_plat,
 };
