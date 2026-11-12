@@ -131,3 +131,5 @@ See also
 * :doc:`nboot<nboot>` for loading an image from raw NAND, which prints the
   same header as this command
 * *imls* for listing the images stored in flash
+* :doc:`fpga<fpga>` for loading an FPGA bitstream held in an image of this
+  kind

@@ -107,3 +107,5 @@ See also
 * :doc:`load<load>` for the same operation on any supported filesystem
 * :doc:`rproc<rproc>` for handing an image which has been read in to a remote
   processor
+* :doc:`fpga<fpga>` for loading a bitstream which has been read in into an
+  FPGA
