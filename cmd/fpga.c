@@ -11,10 +11,23 @@
 #include <env.h>
 #include <fpga.h>
 #include <fs_legacy.h>
+#include <getopt.h>
 #include <gzip.h>
 #include <image.h>
 #include <log.h>
 #include <malloc.h>
+
+/*
+ * Number of arguments the load sub-commands take. The table entry gives this
+ * as its maxargs, and the sub-command passes it to do_fpga_check_params(),
+ * which has no cmd_tbl of its own to read it from.
+ */
+#define FPGA_LOAD_ARGS		3
+#define FPGA_LOADS_ARGS		6
+#define FPGA_LOADFS_ARGS	7
+
+/* message shown when a FIT subimage cannot be read, too long to write inline */
+#define MSG_SUBIMAGE	"Could not load '%s' subimage (err %d)\n"
 
 static long do_fpga_get_device(char *arg)
 {
@@ -33,16 +46,28 @@ static long do_fpga_get_device(char *arg)
 	return dev;
 }
 
+/**
+ * do_fpga_check_params() - Read the arguments every load sub-command takes
+ *
+ * @dev: Returns the device to configure
+ * @fpga_data: Returns the address of the bitstream
+ * @data_size: Returns the size of the bitstream
+ * @nargs: Number of arguments the sub-command takes, or 0 if it checks the
+ *	count itself
+ * @gs: getopt state of the sub-command, whose argv[0] is its name
+ * Return: 0 if OK, CMD_RET_FAILURE on error
+ */
 static int do_fpga_check_params(long *dev, long *fpga_data, size_t *data_size,
-				struct cmd_tbl *cmdtp, int argc,
-				char *const argv[])
+				int nargs, struct getopt_state *gs)
 {
+	char *const *argv = gs->argv + 1;
+	int argc = gs->argc - 1;
 	size_t local_data_size;
 	long local_fpga_data;
 
-	log_debug("%d, %d\n", argc, cmdtp->maxargs);
+	log_debug("%d, %d\n", argc, nargs);
 
-	if (argc != cmdtp->maxargs) {
+	if (nargs && argc != nargs) {
 		log_err("Incorrect number of parameters passed\n");
 		return CMD_RET_FAILURE;
 	}
@@ -67,11 +92,12 @@ static int do_fpga_check_params(long *dev, long *fpga_data, size_t *data_size,
 }
 
 #if defined(CONFIG_CMD_FPGA_LOAD_SECURE)
-static int do_fpga_loads(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_fpga_loads(struct getopt_state *gs)
 {
 	struct fpga_secure_info fpga_sec_info;
+	char *const *argv = gs->argv + 1;
 	const int pos_userkey = 5;
+	int argc = gs->argc - 1;
 	size_t data_size = 0;
 	long fpga_data, dev;
 	int ret;
@@ -87,17 +113,12 @@ static int do_fpga_loads(struct cmd_tbl *cmdtp, int flag, int argc,
 		fpga_sec_info.userkey_addr = (u8 *)(uintptr_t)
 					      simple_strtoull(argv[pos_userkey],
 							      NULL, 16);
-	else
-		/*
-		 * If 6th parameter is not passed then do_fpga_check_params
-		 * will get 5 instead of expected 6 which means that function
-		 * return CMD_RET_FAILURE. Increase number of params +1 to pass
-		 * this.
-		 */
-		argc++;
 
-	ret = do_fpga_check_params(&dev, &fpga_data, &data_size,
-				   cmdtp, argc, argv);
+	/*
+	 * The user key is optional, so the count is 5 or 6 and the check above
+	 * along with the sub-command's maxargs has already made sure of it
+	 */
+	ret = do_fpga_check_params(&dev, &fpga_data, &data_size, 0, gs);
 	if (ret)
 		return ret;
 
@@ -121,16 +142,16 @@ static int do_fpga_loads(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 #if defined(CONFIG_CMD_FPGA_LOADFS)
-static int do_fpga_loadfs(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_fpga_loadfs(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv + 1;
 	size_t data_size = 0;
 	long fpga_data, dev;
 	int ret;
 	fpga_fs_info fpga_fsinfo;
 
 	ret = do_fpga_check_params(&dev, &fpga_data, &data_size,
-				   cmdtp, argc, argv);
+				   FPGA_LOADFS_ARGS, gs);
 	if (ret)
 		return ret;
 
@@ -144,38 +165,35 @@ static int do_fpga_loadfs(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif
 
-static int do_fpga_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_fpga_info(struct getopt_state *gs)
 {
-	long dev = do_fpga_get_device(argv[0]);
+	long dev = do_fpga_get_device(gs->argv[1]);
 
 	return fpga_info(dev);
 }
 
-static int do_fpga_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_fpga_dump(struct getopt_state *gs)
 {
 	size_t data_size = 0;
 	long fpga_data, dev;
 	int ret;
 
 	ret = do_fpga_check_params(&dev, &fpga_data, &data_size,
-				   cmdtp, argc, argv);
+				   FPGA_LOAD_ARGS, gs);
 	if (ret)
 		return ret;
 
 	return fpga_dump(dev, (void *)fpga_data, data_size);
 }
 
-static int do_fpga_load(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_fpga_load(struct getopt_state *gs)
 {
 	size_t data_size = 0;
 	long fpga_data, dev;
 	int ret;
 
 	ret = do_fpga_check_params(&dev, &fpga_data, &data_size,
-				   cmdtp, argc, argv);
+				   FPGA_LOAD_ARGS, gs);
 	if (ret)
 		return ret;
 
@@ -183,15 +201,14 @@ static int do_fpga_load(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 #if defined(CONFIG_CMD_FPGA_LOADB)
-static int do_fpga_loadb(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_fpga_loadb(struct getopt_state *gs)
 {
 	size_t data_size = 0;
 	long fpga_data, dev;
 	int ret;
 
 	ret = do_fpga_check_params(&dev, &fpga_data, &data_size,
-				   cmdtp, argc, argv);
+				   FPGA_LOAD_ARGS, gs);
 	if (ret)
 		return ret;
 
@@ -199,15 +216,14 @@ static int do_fpga_loadb(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif
 #if defined(CONFIG_CMD_FPGA_LOADP)
-static int do_fpga_loadp(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_fpga_loadp(struct getopt_state *gs)
 {
 	size_t data_size = 0;
 	long fpga_data, dev;
 	int ret;
 
 	ret = do_fpga_check_params(&dev, &fpga_data, &data_size,
-				   cmdtp, argc, argv);
+				   FPGA_LOAD_ARGS, gs);
 	if (ret)
 		return ret;
 
@@ -216,15 +232,14 @@ static int do_fpga_loadp(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 #if defined(CONFIG_CMD_FPGA_LOADBP)
-static int do_fpga_loadbp(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_fpga_loadbp(struct getopt_state *gs)
 {
 	size_t data_size = 0;
 	long fpga_data, dev;
 	int ret;
 
 	ret = do_fpga_check_params(&dev, &fpga_data, &data_size,
-				   cmdtp, argc, argv);
+				   FPGA_LOAD_ARGS, gs);
 	if (ret)
 		return ret;
 
@@ -234,9 +249,10 @@ static int do_fpga_loadbp(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 #if defined(CONFIG_CMD_FPGA_LOADMK)
-static int do_fpga_loadmk(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_fpga_loadmk(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv + 1;
+	int argc = gs->argc - 1;
 	size_t data_size = 0;
 	void *fpga_data = NULL;
 #if defined(CONFIG_FIT)
@@ -339,11 +355,8 @@ static int do_fpga_loadmk(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		err = fit_get_data_node(fit_hdr, fit_uname, &fit_data,
 					&data_size);
-		if (err) {
-			printf("Could not load '%s' subimage (err %d)\n",
-			       fit_uname, err);
-			return CMD_RET_FAILURE;
-		}
+		if (err)
+			return cmd_fail(err, MSG_SUBIMAGE, fit_uname, err);
 
 		return fpga_load(dev, fit_data, data_size, BIT_FULL, 0);
 	}
@@ -356,32 +369,38 @@ static int do_fpga_loadmk(struct cmd_tbl *cmdtp, int flag, int argc,
 #endif
 
 static struct cmd_tbl fpga_commands[] = {
-	U_BOOT_CMD_MKENT(info, 1, 1, do_fpga_info, "", ""),
-	U_BOOT_CMD_MKENT(dump, 3, 1, do_fpga_dump, "", ""),
-	U_BOOT_CMD_MKENT(load, 3, 1, do_fpga_load, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, 1, 1, do_fpga_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, FPGA_LOAD_ARGS, 1, do_fpga_dump, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(load, FPGA_LOAD_ARGS, 1, do_fpga_load, "", ""),
 #if defined(CONFIG_CMD_FPGA_LOADB)
-	U_BOOT_CMD_MKENT(loadb, 3, 1, do_fpga_loadb, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(loadb, FPGA_LOAD_ARGS, 1, do_fpga_loadb,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_FPGA_LOADP)
-	U_BOOT_CMD_MKENT(loadp, 3, 1, do_fpga_loadp, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(loadp, FPGA_LOAD_ARGS, 1, do_fpga_loadp,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_FPGA_LOADBP)
-	U_BOOT_CMD_MKENT(loadbp, 3, 1, do_fpga_loadbp, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(loadbp, FPGA_LOAD_ARGS, 1, do_fpga_loadbp,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_FPGA_LOADFS)
-	U_BOOT_CMD_MKENT(loadfs, 7, 1, do_fpga_loadfs, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(loadfs, FPGA_LOADFS_ARGS, 1, do_fpga_loadfs,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_FPGA_LOADMK)
-	U_BOOT_CMD_MKENT(loadmk, 2, 1, do_fpga_loadmk, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(loadmk, 2, 1, do_fpga_loadmk, "", ""),
 #endif
 #if defined(CONFIG_CMD_FPGA_LOAD_SECURE)
-	U_BOOT_CMD_MKENT(loads, 6, 1, do_fpga_loads, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(loads, FPGA_LOADS_ARGS, 1, do_fpga_loads,
+				"", ""),
 #endif
 };
 
-static int do_fpga_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_fpga_wrapper(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct cmd_tbl *fpga_cmd;
 	int ret;
 
@@ -395,24 +414,24 @@ static int do_fpga_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_FAILURE;
 	}
 
-	argc -= 2;
-	argv += 2;
-
-	if (argc > fpga_cmd->maxargs) {
+	if (argc - 2 > fpga_cmd->maxargs) {
 		log_err("Too many parameters passed\n");
 		return CMD_RET_FAILURE;
 	}
 
-	ret = fpga_cmd->cmd(fpga_cmd, flag, argc, argv);
+	ret = cmd_invoke(fpga_cmd, gs->cmd_flag, argc - 1, argv + 1);
 
 	return cmd_process_error(fpga_cmd, ret);
 }
 
+/* loadfs and loads take more arguments than the other sub-commands */
 #if defined(CONFIG_CMD_FPGA_LOADFS) || defined(CONFIG_CMD_FPGA_LOAD_SECURE)
-U_BOOT_CMD(fpga, 9, 1, do_fpga_wrapper,
+#define FPGA_MAXARGS	9
 #else
-U_BOOT_CMD(fpga, 6, 1, do_fpga_wrapper,
+#define FPGA_MAXARGS	6
 #endif
+
+U_BOOT_CMD_NOOPTS(fpga, FPGA_MAXARGS, 1, do_fpga_wrapper,
 	 "loadable FPGA image support",
 	 "info   [dev]                  List known device information\n"
 	 "fpga dump   <dev> <address> <size> Load device to memory buffer\n"

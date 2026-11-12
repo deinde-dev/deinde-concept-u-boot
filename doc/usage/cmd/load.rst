@@ -147,3 +147,4 @@ See also
 * :doc:`iminfo<iminfo>` for checking an image once it has been loaded
 * :doc:`go<go>` for starting an application once it has been loaded
 * :doc:`bmp<bmp>` for showing a BMP image once it has been loaded
+* :doc:`fpga<fpga>` for configuring an FPGA from a bitstream read in this way
