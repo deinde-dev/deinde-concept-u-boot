@@ -90,3 +90,9 @@ Configuration
 -------------
 
 The pinmux command is only available if CONFIG_CMD_PINMUX=y.
+
+See also
+--------
+
+* :doc:`mux<mux>` for the mux controllers which switch a shared line between
+  several destinations, a different kind of mux from the pin muxing here
