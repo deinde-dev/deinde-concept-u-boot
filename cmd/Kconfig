@@ -1765,6 +1765,7 @@ config CMD_MTD_NAND_READ_TEST
 config CMD_MUX
 	bool "mux"
 	depends on MULTIPLEXER
+	select GETOPT
 	help
 	  List, select, and deselect mux controllers on the fly.
 

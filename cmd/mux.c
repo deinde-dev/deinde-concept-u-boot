@@ -8,6 +8,7 @@
 
 #include <command.h>
 #include <errno.h>
+#include <getopt.h>
 #include <dm.h>
 #include <dm/device_compat.h>
 #include <mux.h>
@@ -81,8 +82,7 @@ static void print_mux(struct mux_control *mux)
 	printf("\n");
 }
 
-static int do_mux_list(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_mux_list(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	struct mux_chip *chip;
@@ -117,57 +117,49 @@ static int do_mux_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_mux_select(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_mux_select(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	struct mux_control *mux;
 	int ret;
 	unsigned long state;
 
-	if (argc != 4)
+	if (gs->argc != 4)
 		return CMD_RET_USAGE;
 
 	mux = cmd_mux_find(argv);
-	if (IS_ERR_OR_NULL(mux)) {
-		printf("Failed to find the specified mux\n");
-		return CMD_RET_FAILURE;
-	}
+	if (IS_ERR_OR_NULL(mux))
+		return cmd_fail(PTR_ERR(mux),
+				"Failed to find the specified mux\n");
 
 	ret = strict_strtoul(argv[3], 16, &state);
-	if (ret) {
-		printf("Invalid state\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Invalid state\n");
 
 	ret = mux_control_select(mux, state);
-	if (ret) {
-		printf("Failed to select requested state\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to select requested state\n");
 
 	return CMD_RET_SUCCESS;
 }
 
-static int do_mux_deselect(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_mux_deselect(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	struct mux_control *mux;
 	int ret;
 
-	if (argc != 3)
+	if (gs->argc != 3)
 		return CMD_RET_USAGE;
 
 	mux = cmd_mux_find(argv);
-	if (IS_ERR_OR_NULL(mux)) {
-		printf("Failed to find the specified mux\n");
-		return CMD_RET_FAILURE;
-	}
+	if (IS_ERR_OR_NULL(mux))
+		return cmd_fail(PTR_ERR(mux),
+				"Failed to find the specified mux\n");
 
 	ret = mux_control_deselect(mux);
-	if (ret) {
-		printf("Failed to deselect mux\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to deselect mux\n");
 
 	return CMD_RET_SUCCESS;
 }
@@ -178,6 +170,9 @@ U_BOOT_LONGHELP(mux,
 	"deselect <chip> <id> - Deselect the given mux and reset it to its idle state");
 
 U_BOOT_CMD_WITH_SUBCMDS(mux, "List, select, and deselect muxes", mux_help_text,
-			U_BOOT_SUBCMD_MKENT(list, 1, 1, do_mux_list),
-			U_BOOT_SUBCMD_MKENT(select, 4, 0, do_mux_select),
-			U_BOOT_SUBCMD_MKENT(deselect, 3, 0, do_mux_deselect));
+			U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_mux_list,
+						"", ""),
+			U_BOOT_CMD_MKENT_NOOPTS(select, 4, 0, do_mux_select,
+						"", ""),
+			U_BOOT_CMD_MKENT_NOOPTS(deselect, 3, 0, do_mux_deselect,
+						"", ""));
