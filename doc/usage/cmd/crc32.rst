@@ -117,3 +117,5 @@ See also
 * :doc:`sm3sum<sm3sum>` for SM3, which is a digest rather than a checksum
 * :doc:`md5sum<md5sum>` for MD5, and *sha1sum* for SHA1
 * :doc:`md<md>` for looking at the memory being checksummed
+* :doc:`i2c<i2c>` for a checksum over a chip on an I2C bus rather than over
+  memory

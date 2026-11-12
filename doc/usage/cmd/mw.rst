@@ -91,3 +91,4 @@ See also
 * :doc:`ms<ms>` for finding a value which mw has written
 * :doc:`random<random>` for filling a region with random data
 * :doc:`base<base>` for the address offset applied to these commands
+* :doc:`i2c<i2c>` for writing a value to a chip on an I2C bus in the same way

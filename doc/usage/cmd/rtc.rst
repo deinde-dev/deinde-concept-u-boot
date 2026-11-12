@@ -169,7 +169,7 @@ See also
 
 * :doc:`date<date>` for reading and setting the time of day, which is what
   most boards need
-* *i2c* for reaching the registers of an I2C real-time clock which has no
-  driver at all
+* :doc:`i2c<i2c>` for reaching the registers of an I2C real-time clock which
+  has no driver at all
 * :doc:`dm<dm>` for the RTC devices listed along with the rest of the
   driver-model tree

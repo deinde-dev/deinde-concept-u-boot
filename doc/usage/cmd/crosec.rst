@@ -208,4 +208,4 @@ See also
 * :doc:`pwm<pwm>` for the PWM channels which the EC provides
 * :doc:`reset<reset>` for restarting the board rather than the EC
 * :doc:`../../arch/sandbox/sandbox` for the emulated EC which the example uses
-* *i2c* for the I2C buses which tunnel through the EC
+* :doc:`i2c<i2c>` for the I2C buses which tunnel through the EC

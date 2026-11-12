@@ -142,6 +142,8 @@ formatted in the same way.
 See also
 --------
 
+* :doc:`i2c<i2c>` for devices on an I2C bus, which I3C is designed to
+  supersede
 * :doc:`sspi<sspi>` for the same sort of low-level access to a SPI bus
 * :doc:`w1<w1>` for devices on a 1-Wire bus, which carries power and data on a
   single wire
