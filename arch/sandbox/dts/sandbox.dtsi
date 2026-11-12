@@ -306,10 +306,13 @@
 		dev-prop-unused = <99>;
 	};
 
-	/* A second node for the driver, with most properties absent */
+	/*
+	 * A second node for the driver, with most properties absent and
+	 * another compatible string
+	 */
 	dev-prop-test2 {
 		bootph-pre-ram;
-		compatible = "sandbox,dev-prop-test";
+		compatible = "sandbox,dev-prop-other";
 		reg = <0x12350000 0x100>;
 	};
 

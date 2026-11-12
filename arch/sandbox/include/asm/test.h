@@ -439,6 +439,12 @@ const char *sandbox_debug_get(struct udevice *dev);
  */
 void sandbox_debug_clear(struct udevice *dev);
 
+/* Driver data for the compatible strings of the sandbox_dev_prop_test driver */
+enum sandbox_dev_prop_type {
+	SANDBOX_DEV_PROP_TEST = 1,
+	SANDBOX_DEV_PROP_OTHER,
+};
+
 /**
  * struct sandbox_dev_prop_plat - Values read by the sandbox_dev_prop_test driver
  *

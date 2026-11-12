@@ -271,6 +271,10 @@ dev_prop_u32_array()
 dev_prop_regmap()
     Regmap with a range for each address/size pair in the 'reg' property
 
+dev_prop_driver_data()
+    The `.data` in the driver's `of_match` table for the node's compatible
+    string; the driver needs `DM_HEADER()` for any headers this uses
+
 dev_prop_clk()
     Clock from the 'clocks' property, by index
 

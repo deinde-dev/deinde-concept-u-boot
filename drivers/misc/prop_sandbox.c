@@ -37,6 +37,22 @@ static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 	return dev_prop_regmap(dev, dt, &plat->map);
 }
 
+/* With of-platdata, nothing else sets the driver data */
+static int sandbox_dev_prop_bind(struct udevice *dev)
+{
+	DTPLAT(sandbox_dev_prop_test, dt, dev);
+
+	/*
+	 * Sandbox SPL also binds devices from the devicetree for some tests.
+	 * These have no generated data, but driver model sets their driver data
+	 */
+	if (IS_ENABLED(CONFIG_OF_PLATDATA) && !dev_get_dtplat(dev))
+		return 0;
+	dev->driver_data = dev_prop_driver_data(dev, dt);
+
+	return 0;
+}
+
 static int sandbox_dev_prop_remove(struct udevice *dev)
 {
 	struct sandbox_dev_prop_plat *plat = dev_get_plat(dev);
@@ -45,7 +61,8 @@ static int sandbox_dev_prop_remove(struct udevice *dev)
 }
 
 static const struct udevice_id sandbox_dev_prop_ids[] = {
-	{ .compatible = "sandbox,dev-prop-test", },
+	{ .compatible = "sandbox,dev-prop-test", .data = SANDBOX_DEV_PROP_TEST },
+	{ .compatible = "sandbox,dev-prop-other", .data = SANDBOX_DEV_PROP_OTHER },
 	{}
 };
 
@@ -53,10 +70,12 @@ U_BOOT_DRIVER(sandbox_dev_prop_test) = {
 	.name	= "sandbox_dev_prop_test",
 	.id	= UCLASS_MISC,
 	.of_match = sandbox_dev_prop_ids,
+	.bind	= sandbox_dev_prop_bind,
 	.of_to_plat = sandbox_dev_prop_of_to_plat,
 	.remove	= sandbox_dev_prop_remove,
 	.plat_auto = sizeof(struct sandbox_dev_prop_plat),
 	.flags	= DM_FLAG_PRE_RELOC,
+	DM_HEADER(<asm/test.h>)
 };
 
 /*

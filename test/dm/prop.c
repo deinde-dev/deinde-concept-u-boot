@@ -73,6 +73,7 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_asserteq(1, plat->map->range_count);
 	ut_asserteq(0x12340000, plat->map->ranges[0].start);
 	ut_asserteq(0x100, plat->map->ranges[0].size);
+	ut_asserteq(SANDBOX_DEV_PROP_TEST, dev_get_driver_data(dev));
 
 	/* Two nodes use the driver, so the data is found from the device */
 	if (IS_ENABLED(CONFIG_OF_PLATDATA))
@@ -86,6 +87,7 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_asserteq(9, plat->absent);
 	ut_assert(!plat->flag);
 	ut_asserteq(-EINVAL, plat->array_ret);
+	ut_asserteq(SANDBOX_DEV_PROP_OTHER, dev_get_driver_data(dev));
 
 	return 0;
 }
