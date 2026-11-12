@@ -105637,3 +105637,205 @@ Re-running the pine64 job should be enough. If it fails again in the same way, t
 
 ---
 
+## 2026-11-11: us/main
+
+Branch: cherry-bdc04bcabfd8
+
+Commits:
+- bdc04bcabfd8 MAINTAINERS: add new SpacemiT custodians
+- 2a8df8759350 pinctrl: k1: fix drive strength configuration
+- b42233010428 pinctrl: k1: add IO power domain configuration support
+- d6a1d4c0723b pinctrl: spacemit: configure drive strength based on power source
+- aa3091dcd701 spacemit: k1: select boot device via config registers
+- 18e9745c9327 mmc: k1: add sdhci platform driver
+- c8d4129cb9a4 dts: k1: enable mmc devices in SPL
+- f570dfb74e7d configs: k1: enable SD and eMMC support
+- a75e1ed839a3 MAINTAINER: update Spacemit K1 entry
+- 69d82789fe6f doc: spacemit: flash on K1 SoC based boards
+- 6f8c134610b9 spacemit: k1: fix product name detection and DTB matching in SPL
+- 57eb5723d5fe phy: spacemit: add K1 PCIe/USB3 combo PHY driver
+- c8764b8db670 pci: spacemit: add DesignWare PCIe host controller driver
+- d70d03392804 configs: k1: enable PCIe and NVMe support
+- dfa681ec397a MAINTAINER: add K1 PCIe driver to Spacemit entry
+- f7f62bbc1422 Merge tag 'spacemit-next-20260929' of https://git.u-boot-project.org/u-boot/custodians/u-boot-spacemit into next
+
+### Conversation log
+Four of 16 picked cleanly so far: each builds on sandbox and split-check changes nothing. Continuing with the rest.
+
+Resolving: add only linux/bitfield.h, keep the target's u8 i2c_buf alongside the new mode variable, and use upstream's boot-mode switch while keeping USB boot on the target's DFU path.
+
+Only the missing OpenSBI blob fails, so the code compiles. From now on I'll build K1 with -M as well.
+
+Now adding the conflict note to the boot-device commit (HEAD~1).
+
+Keeping the MMC options but dropping the SPI flash options, since the target doesn't have the SPI NOR series.
+
+The savedefconfig differences are only ordering (the target file was already unsorted) plus HS200, which is implied. Keeping upstream's layout so the diff stays minimal.
+
+K1 builds with the MMC driver in both phases, and SPL is 163305 bytes, under the 0x33000 limit. Continuing.
+
+Another defconfig conflict on commit 14 (PCIe/NVMe). Looking at it now.
+
+The merge commit replays the whole series against the target, so it conflicts. First I'll check whether the merge adds anything beyond the 15 commits.
+
+The merge adds nothing of its own, so I'm resetting the tree to HEAD and recording it as an empty commit.
+
+All 16 commits are on cherry-bdc04bcabfd8, based on ci/master and not pushed or merged. Five needed conflict fixes and two ended up as empty commits. The sandbox build passes with no warnings after each pick and at the end. Sandbox doesn't build any of the K1 code, so I also built spacemit_k1 after each pick (with missing blobs allowed). It builds, the new MMC, PCIe and PHY drivers compile in, and SPL is 164681 bytes, under its 0x33000 limit. The only warning is the expected missing OpenSBI blob (fw_dynamic.bin). None of this has been tried on hardware.
+
+**Clean picks with deltas matching the originals:** bdc04bcabfd8, 2a8df8759350, b42233010428, d6a1d4c0723b, 69d82789fe6f, 57eb5723d5fe, c8764b8db670, dfa681ec397a.
+
+**Fix-ups (each has a `[pickman]` note at the end of its commit message):**
+- **18e9745c9327 (mmc: k1: sdhci driver):** split-check changed 'CONFIG_IS_ENABLED(...)' to 'IS_ENABLED(CONFIG_...)' in spacemit_sdhci.c, and I amended the commit with its note.
+- **aa3091dcd701 (select boot device via config registers):** this clashed in spl.c with the target's USB DFU boot path. I kept the target's includes and its 'i2c_buf' variable, and took upstream's boot-mode switch. One change from upstream: when the BootROM reports USB boot, SPL now uses BOOT_DEVICE_DFU instead of BOOT_DEVICE_USB, so the target's current DFU loading still works. Please check you're happy with that mapping.
+- **c8d4129cb9a4 (dts: enable mmc in SPL):** I added only the 'emmc' and 'sdhci0' nodes to the BPI-F3 dtsi; the target's version had already dropped the 'resets' lines this commit removes. I left out the k1-musepi-pro-u-boot.dtsi changes because that file doesn't exist in the target.
+- **f570dfb74e7d (enable SD/eMMC) and d70d03392804 (enable PCIe/NVMe):** both defconfig conflicts came from upstream's SPI flash options, which the target lacks because it doesn't have the SPI NOR boot commit (e63500cab0c0). I added only the MMC and PCIe/NVMe options.
+- **a75e1ed839a3 (MAINTAINER update):** I replaced Guodong Xu with Eric Chung and kept the target's Huan Zhou line. That line already has a typo in the target ('pericycle.cc@@gmail.com', with a doubled @), which upstream has fixed; I left it alone.
+
+**Empty commits you should look at:**
+- **6f8c134610b9 (fix product name detection and DTB matching):** this is empty. It fixes multi-DTB board matching ('product_name', board_fit_config_name_match()) that comes from upstream a823fbf0cfbd, which isn't in the target. I didn't mark it [FAILED], because there is nothing in the target for it to fix. If you want this behaviour, a823fbf0cfbd has to be picked first.
+- **f7f62bbc1422 (merge):** this is empty because the merge makes no changes of its own beyond the 15 commits, so it only keeps the merge message.
+
+Line counts match the originals for every non-empty pick except three. Commit aa3091dcd701 has 101+/6- against 97+/1-, because of the DFU comment. Commit c8d4129cb9a4 has 10 lines against 21+/127-, because the musepi-pro and 'resets' parts were dropped. Commit d70d03392804 matches at 10+.
+
+---
+
+### Review: 2026-11-12
+
+Branch: cherry-bdc04bcabfd8
+
+Comments addressed:
+- [sjg]: pickman: bpif3 seems to work on ci/master so I suspect something in this series may be breaking it? ...
+
+### Conversation log
+Rebase is done: all 17 commits applied cleanly with the same deltas. Per-commit builds are running now, and I'm looking into why bpif3 fails.
+
+All 17 commits build for sandbox and K1. Next I'll look at how the lab boots bpif3 and what fails.
+
+Bpif3 boots over USB: the BootROM loads SPL by fastboot, then SPL loads the itb by DFU. That makes the boot-device commit the main suspect. Here is its diff:
+
+I can't read the lab logs (permission denied). I'll check whether pickman or a GitLab token can fetch the CI job log instead.
+
+The failing job sends the FSBL (206176 bytes) but the BootROM never starts it, so the failure happens before SPL runs. I'm checking whether the series pushed the FSBL past a BootROM size limit.
+
+The vendor FSBL that works is 201888 bytes, and ours is 206176. I'm comparing FSBL sizes from passing and failing bpif3 jobs to see if there's a size threshold.
+
+`rp 5` finished without stopping. I'll check that the history is intact.
+
+I'll test it on the board before amending. Here is how the lab tools pick the source tree:
+
+Now the hardware test. Here is how ub-smoke finds its source and build directories:
+
+The bpif3 place is free. I'll run a smoke test of the fixed tip from this tree, capturing the console log.
+
+While that runs, I'll run the required sandbox build at the tip:
+
+The sandbox build passes. I'll create the -v2 branch once the hardware result is in. The smoke test will notify me when it finishes.
+
+Waiting for the bpif3 smoke test to finish.
+
+The fixed branch still fails on the board. Here is where it stops:
+
+`/tmp/pickman-wt` already exists as an unrelated build directory, so I'll use a new worktree path instead.
+
+Commit 07 is running on the board now. I'll wait for it to finish.
+
+The background job will notify me when it completes, so I'll wait for that.
+
+While that runs, here is what commit 08 actually changes in the config:
+
+Commit 08 does more than add MMC. It also enables CONFIG_SPL_BOARD_INIT (so spl_board_init() now runs), CONFIG_PINCONF and CONFIG_RISCV_ISA_ZICBOM. Here is what spl_board_init() does in this tree:
+
+spl_board_init() is empty in both trees, so that isn't the cause. Waiting for the commit 08 result.
+
+Commit 08 is the first bad commit: the FSBL never starts (203936 bytes), the same failure CI sees. Next I'll compare the resolved configs of 07 and 08 to see what else changes in SPL.
+
+Commit 07 showed the original detection code works, so I'll drop my detection-order change from the series. While the test runs, I'm checking SPL's memory layout at commit 08:
+
+At commit 08 the FSBL payload ends at 0xc0831b98, still below BSS (0xc0837000), so there's no obvious overlap. I'll wait for the config experiment.
+
+Waiting for the experiment result.
+
+I misread that: the monitor fired on the script's first echoed line, and the experiment is actually still running. Meanwhile I'll check the commit 07 log, which is suspiciously short (118 bytes):
+
+I need to confirm the commit 07 pass really ran a commit 07 build:
+
+Both earlier runs used the intended commits. The noalias variant (199064-byte payload, MMC still on) is still running, so I'll wait for its job to finish.
+
+The background job will notify me when it finishes.
+
+Still failing, so those three options aren't the cause. That leaves SPL MMC itself, through either its code or the extra size. Next I'll run commit 08 with only CONFIG_SPL_MMC turned off.
+
+The vendor payload is 197536 bytes (0x303a0) and works. Ours fails at 199064 (0x30998) and above, so any limit would lie in that narrow gap. I'll wait for the SPL_MMC-off result.
+
+While that runs, I'll take my detection-order change back out of the boot-device commit, since commit 07 showed the original code works.
+
+The branch is back to a plain rebase: all 17 commits match the originals. Waiting for the padding test.
+
+Buildman's -a accepts Kconfig values, so I can test a bigger heap. Before that, I'll look for the serial log: ub-smoke passes --lg-log, which may have saved the console output to a file.
+
+While the capture runs, I'm checking what the new SDHCI driver allocates at bind time, for the heap theory:
+
+Rather than chase struct sizes, I'll wait for the console capture, which should show directly where SPL stops.
+
+While that runs, I've settled where the fix goes: amend commit 08 (the SD/eMMC defconfig commit) with an explicit CONFIG_SPL_SYS_MALLOC_F_LEN and a [pickman] note, so the series stays bisectable and U-Boot proper keeps its 0x5000. The value depends on the measurement.
+
+It still fails, and the heap limit is still 0x5000 even though the build sets CONFIG_SPL_SYS_MALLOC_F_LEN=0x7000. Something else must set the limit. Here is the console sequence:
+
+While that runs, here is how SPL calls the DDR firmware:
+
+Its data ends around 0xc0836610, below SPL's BSS, so the fixed-data theory doesn't hold either. I'll look for large stack allocations made through a register:
+
+The firmware does allocate 4-8 KiB stack frames (lui t0 with ±4096/8192, then add sp,sp,t0), so training probably needs around 12 KiB of stack. With a 0x5000 heap there's about 18 KiB between the stack top and the firmware's data. 0x7000 leaves about 10 KiB, which fits the hang. 0x6000 would leave about 14 KiB, so it may just work. Waiting for that run.
+
+While that runs, I'll check which upstream commit moved K1's SPL BSS and stack, in case the target is just missing that layout change:
+
+The target's own commits (unified device trees, DFU loading, the M-mode SPL) changed this layout, so the fix has to be target-specific. Waiting for the 0x5400 result.
+
+While that runs, I'll prepare the change on the real branch: amend commit 08 to disable CONFIG_SPL_MMC. Then I'll check the placement with savedefconfig.
+
+The defconfig already has CONFIG_SPL_MMC=y at line 112. My earlier view of the diff was cut off at 60 lines, so I missed it. Here are the lines this commit adds:
+
+Upstream itself sets SPL_MMC and SPL_SYS_MMCSD_RAW_MODE here. I'll check SPL_MMC's Kconfig default, and which other options in this commit depend on SPL MMC:
+
+I'll remove the two SPL MMC lines, then run savedefconfig to see which other options become dead.
+
+I'll amend the commit with a [pickman] note explaining why SPL MMC is left out, then continue the rebase.
+
+Only the defconfig commit changed, plus a context line in commit 14. While the tip hardware test finishes, I'll rebuild every commit for sandbox and K1.
+
+Every commit builds. The one warning on K1 is the expected missing-OpenSBI blob, which I filtered from that output. Here is the tip hardware result:
+
+While that runs, here is the required sandbox build at the tip:
+
+The sandbox build passes. Waiting for the final hardware run.
+
+The final branch tip (a50719685298) passes the smoke test on bpif3. Next I'll create the -v2 branch and clean up my temporary worktree and backup branch.
+
+I found and fixed the cause: the series broke bpif3 by enabling MMC in SPL, which overflows SPL's early heap. With that fixed, the branch tip boots to the U-Boot prompt on the real board. The rebase onto ci/master was clean. The result is on `cherry-bdc04bcabfd8-v2` (a50719685298), checked out and not pushed.
+
+**Rebase:** all 17 commits applied cleanly with the same deltas; ci/master only gained rockchip and dm commits. Every commit builds for sandbox and spacemit_k1, and the sandbox buildman build passes at the tip. The only K1 warning is the expected missing OpenSBI blob.
+
+**Why bpif3 broke:**
+- In CI, the board took the FSBL over USB but never brought up SPL's DFU gadget, every time.
+- Testing commits on the board showed commit 07 boots and commit 08 (f570dfb74e7d, "configs: k1: enable SD and eMMC support") is the first that fails.
+- 08 still fails with SPL_DM_SEQ_ALIAS, ZICBOM and SPL_BOARD_INIT turned off, but boots with only SPL_MMC turned off. Commit 07 padded with 20 KiB of dummy data also boots, so image size isn't the cause.
+- The serial console shows SPL running out of its pre-relocation heap ("alloc space exhausted ptr 5098 limit 5000"). A clock driver then fails to bind and SPL panics before DFU.
+- Without MMC the heap already uses 0x4e80 of its 0x5000. The two MMC hosts and their block devices need about 0x680 more.
+- The heap can't simply grow, because gd and the heap sit just above the DDR training firmware in SRAM. On the board, 0x5400 is still too small; 0x6000 corrupts gd and 0x7000 hangs during DDR training.
+
+**Change:** I amended f570dfb74e7d to leave out SPL_MMC, SPL_SYS_MMCSD_RAW_MODE and the two raw-mode partition options, which only matter for SPL MMC loading. MMC stays enabled in U-Boot proper, and a [pickman] note in the commit message explains why. Commit 14 (PCIe/NVMe) only picked up a context change.
+
+**Two things to decide:**
+- **SPL can't load from SD/eMMC on this branch.** Since boot-device detection is now picked, an SPL started by the BootROM from eMMC/SD will try MMC and fail. USB boot, which is what the lab uses, still goes to DFU. Getting SPL MMC back means freeing SRAM, for example a smaller SPL stack, a different DDR firmware load address, or fewer clock devices bound in SPL. That's beyond a minimal fix.
+- **Possible SPL BSS overlap, not verified on the board.** SPL's BSS (0xc0837000) appears to overlap the start of the heap, and BSS is cleared after board_init_f(). It works today, but someone touching this layout should check it.
+
+I also briefly tried reordering the boot-mode detection, on the theory that SPL was picking SD over USB. Commit 07 showed the original code works, so I dropped that change; the boot-device commit is unchanged from v1.
+
+**Suggested reply to post on the MR:**
+
+> Thanks, you were right. Bisecting on the bpif3 shows the problem starts at f570dfb74e7d (configs: k1: enable SD and eMMC support). Enabling SPL_MMC makes SPL bind the two SDHCI hosts and their block devices, and that overflows the SPL pre-relocation heap (SPL_SYS_MALLOC_F_LEN=0x5000). The console shows "alloc space exhausted ptr 5098 limit 5000", then a clock bind fails and SPL panics before DFU starts, so the lab reports "BootROM did not start the FSBL". Without MMC the heap already uses 0x4e80 of 0x5000. It can't be made bigger: on RISC-V, gd and the heap sit below the 16 KiB stack, just above the DDR firmware copied to 0xc082d000. On the board, 0x5400 is still too small, 0x6000 corrupts gd and 0x7000 hangs during DDR training.
+>
+> v2 is rebased onto ci/master and drops SPL_MMC, SPL_SYS_MMCSD_RAW_MODE and the raw-mode partition options from that commit, with a [pickman] note. MMC stays enabled in U-Boot proper. The tip now boots to the prompt on bpif3. SPL loading from SD/eMMC would need SRAM to be rearranged first (stack size, DDR firmware address, or fewer SPL clock devices), so I've left that for a follow-up.
+
+---
+
