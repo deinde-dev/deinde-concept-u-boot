@@ -9,7 +9,6 @@
 #include <hang.h>
 #include <log.h>
 #include <dt-bindings/memory/rk3368-dmc.h>
-#include <dt-structs.h>
 #include <ram.h>
 #include <regmap.h>
 #include <syscon.h>
@@ -20,6 +19,7 @@
 #include <asm/arch-rockchip/ddr_rk3368.h>
 #include <asm/arch-rockchip/sdram.h>
 #include <asm/arch-rockchip/sdram_rk3288.h>
+#include <dm/prop.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -37,9 +37,6 @@ struct dram_info {
 };
 
 struct rk3368_sdram_params {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3368_dmc of_plat;
-#endif
 	struct rk3288_sdram_pctl_timing pctl_timing;
 	u32 trefi_mem_ddr3;
 	struct rk3288_sdram_channel chan;
@@ -880,32 +877,25 @@ error:
 
 static int rk3368_dmc_of_to_plat(struct udevice *dev)
 {
-	int ret = 0;
-
-	if (IS_ENABLED(CONFIG_OF_REAL)) {
-		struct rk3368_sdram_params *plat = dev_get_plat(dev);
-
-		ret = regmap_init_mem(dev_ofnode(dev), &plat->map);
-		if (ret)
-			return ret;
-	}
-
-	return ret;
-}
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int conv_of_plat(struct udevice *dev)
-{
 	struct rk3368_sdram_params *plat = dev_get_plat(dev);
-	struct dtd_rockchip_rk3368_dmc *of_plat = &plat->of_plat;
+	DTPLAT(rockchip_rk3368_dmc, dt, dev);
 
-	plat->ddr_freq = of_plat->rockchip_ddr_frequency;
-	plat->ddr_speed_bin = of_plat->rockchip_ddr_speed_bin;
-	plat->memory_schedule = of_plat->rockchip_memory_schedule;
+	/* Only TPL sets up the DRAM */
+	if (!IS_ENABLED(CONFIG_TPL_BUILD))
+		return 0;
 
-	return 0;
+	plat->ddr_freq = dev_prop_u32_default(dev, dt, rockchip_ddr_frequency,
+					      "rockchip,ddr-frequency", 0);
+	plat->ddr_speed_bin = dev_prop_u32_default(dev, dt,
+						   rockchip_ddr_speed_bin,
+						   "rockchip,ddr-speed-bin", 0);
+	plat->memory_schedule = dev_prop_u32_default(dev, dt,
+						     rockchip_memory_schedule,
+						     "rockchip,memory-schedule",
+						     0);
+
+	return dev_prop_regmap(dev, dt, &plat->map);
 }
-#endif
 
 static int rk3368_dmc_probe(struct udevice *dev)
 {
@@ -921,18 +911,12 @@ static int rk3368_dmc_probe(struct udevice *dev)
 #endif
 	struct dram_info *priv = dev_get_priv(dev);
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	ret = conv_of_plat(dev);
-	if (ret)
-		return ret;
-#endif
-
 	priv->pmugrf = syscon_get_first_range(ROCKCHIP_SYSCON_PMUGRF);
 	debug("%s: pmugrf=%p\n", __func__, priv->pmugrf);
 
 #ifdef CONFIG_TPL_BUILD
-	pctl = (struct rk3368_ddr_pctl *)plat->of_plat.reg[0];
-	ddrphy = (struct rk3368_ddrphy *)plat->of_plat.reg[2];
+	pctl = regmap_get_range(plat->map, 0);
+	ddrphy = regmap_get_range(plat->map, 1);
 	msch = syscon_get_first_range(ROCKCHIP_SYSCON_MSCH);
 	grf = syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
 
@@ -995,8 +979,6 @@ U_BOOT_DRIVER(rockchip_rk3368_dmc) = {
 	.id = UCLASS_RAM,
 	.of_match = rk3368_dmc_ids,
 	.ops = &rk3368_dmc_ops,
-	.probe = rk3368_dmc_probe,
-	.priv_auto	= sizeof(struct dram_info),
 	.of_to_plat = rk3368_dmc_of_to_plat,
 	.probe = rk3368_dmc_probe,
 	.priv_auto	= sizeof(struct dram_info),

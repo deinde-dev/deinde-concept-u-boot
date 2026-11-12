@@ -18,6 +18,12 @@
 #define CPU_PCLK_HZ	74250000
 #define CPU_H2P_HZ	74250000
 
+/* Type of CRU, held in the driver data */
+enum rk3188_clk_type {
+	RK3188_CRU,
+	RK3188A_CRU,
+};
+
 #define PERI_ACLK_HZ	148500000
 #define PERI_HCLK_HZ	148500000
 #define PERI_PCLK_HZ	74250000

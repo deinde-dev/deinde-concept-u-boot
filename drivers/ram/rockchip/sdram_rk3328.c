@@ -6,7 +6,6 @@
 #include <clk.h>
 #include <debug_uart.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <init.h>
 #include <log.h>
 #include <ram.h>
@@ -19,6 +18,7 @@
 #include <asm/arch-rockchip/sdram.h>
 #include <asm/arch-rockchip/sdram_rk3328.h>
 #include <asm/arch-rockchip/uart.h>
+#include <dm/prop.h>
 #include <linux/delay.h>
 
 struct dram_info {
@@ -39,29 +39,9 @@ struct dram_info {
 struct rk3328_sdram_channel sdram_ch;
 
 struct rockchip_dmc_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3328_dmc dtplat;
-#else
 	struct rk3328_sdram_params sdram_params;
-#endif
 	struct regmap *map;
 };
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int conv_of_plat(struct udevice *dev)
-{
-	struct rockchip_dmc_plat *plat = dev_get_plat(dev);
-	struct dtd_rockchip_rk3328_dmc *dtplat = &plat->dtplat;
-	int ret;
-
-	ret = regmap_init_mem_plat(dev, dtplat->reg, sizeof(dtplat->reg[0]),
-				   ARRAY_SIZE(dtplat->reg) / 2, &plat->map);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-#endif
 
 static void rkclk_ddr_reset(struct dram_info *dram,
 			    u32 ctl_srstn, u32 ctl_psrstn,
@@ -515,19 +495,9 @@ static int rk3328_dmc_init(struct udevice *dev)
 {
 	struct dram_info *priv = dev_get_priv(dev);
 	struct rockchip_dmc_plat *plat = dev_get_plat(dev);
+	struct rk3328_sdram_params *params = &plat->sdram_params;
 	int ret;
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-	struct rk3328_sdram_params *params = &plat->sdram_params;
-#else
-	struct dtd_rockchip_rk3328_dmc *dtplat = &plat->dtplat;
-	struct rk3328_sdram_params *params =
-					(void *)dtplat->rockchip_sdram_params;
-
-	ret = conv_of_plat(dev);
-	if (ret)
-		return ret;
-#endif
 	priv->phy = regmap_get_range(plat->map, 0);
 	priv->pctl = regmap_get_range(plat->map, 1);
 	priv->grf = regmap_get_range(plat->map, 2);
@@ -549,11 +519,12 @@ static int rk3328_dmc_init(struct udevice *dev)
 
 static int rk3328_dmc_of_to_plat(struct udevice *dev)
 {
-#if IS_ENABLED(CONFIG_OF_REAL)
 	struct rockchip_dmc_plat *plat = dev_get_plat(dev);
+	DTPLAT(rockchip_rk3328_dmc, dt, dev);
 	int ret;
 
-	ret = dev_read_u32_array(dev, "rockchip,sdram-params",
+	ret = dev_prop_u32_array(dev, dt, rockchip_sdram_params,
+				 "rockchip,sdram-params",
 				 (u32 *)&plat->sdram_params,
 				 sizeof(plat->sdram_params) / sizeof(u32));
 	if (ret) {
@@ -561,11 +532,8 @@ static int rk3328_dmc_of_to_plat(struct udevice *dev)
 		       __func__, ret);
 		return ret;
 	}
-	ret = regmap_init_mem(dev, &plat->map);
-	if (ret)
-		printf("%s: regmap failed %d\n", __func__, ret);
-#endif
-	return 0;
+
+	return dev_prop_regmap(dev, dt, &plat->map);
 }
 
 #endif

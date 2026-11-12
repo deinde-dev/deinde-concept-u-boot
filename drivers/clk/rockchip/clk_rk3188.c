@@ -6,11 +6,9 @@
 
 #include <clk-uclass.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <log.h>
 #include <malloc.h>
-#include <mapmem.h>
 #include <syscon.h>
 #include <asm/arch-rockchip/clock.h>
 #include <asm/arch-rockchip/cru_rk3188.h>
@@ -19,22 +17,12 @@
 #include <dt-bindings/clock/rk3188-cru.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
+#include <dm/prop.h>
 #include <dm/uclass-internal.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/log2.h>
 #include <linux/stringify.h>
-
-enum rk3188_clk_type {
-	RK3188_CRU,
-	RK3188A_CRU,
-};
-
-struct rk3188_clk_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3188_cru dtd;
-#endif
-};
 
 struct pll_div {
 	u32 nr;
@@ -538,11 +526,10 @@ static struct clk_ops rk3188_clk_ops = {
 
 static int rk3188_clk_of_to_plat(struct udevice *dev)
 {
-	if (IS_ENABLED(CONFIG_OF_REAL)) {
-		struct rk3188_clk_priv *priv = dev_get_priv(dev);
+	struct rk3188_clk_priv *priv = dev_get_priv(dev);
+	DTPLAT(rockchip_rk3188_cru, dt, dev);
 
-		priv->cru = dev_read_addr_ptr(dev);
-	}
+	priv->cru = dev_prop_addr_ptr(dev, dt);
 
 	return 0;
 }
@@ -558,12 +545,6 @@ static int rk3188_clk_probe(struct udevice *dev)
 	priv->has_bwadj = (type == RK3188A_CRU) ? 1 : 0;
 
 #ifdef CONFIG_XPL_BUILD
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct rk3188_clk_plat *plat = dev_get_plat(dev);
-
-	priv->cru = map_sysmem(plat->dtd.reg[0], plat->dtd.reg[1]);
-#endif
-
 	rkclk_init(priv->cru, priv->grf, priv->has_bwadj);
 
 	/* Init CPU frequency */
@@ -576,9 +557,13 @@ static int rk3188_clk_probe(struct udevice *dev)
 
 static int rk3188_clk_bind(struct udevice *dev)
 {
+	DTPLAT(rockchip_rk3188_cru, dt, dev);
 	int ret;
 	struct udevice *sys_child;
 	struct sysreset_reg *priv;
+
+	/* With of-platdata, nothing else sets the driver data */
+	dev->driver_data = dev_prop_driver_data(dev, dt);
 
 	/* The reset driver does not have a device node, so bind it here */
 	ret = device_bind_driver(dev, "rockchip_sysreset", "sysreset",
@@ -615,9 +600,9 @@ U_BOOT_DRIVER(rockchip_rk3188_cru) = {
 	.id			= UCLASS_CLK,
 	.of_match		= rk3188_clk_ids,
 	.priv_auto	= sizeof(struct rk3188_clk_priv),
-	.plat_auto	= sizeof(struct rk3188_clk_plat),
 	.ops			= &rk3188_clk_ops,
 	.bind			= rk3188_clk_bind,
 	.of_to_plat	= rk3188_clk_of_to_plat,
 	.probe			= rk3188_clk_probe,
+	DM_HEADER(<asm/arch-rockchip/cru_rk3188.h>)
 };

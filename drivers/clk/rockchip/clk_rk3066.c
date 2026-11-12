@@ -7,11 +7,9 @@
 #include <bitfield.h>
 #include <clk-uclass.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <log.h>
 #include <malloc.h>
-#include <mapmem.h>
 #include <syscon.h>
 #include <asm/arch-rockchip/clock.h>
 #include <asm/arch-rockchip/cru_rk3066.h>
@@ -21,17 +19,12 @@
 #include <dm/device_compat.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
+#include <dm/prop.h>
 #include <dm/uclass-internal.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/log2.h>
 #include <linux/stringify.h>
-
-struct rk3066_clk_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3066a_cru dtd;
-#endif
-};
 
 struct pll_div {
 	u32 nr;
@@ -634,11 +627,10 @@ static struct clk_ops rk3066_clk_ops = {
 
 static int rk3066_clk_of_to_plat(struct udevice *dev)
 {
-	if (IS_ENABLED(CONFIG_OF_REAL)) {
-		struct rk3066_clk_priv *priv = dev_get_priv(dev);
+	struct rk3066_clk_priv *priv = dev_get_priv(dev);
+	DTPLAT(rockchip_rk3066a_cru, dt, dev);
 
-		priv->cru = dev_read_addr_ptr(dev);
-	}
+	priv->cru = dev_prop_addr_ptr(dev, dt);
 
 	return 0;
 }
@@ -650,12 +642,6 @@ static int rk3066_clk_probe(struct udevice *dev)
 	priv->grf = syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
 	if (IS_ERR(priv->grf))
 		return PTR_ERR(priv->grf);
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct rk3066_clk_plat *plat = dev_get_plat(dev);
-
-	priv->cru = map_sysmem(plat->dtd.reg[0], plat->dtd.reg[1]);
-#endif
 
 	if (IS_ENABLED(CONFIG_TPL_BUILD)) {
 		rk3066_clk_init(priv->cru, priv->grf);
@@ -711,5 +697,4 @@ U_BOOT_DRIVER(rockchip_rk3066a_cru) = {
 	.of_match	= rk3066_clk_ids,
 	.of_to_plat	= rk3066_clk_of_to_plat,
 	.priv_auto	= sizeof(struct rk3066_clk_priv),
-	.plat_auto	= sizeof(struct rk3066_clk_plat),
 };
