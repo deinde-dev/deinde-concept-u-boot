@@ -3,6 +3,7 @@
 #include <command.h>
 #include <display_options.h>
 #include <dm.h>
+#include <getopt.h>
 #include <hexdump.h>
 #include <i2c.h>
 #include <mapmem.h>
@@ -102,9 +103,11 @@ static int do_rtc_write(struct udevice *dev, int argc, char * const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-int do_rtc(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+int do_rtc(struct getopt_state *gs)
 {
 	static int curr_rtc;
+	char *const *argv = gs->argv;
+	int argc = gs->argc;
 	struct udevice *dev;
 	int ret, idx;
 
@@ -155,7 +158,7 @@ int do_rtc(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 	return CMD_RET_USAGE;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	rtc,	5,	0,	do_rtc,
 	"RTC subsystem",
 	"list                        - show available rtc devices\n"
