@@ -9,7 +9,6 @@
 #include <config.h>
 #include <clk.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <hang.h>
 #include <init.h>
@@ -25,6 +24,7 @@
 #include <asm/arch-rockchip/pmu_rk3288.h>
 #include <asm/arch-rockchip/sdram.h>
 #include <asm/arch-rockchip/sdram_rk3288.h>
+#include <dm/prop.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <power/regulator.h>
@@ -48,9 +48,6 @@ struct dram_info {
 };
 
 struct rk3288_sdram_params {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3288_dmc of_plat;
-#endif
 	struct rk3288_sdram_channel ch[2];
 	struct rk3288_sdram_pctl_timing pctl_timing;
 	struct rk3288_sdram_phy_timing phy_timing;
@@ -974,28 +971,29 @@ static int setup_sdram(struct udevice *dev)
 static int rk3288_dmc_of_to_plat(struct udevice *dev)
 {
 	struct rk3288_sdram_params *params = dev_get_plat(dev);
+	DTPLAT(rockchip_rk3288_dmc, dt, dev);
 	int ret;
-
-	if (!IS_ENABLED(CONFIG_OF_REAL))
-		return 0;
 
 	/* Rk3288 supports dual-channel, set default channel num to 2 */
 	params->num_channels = 2;
-	ret = dev_read_u32_array(dev, "rockchip,pctl-timing",
+	ret = dev_prop_u32_array(dev, dt, rockchip_pctl_timing,
+				 "rockchip,pctl-timing",
 				 (u32 *)&params->pctl_timing,
 				 sizeof(params->pctl_timing) / sizeof(u32));
 	if (ret) {
 		debug("%s: Cannot read rockchip,pctl-timing\n", __func__);
 		return -EINVAL;
 	}
-	ret = dev_read_u32_array(dev, "rockchip,phy-timing",
+	ret = dev_prop_u32_array(dev, dt, rockchip_phy_timing,
+				 "rockchip,phy-timing",
 				 (u32 *)&params->phy_timing,
 				 sizeof(params->phy_timing) / sizeof(u32));
 	if (ret) {
 		debug("%s: Cannot read rockchip,phy-timing\n", __func__);
 		return -EINVAL;
 	}
-	ret = dev_read_u32_array(dev, "rockchip,sdram-params",
+	ret = dev_prop_u32_array(dev, dt, rockchip_sdram_params,
+				 "rockchip,sdram-params",
 				 (u32 *)&params->base,
 				 sizeof(params->base) / sizeof(u32));
 	if (ret) {
@@ -1007,36 +1005,10 @@ static int rk3288_dmc_of_to_plat(struct udevice *dev)
 
 	priv->is_veyron = !fdt_node_check_compatible(blob, 0, "google,veyron");
 #endif
-	ret = regmap_init_mem(dev_ofnode(dev), &params->map);
-	if (ret)
-		return ret;
 
-	return 0;
+	return dev_prop_regmap(dev, dt, &params->map);
 }
 #endif /* CONFIG_XPL_BUILD */
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int conv_of_plat(struct udevice *dev)
-{
-	struct rk3288_sdram_params *plat = dev_get_plat(dev);
-	struct dtd_rockchip_rk3288_dmc *of_plat = &plat->of_plat;
-	int ret;
-
-	memcpy(&plat->pctl_timing, of_plat->rockchip_pctl_timing,
-	       sizeof(plat->pctl_timing));
-	memcpy(&plat->phy_timing, of_plat->rockchip_phy_timing,
-	       sizeof(plat->phy_timing));
-	memcpy(&plat->base, of_plat->rockchip_sdram_params, sizeof(plat->base));
-	/* Rk3288 supports dual-channel, set default channel num to 2 */
-	plat->num_channels = 2;
-	ret = regmap_init_mem_plat(dev, of_plat->reg, sizeof(of_plat->reg[0]),
-				   ARRAY_SIZE(of_plat->reg) / 2, &plat->map);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-#endif
 
 static int rk3288_dmc_probe(struct udevice *dev)
 {
@@ -1052,11 +1024,6 @@ static int rk3288_dmc_probe(struct udevice *dev)
 	priv->pmu = syscon_get_first_range(ROCKCHIP_SYSCON_PMU);
 #if defined(CONFIG_TPL_BUILD) || \
 	(!defined(CONFIG_TPL) && defined(CONFIG_XPL_BUILD))
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	ret = conv_of_plat(dev);
-	if (ret)
-		return ret;
-#endif
 	map = syscon_get_regmap_by_driver_data(ROCKCHIP_SYSCON_NOC);
 	if (IS_ERR(map))
 		return PTR_ERR(map);
