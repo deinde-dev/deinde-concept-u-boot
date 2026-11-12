@@ -105613,3 +105613,27 @@ The branch has not been pushed or merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-11 (attempt 2)
+
+Branch: cherry-4094466794df
+
+Failed jobs:
+- pine64 (sjg-lab)
+
+### Conversation log
+I didn't change anything: this failure is a glitch on the lab's serial console, not a bug in the branch. I didn't create `cherry-4094466794df-fix2`, and I didn't run the builds because there was nothing to verify.
+
+**What failed:** on pine64, 41 tests passed and only `test_dm_compat` failed:
+```
+AssertionError: assert not {'sunxi��lk'}
+```
+
+**Why it's the console:**
+- The garbled name is `sunxi_clk`, from `drivers/clk/sunxi/clk_sunxi.c`, with the two bytes `_c` replaced by junk. That is what a few bytes lost or corrupted on a UART looks like.
+- The test runs `dm tree` and `dm compat`, then checks that every driver name in the first output appears in the second. Both commands print the name from the same string in the U-Boot image. If memory had really been corrupted, both outputs would show the same broken name and the test would pass. It failed because the bytes were mangled in only one of the two outputs, which happens on the serial line, not in U-Boot.
+- The branch only changes video code: it removes `show_splash()` and fixes the `CONFIG_VIDEO && !CONFIG_VIDEO_LOGO` build. It touches neither the sunxi clock driver nor the `dm` commands.
+
+Re-running the pine64 job should be enough. If it fails again in the same way, that points to a problem with pine64's console or cabling in the lab rather than with this MR.
+
+---
+
