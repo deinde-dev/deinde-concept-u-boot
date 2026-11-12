@@ -105965,3 +105965,55 @@ The branch is ready to push and hasn't been merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-12 (attempt 3)
+
+Branch: cherry-4cf32565c3c4
+
+Failed jobs:
+- sandbox with clang test.py (test.py)
+- sandbox test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox64_lwip test.py (test.py)
+- sandbox64 test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Both regulator command tests fail because two new GPIO regulators show up in the list. Checking the test commit.
+
+Reproduced. Now checking the separate hwids_to_dtsi failure in make check/qcheck, which looks unrelated to this series.
+
+All regulator command tests pass. Running the dm regulator tests and the pytest wrappers too.
+
+Now the full board build, plus creating the fix branch.
+
+That board list is built from words in the job names, so most of the entries aren't boards. I'll build the sandbox boards those jobs actually use.
+
+The sandbox link error comes from a leftover RISC-V object (EM 243) in a reused buildman work directory, not from this change. I'll rebuild sandbox in a clean output directory to confirm.
+
+I fixed the failures with a small change to the test commit; the result is on local branch `cherry-4cf32565c3c4-fix3`, not pushed. Locally the two failing tests now pass and all the sandbox boards build cleanly.
+
+**Root cause:** all eight jobs fail on the same two tests, `ut cmd cmd_test_regulator_base` and `ut cmd cmd_test_regulator_status`. The commit "test: dm: check the regulators claim their GPIOs at probe time" (originally a338b718373b) adds two regulators to `arch/sandbox/dts/test.dts` (`fixed-gpio-reg`, named "fixed-gpio-enabled", and `gpio-reg`, named "gpio-switched"). It also turns on CONFIG_DM_REGULATOR_GPIO for the sandbox boards. Both new regulators now come first in `regulator list` and `regulator status -a`. The target tree has `test/cmd/regulator.c`, which doesn't exist upstream, and it expects `buck1` / "SUPPLY_1.2V" to be the first entry.
+
+The "hwids_to_dtsi: Tests FAILED" line in the Check make check/qcheck jobs is not a separate failure. `test/run` prints each test name without a newline, so the final summary lands on that line. When run on its own, the hwids_to_dtsi script passes (11 tests).
+
+**Fix:** I amended that test commit so `test/cmd/regulator.c` expects the two new regulators first:
+- **List:** `fixed-gpio-reg` and `gpio-reg`, both under `root_driver`.
+- **Status:** `fixed-gpio-enabled` (disabled, 3300000 uV, no current or mode) and `gpio-switched` (enabled, 1800000 uV, no current or mode).
+
+I added this note to the end of the commit message:
+`[pickman] Update test/cmd/regulator.c for the two new GPIO regulators`
+
+The other commits are unchanged apart from being rebased; the only difference from the old branch tip is 9 added lines in `test/cmd/regulator.c`.
+
+**Verification:**
+- `um build sandbox` is clean.
+- `ut cmd cmd_test_regulator*` passes all 7 tests, with both live and flat trees.
+- `ut dm power_regulator*` (13 tests) and `ut dm gpio*` (15 tests) pass.
+- `um py -B sandbox regulator` passes 20 tests.
+- I ran buildman on the sandbox boards because the board list in the instructions comes from words in the job names and matches no boards. In a fresh output directory, all 9 builds succeeded, with only dtc warnings on sandbox64 and sandbox64_lwip (the `reg_format` / `ranges_format` warnings for `sandbox.dtsi`).
+- The first buildman run, into `/tmp/pickman`, failed to link `examples/ulib/demo` for sandbox. The cause is an old RISC-V object (EM 243) left in the reused work directory; the build was fine in a fresh directory. You may want to clear `/tmp/pickman/.bm-work`.
+
+---
+
