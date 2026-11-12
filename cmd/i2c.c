@@ -154,15 +154,15 @@ static int i2c_get_cur_bus(struct udevice **busp)
 #ifdef CONFIG_I2C_SET_DEFAULT_BUS_NUM
 	if (!i2c_cur_bus) {
 		if (cmd_i2c_set_bus_num(CONFIG_I2C_DEFAULT_BUS_NUMBER)) {
-			printf("Default I2C bus %d not found\n",
-			       CONFIG_I2C_DEFAULT_BUS_NUMBER);
+			cmd_err("Default I2C bus %d not found\n",
+				CONFIG_I2C_DEFAULT_BUS_NUMBER);
 			return -ENODEV;
 		}
 	}
 #endif
 
 	if (!i2c_cur_bus) {
-		puts("No I2C bus selected\n");
+		cmd_err("No I2C bus selected\n");
 		return -ENODEV;
 	}
 	*busp = i2c_cur_bus;
@@ -224,10 +224,8 @@ enum i2c_err_op {
 
 static int i2c_report_err(int ret, enum i2c_err_op op)
 {
-	printf("Error %s the chip: %d\n",
-	       op == I2C_ERR_READ ? "reading" : "writing", ret);
-
-	return CMD_RET_FAILURE;
+	return cmd_fail(ret, "Error %s the chip: %d\n",
+			op == I2C_ERR_READ ? "reading" : "writing", ret);
 }
 
 /**
@@ -1650,10 +1648,8 @@ int do_edid(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (ret)
 		return i2c_report_err(ret, I2C_ERR_READ);
 
-	if (edid_check_info(&edid)) {
-		puts("Content isn't valid EDID.\n");
-		return 1;
-	}
+	if (edid_check_info(&edid))
+		return cmd_fail(0, "Content isn't valid EDID.\n");
 
 	edid_print_info(&edid);
 	return 0;
@@ -1725,14 +1721,12 @@ static int do_i2c_show_bus(struct cmd_tbl *cmdtp, int flag, int argc,
 		int ret;
 
 		ret = uclass_get_device_by_seq(UCLASS_I2C, i, &bus);
-		if (ret) {
-			printf("Invalid bus %d: err=%d\n", i, ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "Invalid bus %d: err=%d\n", i, ret);
 		show_bus(bus);
 #else
 		if (i >= CFG_SYS_NUM_I2C_BUSES) {
-			printf("Invalid bus %d\n", i);
+			cmd_err("Invalid bus %d\n", i);
 			return -1;
 		}
 		printf("Bus %d:\t%s", i, I2C_ADAP_NR(i)->name);
@@ -1778,7 +1772,7 @@ static int do_i2c_bus_num(struct cmd_tbl *cmdtp, int flag, int argc,
 		bus_no = dectoul(argv[1], NULL);
 #if IS_ENABLED(CONFIG_SYS_I2C_LEGACY)
 		if (bus_no >= CFG_SYS_NUM_I2C_BUSES) {
-			printf("Invalid bus %d\n", bus_no);
+			cmd_err("Invalid bus %d\n", bus_no);
 			return -1;
 		}
 #endif
@@ -1789,7 +1783,7 @@ static int do_i2c_bus_num(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = i2c_set_bus_num(bus_no);
 #endif
 		if (ret)
-			printf("Failure changing bus number (%d)\n", ret);
+			cmd_err("Failure changing bus number (%d)\n", ret);
 	}
 
 	return ret ? CMD_RET_FAILURE : 0;
@@ -1834,7 +1828,7 @@ static int do_i2c_bus_speed(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = i2c_set_bus_speed(speed);
 #endif
 		if (ret)
-			printf("Failure changing bus speed (%d)\n", ret);
+			cmd_err("Failure changing bus speed (%d)\n", ret);
 	}
 
 	return ret ? CMD_RET_FAILURE : 0;
@@ -1886,13 +1880,13 @@ static int do_i2c_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 #if IS_ENABLED(CONFIG_DM_I2C)
 	struct udevice *bus;
+	int ret;
 
 	if (i2c_get_cur_bus(&bus))
 		return CMD_RET_FAILURE;
-	if (i2c_deblock(bus)) {
-		printf("Error: Not supported by the driver\n");
-		return CMD_RET_FAILURE;
-	}
+	ret = i2c_deblock(bus);
+	if (ret)
+		return cmd_fail(ret, "Error: Not supported by the driver\n");
 #elif IS_ENABLED(CONFIG_SYS_I2C_LEGACY)
 	i2c_init(I2C_ADAP->speed, I2C_ADAP->slaveaddr);
 #endif
