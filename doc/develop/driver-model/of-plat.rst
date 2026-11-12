@@ -285,6 +285,11 @@ The driver declaration needs no `#if` either:
 
 .. code-block:: c
 
+    static __maybe_unused const struct udevice_id mmc_ids[] = {
+            { .compatible = "vendor,mmc" },
+            { }
+    };
+
     U_BOOT_DRIVER(mmc_drv) = {
             .name           = "mmc_drv",
             .id             = UCLASS_MMC,
@@ -296,7 +301,9 @@ The driver declaration needs no `#if` either:
     };
 
 `of_match_ptr()` drops the compatible strings when there is no devicetree at
-run time, since only dtoc needs them then. `of_to_plat_ptr()` keeps the method
+run time, since only dtoc needs them then, so the `udevice_id` table is marked
+`__maybe_unused`, before `const` so that dtoc still finds it.
+`of_to_plat_ptr()` keeps the method
 with of-platdata, since that is where the helpers read the generated data, and
 drops it only when OF_CONTROL is disabled. A driver which is also used without
 OF_CONTROL, such as ns16550, puts its `of_to_plat()` method inside
@@ -305,6 +312,10 @@ be unused.
 
 `plat_auto` is the size of the driver's own plat struct, which has no member for
 the generated data, so it is the same with and without of-platdata.
+
+The driver's `.name` must be the name given to `U_BOOT_DRIVER()`, since dtoc
+uses that in each `U_BOOT_DRVINFO()` record and driver model finds the driver
+by its `.name`.
 
 The driver does not need `DM_FLAG_PRE_RELOC` for of-platdata, since SPL binds
 every device which dtoc generates, whatever its flags.
@@ -518,7 +529,8 @@ To convert a driver which reads the generated struct by hand:
    `dtplat` member of the plat struct and the `#include <dt-structs.h>`.
 
 #. Use `of_match_ptr()` and `of_to_plat_ptr()` in the driver declaration and
-   make `plat_auto` unconditional, as above.
+   make `plat_auto` unconditional, as above, marking the `udevice_id` table
+   `__maybe_unused`.
 
 #. Drop any `DM_DRIVER_ALIAS()` lines which are only there for dtoc.
 
