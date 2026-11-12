@@ -1,2 +1,2 @@
 # dtoc is maintained as the standalone dtoc package
-dtoc==0.4.0
+dtoc==0.5.0

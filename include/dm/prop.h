@@ -173,6 +173,44 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	map_sysmem((_dt)->reg[0], 0)
 
 /**
+ * dev_prop_regmap() - Set up a regmap from a device's 'reg' property
+ *
+ * This creates a regmap with a range for each address/size pair in 'reg'.
+ * With of-platdata, the addresses are used as they are in the devicetree, as
+ * with dev_prop_addr(), and the number of ranges is that of the node with
+ * the most, so a node with fewer has empty ranges at the end.
+ *
+ * Use regmap_uninit() to free the regmap
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_mapp: Returns the regmap
+ * Return: 0 if OK, -ENOMEM if out of memory, or another error from
+ * regmap_init_mem()
+ */
+#define dev_prop_regmap(_dev, _dt, _mapp) \
+	regmap_init_mem_plat(_dev, (void *)(_dt)->reg, sizeof((_dt)->reg[0]), \
+			     ARRAY_SIZE((_dt)->reg) / 2, _mapp)
+
+/**
+ * dev_prop_driver_data() - Get the driver data for a device
+ *
+ * This is the .data from the driver's of_match table for the compatible string
+ * which the device's node matched, as with dev_get_driver_data(). With
+ * of-platdata, nothing sets dev->driver_data, so a driver which needs it can
+ * set it in its bind() method with this.
+ *
+ * With of-platdata, the .data is a C expression which may be used outside the
+ * driver's source file, so the driver must give the headers it needs with
+ * DM_HEADER()
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * Return: driver data, or 0 if there is none
+ */
+#define dev_prop_driver_data(_dev, _dt)	((_dt)->driver_data)
+
+/**
  * dev_prop_clk() - Get a clock from a device's 'clocks' property
  *
  * @_dev: Device to read from
@@ -206,6 +244,12 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define dev_prop_addr_ptr(_dev, _dt) \
 	dev_read_addr_ptr(_dev)
+
+#define dev_prop_regmap(_dev, _dt, _mapp) \
+	regmap_init_mem(dev_ofnode(_dev), _mapp)
+
+/* Driver model has already set this, so let the compiler see it */
+#define dev_prop_driver_data(_dev, _dt)	((_dev)->driver_data)
 
 #define dev_prop_clk(_dev, _dt, _member, _name, _idx, _clkp) \
 	clk_get_by_index(_dev, _idx, _clkp)

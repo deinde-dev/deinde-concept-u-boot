@@ -268,6 +268,13 @@ dev_prop_bool()
 dev_prop_u32_array()
     Array of 32-bit integers; returns -EINVAL if the property is absent
 
+dev_prop_regmap()
+    Regmap with a range for each address/size pair in the 'reg' property
+
+dev_prop_driver_data()
+    The `.data` in the driver's `of_match` table for the node's compatible
+    string; the driver needs `DM_HEADER()` for any headers this uses
+
 dev_prop_clk()
     Clock from the 'clocks' property, by index
 
@@ -277,6 +284,11 @@ Declaring the driver
 The driver declaration needs no `#if` either:
 
 .. code-block:: c
+
+    static __maybe_unused const struct udevice_id mmc_ids[] = {
+            { .compatible = "vendor,mmc" },
+            { }
+    };
 
     U_BOOT_DRIVER(mmc_drv) = {
             .name           = "mmc_drv",
@@ -289,7 +301,9 @@ The driver declaration needs no `#if` either:
     };
 
 `of_match_ptr()` drops the compatible strings when there is no devicetree at
-run time, since only dtoc needs them then. `of_to_plat_ptr()` keeps the method
+run time, since only dtoc needs them then, so the `udevice_id` table is marked
+`__maybe_unused`, before `const` so that dtoc still finds it.
+`of_to_plat_ptr()` keeps the method
 with of-platdata, since that is where the helpers read the generated data, and
 drops it only when OF_CONTROL is disabled. A driver which is also used without
 OF_CONTROL, such as ns16550, puts its `of_to_plat()` method inside
@@ -298,6 +312,10 @@ be unused.
 
 `plat_auto` is the size of the driver's own plat struct, which has no member for
 the generated data, so it is the same with and without of-platdata.
+
+The driver's `.name` must be the name given to `U_BOOT_DRIVER()`, since dtoc
+uses that in each `U_BOOT_DRVINFO()` record and driver model finds the driver
+by its `.name`.
 
 The driver does not need `DM_FLAG_PRE_RELOC` for of-platdata, since SPL binds
 every device which dtoc generates, whatever its flags.
@@ -475,12 +493,15 @@ Some limitations follow from the generated data:
   holds only the properties read with the helpers, so a driver cannot read
   other properties from it by hand.
 
-- With of-platdata, `dev_prop_addr()` returns the address as it is in the
-  devicetree, without translation through the 'ranges' properties of parent
-  nodes.
+- With of-platdata, `dev_prop_addr()` and `dev_prop_regmap()` use the
+  addresses as they are in the devicetree, without translation through the
+  'ranges' properties of parent nodes.
 
 - With of-platdata, an array property shorter than the count passed to
   `dev_prop_u32_array()` is padded with zeroes rather than giving an error.
+
+- With of-platdata, `dev_prop_regmap()` gives each node as many ranges as the
+  node with the most, so a node with fewer has empty ranges at the end.
 
 The helpers need a version of dtoc which supports them. The version which
 U-Boot needs is in `tools/dtoc/requirements.txt`.
@@ -508,7 +529,8 @@ To convert a driver which reads the generated struct by hand:
    `dtplat` member of the plat struct and the `#include <dt-structs.h>`.
 
 #. Use `of_match_ptr()` and `of_to_plat_ptr()` in the driver declaration and
-   make `plat_auto` unconditional, as above.
+   make `plat_auto` unconditional, as above, marking the `udevice_id` table
+   `__maybe_unused`.
 
 #. Drop any `DM_DRIVER_ALIAS()` lines which are only there for dtoc.
 

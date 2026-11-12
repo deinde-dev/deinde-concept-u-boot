@@ -439,6 +439,12 @@ const char *sandbox_debug_get(struct udevice *dev);
  */
 void sandbox_debug_clear(struct udevice *dev);
 
+/* Driver data for the compatible strings of the sandbox_dev_prop_test driver */
+enum sandbox_dev_prop_type {
+	SANDBOX_DEV_PROP_TEST = 1,
+	SANDBOX_DEV_PROP_OTHER,
+};
+
 /**
  * struct sandbox_dev_prop_plat - Values read by the sandbox_dev_prop_test driver
  *
@@ -453,6 +459,7 @@ void sandbox_debug_clear(struct udevice *dev);
  * @array: Values of an array property
  * @array_ret: Return value from reading @array
  * @missing_array_ret: Return value from reading an absent array property
+ * @map: Regmap set up from 'reg'
  */
 struct sandbox_dev_prop_plat {
 	ulong base;
@@ -463,6 +470,7 @@ struct sandbox_dev_prop_plat {
 	u32 array[3];
 	int array_ret;
 	int missing_array_ret;
+	struct regmap *map;
 };
 
 #endif
