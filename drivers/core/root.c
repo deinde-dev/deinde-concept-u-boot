@@ -278,15 +278,6 @@ __weak int dm_scan_other(bool pre_reloc_only)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA_INST) && IS_ENABLED(CONFIG_READ_ONLY)
-void *dm_priv_to_rw(void *priv)
-{
-	long offset = priv - (void *)__priv_data_start;
-
-	return gd_dm_priv_base() + offset;
-}
-#endif
-
 /**
  * dm_probe_devices() - Check whether to probe a device and all children
  *

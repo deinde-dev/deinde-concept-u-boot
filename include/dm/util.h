@@ -58,13 +58,4 @@ void dm_dump_static_driver_info(void);
  */
 void dm_dump_mem(struct dm_stats *stats);
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA_INST) && IS_ENABLED(CONFIG_READ_ONLY)
-void *dm_priv_to_rw(void *priv);
-#else
-static inline void *dm_priv_to_rw(void *priv)
-{
-	return priv;
-}
-#endif
-
 #endif

@@ -631,7 +631,7 @@ void *dev_get_plat(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->plat_);
+	return dev->plat_;
 }
 
 void *dev_get_parent_plat(const struct udevice *dev)
@@ -641,7 +641,7 @@ void *dev_get_parent_plat(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->parent_plat_);
+	return dev->parent_plat_;
 }
 
 void *dev_get_uclass_plat(const struct udevice *dev)
@@ -651,7 +651,7 @@ void *dev_get_uclass_plat(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->uclass_plat_);
+	return dev->uclass_plat_;
 }
 
 void *dev_get_priv(const struct udevice *dev)
@@ -661,7 +661,7 @@ void *dev_get_priv(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->priv_);
+	return dev->priv_;
 }
 
 /* notrace is needed as this is called by timer_get_rate() */
@@ -672,7 +672,7 @@ notrace void *dev_get_uclass_priv(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->uclass_priv_);
+	return dev->uclass_priv_;
 }
 
 void *dev_get_parent_priv(const struct udevice *dev)
@@ -682,7 +682,7 @@ void *dev_get_parent_priv(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->parent_priv_);
+	return dev->parent_priv_;
 }
 
 void *dev_get_attach_ptr(const struct udevice *dev, enum dm_tag_t tag)
