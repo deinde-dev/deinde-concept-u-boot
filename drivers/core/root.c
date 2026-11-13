@@ -59,34 +59,6 @@ static int dm_setup_inst(void)
 {
 	DM_ROOT_NON_CONST = DM_DEVICE_GET(root);
 
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_RT)) {
-		struct udevice_rt *urt;
-		void *start, *end;
-		int each_size;
-		void *base;
-		int n_ents;
-		uint size;
-
-		/* Allocate the udevice_rt table */
-		each_size = dm_udevice_size();
-		start = ll_entry_start(struct udevice, udevice);
-		end = ll_entry_end(struct udevice, udevice);
-		size = end - start;
-		n_ents = size / each_size;
-		urt = calloc(n_ents, sizeof(struct udevice_rt));
-		if (!urt)
-			return log_msg_ret("urt", -ENOMEM);
-		gd_set_dm_udevice_rt(urt);
-
-		/* Now allocate space for the priv/plat data, and copy it in */
-		size = __priv_data_end - __priv_data_start;
-
-		base = memdup(__priv_data_start, size);
-		if (!base)
-			return log_msg_ret("priv", -ENOMEM);
-		gd_set_dm_priv_base(base);
-	}
-
 	return 0;
 }
 

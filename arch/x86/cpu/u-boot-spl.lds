@@ -30,13 +30,6 @@ SECTIONS
 
 	. = ALIGN(4);
 
-	.priv_data : {
-		__priv_data_start = .;
-		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.priv_data*)))
-		__priv_data_end = .;
-	}
-
-	. = ALIGN(4);
 	.data : { *(.data*) }
 
 	. = ALIGN(4);

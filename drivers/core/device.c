@@ -1265,36 +1265,3 @@ int dev_enable_by_path(const char *path)
 }
 #endif
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA_RT)
-static struct udevice_rt *dev_get_rt(const struct udevice *dev)
-{
-	struct udevice *base = ll_entry_start(struct udevice, udevice);
-	uint each_size = dm_udevice_size();
-	int idx = ((void *)dev - (void *)base) / each_size;
-
-	struct udevice_rt *urt = gd_dm_udevice_rt() + idx;
-
-	return urt;
-}
-
-u32 dev_get_flags(const struct udevice *dev)
-{
-	const struct udevice_rt *urt = dev_get_rt(dev);
-
-	return urt->flags_;
-}
-
-void dev_or_flags(const struct udevice *dev, u32 or)
-{
-	struct udevice_rt *urt = dev_get_rt(dev);
-
-	urt->flags_ |= or;
-}
-
-void dev_bic_flags(const struct udevice *dev, u32 bic)
-{
-	struct udevice_rt *urt = dev_get_rt(dev);
-
-	urt->flags_ &= ~bic;
-}
-#endif /* OF_PLATDATA_RT */
