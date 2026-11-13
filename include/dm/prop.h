@@ -92,7 +92,7 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
  *
  * @_dev: Device whose data is wanted
  * @_data: Generated data for the node
- * @_idx: Index of the node's driver_info or udevice record
+ * @_idx: Index of the node's driver_info record
  */
 #define DTPLAT_SINGLE(_dev, _data, _idx) \
 	((IS_ENABLED(CONFIG_OF_PLATDATA_CHECK) ? \
