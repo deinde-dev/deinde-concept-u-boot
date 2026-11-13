@@ -751,6 +751,14 @@ passing here, since the series is not to blame. pickman waits for the pipeline
 fix to look at a failed pipeline before rebasing, so that it knows which kind
 of failure it is.
 
+When the agent rebases an MR to resolve a real conflict, with no comments to
+address, the branch is likewise pushed without running a passing pipeline
+again. Resolving a conflict can change a commit, though, so pickman compares
+each commit's patch ID (leaving out ``.pickman-history``) before and after
+the rebase and lists any which change on the MR. A pipeline can then be
+started by hand if they need testing before merging. Changes made for review
+comments always run the pipeline.
+
 After processing, pickman:
 
 - Marks comments as processed in the database (to avoid reprocessing)

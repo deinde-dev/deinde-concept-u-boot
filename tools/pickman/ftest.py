@@ -11397,6 +11397,121 @@ class TestHistoryConflict(HistoryRepo):
         m_agent.assert_called_once()
         push.assert_not_called()
 
+class TestAgentRebase(HistoryRepo):
+    """Tests for pushing a branch which the agent rebases"""
+
+    def setUp(self):
+        """Set up remote branches for the MR and its target"""
+        super().setUp()
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/cherry', 'cherry')
+        _git(self.repo, 'checkout', '-q', 'master')
+        self._commit({'b.c': 'new\n'}, 'Add b.c')
+        _git(self.repo, 'update-ref', 'refs/remotes/ci/master', 'master')
+        _git(self.repo, 'checkout', '-q', 'cherry')
+        self.db_path = os.path.join(self.test_dir, 'pickman.db')
+        tools.write_file(os.path.join(self.repo, '.git', 'info', 'exclude'),
+                         'pickman.db*\n', binary=False)
+
+    def tearDown(self):
+        """Close the database"""
+        database.Database.instances.clear()
+        super().tearDown()
+
+    def _resolve(self, a_c):
+        """Rebase the branch as the agent would, with a.c as given"""
+        _git(self.repo, 'reset', '-q', '--hard', 'master')
+        self._commit({'a.c': a_c}, 'Change a.c')
+        self._commit({control.HISTORY_FILE:
+                      self.first + self.other + self.cherry}, 'Record cherry')
+
+    def _review(self, a_c='one\ntwo changed\n', last=(200, 'success'),
+                comments=()):
+        """Process the MR, as GitLab reports that it has conflicts
+
+        Args:
+            a_c (str): Contents of a.c after the agent rebases the branch
+            last (tuple): (pipeline_id, status) of the MR's last pipeline
+                which ran
+            comments (list of Comment): Review comments on the MR
+
+        Returns:
+            tuple: (Mock, Mock, Mock) for pushes, for pushes which run CI
+                and for replies to the MR
+        """
+        merge_req = gitlab.PickmanMr(
+            iid=100, title='[pickman] Test MR', source_branch='cherry',
+            description='Test', web_url='https://gitlab.com/mr/100',
+            has_conflicts=True, needs_rebase=True,
+            pipeline_status='skipped', pipeline_id=201)
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(gitlab, 'get_mr_comments',
+                                   return_value=list(comments)), \
+                 mock.patch.object(gitlab, 'get_last_pipeline',
+                                   return_value=last), \
+                 mock.patch.object(control, 'history_only_conflict',
+                                   return_value=False), \
+                 mock.patch.object(
+                     agent, 'handle_mr_comments',
+                     side_effect=lambda *args, **kwargs: (
+                         self._resolve(a_c), (True, 'Rebased'))[1]), \
+                 mock.patch.object(gitlab, 'update_mr_desc'), \
+                 mock.patch.object(control, 'update_history'), \
+                 mock.patch.object(control, '_push_with_ci',
+                                   return_value='') as push_ci, \
+                 mock.patch.object(gitlab, 'push_branch') as push, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                self.assertEqual(1, control.process_single_mr(
+                    'ci', merge_req, dbs, 'master'))
+            dbs.close()
+        return push, push_ci, reply
+
+    def test_changed_commits(self):
+        """Test finding the commits which a rebase changes"""
+        old = _git(self.repo, 'rev-parse', 'cherry')
+        self._resolve('one\ntwo changed\n')
+        self.assertEqual([], control.changed_commits(old, 'HEAD',
+                                                     'master'))
+        self._resolve('one\ntwo resolved\n')
+        self.assertEqual(['Change a.c'],
+                         control.changed_commits(old, 'HEAD', 'master'))
+
+    def test_unchanged(self):
+        """Test that a rebase which changes no commit does not run CI"""
+        push, push_ci, reply = self._review()
+        push.assert_called_once_with('ci', 'cherry', force=True, skip_ci=True)
+        push_ci.assert_not_called()
+        reply.assert_called_once_with(
+            'ci', 100,
+            'Pipeline 200 passed, so it is not run again after this rebase.')
+
+    def test_changed(self):
+        """Test that the commits which a rebase changes are listed"""
+        push, push_ci, reply = self._review('one\ntwo resolved\n')
+        push.assert_called_once_with('ci', 'cherry', force=True, skip_ci=True)
+        push_ci.assert_not_called()
+        msg = reply.call_args[0][2]
+        self.assertIn('Resolving the conflicts changes these commits', msg)
+        self.assertTrue(msg.endswith(':\n- Change a.c'))
+
+    def test_not_good(self):
+        """Test that a rebase after a failure runs CI"""
+        push, push_ci, reply = self._review(last=(200, 'failed'))
+        push.assert_not_called()
+        push_ci.assert_called_once()
+        reply.assert_not_called()
+
+    def test_comments(self):
+        """Test that changes for review comments run CI"""
+        comment = gitlab.MrComment(id=1, author='sjg', body='Fix it',
+                                   created_at='', resolvable=True,
+                                   resolved=False)
+        push, push_ci, _ = self._review(comments=[comment])
+        push.assert_not_called()
+        push_ci.assert_called_once()
+
+
 class TestRebaseOnto(HistoryRepo):
     """Tests for rebasing a branch which has its own history entry"""
 
