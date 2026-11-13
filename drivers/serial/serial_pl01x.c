@@ -22,6 +22,7 @@
 #include <spl.h>
 #include <dm/device_compat.h>
 #include <dm/platform_data/serial_pl01x.h>
+#include <dm/prop.h>
 #include <linux/compiler.h>
 #include "serial_pl01x_internal.h"
 
@@ -314,14 +315,7 @@ int pl01x_serial_probe(struct udevice *dev)
 	struct pl01x_priv *priv = dev_get_priv(dev);
 	int ret;
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_serial_pl01x *dtplat = &plat->dtplat;
-
-	priv->regs = (struct pl01x_regs *)dtplat->reg[0];
-	plat->type = dtplat->type;
-#else
 	priv->regs = (struct pl01x_regs *)plat->base;
-#endif
 	priv->type = plat->type;
 
 	if (!plat->skip_init) {
@@ -367,8 +361,7 @@ static const struct dm_serial_ops pl01x_serial_ops = {
 	.getinfo = pl01x_serial_getinfo,
 };
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static const struct udevice_id pl01x_serial_id[] ={
+static __maybe_unused const struct udevice_id pl01x_serial_id[] = {
 	{.compatible = "arm,pl011", .data = TYPE_PL011},
 	{.compatible = "arm,pl010", .data = TYPE_PL010},
 	{}
@@ -381,17 +374,19 @@ static const struct udevice_id pl01x_serial_id[] ={
 int pl01x_serial_of_to_plat(struct udevice *dev)
 {
 	struct pl01x_serial_plat *plat = dev_get_plat(dev);
+	DTPLAT(serial_pl01x, dt, dev);
 	struct clk clk;
 	fdt_addr_t addr;
 	int ret;
 
-	addr = dev_read_addr(dev);
+	addr = dev_prop_addr(dev, dt);
 	if (addr == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
 	plat->base = addr;
-	plat->clock = dev_read_u32_default(dev, "clock", CFG_PL011_CLOCK);
-	ret = clk_get_by_index(dev, 0, &clk);
+	plat->clock = dev_prop_u32_default(dev, dt, clock, "clock",
+					   CFG_PL011_CLOCK);
+	ret = dev_prop_clk(dev, dt, clocks, "clocks", 0, &clk);
 	if (!ret) {
 		ret = clk_enable(&clk);
 		if (ret && ret != -ENOSYS) {
@@ -406,29 +401,24 @@ int pl01x_serial_of_to_plat(struct udevice *dev)
 		}
 		debug("%s: CLK %d\n", __func__, plat->clock);
 	}
-	plat->type = dev_get_driver_data(dev);
-	plat->skip_init = dev_read_bool(dev, "skip-init");
+	plat->type = dev_prop_driver_data(dev, dt);
+	plat->skip_init = dev_prop_bool(dev, dt, skip_init, "skip-init");
 
 	return 0;
 }
-#endif
 
 U_BOOT_DRIVER(serial_pl01x) = {
 	.name	= "serial_pl01x",
 	.id	= UCLASS_SERIAL,
-#if IS_ENABLED(CONFIG_OF_REAL)
 	.of_match = of_match_ptr(pl01x_serial_id),
-	.of_to_plat = of_match_ptr(pl01x_serial_of_to_plat),
-#endif
+	.of_to_plat = of_to_plat_ptr(pl01x_serial_of_to_plat),
 	.plat_auto	= sizeof(struct pl01x_serial_plat),
 	.probe = pl01x_serial_probe,
 	.ops	= &pl01x_serial_ops,
 	.flags = DM_FLAG_PRE_RELOC,
 	.priv_auto	= sizeof(struct pl01x_priv),
+	DM_HEADER(<dm/platform_data/serial_pl01x.h>)
 };
-
-DM_DRIVER_ALIAS(serial_pl01x, arm_pl011)
-DM_DRIVER_ALIAS(serial_pl01x, arm_pl010)
 #endif
 
 #if defined(CONFIG_DEBUG_UART_PL010) || defined(CONFIG_DEBUG_UART_PL011)
