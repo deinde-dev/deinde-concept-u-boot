@@ -1874,6 +1874,7 @@ config CMD_PCI
 config CMD_PCI_MPS
 	bool "pci_mps - Configure PCI device MPS"
 	depends on PCI
+	select GETOPT
 	help
 	  Enables PCI Express Maximum Packet Size (MPS) tuning. This
 	  command configures the PCI Express MPS of each endpoint to the
