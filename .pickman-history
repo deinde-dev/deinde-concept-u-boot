@@ -106146,3 +106146,53 @@ All 12 commits are on branch `cherry-4d4c01c5ff86`, based on `ci/master`, and th
 
 ---
 
+## 2026-11-12: us/main
+
+Branch: cherry-e2bdb8b6c68a
+
+Commits:
+- e2bdb8b6c68a clk: qcom: sc7280: add SDCC2 apps clock support
+- c20962bc9ec8 clk: qcom: sa8775p: use GATE_CLK_POLLED for CBCR-backed gate clocks
+- 2becf28e981b clk: qcom: sc7280: use GATE_CLK_POLLED for CBCR-backed gate clocks
+- 5ac76bb42aba clk: qcom: qcs615: use GATE_CLK_POLLED for CBCR-backed gate clocks
+- feda4dd9ee1c vpl: make I2C and PCH options effective
+- a2d66e6a938c mpc83xx: Fix MPC8360 system PLL dependencies
+- 8c6c54c9e767 mpc83xx: Fix MPC837X cache way-lock dependencies
+- 989ccb5325b5 video: pwm_backlight: avoid integer overflow in duty cycle calculation (again)
+- 81dd42b9eb7f configs: an7581_evb: set NR_DRAM_BANKS to 2
+- 52a1b525760a phy: reject drivers without operations at bind time
+- 1c1b6c2b2ae0 fs: ext4: widen ext4fs_update() block-group loop counter
+- ed28577c31d8 bootm: bound-check OS id before indexing boot_os[]
+- 2554acc5cad6 clk: qcom: sa8775p: Add SDCC1 clock support with frequency table
+- 3ae98e6fdf69 clk: qcom: qcs615: Add SDCC1 and SDCC2 clock support
+- a2ab5c874e7c drivers: mmc: uclass: Set removable flag based on device tree property
+- ca52bd7778e4 clk: qcom: sa8775p: enable GPLL9 before SDCC1 high-speed rates
+- f4e846ce2a99 doc: board: qualcomm: document SM8550/QCS8550 building/flashing
+- dd956c62c22f configs: add sm8550_defconfig
+- 7f597d9062b9 arm: mach-snapdragon: increase compat buffer size and warn on root compatible string truncation
+- 12428d34b29a power: regulator: qcom-rpmh: propagate votes to parent supplies
+- 5b9690b3fe8d soc/qcom: rpmh: properly fix synchronous requests
+- 6aaa41d0b6c3 soc/qcom: rpmh: only allow rpmh writes of a single command
+- acfdda3b8b40 Merge branch 'qcom-next' of https://git.u-boot-project.org/u-boot/custodians/u-boot-snapdragon into next
+
+### Conversation log
+Five commits are picked and building fine. Next I'm checking the VPL Kconfig commit, since it touches phase-specific options.
+
+That one is fine: the target already uses these symbol names. Continuing with the next batch.
+
+Twelve done, all clean. Now picking the remaining qcom commits and the merge.
+
+Empty merge as expected (all its content is already picked); committing it with --allow-empty.
+
+All 23 commits are on the new branch `cherry-e2bdb8b6c68a`, which is based on `ci/master`, and the sandbox build passes with no warnings or errors.
+
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passed after every pick and again on the finished branch.
+- **Conflicts and fix-ups:** none. Some commits needed git's automatic merging (`Kconfig.vpl`, `an7581_evb_defconfig`, `phy-uclass.c`, `bootm_os.c`, `dragonwing.rst`, `mach-snapdragon/board.c`, `bcm-voter.c`), but all of them applied without conflicts. No commit message needed a fix-up note.
+- **split-check:** it changed nothing for any commit. The VPL Kconfig commit (feda4dd9ee1c) renames `VPL_I2C_SUPPORT` and `VPL_PCH_SUPPORT` to `VPL_I2C` and `VPL_PCH`. I checked that it lines up with symbols the target already has: `SPL_I2C`, `TPL_PCH` and the existing VPL options.
+- **Deltas:** every cherry-picked commit changes exactly the same files and line counts as its original.
+- **Merge commit (acfdda3b8b40):** it is an empty commit, as expected, because all the qcom-next changes it brings in were already picked one by one. Its original message and "cherry picked from" line are kept.
+
+I haven't pushed the branch.
+
+---
+
