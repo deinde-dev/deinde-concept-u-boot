@@ -6,21 +6,17 @@
 #ifndef _ASM_ARCH_UART_H
 #define _ASM_ARCH_UART_H
 
-#include <dt-structs.h>
 #include <ns16550.h>
 
 /**
  * struct apl_ns16550_plat - platform data for the APL UART
  *
- * Note that when of-platdata is in use, apl_ns16550_of_to_plat() actually
- * copies the ns16550_plat contents to the start of this struct, meaning that
- * dtplat is no-longer valid. This is done so that the ns16550 driver can use
+ * This starts with struct ns16550_plat so that the ns16550 driver can use
  * dev_get_plat() without any offsets or adjustments.
+ *
+ * @ns16550: Platform data for the ns16550 driver
  */
 struct apl_ns16550_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_intel_apl_ns16550 dtplat;
-#endif
 	struct ns16550_plat ns16550;
 };
 

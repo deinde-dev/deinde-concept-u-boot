@@ -231,9 +231,6 @@ struct ich_spi_priv {
 };
 
 struct ich_spi_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_intel_fast_spi dtplat;
-#endif
 	enum ich_version ich_version;	/* Controller version, 7 or 9 */
 	bool lockdown;			/* lock down controller settings? */
 	ulong mmio_base;		/* Base of MMIO registers */

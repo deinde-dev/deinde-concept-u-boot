@@ -12,8 +12,8 @@
 #define LOG_CATEGORY UCLASS_NORTHBRIDGE
 
 #include <dm.h>
-#include <dt-structs.h>
 #include <log.h>
+#include <malloc.h>
 #include <spl.h>
 #include <tables_csum.h>
 #include <acpi/acpi_table.h>
@@ -27,6 +27,8 @@
 #include <asm/arch/systemagent.h>
 #include <dt-bindings/sound/nhlt.h>
 #include <dm/acpi.h>
+#include <dm/pci.h>
+#include <dm/prop.h>
 
 enum {
 	PCIEXBAR		= 0x60,
@@ -207,8 +209,9 @@ static int apl_hostbridge_early_init(struct udevice *dev)
 static int apl_hostbridge_of_to_plat(struct udevice *dev)
 {
 	struct apl_hostbridge_plat *plat = dev_get_plat(dev);
+	DTPLAT(intel_apl_hostbridge, dt, dev);
 	struct udevice *pinctrl;
-	int ret;
+	int root, size, ret;
 
 	/*
 	 * The host bridge holds the early pad data needed to get through TPL.
@@ -219,36 +222,32 @@ static int apl_hostbridge_of_to_plat(struct udevice *dev)
 	ret = uclass_first_device_err(UCLASS_PINCTRL, &pinctrl);
 	if (ret)
 		return log_msg_ret("no hostbridge PINCTRL", ret);
-#if IS_ENABLED(CONFIG_OF_REAL)
-	int root;
 
 	/* Get length of PCI Express Region */
-	plat->pciex_region_size = dev_read_u32_default(dev, "pciex-region-size",
+	plat->pciex_region_size = dev_prop_u32_default(dev, dt,
+						       pciex_region_size,
+						       "pciex-region-size",
 						       256 << 20);
 
-	root = pci_get_devfn(dev);
+	root = dev_prop_pci_devfn(dev, dt);
 	if (root < 0)
 		return log_msg_ret("Cannot get host-bridge PCI address", root);
 	plat->bdf = root;
 
-	ret = pinctrl_read_pads(pinctrl, dev_ofnode(dev), "early-pads",
-				&plat->early_pads, &plat->early_pads_count);
+	/* early-pads is optional: without it, there are no pads to set up */
+	size = dev_prop_size(dev, dt, early_pads, "early-pads");
+	if (size <= 0)
+		return 0;
+
+	plat->early_pads = malloc(size);
+	if (!plat->early_pads)
+		return log_msg_ret("early-pads", -ENOMEM);
+	size /= sizeof(u32);
+	ret = dev_prop_u32_array(dev, dt, early_pads, "early-pads",
+				 plat->early_pads, size);
 	if (ret)
 		return log_msg_ret("early-pads", ret);
-#else
-	struct dtd_intel_apl_hostbridge *dtplat = &plat->dtplat;
-	int size;
-
-	plat->pciex_region_size = dtplat->pciex_region_size;
-	plat->bdf = pci_ofplat_get_devfn(dtplat->reg[0]);
-
-	/* Assume that if everything is 0, it is empty */
-	plat->early_pads = dtplat->early_pads;
-	size = ARRAY_SIZE(dtplat->early_pads);
-	plat->early_pads_count = pinctrl_count_pads(pinctrl, plat->early_pads,
-						    size);
-
-#endif
+	plat->early_pads_count = pinctrl_count_pads(pinctrl, size);
 
 	return 0;
 }
@@ -374,12 +373,10 @@ static const struct acpi_ops __maybe_unused apl_hostbridge_acpi_ops = {
 #endif
 };
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static const struct udevice_id apl_hostbridge_ids[] = {
+static __maybe_unused const struct udevice_id apl_hostbridge_ids[] = {
 	{ .compatible = "intel,apl-hostbridge" },
 	{ }
 };
-#endif
 
 U_BOOT_DRIVER(intel_apl_hostbridge) = {
 	.name		= "intel_apl_hostbridge",

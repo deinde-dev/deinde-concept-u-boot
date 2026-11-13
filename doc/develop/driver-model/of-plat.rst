@@ -259,6 +259,9 @@ described below. See :doc:`/api/dm` for the details.
 dev_prop_addr(), dev_prop_addr_ptr()
     Address from the 'reg' property, as an address or a pointer
 
+dev_prop_u32()
+    32-bit integer; returns -EINVAL if the property is absent
+
 dev_prop_u32_default()
     32-bit integer, or a default if the property is absent
 
@@ -268,8 +271,14 @@ dev_prop_bool()
 dev_prop_u32_array()
     Array of 32-bit integers; returns -EINVAL if the property is absent
 
+dev_prop_size()
+    Size of a property in bytes, e.g. to allocate space for an array
+
 dev_prop_regmap()
     Regmap with a range for each address/size pair in the 'reg' property
+
+dev_prop_pci_devfn()
+    PCI device and function from the first cell of the 'reg' property
 
 dev_prop_driver_data()
     The `.data` in the driver's `of_match` table for the node's compatible
@@ -499,6 +508,8 @@ Some limitations follow from the generated data:
 
 - With of-platdata, an array property shorter than the count passed to
   `dev_prop_u32_array()` is padded with zeroes rather than giving an error.
+  For the same reason, `dev_prop_size()` gives the size of the array for the
+  node with the most values.
 
 - With of-platdata, `dev_prop_regmap()` gives each node as many ranges as the
   node with the most, so a node with fewer has empty ranges at the end.

@@ -8,9 +8,6 @@
 
 /* Platform data for the P2SB */
 struct p2sb_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_intel_p2sb dtplat;
-#endif
 	ulong mmio_base;
 	pci_dev_t bdf;
 };

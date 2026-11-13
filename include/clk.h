@@ -130,6 +130,22 @@ int clk_get_by_phandle(struct udevice *dev, const struct phandle_1_arg *cells,
 		       struct clk *clk);
 
 /**
+ * clk_get_by_ofplat_idx() - Get a clock from its device index (of-platdata)
+ * @dev: Device which uses the clock
+ * @idx: Index of the clock device's record in the linker list
+ * @arg: Argument for the clock, i.e. the clock ID
+ * @clk: A pointer to a clock struct to initialise
+ *
+ * This is the same as clk_get_by_phandle() but takes the values themselves,
+ * so the compiler can see them when they are constant. This avoids keeping
+ * the generated data just so its address can be passed.
+ *
+ * Return: 0 if OK, or a negative error code.
+ */
+int clk_get_by_ofplat_idx(struct udevice *dev, uint idx, int arg,
+			  struct clk *clk);
+
+/**
  * clk_get_by_index() - Get/request a clock by integer index.
  * @dev:	The client device.
  * @index:	The index of the clock to request, within the client's list of
@@ -262,6 +278,12 @@ int clk_release_all(struct clk *clk, unsigned int count);
 static inline int clk_get_by_phandle(struct udevice *dev, const
 				     struct phandle_1_arg *cells,
 				     struct clk *clk)
+{
+	return -ENOSYS;
+}
+
+static inline int clk_get_by_ofplat_idx(struct udevice *dev, uint idx,
+					int arg, struct clk *clk)
 {
 	return -ENOSYS;
 }

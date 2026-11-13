@@ -44,13 +44,6 @@
 /* ITSS Power reduction control */
 #define PCR_ITSS_ITSSPRC	0x3300
 
-struct itss_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	/* Put this first since driver model will copy the data here */
-	struct dtd_intel_itss dtplat;
-#endif
-};
-
 /* struct pmc_route - Routing for PMC to GPIO */
 struct pmc_route {
 	u32 pmc;

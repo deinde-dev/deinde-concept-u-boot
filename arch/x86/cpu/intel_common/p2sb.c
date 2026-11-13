@@ -8,12 +8,13 @@
 #define LOG_CATEGORY UCLASS_P2SB
 
 #include <dm.h>
-#include <dt-structs.h>
 #include <log.h>
 #include <p2sb.h>
 #include <spl.h>
 #include <asm/p2sb.h>
 #include <asm/pci.h>
+#include <dm/pci.h>
+#include <dm/prop.h>
 #include <linux/bitops.h>
 
 #define PCH_P2SB_E0		0xe0
@@ -86,28 +87,23 @@ int p2sb_of_to_plat(struct udevice *dev)
 {
 	struct p2sb_uc_priv *upriv = dev_get_uclass_priv(dev);
 	struct p2sb_plat *plat = dev_get_plat(dev);
-
-#if IS_ENABLED(CONFIG_OF_REAL)
+	DTPLAT(intel_p2sb, dt, dev);
 	int ret;
 	u32 base[2];
 
-	ret = dev_read_u32_array(dev, "early-regs", base, ARRAY_SIZE(base));
+	ret = dev_prop_u32_array(dev, dt, early_regs, "early-regs", base,
+				 ARRAY_SIZE(base));
 	if (ret)
 		return log_msg_ret("Missing/short early-regs", ret);
 	plat->mmio_base = base[0];
 	/* TPL sets up the initial BAR */
 	if (xpl_phase() == PHASE_TPL) {
-		plat->bdf = pci_get_devfn(dev);
+		plat->bdf = dev_prop_pci_devfn(dev, dt);
 		if (plat->bdf < 0)
 			return log_msg_ret("Cannot get p2sb PCI address",
 					   plat->bdf);
 	}
 	upriv->mmio_base = plat->mmio_base;
-#else
-	plat->mmio_base = plat->dtplat.early_regs[0];
-	plat->bdf = pci_ofplat_get_devfn(plat->dtplat.reg[0]);
-	upriv->mmio_base = plat->mmio_base;
-#endif
 
 	return 0;
 }

@@ -459,6 +459,9 @@ enum sandbox_dev_prop_type {
  * @array: Values of an array property
  * @array_ret: Return value from reading @array
  * @missing_array_ret: Return value from reading an absent array property
+ * @array_size: Size of the array property, or -ve error
+ * @u32_ret: Return value from reading a property which must be present
+ * @u32_val: Value read for that property
  * @map: Regmap set up from 'reg'
  */
 struct sandbox_dev_prop_plat {
@@ -470,6 +473,9 @@ struct sandbox_dev_prop_plat {
 	u32 array[3];
 	int array_ret;
 	int missing_array_ret;
+	int array_size;
+	int u32_ret;
+	u32 u32_val;
 	struct regmap *map;
 };
 

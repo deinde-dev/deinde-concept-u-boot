@@ -9,12 +9,12 @@
 #define LOG_CATEGORY UCLASS_GPIO
 
 #include <dm.h>
-#include <dt-structs.h>
 #include <log.h>
 #include <p2sb.h>
 #include <asm/intel_pinctrl.h>
 #include <asm-generic/gpio.h>
 #include <asm/intel_pinctrl_defs.h>
+#include <dm/prop.h>
 
 static const struct reset_mapping rst_map[] = {
 	{ .logical = PAD_CFG0_LOGICAL_RESET_PWROK, .chipset = 0U << 30 },
@@ -127,23 +127,26 @@ static int apl_pinctrl_of_to_plat(struct udevice *dev)
 {
 	struct p2sb_child_plat *pplat;
 	const struct pad_community *comm = NULL;
-	int i;
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct apl_gpio_plat *plat = dev_get_plat(dev);
-	int ret;
+	DTPLAT(intel_apl_pinctrl, dt, dev);
+	int i, ret;
 
 	/*
-	 * It would be nice to do this in the bind() method, but with
-	 * of-platdata binding happens in the order that DM finds things in the
-	 * linker list (i.e. alphabetical order by driver name). So the GPIO
-	 * device may well be bound before its parent (p2sb), and this call
-	 * will fail if p2sb is not bound yet.
+	 * With a devicetree, the port ID is set when the device is bound. With
+	 * of-platdata it would be nice to do this in the bind() method too,
+	 * but binding happens in the order that DM finds things in the linker
+	 * list (i.e. alphabetical order by driver name). So the GPIO device
+	 * may well be bound before its parent (p2sb), and this call will fail
+	 * if p2sb is not bound yet.
 	 */
-	ret = p2sb_set_port_id(dev, plat->dtplat.intel_p2sb_port_id);
-	if (ret)
-		return log_msg_ret("Could not set port id", ret);
-#endif
+	if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
+		ret = p2sb_set_port_id(dev,
+				       dev_prop_u32_default(dev, dt,
+							    intel_p2sb_port_id,
+							    "intel,p2sb-port-id",
+							    0));
+		if (ret)
+			return log_msg_ret("Could not set port id", ret);
+	}
 	/* Attach this device to its community structure */
 	pplat = dev_get_parent_plat(dev);
 	for (i = 0; i < ARRAY_SIZE(apl_gpio_communities); i++) {
@@ -154,12 +157,10 @@ static int apl_pinctrl_of_to_plat(struct udevice *dev)
 	return intel_pinctrl_of_to_plat(dev, comm, 2);
 }
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static const struct udevice_id apl_gpio_ids[] = {
+static __maybe_unused const struct udevice_id apl_gpio_ids[] = {
 	{ .compatible = "intel,apl-pinctrl"},
 	{ }
 };
-#endif
 
 U_BOOT_DRIVER(intel_apl_pinctrl) = {
 	.name		= "intel_apl_pinctrl",
@@ -172,5 +173,4 @@ U_BOOT_DRIVER(intel_apl_pinctrl) = {
 #endif
 	.of_to_plat = apl_pinctrl_of_to_plat,
 	.priv_auto	= sizeof(struct intel_pinctrl_priv),
-	.plat_auto	= sizeof(struct apl_gpio_plat),
 };
