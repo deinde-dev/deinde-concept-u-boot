@@ -106334,3 +106334,34 @@ The two deltas that exceed the 20% threshold (ffe457cf2c66 and 746f88556d9a) are
 
 ---
 
+### Pipeline fix: 2026-11-13 (attempt 1)
+
+Branch: cherry-62ed983dad41
+
+Failed jobs:
+- nyan-big (sjg-lab)
+- pcduino3 (sjg-lab)
+- xu3 (sjg-lab)
+- snow (sjg-lab)
+- coral (sjg-lab)
+
+### Conversation log
+These failures are a lab infrastructure problem, not a code problem, so I made no changes and did not create `cherry-62ed983dad41-fix1`.
+
+**Root cause:** all five jobs (coral, snow, xu3, pcduino3, nyan-big) fail the same way, about a second into `test/py/test.py`, before any build or test runs:
+
+```
+ValueError: Error 1 running ['u-boot-test-getrole', 'snow', '--configure']:
+labgrid-client: Error: place snow is not acquired by your user, acquired by labgrid.
+...
+labgrid-client: Error: place snow is acquired by a different user (kea/labgrid), use --kick if you are sure
+```
+
+Each labgrid place is held by another user (`kea/labgrid`), so the gitlab-runner user (`ellesmere/gitlab-runner`) cannot acquire the board. Pytest aborts in `pytest_configure` with an INTERNALERROR and the job exits with status 3. No U-Boot code from this branch has been compiled or run at that point.
+
+**Responsible commit:** none. I did not run the sandbox or buildman builds, since there is nothing to fix or verify on the branch.
+
+**To clear it:** the `kea/labgrid` session needs to release the places, or wait for it to finish. Failing that, they can be kicked, e.g. `labgrid-client -p snow release --kick`, and likewise for coral, xu3, pcduino3 and nyan-big. Then retry the five sjg-lab jobs.
+
+---
+
