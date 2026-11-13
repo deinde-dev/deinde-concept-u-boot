@@ -94,3 +94,9 @@ An xHCI controller on an AMD EPYC board, which has both MSI and MSI-X::
     INTx: pin C line 0
     MSI:  disabled, 1 of 8 vectors, address 0000000000000000 data 0000
     MSI-X: disabled, 8 entries, table BAR0+fe000, PBA BAR0+ff000
+
+See also
+--------
+
+* :doc:`pci_mps<pci_mps>` for setting the Maximum Payload Size of the PCI
+  Express devices this command enumerates

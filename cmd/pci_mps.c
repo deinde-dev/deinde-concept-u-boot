@@ -11,6 +11,7 @@
 #include <command.h>
 #include <console.h>
 #include <dm.h>
+#include <getopt.h>
 #include <init.h>
 #include <asm/processor.h>
 #include <asm/io.h>
@@ -125,13 +126,13 @@ static int pci_mps_set(int policy)
  *	pci_mps safe
  *	pci_mps peer2peer
  */
-static int do_pci_mps(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_pci_mps(struct getopt_state *gs)
 {
 	char cmd = 'u';
 	int ret = 0;
 
-	if (argc > 1)
-		cmd = argv[1][0];
+	if (gs->argc > 1)
+		cmd = gs->argv[1][0];
 
 	switch (cmd) {
 	case 's':		/* safe */
@@ -157,5 +158,5 @@ U_BOOT_LONGHELP(pci_mps,
 	"pci_mps peer2peer\n"
 	"    - Set PCI Express MPS of all devices to support hotplug and peer-to-peer DMA\n");
 
-U_BOOT_CMD(pci_mps, 2, 0, do_pci_mps,
-	   "configure PCI Express MPS", pci_mps_help_text);
+U_BOOT_CMD_NOOPTS(pci_mps, 2, 0, do_pci_mps,
+		  "configure PCI Express MPS", pci_mps_help_text);
