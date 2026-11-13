@@ -13,9 +13,6 @@
 
 struct udevice;
 
-/* Head of the uclass list if CONFIG_OF_PLATDATA_INST is enabled */
-extern struct list_head uclass_head;
-
 /**
  * struct dm_stats - Information about driver model memory usage
  *

@@ -55,13 +55,6 @@ void dm_fixup_for_gd_move(struct global_data *new_gd)
 	}
 }
 
-static int dm_setup_inst(void)
-{
-	DM_ROOT_NON_CONST = DM_DEVICE_GET(root);
-
-	return 0;
-}
-
 int dm_init(bool of_live)
 {
 	int ret;
@@ -70,30 +63,17 @@ int dm_init(bool of_live)
 		dm_warn("Virtual root driver already exists!\n");
 		return -EINVAL;
 	}
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_INST)) {
-		gd->uclass_root = &uclass_head;
-	} else {
-		gd->uclass_root = &DM_UCLASS_ROOT_S_NON_CONST;
-		INIT_LIST_HEAD(DM_UCLASS_ROOT_NON_CONST);
-	}
+	gd->uclass_root = &DM_UCLASS_ROOT_S_NON_CONST;
+	INIT_LIST_HEAD(DM_UCLASS_ROOT_NON_CONST);
 
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_INST)) {
-		ret = dm_setup_inst();
-		if (ret) {
-			log_debug("dm_setup_inst() failed: %d\n", ret);
-			return ret;
-		}
-	} else {
-		ret = device_bind_by_name(NULL, false, &root_info,
-					  &DM_ROOT_NON_CONST);
-		if (ret)
-			return ret;
-		if (IS_ENABLED(CONFIG_OF_CONTROL))
-			dev_set_ofnode(DM_ROOT_NON_CONST, ofnode_root());
-		ret = device_probe(DM_ROOT_NON_CONST);
-		if (ret)
-			return ret;
-	}
+	ret = device_bind_by_name(NULL, false, &root_info, &DM_ROOT_NON_CONST);
+	if (ret)
+		return ret;
+	if (IS_ENABLED(CONFIG_OF_CONTROL))
+		dev_set_ofnode(DM_ROOT_NON_CONST, ofnode_root());
+	ret = device_probe(DM_ROOT_NON_CONST);
+	if (ret)
+		return ret;
 
 	INIT_LIST_HEAD((struct list_head *)&gd->dmtag_list);
 
@@ -339,12 +319,10 @@ int dm_init_and_scan(bool pre_reloc_only)
 		dm_warn("dm_init() failed: %d\n", ret);
 		return ret;
 	}
-	if (!IS_ENABLED(CONFIG_OF_PLATDATA_INST)) {
-		ret = dm_scan(pre_reloc_only);
-		if (ret) {
-			log_debug("dm_scan() failed: %d\n", ret);
-			return ret;
-		}
+	ret = dm_scan(pre_reloc_only);
+	if (ret) {
+		log_debug("dm_scan() failed: %d\n", ret);
+		return ret;
 	}
 	if (IS_ENABLED(CONFIG_DM_EVENT)) {
 		ret = event_notify_null(gd->flags & GD_FLG_RELOC ?

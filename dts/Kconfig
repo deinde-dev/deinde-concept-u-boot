@@ -464,7 +464,7 @@ config SPL_OF_PLATDATA
 	bool "Generate platform data for use in SPL"
 	depends on SPL_OF_CONTROL
 	select DTOC
-	select SPL_OF_PLATDATA_DRIVER_RT if !SPL_OF_PLATDATA_INST
+	select SPL_OF_PLATDATA_DRIVER_RT
 	help
 	  For very constrained SPL environments the overhead of decoding
 	  device tree nodes and converting their contents into platform data
@@ -502,24 +502,16 @@ config SPL_OF_PLATDATA_PARENT
 	  with of-platdata. To save space this can be disabled, but in that
 	  case dev_get_parent() will always return NULL;
 
-config SPL_OF_PLATDATA_INST
-	bool "Declare devices at build time"
-	help
-	  Declare devices as udevice instances so that they do not need to be
-	  bound when U-Boot starts. This can save time and code space.
-
 config SPL_OF_PLATDATA_DRIVER_RT
 	bool
 	help
 	  Use a separate struct for driver runtime data.
 
-	  This enables the driver_rt information, used with of-platdata when
-	  of-platdata-inst is not used. It allows finding devices by their
-	  driver data.
+	  This enables the driver_rt information, used with of-platdata. It
+	  allows finding devices by their driver data.
 
 config SPL_OF_PLATDATA_CHECK
 	bool "Check devices bound by C code for single-node drivers"
-	depends on !SPL_OF_PLATDATA_INST
 	default y if SANDBOX
 	help
 	  When only one devicetree node uses a driver which reads its
@@ -545,7 +537,7 @@ config TPL_OF_PLATDATA
 	bool "Generate platform data for use in TPL"
 	depends on TPL_OF_CONTROL
 	select DTOC
-	select TPL_OF_PLATDATA_DRIVER_RT if !TPL_OF_PLATDATA_INST
+	select TPL_OF_PLATDATA_DRIVER_RT
 	help
 	  For very constrained SPL environments the overhead of decoding
 	  device tree nodes and converting their contents into platform data
@@ -573,25 +565,16 @@ config TPL_OF_PLATDATA_PARENT
 	  with of-platdata. To save space this can be disabled, but in that
 	  case dev_get_parent() will always return NULL;
 
-config TPL_OF_PLATDATA_INST
-	bool "Declare devices at build time"
-
-	help
-	  Declare devices as udevice instances so that they do not need to be
-	  bound when U-Boot starts. This can save time and code space.
-
 config TPL_OF_PLATDATA_DRIVER_RT
 	bool
 	help
 	  Use a separate struct for driver runtime data.
 
-	  This enables the driver_rt information, used with of-platdata when
-	  of-platdata-inst is not used. It allows finding devices by their
-	  driver data.
+	  This enables the driver_rt information, used with of-platdata. It
+	  allows finding devices by their driver data.
 
 config TPL_OF_PLATDATA_CHECK
 	bool "Check devices bound by C code for single-node drivers"
-	depends on !TPL_OF_PLATDATA_INST
 	default y if SANDBOX
 	help
 	  When only one devicetree node uses a driver which reads its

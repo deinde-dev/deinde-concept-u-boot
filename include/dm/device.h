@@ -780,14 +780,10 @@ int device_get_global_by_ofnode(ofnode node, struct udevice **devp);
 /**
  * device_get_by_ofplat_idx() - Get a device based on of-platdata index
  *
- * Locates a device by either its struct driver_info index, or its
- * struct udevice index. The latter is used with OF_PLATDATA_INST, since we have
- * a list of build-time instantiated struct udevice records, The former is used
- * with !OF_PLATDATA_INST since in that case we have a list of
- * struct driver_info records.
+ * Locates a device by its struct driver_info index.
  *
  * The index number is written into the idx field of struct phandle_1_arg, etc.
- * It is the position of this driver_info/udevice in its linker list.
+ * It is the position of this driver_info in its linker list.
  *
  * The device is probed to activate it ready for use.
  *
