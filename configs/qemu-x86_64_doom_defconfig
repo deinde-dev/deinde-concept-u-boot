@@ -8,6 +8,5 @@ CONFIG_SYS_MALLOC_LEN=0x4000000
 # the engine does not fit in the 2MB ROM, and U-Boot must start lower to
 # use the larger one: the space it has is from X86_OFFSET_U_BOOT up to
 # SPL at 0xfffd0000, which does not grow with the ROM
-# CONFIG_UBOOT_ROMSIZE_KB_2048 is not set
 CONFIG_UBOOT_ROMSIZE_KB_4096=y
 CONFIG_X86_OFFSET_U_BOOT=0xffc00000
