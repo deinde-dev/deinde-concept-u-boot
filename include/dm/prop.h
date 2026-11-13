@@ -43,6 +43,7 @@
  */
 
 #include <errno.h>
+#include <malloc.h>
 #include <dm/device.h>
 #include <dm/read.h>
 #include <mapmem.h>
@@ -157,6 +158,38 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	(!(_dt)->has._member ? -EINVAL : \
 	 (_count) > ARRAY_SIZE((_dt)->_member) ? -EOVERFLOW : \
 	 (memcpy(_out, (_dt)->_member, (_count) * sizeof(u32)), 0))
+
+/**
+ * dev_prop_u32_array_ptr() - Get a pointer to an array of 32-bit integers
+ *
+ * This is for a driver which only reads the array. With of-platdata it points
+ * to the generated data, so nothing is copied and no memory is allocated, and
+ * the count is that of the node which has the most values. With a devicetree
+ * the array is allocated. Use dev_prop_u32_array_free() to free it in either
+ * case.
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, e.g. intel_pmc_routes
+ * @_name: Devicetree name of the property, e.g. "intel,pmc-routes"
+ * @_arrayp: Returns a pointer to the values
+ * @_countp: Returns the number of values
+ * Return: 0 if OK, -EINVAL if the property is absent, -ENOMEM if out of memory
+ */
+#define dev_prop_u32_array_ptr(_dev, _dt, _member, _name, _arrayp, _countp) \
+	(!(_dt)->has._member ? -EINVAL : \
+	 (*(_arrayp) = (const u32 *)(_dt)->_member, \
+	  *(_countp) = ARRAY_SIZE((_dt)->_member), 0))
+
+/**
+ * dev_prop_u32_array_free() - Free an array from dev_prop_u32_array_ptr()
+ *
+ * With of-platdata this does nothing, since the array is the generated data
+ *
+ * @_dev: Device which the array was read from
+ * @_array: Array to free
+ */
+#define dev_prop_u32_array_free(_dev, _array)
 
 /**
  * dev_prop_size() - Get the size of a property
@@ -286,6 +319,12 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define dev_prop_u32_array(_dev, _dt, _member, _name, _out, _count) \
 	dev_read_u32_array(_dev, _name, _out, _count)
+
+#define dev_prop_u32_array_ptr(_dev, _dt, _member, _name, _arrayp, _countp) \
+	dev_read_u32_array_alloc(_dev, _name, _arrayp, _countp)
+
+#define dev_prop_u32_array_free(_dev, _array) \
+	free((void *)(_array))
 
 #define dev_prop_size(_dev, _dt, _member, _name) \
 	dev_read_size(_dev, _name)

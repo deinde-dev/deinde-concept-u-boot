@@ -31,6 +31,10 @@ static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 						     ARRAY_SIZE(none));
 	plat->array_size = dev_prop_size(dev, dt, dev_prop_array,
 					 "dev-prop-array");
+	plat->array_ptr_ret = dev_prop_u32_array_ptr(dev, dt, dev_prop_array,
+						     "dev-prop-array",
+						     &plat->array_ptr,
+						     &plat->array_ptr_count);
 	plat->u32_ret = dev_prop_u32(dev, dt, dev_prop_present,
 				     "dev-prop-present", &plat->u32_val);
 
@@ -60,6 +64,8 @@ static int sandbox_dev_prop_bind(struct udevice *dev)
 static int sandbox_dev_prop_remove(struct udevice *dev)
 {
 	struct sandbox_dev_prop_plat *plat = dev_get_plat(dev);
+
+	dev_prop_u32_array_free(dev, plat->array_ptr);
 
 	return IS_ENABLED(CONFIG_REGMAP) ? regmap_uninit(plat->map) : 0;
 }

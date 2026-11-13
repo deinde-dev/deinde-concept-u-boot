@@ -71,6 +71,10 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_asserteq(3, plat->array[2]);
 	ut_asserteq(-EINVAL, plat->missing_array_ret);
 	ut_asserteq(3 * sizeof(u32), plat->array_size);
+	ut_assertok(plat->array_ptr_ret);
+	ut_asserteq(3, plat->array_ptr_count);
+	ut_asserteq(1, plat->array_ptr[0]);
+	ut_asserteq(3, plat->array_ptr[2]);
 	ut_assertok(plat->u32_ret);
 	ut_asserteq(42, plat->u32_val);
 	ut_asserteq(1, plat->map->range_count);
@@ -91,6 +95,7 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_assert(!plat->flag);
 	ut_asserteq(-EINVAL, plat->array_ret);
 	ut_asserteq(-EINVAL, plat->array_size);
+	ut_asserteq(-EINVAL, plat->array_ptr_ret);
 	ut_asserteq(-EINVAL, plat->u32_ret);
 	ut_asserteq(SANDBOX_DEV_PROP_OTHER, dev_get_driver_data(dev));
 

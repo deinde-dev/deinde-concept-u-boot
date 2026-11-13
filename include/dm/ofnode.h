@@ -643,6 +643,22 @@ const void *ofnode_read_prop(ofnode node, const char *propname, int *sizep);
 const char *ofnode_read_string(ofnode node, const char *propname);
 
 /**
+ * ofnode_read_u32_array_alloc() - Read an array of 32-bit integers into memory
+ *
+ * This allocates space for the whole property and reads it. The caller may
+ * free the array with free()
+ *
+ * @node:	valid node reference to read property from
+ * @propname:	name of the property to read
+ * @arrayp:	returns a pointer to the values
+ * @countp:	returns the number of values
+ * Return: 0 on success, -EINVAL if the property does not exist, -ENOMEM if
+ * out of memory, or another error from ofnode_read_u32_array()
+ */
+int ofnode_read_u32_array_alloc(ofnode node, const char *propname,
+				const u32 **arrayp, int *countp);
+
+/**
  * ofnode_read_u32_array() - Find and read an array of 32 bit integers
  *
  * @node:	valid node reference to read property from
@@ -754,6 +770,13 @@ static inline const char *ofnode_read_string(ofnode node, const char *propname)
 
 static inline int ofnode_read_u32_array(ofnode node, const char *propname,
 					u32 *out_values, size_t sz)
+{
+	return -EINVAL;
+}
+
+static inline int ofnode_read_u32_array_alloc(ofnode node,
+					      const char *propname,
+					      const u32 **arrayp, int *countp)
 {
 	return -EINVAL;
 }
