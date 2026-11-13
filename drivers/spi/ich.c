@@ -10,7 +10,6 @@
 #include <bootstage.h>
 #include <div64.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <log.h>
 #include <malloc.h>
@@ -23,6 +22,8 @@
 #include <spl.h>
 #include <asm/fast_spi.h>
 #include <asm/io.h>
+#include <dm/pci.h>
+#include <dm/prop.h>
 #include <dm/uclass-internal.h>
 #include <asm/mtrr.h>
 #include <linux/bitops.h>
@@ -704,14 +705,13 @@ static int ich_get_mmap_bus(struct udevice *bus, ulong *map_basep,
 						   offsetp);
 	}
 #else
-	struct ich_spi_plat *plat = dev_get_plat(bus);
+	DTPLAT(intel_fast_spi, dt, bus);
 
 	/*
 	 * We cannot rely on plat->bdf being set up yet since this method can
-	 * be called before the device is probed. Use the of-platdata directly
-	 * instead.
+	 * be called before the device is probed. Read the PCI address instead.
 	 */
-	spi_bdf = pci_ofplat_get_devfn(plat->dtplat.reg[0]);
+	spi_bdf = dev_prop_pci_devfn(bus, dt);
 #endif
 
 	return fast_spi_get_bios_mmap(spi_bdf, map_basep, map_sizep, offsetp);
@@ -960,27 +960,38 @@ static int ich_spi_child_pre_probe(struct udevice *dev)
 static int ich_spi_of_to_plat(struct udevice *dev)
 {
 	struct ich_spi_plat *plat = dev_get_plat(dev);
+	DTPLAT(intel_fast_spi, dt, dev);
+	int ret;
 
+	/*
+	 * With a devicetree the controller is found through the PCH. With
+	 * of-platdata, which is only used in TPL on Apollo Lake, its registers
+	 * are at a fixed early address
+	 */
 #if IS_ENABLED(CONFIG_OF_REAL)
 	struct ich_spi_priv *priv = dev_get_priv(dev);
-	int ret;
 
 	ret = ich_spi_get_basics(dev, true, &priv->pch, &plat->ich_version,
 				 &plat->mmio_base);
 	if (ret)
 		return log_msg_ret("basics", ret);
 	plat->lockdown = dev_read_bool(dev, "intel,spi-lock-down");
-	/*
-	 * Use an int so that the property is present in of-platdata even
-	 * when false.
-	 */
-	plat->hwseq = dev_read_u32_default(dev, "intel,hardware-seq", 0);
 #else
+	u32 early_regs[1];
+
 	plat->ich_version = ICHV_APL;
-	plat->mmio_base = plat->dtplat.early_regs[0];
-	plat->bdf = pci_ofplat_get_devfn(plat->dtplat.reg[0]);
-	plat->hwseq = plat->dtplat.intel_hardware_seq;
+	ret = dev_prop_u32_array(dev, dt, early_regs, "early-regs", early_regs,
+				 ARRAY_SIZE(early_regs));
+	if (ret)
+		return log_msg_ret("early-regs", ret);
+	plat->mmio_base = early_regs[0];
+	plat->bdf = dev_prop_pci_devfn(dev, dt);
 #endif
+	/*
+	 * Use an int so that the property can be present even when false
+	 */
+	plat->hwseq = dev_prop_u32_default(dev, dt, intel_hardware_seq,
+					   "intel,hardware-seq", 0);
 	debug("%s: mmio_base=%lx\n", __func__, plat->mmio_base);
 
 	return 0;
