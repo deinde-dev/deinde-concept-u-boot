@@ -2405,6 +2405,7 @@ config CMD_ETHSW
 
 config CMD_MII
 	bool "mii"
+	select GETOPT
 	imply CMD_MDIO
 	help
 	  If set, allows 802.3(clause 22) MII Management functions interface access
@@ -2421,6 +2422,7 @@ config MII_INIT
 config CMD_MDIO
 	bool "mdio"
 	depends on PHYLIB
+	select GETOPT
 	help
 	  If set, allows Enable 802.3(clause 45) MDIO interface registers access
 	  The MDIO interface is orthogonal to the MII interface and extends

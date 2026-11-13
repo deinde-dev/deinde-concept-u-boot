@@ -10,8 +10,12 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <miiphy.h>
 #include <phy.h>
+
+/* message when the PHY's driver provides no extended access */
+#define MDIO_NO_EXT	"PHY does not have extended functions\n"
 
 static char last_op[2];
 static uint last_data;
@@ -100,7 +104,7 @@ static int mdio_read_ranges(struct mii_dev *bus,
 						devad, reg);
 
 				if (val < 0) {
-					printf("Error\n");
+					cmd_err("Error\n");
 
 					return val;
 				}
@@ -190,9 +194,10 @@ static int extract_phy_range(char *const argv[], int argc, struct mii_dev **bus,
 }
 
 /* ---------------------------------------------------------------- */
-static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_mdio(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
+	int argc = gs->argc;
 	char op[2];
 	int addrlo, addrhi, reglo, reghi, devadlo, devadhi;
 	unsigned short	data;
@@ -224,7 +229,7 @@ static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	bus = mdio_get_current_dev();
 
-	if (flag & CMD_FLAG_REPEAT)
+	if (gs->cmd_flag & CMD_FLAG_REPEAT)
 		op[0] = last_op[0];
 
 	if (strlen(argv[1]) > 1) {
@@ -243,10 +248,8 @@ static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
 
 			if (!phydev->drv ||
 			    (!phydev->drv->writeext && (op[0] == 'w')) ||
-			    (!phydev->drv->readext && (op[0] == 'r'))) {
-				puts("PHY does not have extended functions\n");
-				return CMD_RET_FAILURE;
-			}
+			    (!phydev->drv->readext && (op[0] == 'r')))
+				return cmd_fail(0, MDIO_NO_EXT);
 		}
 	}
 
@@ -270,10 +273,8 @@ static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
 		break;
 	}
 
-	if (!bus) {
-		puts("No MDIO bus found\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!bus)
+		return cmd_fail(0, "No MDIO bus found\n");
 
 	if (op[0] == 'l') {
 		mdio_list_devices();
@@ -313,7 +314,7 @@ static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
 
 /***************************************************/
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mdio,	6,	1,	do_mdio,
 	"MDIO utility commands",
 	"list			- List MDIO buses\n"

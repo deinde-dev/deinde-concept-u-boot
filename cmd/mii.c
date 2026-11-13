@@ -10,7 +10,14 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <miiphy.h>
+
+/* messages which are reported from more than one place */
+#define MII_READ_ERR	"Error reading from the PHY addr=%02x reg=%02x\n"
+#define MII_WRITE_ERR	"Error writing to the PHY addr=%02x reg=%02x\n"
+#define MII_DUMP_ERR \
+	"The MII dump command only formats the standard MII registers, 0-5, 9-a.\n"
 
 typedef struct _MII_field_desc_t {
 	ushort hi;
@@ -277,8 +284,10 @@ static void extract_range(
 }
 
 /* ---------------------------------------------------------------- */
-static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_mii(struct getopt_state *gs)
 {
+	char *const	*argv = gs->argv;
+	int		argc = gs->argc;
 	char		op[2];
 	unsigned char	addrlo, addrhi, reglo, reghi;
 	unsigned char	addr, reg;
@@ -306,7 +315,7 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	data   = last_data;
 	mask   = last_mask;
 
-	if ((flag & CMD_FLAG_REPEAT) == 0) {
+	if ((gs->cmd_flag & CMD_FLAG_REPEAT) == 0) {
 		op[0] = argv[1][0];
 		if (strlen(argv[1]) > 1)
 			op[1] = argv[1][1];
@@ -324,7 +333,7 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	if (addrhi > 31 && strncmp(op, "de", 2)) {
-		printf("Incorrect PHY address. Range should be 0-31\n");
+		cmd_err("Incorrect PHY address. Range should be 0-31\n");
 		return CMD_RET_USAGE;
 	}
 
@@ -369,9 +378,7 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			for (reg = reglo; reg <= reghi; reg++) {
 				data = 0xffff;
 				if (miiphy_read (devname, addr, reg, &data) != 0) {
-					printf(
-					"Error reading from the PHY addr=%02x reg=%02x\n",
-						addr, reg);
+					cmd_err(MII_READ_ERR, addr, reg);
 					rcode = 1;
 				} else {
 					if ((addrlo != addrhi) || (reglo != reghi))
@@ -387,8 +394,7 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		for (addr = addrlo; addr <= addrhi; addr++) {
 			for (reg = reglo; reg <= reghi; reg++) {
 				if (miiphy_write (devname, addr, reg, data) != 0) {
-					printf("Error writing to the PHY addr=%02x reg=%02x\n",
-						addr, reg);
+					cmd_err(MII_WRITE_ERR, addr, reg);
 					rcode = 1;
 				}
 			}
@@ -399,17 +405,14 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 				unsigned short val = 0;
 				if (miiphy_read(devname, addr,
 						reg, &val)) {
-					printf("Error reading from the PHY");
-					printf(" addr=%02x", addr);
-					printf(" reg=%02x\n", reg);
+					cmd_err(MII_READ_ERR, addr, reg);
 					rcode = 1;
 				} else {
 					val = (val & ~mask) | (data & mask);
 					if (miiphy_write(devname, addr,
 							 reg, val)) {
-						printf("Error writing to the PHY");
-						printf(" addr=%02x", addr);
-						printf(" reg=%02x\n", reg);
+						cmd_err(MII_WRITE_ERR, addr,
+							reg);
 						rcode = 1;
 					}
 				}
@@ -418,18 +421,14 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	} else if (strncmp(op, "du", 2) == 0) {
 		ushort regs[MII_STAT1000 + 1];  /* Last reg is 0x0a */
 		int ok = 1;
-		if (reglo > MII_STAT1000 || reghi > MII_STAT1000) {
-			printf("The MII dump command only formats the standard MII registers, 0-5, 9-a.\n");
-			return 1;
-		}
+		if (reglo > MII_STAT1000 || reghi > MII_STAT1000)
+			return cmd_fail(0, MII_DUMP_ERR);
 		for (addr = addrlo; addr <= addrhi; addr++) {
 			for (reg = reglo; reg <= reghi; reg++) {
 				if (miiphy_read(devname, addr, reg,
 						&regs[reg - reglo]) != 0) {
 					ok = 0;
-					printf(
-					"Error reading from the PHY addr=%02x reg=%02x\n",
-						addr, reg);
+					cmd_err(MII_READ_ERR, addr, reg);
 					rcode = 1;
 				}
 			}
@@ -463,7 +462,7 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 /***************************************************/
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mii, 6, 1, do_mii,
 	"MII utility commands",
 	"device                            - list available devices\n"
