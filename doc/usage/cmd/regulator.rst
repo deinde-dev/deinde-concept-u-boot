@@ -206,3 +206,5 @@ See also
 * :doc:`pmic<pmic>` for the registers of the chip behind these supplies
 * :doc:`clk<clk>` for the clocks such a chip may also provide
 * :doc:`dm<dm>` for the driver-model devices these supplies are attached to
+* :doc:`pmbus<pmbus>` for the telemetry and the fault status of a supply which
+  is a PMBus chip

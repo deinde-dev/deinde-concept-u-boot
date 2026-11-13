@@ -626,8 +626,8 @@ int pmbus_resolve_by_name(const char *name, int *bus_seq, u8 *addr);
  *
  * Per chip drivers register their vendor handler at init time.
  */
-typedef int (*pmbus_vendor_handler_t)(struct cmd_tbl *cmdtp, int flag,
-				      int argc, char *const argv[]);
+typedef int (*pmbus_vendor_handler_t)(int flag, int argc,
+				      char *const argv[]);
 
 struct pmbus_vendor_op {
 	const char *vendor;

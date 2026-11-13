@@ -320,3 +320,5 @@ See also
 * :doc:`crc32<crc32>` for a checksum over memory rather than over a chip
 * :doc:`rtc<rtc>` for a real-time clock through its driver, rather than by
   reaching its registers over I2C
+* :doc:`pmbus<pmbus>` for a power regulator on the bus which answers the PMBus
+  command set, with its registers decoded rather than shown raw

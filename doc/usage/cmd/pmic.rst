@@ -136,3 +136,5 @@ See also
 * :doc:`dm<dm>` for the driver-model devices behind these chips
 * :doc:`regulator<regulator>` for the supplies a PMIC provides, at the level
   of volts rather than register values
+* :doc:`pmbus<pmbus>` for the registers of a regulator which answers the PMBus
+  command set, which are named and decoded
