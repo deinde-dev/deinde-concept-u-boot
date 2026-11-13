@@ -224,7 +224,8 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
  */
 #define dev_prop_clk(_dev, _dt, _member, _name, _idx, _clkp) \
 	(!(_dt)->has._member || (_idx) >= ARRAY_SIZE((_dt)->_member) ? \
-	 -ENOENT : clk_get_by_phandle(_dev, &(_dt)->_member[_idx], _clkp))
+	 -ENOENT : clk_get_by_ofplat_idx(_dev, (_dt)->_member[_idx].idx, \
+					 (_dt)->_member[_idx].arg[0], _clkp))
 
 #else /* !OF_PLATDATA */
 
