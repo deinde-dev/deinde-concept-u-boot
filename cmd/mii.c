@@ -10,6 +10,7 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <miiphy.h>
 
 typedef struct _MII_field_desc_t {
@@ -277,8 +278,10 @@ static void extract_range(
 }
 
 /* ---------------------------------------------------------------- */
-static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_mii(struct getopt_state *gs)
 {
+	char *const	*argv = gs->argv;
+	int		argc = gs->argc;
 	char		op[2];
 	unsigned char	addrlo, addrhi, reglo, reghi;
 	unsigned char	addr, reg;
@@ -306,7 +309,7 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	data   = last_data;
 	mask   = last_mask;
 
-	if ((flag & CMD_FLAG_REPEAT) == 0) {
+	if ((gs->cmd_flag & CMD_FLAG_REPEAT) == 0) {
 		op[0] = argv[1][0];
 		if (strlen(argv[1]) > 1)
 			op[1] = argv[1][1];
@@ -463,7 +466,7 @@ static int do_mii(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 /***************************************************/
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mii, 6, 1, do_mii,
 	"MII utility commands",
 	"device                            - list available devices\n"

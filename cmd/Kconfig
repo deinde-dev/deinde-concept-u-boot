@@ -2405,6 +2405,7 @@ config CMD_ETHSW
 
 config CMD_MII
 	bool "mii"
+	select GETOPT
 	imply CMD_MDIO
 	help
 	  If set, allows 802.3(clause 22) MII Management functions interface access
