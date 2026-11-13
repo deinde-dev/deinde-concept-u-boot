@@ -106293,3 +106293,75 @@ The branch is ready to push and hasn't been merged anywhere.
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-62ed983dad41
+
+Commits:
+- 62ed983dad41 tools: mkimage: use FIT_ALGO_PROP for the signature algo property
+- 3ebc4ef7255f tools: mkimage: use the name argument in fdt_property_file()
+- fa2737df23f6 boot: fit: use constants for FIT property names
+- ab0b18fc5697 spl: fit: use constants for FIT property names
+- 0f04f5429d4f Merge patch series "fit: use constants for property names in mkimage, boot and SPL"
+
+### Conversation log
+My loop didn't stop on the conflict (the `tail` masked the exit code); nothing else was applied, though. Looking at the conflict in the second commit.
+
+Simple conflict: the target already uses FIT_DATA_PROP where upstream had "data"; the resolution is to take `name`.
+
+The merge conflicts only because its content is already applied (with the fix-ups); resolve by keeping our tree, giving an empty commit.
+
+All 5 commits are on `cherry-62ed983dad41` (based on ci/master), ready for pushing. The final sandbox build is ok with no warnings, and I also built `sandbox_spl` cleanly, since plain sandbox does not compile `common/spl/spl_fit.c`.
+
+| Commit | Result | Delta vs original |
+|---|---|---|
+| 4e8aa01b8ef1 tools: mkimage: use FIT_ALGO_PROP… | clean | identical (2+/1-) |
+| ffe457cf2c66 tools: mkimage: use the name argument in fdt_property_file() | **empty commit** | original 1+/1-, now 0 |
+| 746f88556d9a boot: fit: use constants for FIT property names | conflicts resolved | 2 files, 4+/3- vs original 3 files, 6+/4- |
+| 84080b88e9aa spl: fit: use constants for FIT property names | fix-up | same size (6+/6-) |
+| 4cfe30ddb67b Merge patch series "fit: use constants…" | empty, as expected | — |
+
+Fix-ups, each recorded as a note line at the end of the commit message:
+
+- **ffe457cf2c66**: the target's `fdt_property_file()` has no `name` argument and already passes `FIT_DATA_PROP`, so there is nothing to apply. Taking the upstream line broke the build (`'name' undeclared`), so I kept it as an empty commit.
+- **746f88556d9a**: the `boot/image-board.c` hunk is dropped because `boot_get_fpga()` in the target already uses `FIT_COMPATIBLE_PROP`. In `boot/image-fit.c` I kept the target's `fit_print_init()`/`fit_image_print()` code and applied only the `FIT_VERITY_NODENAME` change. `boot/boot_fit.c` applied cleanly.
+- **84080b88e9aa**: this applied cleanly but used `FIT_COMPAT_PROP`, which does not exist in the target. I changed it to `FIT_COMPATIBLE_PROP`; the plain sandbox build would not have caught this.
+- **Merge commit**: it conflicted in four files only because of the fix-ups above, so I kept the branch's tree and committed it empty.
+
+`split-check` made no changes on any commit.
+
+The two deltas that exceed the 20% threshold (ffe457cf2c66 and 746f88556d9a) are both because the target already had part of the change. I did not reset and re-apply them, since the difference is explained.
+
+---
+
+### Pipeline fix: 2026-11-13 (attempt 1)
+
+Branch: cherry-62ed983dad41
+
+Failed jobs:
+- nyan-big (sjg-lab)
+- pcduino3 (sjg-lab)
+- xu3 (sjg-lab)
+- snow (sjg-lab)
+- coral (sjg-lab)
+
+### Conversation log
+These failures are a lab infrastructure problem, not a code problem, so I made no changes and did not create `cherry-62ed983dad41-fix1`.
+
+**Root cause:** all five jobs (coral, snow, xu3, pcduino3, nyan-big) fail the same way, about a second into `test/py/test.py`, before any build or test runs:
+
+```
+ValueError: Error 1 running ['u-boot-test-getrole', 'snow', '--configure']:
+labgrid-client: Error: place snow is not acquired by your user, acquired by labgrid.
+...
+labgrid-client: Error: place snow is acquired by a different user (kea/labgrid), use --kick if you are sure
+```
+
+Each labgrid place is held by another user (`kea/labgrid`), so the gitlab-runner user (`ellesmere/gitlab-runner`) cannot acquire the board. Pytest aborts in `pytest_configure` with an INTERNALERROR and the job exits with status 3. No U-Boot code from this branch has been compiled or run at that point.
+
+**Responsible commit:** none. I did not run the sandbox or buildman builds, since there is nothing to fix or verify on the branch.
+
+**To clear it:** the `kea/labgrid` session needs to release the places, or wait for it to finish. Failing that, they can be kicked, e.g. `labgrid-client -p snow release --kick`, and likewise for coral, xu3, pcduino3 and nyan-big. Then retry the five sjg-lab jobs.
+
+---
+
