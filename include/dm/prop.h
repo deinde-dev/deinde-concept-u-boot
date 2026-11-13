@@ -182,9 +182,34 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	  *(_countp) = ARRAY_SIZE((_dt)->_member), 0))
 
 /**
+ * dev_prop_u32_array_rw() - Get a pointer to a writable array of integers
+ *
+ * This is for a driver which updates the array, e.g. to fill in values which
+ * it detects. With of-platdata the array is the only part of the generated
+ * data which can be written, and it has exactly the values in the node. Nothing
+ * is copied and no memory is allocated. Since it is not a copy, any changes
+ * are still there if the device is probed again. This cannot be used in a
+ * phase which runs from read-only memory. With a devicetree the array is
+ * allocated. Use dev_prop_u32_array_free() to free it in either case.
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, e.g. rockchip_sdram_params
+ * @_name: Devicetree name of the property, e.g. "rockchip,sdram-params"
+ * @_arrayp: Returns a pointer to the values
+ * @_countp: Returns the number of values
+ * Return: 0 if OK, -EINVAL if the property is absent, -ENOMEM if out of memory
+ */
+#define dev_prop_u32_array_rw(_dev, _dt, _member, _name, _arrayp, _countp) \
+	(!(_dt)->has._member ? -EINVAL : \
+	 (*(_arrayp) = (u32 *)(_dt)->_member, \
+	  *(_countp) = (_dt)->_member##_count, 0))
+
+/**
  * dev_prop_u32_array_free() - Free an array from dev_prop_u32_array_ptr()
  *
- * With of-platdata this does nothing, since the array is the generated data
+ * Use this for dev_prop_u32_array_rw() too. With of-platdata this does
+ * nothing, since the array is the generated data
  *
  * @_dev: Device which the array was read from
  * @_array: Array to free
@@ -322,6 +347,9 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define dev_prop_u32_array_ptr(_dev, _dt, _member, _name, _arrayp, _countp) \
 	dev_read_u32_array_alloc(_dev, _name, _arrayp, _countp)
+
+#define dev_prop_u32_array_rw(_dev, _dt, _member, _name, _arrayp, _countp) \
+	dev_read_u32_array_alloc(_dev, _name, (const u32 **)(_arrayp), _countp)
 
 #define dev_prop_u32_array_free(_dev, _array) \
 	free((void *)(_array))
