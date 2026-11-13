@@ -106637,3 +106637,31 @@ One behaviour change comes along with the fs commit: `fs_set_blk_dev()` now retu
 
 ---
 
+### Pipeline fix: 2026-11-13 (attempt 2)
+
+Branch: cherry-48bb83195682
+
+Failed jobs:
+- qemu_arm64 test.py (test.py)
+
+### Conversation log
+Still diagnosing: the 9P test passes locally under QEMU with a virtio-9p device, so I'm now checking why the CI job's QEMU doesn't expose one (test-hooks config).
+
+Now verify: builds, then the actual test under QEMU with the in-tree hooks.
+
+The failure is fixed on local branch `cherry-48bb83195682-fix2` (not pushed); `test_fs_9p` now passes locally on qemu_arm64 with the in-tree hooks.
+
+**Root cause:** the CI job launches QEMU from the in-tree hooks in `test/hooks/bin/travis-ci/conf.qemu_arm64`, which had no virtio-9p device. Upstream added that device in the separate u-boot-test-hooks repo (commit c939ed8, "travis-ci: Add 9P device support to qemu_arm64"), so the cherry-pick of the test did not bring it along. With no 9P device present, `ls 9p - /` reported "No matching 9P transport device found". The 9P code itself is fine.
+
+**Responsible commit:** "test: 9p: Add test for 9P filesystem" (was 86a18861a972, now 200f45274eb7).
+
+**Change:** I applied the upstream hooks commit c939ed8 to `test/hooks/bin/travis-ci/conf.qemu_arm64` and amended it into that commit with a `[pickman]` note. It adds a `qemu_9p_args` line exporting `${UBOOT_TRAVIS_BUILD_DIR}` with mount tag `rootfs`, and appends it to `qemu_extra_args`. This is the only difference from `cherry-48bb83195682`.
+
+**Verification:**
+- `um build sandbox` is clean.
+- The buildman command as given (`buildman -o /tmp/pickman qemu_arm64,sandbox,test.py`) reports "No matching boards found", so I ran `buildman -o /tmp/pickman --boards qemu_arm64,sandbox` instead; both boards build.
+- I built qemu_arm64 the way CI does (with `-a CONFIG_SEMIHOSTING=y`) and ran `test.py -B qemu_arm64 --id na -k test_fs_9p` against a copy of the in-tree hooks: 1 passed.
+- I did not run the full qemu_arm64 test suite. The same hook file is also used by the `qemu_arm64_lwip` and `qemu_arm64_tfa_fw_handoff` jobs, which will now get the extra device too, as they do upstream.
+
+---
+
