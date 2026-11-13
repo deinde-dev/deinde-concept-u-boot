@@ -223,6 +223,20 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 			     ARRAY_SIZE((_dt)->reg) / 2, _mapp)
 
 /**
+ * dev_prop_pci_devfn() - Read a PCI device's device and function from 'reg'
+ *
+ * The first cell of 'reg' holds the device and function, as with
+ * pci_get_devfn(). The caller must include dm/pci.h
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * Return: device and function in bits 15...8 (pci_dev_t format), or -ENODEV
+ * if there is no 'reg' property
+ */
+#define dev_prop_pci_devfn(_dev, _dt) \
+	pci_ofplat_get_devfn((_dt)->reg[0])
+
+/**
  * dev_prop_driver_data() - Get the driver data for a device
  *
  * This is the .data from the driver's of_match table for the compatible string
@@ -284,6 +298,9 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define dev_prop_regmap(_dev, _dt, _mapp) \
 	regmap_init_mem(dev_ofnode(_dev), _mapp)
+
+#define dev_prop_pci_devfn(_dev, _dt) \
+	pci_get_devfn(_dev)
 
 /* Driver model has already set this, so let the compiler see it */
 #define dev_prop_driver_data(_dev, _dt)	((_dev)->driver_data)
