@@ -106229,3 +106229,39 @@ The branch is ready to push and hasn't been merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-12 (attempt 1)
+
+Branch: cherry-b556c2eef228
+
+Failed jobs:
+- efi-x86_64-uboot-iso-install (sjg-lab-slow)
+
+### Conversation log
+The sandbox build passed. Next I'll run buildman on both boards to check that the QR code options stay disabled.
+
+I've made no changes: this failure looks like a lab/runtime problem, not something these commits caused.
+
+**What failed:** `test_distro_ubuntu_iso_install` timed out waiting for the ` login: ` prompt. By that point U-Boot had already handed over to Linux. The Ubuntu kernel was booting and logged:
+
+```
+Trying to unpack rootfs image as initramfs...
+Initramfs unpacking failed: invalid magic at start of compressed archive
+```
+
+It then printed nothing more until the test timed out. The log also shows a gap of about 5 minutes (01:12:26 to 01:17:25) in the middle of normal kernel boot output. The failure happens inside the Linux kernel and initramfs boot, after U-Boot has finished.
+
+**Why the branch can't be the cause:**
+- All four commits only add the QR code library (`lib/qrcodegen.c`, `lib/qrcodegen_gzip.c`, `include/qrcodegen.h`), new Kconfig options, and Makefile lines that apply only when `CONFIG_LIB_QRCODE` or `CONFIG_LIB_QRCODE_GZIP` is set.
+- `LIB_QRCODE` is off by default, and nothing in the tree selects or uses it. No defconfig sets it.
+- I built `efi-x86_app64` (the board behind this lab role) and its `.config` has `# CONFIG_LIB_QRCODE is not set`. None of the new code goes into the binary, so U-Boot for this job is effectively the same as on `ci/master`.
+
+**Builds:**
+- `um build sandbox` passes cleanly, and `CONFIG_LIB_QRCODE` is not set there either.
+- `buildman -o /tmp/pickman efi-x86_app64 sandbox` builds all 10 matching boards without errors. The only warnings are dtc warnings from the shared sandbox device tree, not from these commits.
+
+**Recommendation:** re-run the `efi-x86_64-uboot-iso-install` job. If it fails the same way again, check the lab's Ubuntu ISO and initramfs image and the QEMU host, not this MR.
+
+Because nothing needed fixing, I did not create `cherry-b556c2eef228-fix1`. `cherry-b556c2eef228` is unchanged.
+
+---
+
