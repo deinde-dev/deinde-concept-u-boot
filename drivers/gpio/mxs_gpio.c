@@ -8,6 +8,7 @@
 
 #include <log.h>
 #include <malloc.h>
+#include <dm/prop.h>
 #include <asm/global_data.h>
 #include <linux/bitops.h>
 #include <linux/errno.h>
@@ -151,9 +152,6 @@ DECLARE_GLOBAL_DATA_PTR;
  */
 
 struct mxs_gpio_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_fsl_imx23_gpio dtplat;
-#endif
 	unsigned int bank;
 	int gpio_ranges;
 };
@@ -240,14 +238,8 @@ static int mxs_gpio_probe(struct udevice *dev)
 	struct gpio_dev_priv *uc_priv = dev_get_uclass_priv(dev);
 	char name[16], *str;
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_fsl_imx23_gpio *dtplat = &plat->dtplat;
-	priv->bank = (unsigned int)dtplat->reg[0];
-	uc_priv->gpio_count = dtplat->gpio_ranges[3];
-#else
 	priv->bank = (unsigned int)plat->bank;
 	uc_priv->gpio_count = plat->gpio_ranges;
-#endif
 	snprintf(name, sizeof(name), "GPIO%d_", priv->bank);
 	str = strdup(name);
 	if (!str)
@@ -261,37 +253,38 @@ static int mxs_gpio_probe(struct udevice *dev)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static int mxs_of_to_plat(struct udevice *dev)
+static int __maybe_unused mxs_of_to_plat(struct udevice *dev)
 {
 	struct mxs_gpio_plat *plat = dev_get_plat(dev);
-	struct fdtdec_phandle_args args;
-	int node = dev_of_offset(dev);
+	DTPLAT(fsl_imx23_gpio, dt, dev);
+	u32 ranges[4];
 	int ret;
 
-	plat->bank = dev_read_addr(dev);
+	plat->bank = dev_prop_addr(dev, dt);
 	if (plat->bank == FDT_ADDR_T_NONE) {
-		printf("%s: No 'reg' property defined!\n", __func__);
+		debug("%s: No 'reg' property defined!\n", __func__);
 		return -EINVAL;
 	}
 
-	ret = fdtdec_parse_phandle_with_args(gd->fdt_blob, node, "gpio-ranges",
-					     NULL, 3, 0, &args);
-	if (ret)
-		printf("%s: 'gpio-ranges' not defined - using default!\n",
-		       __func__);
-
-	plat->gpio_ranges = ret == 0 ? args.args[2] : MXS_MAX_GPIO_PER_BANK;
+	/* This has the pinctrl phandle, GPIO offset, pin base and pin count */
+	ret = dev_prop_u32_array(dev, dt, gpio_ranges, "gpio-ranges", ranges,
+				 ARRAY_SIZE(ranges));
+	if (ret) {
+		debug("%s: 'gpio-ranges' not defined - using default!\n",
+		      __func__);
+		plat->gpio_ranges = MXS_MAX_GPIO_PER_BANK;
+	} else {
+		plat->gpio_ranges = ranges[3];
+	}
 
 	return 0;
 }
 
-static const struct udevice_id mxs_gpio_ids[] = {
+static __maybe_unused const struct udevice_id mxs_gpio_ids[] = {
 	{ .compatible = "fsl,imx23-gpio" },
 	{ .compatible = "fsl,imx28-gpio" },
 	{ }
 };
-#endif
 
 U_BOOT_DRIVER(fsl_imx23_gpio) = {
 	.name = "fsl_imx23_gpio",
@@ -300,11 +293,7 @@ U_BOOT_DRIVER(fsl_imx23_gpio) = {
 	.probe	= mxs_gpio_probe,
 	.priv_auto	= sizeof(struct mxs_gpio_priv),
 	.plat_auto	= sizeof(struct mxs_gpio_plat),
-#if IS_ENABLED(CONFIG_OF_REAL)
-	.of_match = mxs_gpio_ids,
-	.of_to_plat = mxs_of_to_plat,
-#endif
+	.of_match = of_match_ptr(mxs_gpio_ids),
+	.of_to_plat = of_to_plat_ptr(mxs_of_to_plat),
 };
-
-DM_DRIVER_ALIAS(fsl_imx23_gpio, fsl_imx28_gpio)
 #endif /* DM_GPIO */
