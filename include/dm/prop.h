@@ -329,6 +329,26 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	 -ENOENT : clk_get_by_ofplat_idx(_dev, (_dt)->_member[_idx].idx, \
 					 (_dt)->_member[_idx].arg[0], _clkp))
 
+/**
+ * dev_prop_clk_id() - Get the ID of a clock in a device's 'clocks' property
+ *
+ * This is for a platform which has no clock driver in the current phase, so
+ * cannot use dev_prop_clk(). It reads the first argument of the clock
+ * specifier, which the driver can pass to the platform's own clock functions.
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, i.e. clocks
+ * @_name: Devicetree name of the property, i.e. "clocks"
+ * @_idx: Index of the clock to get, within the property
+ * @_idp: Returns the clock ID
+ * Return: 0 if OK, -ENOENT if there is no such clock, -EINVAL if the clock
+ * specifier has no arguments
+ */
+#define dev_prop_clk_id(_dev, _dt, _member, _name, _idx, _idp) \
+	(!(_dt)->has._member || (_idx) >= ARRAY_SIZE((_dt)->_member) ? \
+	 -ENOENT : (*(_idp) = (_dt)->_member[_idx].arg[0], 0))
+
 #else /* !OF_PLATDATA */
 
 #define DTPLAT(_drv, _var, _dev)
@@ -374,6 +394,27 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define dev_prop_clk(_dev, _dt, _member, _name, _idx, _clkp) \
 	clk_get_by_index(_dev, _idx, _clkp)
+
+/* Read the first argument of a clock specifier, without a clock driver */
+static inline int dev_read_clk_id(const struct udevice *dev, const char *name,
+				  int idx, u32 *idp)
+{
+	struct ofnode_phandle_args args;
+	int ret;
+
+	ret = dev_read_phandle_with_args(dev, name, "#clock-cells", 0, idx,
+					 &args);
+	if (ret)
+		return ret;
+	if (!args.args_count)
+		return -EINVAL;
+	*idp = args.args[0];
+
+	return 0;
+}
+
+#define dev_prop_clk_id(_dev, _dt, _member, _name, _idx, _idp) \
+	dev_read_clk_id(_dev, _name, _idx, _idp)
 
 #endif /* OF_PLATDATA */
 

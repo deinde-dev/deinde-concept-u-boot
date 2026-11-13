@@ -2157,6 +2157,7 @@
 		dev-prop-flag;
 		dev-prop-array = <1 2 3>;
 		dev-prop-rw = <5 6 7 0>;
+		clocks = <&clk_sandbox 2>;
 		dev-prop-unused = <99>;
 	};
 

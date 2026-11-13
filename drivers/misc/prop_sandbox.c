@@ -49,6 +49,8 @@ static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 	sandbox_dev_prop_update(plat);
 	plat->u32_ret = dev_prop_u32(dev, dt, dev_prop_present,
 				     "dev-prop-present", &plat->u32_val);
+	plat->clk_id_ret = dev_prop_clk_id(dev, dt, clocks, "clocks", 0,
+					   &plat->clk_id);
 
 	/* sandbox_vpl has no regmap support in TPL and VPL */
 	if (!IS_ENABLED(CONFIG_REGMAP))

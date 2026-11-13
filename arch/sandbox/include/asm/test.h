@@ -468,6 +468,8 @@ enum sandbox_dev_prop_type {
  * @array_rw_ret: Return value from getting @array_rw
  * @u32_ret: Return value from reading a property which must be present
  * @u32_val: Value read for that property
+ * @clk_id_ret: Return value from reading the ID of a clock
+ * @clk_id: Clock ID read
  * @map: Regmap set up from 'reg'
  */
 struct sandbox_dev_prop_plat {
@@ -488,6 +490,8 @@ struct sandbox_dev_prop_plat {
 	int array_rw_ret;
 	int u32_ret;
 	u32 u32_val;
+	int clk_id_ret;
+	u32 clk_id;
 	struct regmap *map;
 };
 
