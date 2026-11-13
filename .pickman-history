@@ -106196,3 +106196,36 @@ I haven't pushed the branch.
 
 ---
 
+## 2026-11-12: us/main
+
+Branch: cherry-b556c2eef228
+
+Commits:
+- b556c2eef228 lib: qrcodegen: Import Nayuki QR Code generator library
+- 5e66ad00798b lib: qrcodegen: configurable maximum QR code version
+- 1f98f086b125 lib: qrcodegen: optional gzip pre-compression of payloads
+- a000f2af240e Merge patch series "lib: qrcodegen: import Nayuki QR Code generator"
+
+### Conversation log
+Two of four commits are picked and building cleanly; now picking the third (gzip pre-compression).
+
+Expected: the merge commit is empty. Committing it as an empty commit.
+
+All four commits are now on branch `cherry-b556c2eef228`, based on ci/master. The sandbox build passes with no warnings or errors after each pick and at the end.
+
+| New hash | Original | Subject |
+|---|---|---|
+| ceafc92e7a6b | b556c2eef228 | lib: qrcodegen: Import Nayuki QR Code generator library |
+| 0fc9ddcc02a9 | 5e66ad00798b | lib: qrcodegen: configurable maximum QR code version |
+| e530ac1fa009 | 1f98f086b125 | lib: qrcodegen: optional gzip pre-compression of payloads |
+| 5321bc845888 | a000f2af240e | Merge patch series "lib: qrcodegen: import Nayuki QR Code generator" |
+
+- **Conflicts:** none. Git merged `lib/Kconfig` and `lib/Makefile` automatically.
+- **Deltas:** each picked commit touches the same files with the same line counts as the original (1435, 22 and 75 lines added). Nothing looks wrong.
+- **split-check:** it found nothing to convert for any commit. I also searched the full diff and it uses none of the phase macros, so no fix-ups were needed.
+- **Merge commit:** it came out empty, as expected, and I kept it with `--allow-empty` so the merge message stays in the history.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
