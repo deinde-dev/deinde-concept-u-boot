@@ -34,8 +34,6 @@
 #include <dm.h>
 #include <asm-generic/gpio.h>
 #include <dm/pinctrl.h>
-#include <dt-structs.h>
-#include <mapmem.h>
 #include <linux/iopoll.h>
 #include <linux/dma-mapping.h>
 
@@ -102,11 +100,6 @@ struct fsl_esdhc {
 };
 
 struct fsl_esdhc_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	/* Put this first since driver model will copy the data here */
-	struct dtd_fsl_esdhc dtplat;
-#endif
-
 	struct mmc_config cfg;
 	struct mmc mmc;
 };
@@ -1468,32 +1461,6 @@ static int fsl_esdhc_probe(struct udevice *dev)
 	struct mmc *mmc;
 	int ret;
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_fsl_esdhc *dtplat = &plat->dtplat;
-
-	priv->esdhc_regs = map_sysmem(dtplat->reg[0], dtplat->reg[1]);
-
-	if (dtplat->non_removable)
-		plat->cfg.host_caps |= MMC_CAP_NONREMOVABLE;
-	else
-		plat->cfg.host_caps &= ~MMC_CAP_NONREMOVABLE;
-
-	if (IS_ENABLED(CONFIG_DM_GPIO) && !dtplat->non_removable) {
-		struct udevice *gpiodev;
-
-		ret = device_get_by_ofplat_idx(dtplat->cd_gpios->idx, &gpiodev);
-		if (ret)
-			return ret;
-
-		ret = gpio_dev_request_index(gpiodev, gpiodev->name, "cd-gpios",
-					     dtplat->cd_gpios->arg[0], GPIOD_IS_IN,
-					     dtplat->cd_gpios->arg[1], &priv->cd_gpio);
-
-		if (ret)
-			return ret;
-	}
-#endif
-
 	if (data)
 		priv->flags = data->flags;
 
@@ -1695,6 +1662,4 @@ U_BOOT_DRIVER(fsl_esdhc_imx) = {
 	.plat_auto	= sizeof(struct fsl_esdhc_plat),
 	.priv_auto	= sizeof(struct fsl_esdhc_priv),
 };
-
-DM_DRIVER_ALIAS(fsl_esdhc, fsl_imx6q_usdhc)
 #endif
