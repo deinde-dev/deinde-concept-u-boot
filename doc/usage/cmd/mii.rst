@@ -73,8 +73,9 @@ Pressing Enter repeats the last sub-command with the same arguments, which is
 a quick way to watch a register change as a link comes up.
 
 Buses which the driver model provides appear here only once they have been
-probed, which the *mdio* command does for every MDIO bus in the system. Where
-the mii command reports no device at all, run 'mdio list' first.
+probed, which the :doc:`mdio<mdio>` command does for every MDIO bus in the
+system. Where the mii command reports no device at all, run 'mdio list'
+first.
 
 Example
 -------
@@ -168,8 +169,8 @@ failure: the current device is left as it was and the return value is 0.
 See also
 --------
 
-* *mdio* for the same job through the driver-model MDIO uclass, which also
-  reaches clause 45 registers
+* :doc:`mdio<mdio>` for the same job through the driver-model MDIO uclass,
+  which also reaches clause 45 registers
 * :doc:`ethsw<ethsw>` for the switch which the PHYs of a board with one sit
   behind
 * :doc:`dm<dm>` for checking which MDIO buses are bound and which have probed

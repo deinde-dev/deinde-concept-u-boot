@@ -192,4 +192,5 @@ See also
 * :doc:`cdp<cdp>` for asking a switch which U-Boot does not drive what VLANs
   its port offers
 * :doc:`mii<mii>` for reading and writing the registers of an Ethernet PHY
-* *mdio* for reaching those registers through the driver-model MDIO uclass
+* :doc:`mdio<mdio>` for reaching those registers through the driver-model
+  MDIO uclass
