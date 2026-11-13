@@ -20,6 +20,10 @@
 #include <linux/ctype.h>
 #include <power/regulator.h>
 
+/* Reported when VOUT_MODE asks for an encoding the chip's metadata lacks */
+#define NO_DIRECT_MSG \
+	"pmbus: VOUT_MODE selects DIRECT but the active driver_info has no DIRECT coefficients for VOLTAGE_OUT\n"
+
 static int parse_bus_addr(const char *s, int *bus_seq, u8 *addr)
 {
 	char busbuf[8];
@@ -113,16 +117,16 @@ static const char *pmbus_reg_name(u8 reg)
 static int require_active(struct udevice **chip,
 			  const struct pmbus_active_dev **act)
 {
+	int ret;
+
 	*act = pmbus_active();
-	if (!*act) {
-		printf("pmbus: no active device. Use 'pmbus dev <bus>:<addr>' first.\n");
-		return CMD_RET_FAILURE;
-	}
-	if (pmbus_active_get_i2c(chip)) {
-		printf("pmbus: cannot reach i2c%d:0x%02x\n",
-		       (*act)->bus_seq, (*act)->addr);
-		return CMD_RET_FAILURE;
-	}
+	if (!*act)
+		return cmd_fail(0,
+				"pmbus: no active device. Use 'pmbus dev <bus>:<addr>' first.\n");
+	ret = pmbus_active_get_i2c(chip);
+	if (ret)
+		return cmd_fail(ret, "pmbus: cannot reach i2c%d:0x%02x\n",
+				(*act)->bus_seq, (*act)->addr);
 	return CMD_RET_SUCCESS;
 }
 
@@ -167,18 +171,15 @@ static int do_dev(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (parse_bus_addr(argv[1], &bus_seq, &addr) < 0) {
 		ret = pmbus_resolve_by_name(argv[1], &bus_seq, &addr);
-		if (ret) {
-			printf("pmbus: '%s' is neither <bus>:<addr> nor a known regulator-name (%d)\n",
-			       argv[1], ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret,
+					"pmbus: '%s' is neither <bus>:<addr> nor a known regulator-name (%d)\n",
+					argv[1], ret);
 	}
 	ret = pmbus_set_active(bus_seq, addr);
-	if (ret) {
-		printf("pmbus: cannot select i2c%d:0x%02x (%d)\n",
-		       bus_seq, addr, ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "pmbus: cannot select i2c%d:0x%02x (%d)\n",
+				bus_seq, addr, ret);
 	act = pmbus_active();
 	if (act)
 		print_active(act);
@@ -338,10 +339,9 @@ static int do_status(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (rc)
 		return rc;
 
-	if (pmbus_read_word(chip, PMBUS_STATUS_WORD, &word)) {
-		printf("pmbus: STATUS_WORD read failed\n");
-		return CMD_RET_FAILURE;
-	}
+	rc = pmbus_read_word(chip, PMBUS_STATUS_WORD, &word);
+	if (rc)
+		return cmd_fail(rc, "pmbus: STATUS_WORD read failed\n");
 
 	const struct pmbus_status_override *ovr =
 		act->info ? act->info->status_overrides : NULL;
@@ -461,7 +461,7 @@ static int do_read(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (rc)
 		return rc;
 	if (parse_reg(argv[1], &reg) < 0) {
-		printf("pmbus: invalid register '%s'\n", argv[1]);
+		cmd_err("pmbus: invalid register '%s'\n", argv[1]);
 		return CMD_RET_USAGE;
 	}
 	if (argc >= 3)
@@ -469,27 +469,28 @@ static int do_read(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (!strcmp(fmt, "b")) {
 		ret = pmbus_read_byte(chip, reg, &b);
-		if (ret) {
-			printf("pmbus: read byte 0x%02x failed (%d)\n", reg, ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret,
+					"pmbus: read byte 0x%02x failed (%d)\n",
+					reg, ret);
 		printf("  %02xh  %-15s b=0x%02x\n", reg, pmbus_reg_name(reg), b);
 	} else if (!strcmp(fmt, "w")) {
 		ret = pmbus_read_word(chip, reg, &w);
-		if (ret) {
-			printf("pmbus: read word 0x%02x failed (%d)\n", reg, ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret,
+					"pmbus: read word 0x%02x failed (%d)\n",
+					reg, ret);
 		printf("  %02xh  %-15s w=0x%04x\n", reg, pmbus_reg_name(reg), w);
 	} else if (!strcmp(fmt, "s")) {
 		ret = pmbus_read_string(chip, reg, s, sizeof(s), false);
-		if (ret < 0) {
-			printf("pmbus: read string 0x%02x failed (%d)\n", reg, ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret < 0)
+			return cmd_fail(ret,
+					"pmbus: read string 0x%02x failed (%d)\n",
+					reg, ret);
 		printf("  %02xh  %-15s s=\"%s\"\n", reg, pmbus_reg_name(reg), s);
 	} else {
-		printf("pmbus: unknown format '%s' (expected b, w, or s)\n", fmt);
+		cmd_err("pmbus: unknown format '%s' (expected b, w, or s)\n",
+			fmt);
 		return CMD_RET_USAGE;
 	}
 	return CMD_RET_SUCCESS;
@@ -512,11 +513,11 @@ static int do_write(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (rc)
 		return rc;
 	if (parse_reg(argv[1], &reg) < 0) {
-		printf("pmbus: invalid register '%s'\n", argv[1]);
+		cmd_err("pmbus: invalid register '%s'\n", argv[1]);
 		return CMD_RET_USAGE;
 	}
 	if (strict_strtoul(argv[2], 16, &val)) {
-		printf("pmbus: invalid value '%s'\n", argv[2]);
+		cmd_err("pmbus: invalid value '%s'\n", argv[2]);
 		return CMD_RET_USAGE;
 	}
 	if (argc >= 4)
@@ -524,27 +525,26 @@ static int do_write(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (!strcmp(fmt, "b")) {
 		if (val > 0xff) {
-			printf("pmbus: byte value out of range\n");
+			cmd_err("pmbus: byte value out of range\n");
 			return CMD_RET_USAGE;
 		}
 		b = (u8)val;
 		ret = dm_i2c_write(chip, reg, &b, 1);
 	} else if (!strcmp(fmt, "w")) {
 		if (val > 0xffff) {
-			printf("pmbus: word value out of range\n");
+			cmd_err("pmbus: word value out of range\n");
 			return CMD_RET_USAGE;
 		}
 		buf[0] = (u8)(val & 0xff);
 		buf[1] = (u8)((val >> 8) & 0xff);
 		ret = dm_i2c_write(chip, reg, buf, 2);
 	} else {
-		printf("pmbus: unknown format '%s' (expected b or w)\n", fmt);
+		cmd_err("pmbus: unknown format '%s' (expected b or w)\n", fmt);
 		return CMD_RET_USAGE;
 	}
-	if (ret) {
-		printf("pmbus: write 0x%02x failed (%d)\n", reg, ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "pmbus: write 0x%02x failed (%d)\n", reg,
+				ret);
 	printf("pmbus: wrote 0x%lx to %02xh (%s)\n", val, reg, pmbus_reg_name(reg));
 	return CMD_RET_SUCCESS;
 }
@@ -557,18 +557,17 @@ static int do_clear(struct cmd_tbl *cmdtp, int flag, int argc,
 	int rc, ret;
 
 	if (argc >= 2 && strcmp(argv[1], "faults") != 0) {
-		printf("pmbus: unknown clear subcommand '%s' (expected 'faults')\n",
-		       argv[1]);
+		cmd_err("pmbus: unknown clear subcommand '%s' (expected 'faults')\n",
+			argv[1]);
 		return CMD_RET_USAGE;
 	}
 	rc = require_active(&chip, &act);
 	if (rc)
 		return rc;
 	ret = pmbus_clear_faults(chip);
-	if (ret) {
-		printf("pmbus: CLEAR_FAULTS (03h) failed (%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "pmbus: CLEAR_FAULTS (03h) failed (%d)\n",
+				ret);
 	printf("pmbus: CLEAR_FAULTS (03h) issued (RAM sticky STATUS_* cleared)\n");
 	return CMD_RET_SUCCESS;
 }
@@ -587,16 +586,14 @@ static int do_vout(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (rc)
 		return rc;
 
-	if (pmbus_read_byte(chip, PMBUS_VOUT_MODE, &vout_mode)) {
-		printf("pmbus: VOUT_MODE read failed\n");
-		return CMD_RET_FAILURE;
-	}
+	rc = pmbus_read_byte(chip, PMBUS_VOUT_MODE, &vout_mode);
+	if (rc)
+		return cmd_fail(rc, "pmbus: VOUT_MODE read failed\n");
 
 	if (argc < 2) {
-		if (pmbus_read_word(chip, PMBUS_READ_VOUT, &raw)) {
-			printf("pmbus: READ_VOUT failed\n");
-			return CMD_RET_FAILURE;
-		}
+		rc = pmbus_read_word(chip, PMBUS_READ_VOUT, &raw);
+		if (rc)
+			return cmd_fail(rc, "pmbus: READ_VOUT failed\n");
 		if (act->info)
 			uv = pmbus_reg2data(act->info, PSC_VOLTAGE_OUT, raw, vout_mode);
 		else
@@ -614,7 +611,8 @@ static int do_vout(struct cmd_tbl *cmdtp, int flag, int argc,
 		u8 buf[2];
 
 		if (strict_strtoul(argv[1], 10, &target_uv)) {
-			printf("pmbus: invalid microvolt value '%s'\n", argv[1]);
+			cmd_err("pmbus: invalid microvolt value '%s'\n",
+				argv[1]);
 			return CMD_RET_USAGE;
 		}
 
@@ -625,10 +623,8 @@ static int do_vout(struct cmd_tbl *cmdtp, int flag, int argc,
 			break;
 		case PB_VOUT_MODE_DIRECT:
 			if (!act->info ||
-			    act->info->format[PSC_VOLTAGE_OUT] != pmbus_fmt_direct) {
-				printf("pmbus: VOUT_MODE selects DIRECT but the active driver_info has no DIRECT coefficients for VOLTAGE_OUT\n");
-				return CMD_RET_FAILURE;
-			}
+			    act->info->format[PSC_VOLTAGE_OUT] != pmbus_fmt_direct)
+				return cmd_fail(0, NO_DIRECT_MSG);
 			raw = pmbus_data2reg_direct((s64)target_uv,
 						    act->info->m[PSC_VOLTAGE_OUT],
 						    act->info->b[PSC_VOLTAGE_OUT],
@@ -636,18 +632,18 @@ static int do_vout(struct cmd_tbl *cmdtp, int flag, int argc,
 			fmt_name = "DIRECT";
 			break;
 		default:
-			printf("pmbus: VOUT_MODE 0x%02x selects an encoder not yet implemented (VID / IEEE754)\n",
-			       vout_mode);
-			return CMD_RET_FAILURE;
+			return cmd_fail(0,
+					"pmbus: VOUT_MODE 0x%02x selects an encoder not yet implemented (VID / IEEE754)\n",
+					vout_mode);
 		}
 
 		buf[0] = raw & 0xff;
 		buf[1] = (raw >> 8) & 0xff;
 		ret = dm_i2c_write(chip, PMBUS_VOUT_COMMAND, buf, 2);
-		if (ret) {
-			printf("pmbus: VOUT_COMMAND write failed (%d)\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret,
+					"pmbus: VOUT_COMMAND write failed (%d)\n",
+					ret);
 		printf("pmbus: VOUT_COMMAND <- 0x%04x (%s, target %lu uV)\n",
 		       raw, fmt_name, target_uv);
 	}
@@ -690,17 +686,17 @@ static int do_scan(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc >= 2) {
 		struct udevice *bus;
 		unsigned long val;
-		int bus_seq;
+		int bus_seq, ret;
 
 		if (strict_strtoul(argv[1], 10, &val)) {
-			printf("pmbus: invalid bus seq '%s'\n", argv[1]);
+			cmd_err("pmbus: invalid bus seq '%s'\n", argv[1]);
 			return CMD_RET_USAGE;
 		}
 		bus_seq = (int)val;
-		if (uclass_get_device_by_seq(UCLASS_I2C, bus_seq, &bus)) {
-			printf("pmbus: i2c%d not available\n", bus_seq);
-			return CMD_RET_FAILURE;
-		}
+		ret = uclass_get_device_by_seq(UCLASS_I2C, bus_seq, &bus);
+		if (ret)
+			return cmd_fail(ret, "pmbus: i2c%d not available\n",
+					bus_seq);
 		printf("pmbus scan i2c%d:\n", bus_seq);
 		total = pmbus_scan_one_bus(bus, bus_seq);
 	} else {
@@ -790,7 +786,7 @@ static int do_pmbus(struct getopt_state *gs)
 	if (vop)
 		return vop->handler(gs->cmd_flag, argc, argv);
 
-	printf("pmbus: unknown subcommand '%s'\n", argv[0]);
+	cmd_err("pmbus: unknown subcommand '%s'\n", argv[0]);
 	return CMD_RET_USAGE;
 }
 
