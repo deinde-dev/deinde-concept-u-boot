@@ -5053,9 +5053,10 @@ def process_single_mr(remote, merge_req, dbs, target, fixing=False):
         update_history(merge_req.source_branch,
                                    unresolved, conversation_log)
 
-        # Push the changes along with the history, and run CI on them
+        # Push the changes along with the history, and run CI if needed
         try:
-            ci_note = _push_with_ci(remote, merge_req, dbs, ())
+            ci_note = _push_review(remote, merge_req, dbs, target,
+                                   not unresolved)
             if ci_note:
                 gitlab_api.reply_to_mr(remote, mr_iid, ci_note.strip())
         except command.CommandExc:
@@ -5271,6 +5272,114 @@ PIPELINE_BUSY = ('created', 'waiting_for_resource', 'preparing', 'pending',
 PFIX_NOT_SERIES = ('shared', 'lab')
 
 
+def _last_pipeline(remote, merge_req, dbs):
+    """Find the last pipeline which ran for an MR, and whether it is good
+
+    A pipeline is good if it passes, or fails only where the pipeline fix
+    finds that the series is not to blame.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): Merge request
+        dbs (Database): Database instance, for how a failure was handled
+
+    Returns:
+        tuple: (pipeline_id, status, fix, good), where pipeline_id and status
+            are None if no pipeline has run, fix is how the pipeline fix
+            handled a failed pipeline, or None, and good says why the
+            pipeline is good, or is None if it is not
+    """
+    pipeline_id, status = (gitlab_api.get_last_pipeline(remote, merge_req.iid)
+                           or (None, None))
+    fix = (dbs.pfix_status(merge_req.iid, pipeline_id)
+           if status == 'failed' else None)
+    if status == 'success':
+        good = f'Pipeline {pipeline_id} passed'
+    elif fix in PFIX_NOT_SERIES:
+        good = (f'Pipeline {pipeline_id} failed only in jobs which fail in '
+                f'other merge requests too, or in the lab')
+    else:
+        good = None
+    return pipeline_id, status, fix, good
+
+
+def patch_ids(base, tip):
+    """Get the patch ID of each commit in a range, leaving out the history
+
+    The history is left out, since a rebase changes the context of the
+    entry which a branch adds to it.
+
+    Args:
+        base (str): Commit to start after
+        tip (str): Last commit
+
+    Returns:
+        dict: Patch ID -> commit hash, newest commit first; a merge or a
+            commit which changes only the history has none
+    """
+    patch = command.output('git', 'log', '-p', '--no-merges', f'{base}..{tip}',
+                           '--', '.', f':!{HISTORY_FILE}')
+    ids = command.output('git', 'patch-id', '--stable', stdin_data=patch)
+    return dict(line.split() for line in ids.splitlines())
+
+
+def changed_commits(old, new, upstream):
+    """Find the commits whose change is not the same after a rebase
+
+    Args:
+        old (str): Branch before the rebase
+        new (str): Branch after it
+        upstream (str): Branch which it is rebased onto
+
+    Returns:
+        list of str: Subjects of the changed commits, oldest first
+    """
+    before = patch_ids(run_git(['merge-base', old, upstream]), old)
+    changed = [commit for pid, commit in patch_ids(upstream, new).items()
+               if pid not in before]
+    return [run_git(['log', '-1', '--format=%s', commit])
+            for commit in reversed(changed)]
+
+
+def _push_review(remote, merge_req, dbs, target, rebase_only):
+    """Push the agent's changes to a branch, running CI on them if needed
+
+    Changes for review comments need a pipeline. A rebase alone does not,
+    once the pipeline is good, since running it each time the target moves
+    would use a lot of CI time. Instead, the commits which the agent changes
+    in resolving conflicts are listed on the MR, so that a pipeline can be
+    started by hand before merging if they need one.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): Merge request
+        dbs (Database): Database instance
+        target (str): Target branch, which the agent may have rebased onto
+        rebase_only (bool): True if the agent only rebased the branch
+
+    Returns:
+        str: Note for the MR about the pipeline, or ''
+
+    Raises:
+        command.CommandExc: if the push fails
+    """
+    good = _last_pipeline(remote, merge_req, dbs)[3] if rebase_only else None
+    if not good:
+        return _push_with_ci(remote, merge_req, dbs, ())
+    branch = merge_req.source_branch
+    changed = changed_commits(f'{remote}/{branch}', 'HEAD',
+                              f'{remote}/{target}')
+    gitlab_api.push_branch(remote, branch, force=True, skip_ci=True)
+    tout.info(f'MR !{merge_req.iid}: {good}, so it is not run again')
+    note = f'{good}, so it is not run again after this rebase.'
+    if changed:
+        note += ('\n\nResolving the conflicts changes these commits, so the '
+                 'pipeline has not tested them as they now are; please start '
+                 'one if they need it before merging:\n' +
+                 '\n'.join(f'- {subject}' for subject in changed))
+    return note
+
+
 def _rebase_without_agent(remote, merge_req, dbs, target, *, fixing):
     """Rebase a branch if that needs no agent
 
@@ -5315,20 +5424,11 @@ def _rebase_without_agent(remote, merge_req, dbs, target, *, fixing):
         return 0
     except command.CommandExc:
         pass
-    pipeline_id, status = (gitlab_api.get_last_pipeline(remote, mr_iid) or
-                           (None, None))
-    fix = dbs.pfix_status(mr_iid, pipeline_id) if status == 'failed' else None
+    pipeline_id, status, fix, good = _last_pipeline(remote, merge_req, dbs)
     if status in PIPELINE_BUSY or (status == 'failed' and fixing and not fix):
         tout.info(f'MR !{mr_iid}: waiting for pipeline {pipeline_id} to be '
                   f'dealt with before rebasing')
         return 0
-    if status == 'success':
-        good = f'Pipeline {pipeline_id} passed'
-    elif fix in PFIX_NOT_SERIES:
-        good = (f'Pipeline {pipeline_id} failed only in jobs which fail in '
-                f'other merge requests too, or in the lab')
-    else:
-        good = None
     if not conflicts and not good:
         return None
 
