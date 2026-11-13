@@ -13,7 +13,6 @@
 
 #include <dm.h>
 #include <log.h>
-#include <malloc.h>
 #include <spl.h>
 #include <tables_csum.h>
 #include <acpi/acpi_table.h>
@@ -211,7 +210,7 @@ static int apl_hostbridge_of_to_plat(struct udevice *dev)
 	struct apl_hostbridge_plat *plat = dev_get_plat(dev);
 	DTPLAT(intel_apl_hostbridge, dt, dev);
 	struct udevice *pinctrl;
-	int root, size, ret;
+	int root, count, ret;
 
 	/*
 	 * The host bridge holds the early pad data needed to get through TPL.
@@ -235,19 +234,13 @@ static int apl_hostbridge_of_to_plat(struct udevice *dev)
 	plat->bdf = root;
 
 	/* early-pads is optional: without it, there are no pads to set up */
-	size = dev_prop_size(dev, dt, early_pads, "early-pads");
-	if (size <= 0)
+	ret = dev_prop_u32_array_ptr(dev, dt, early_pads, "early-pads",
+				     &plat->early_pads, &count);
+	if (ret == -EINVAL)
 		return 0;
-
-	plat->early_pads = malloc(size);
-	if (!plat->early_pads)
-		return log_msg_ret("early-pads", -ENOMEM);
-	size /= sizeof(u32);
-	ret = dev_prop_u32_array(dev, dt, early_pads, "early-pads",
-				 plat->early_pads, size);
 	if (ret)
 		return log_msg_ret("early-pads", ret);
-	plat->early_pads_count = pinctrl_count_pads(pinctrl, size);
+	plat->early_pads_count = pinctrl_count_pads(pinctrl, count);
 
 	return 0;
 }
