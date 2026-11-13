@@ -9,13 +9,14 @@
 #define LOG_CATEGORY UCLASS_ACPI_PMC
 
 #include <dm.h>
-#include <dt-structs.h>
 #include <log.h>
 #include <spl.h>
 #include <acpi/acpi_s3.h>
 #include <asm/io.h>
 #include <asm/pci.h>
 #include <asm/arch/pmc.h>
+#include <dm/pci.h>
+#include <dm/prop.h>
 #include <linux/bitops.h>
 #include <power/acpi_pmc.h>
 
@@ -105,22 +106,22 @@ int apl_pmc_ofdata_to_uc_plat(struct udevice *dev)
 {
 	struct acpi_pmc_upriv *upriv = dev_get_uclass_priv(dev);
 	struct apl_pmc_plat *plat = dev_get_plat(dev);
-
-#if IS_ENABLED(CONFIG_OF_REAL)
+	DTPLAT(intel_apl_pmc, dt, dev);
 	u32 base[6];
 	int size;
 	int ret;
 
-	ret = dev_read_u32_array(dev, "early-regs", base,
+	ret = dev_prop_u32_array(dev, dt, early_regs, "early-regs", base,
 				 ARRAY_SIZE(base));
 	if (ret)
 		return log_msg_ret("Missing/short early-regs", ret);
 	if (xpl_phase() == PHASE_TPL) {
 		upriv->pmc_bar0 = (void *)base[0];
 		upriv->pmc_bar2 = (void *)base[2];
+		upriv->gpe_cfg = (u32 *)(upriv->pmc_bar0 + GPIO_GPE_CFG);
 
 		/* Since PCI is not enabled, we must get the BDF manually */
-		plat->bdf = pci_get_devfn(dev);
+		plat->bdf = dev_prop_pci_devfn(dev, dt);
 		if (plat->bdf < 0)
 			return log_msg_ret("Cannot get PMC PCI address",
 					   plat->bdf);
@@ -128,33 +129,31 @@ int apl_pmc_ofdata_to_uc_plat(struct udevice *dev)
 	upriv->acpi_base = base[4];
 
 	/* Get the dwX values for pmc gpe settings */
-	size = dev_read_size(dev, "gpe0-dw");
+	size = dev_prop_size(dev, dt, gpe0_dw, "gpe0-dw");
 	if (size < 0)
 		return log_msg_ret("Cannot read gpe0-dm", size);
-	upriv->gpe0_count = size / sizeof(u32);
-	ret = dev_read_u32_array(dev, "gpe0-dw", upriv->gpe0_dw,
+	upriv->gpe0_count = min_t(int, size / sizeof(u32), GPE0_REG_MAX);
+	ret = dev_prop_u32_array(dev, dt, gpe0_dw, "gpe0-dw", upriv->gpe0_dw,
 				 upriv->gpe0_count);
 	if (ret)
 		return log_msg_ret("Bad gpe0-dw", ret);
 
-	return pmc_ofdata_to_uc_plat(dev);
-#else
-	struct dtd_intel_apl_pmc *dtplat = &plat->dtplat;
-
-	plat->bdf = pci_ofplat_get_devfn(dtplat->reg[0]);
-	upriv->pmc_bar0 = (void *)dtplat->early_regs[0];
-	upriv->pmc_bar2 = (void *)dtplat->early_regs[2];
-	upriv->acpi_base = dtplat->early_regs[4];
-	upriv->gpe0_dwx_mask = dtplat->gpe0_dwx_mask;
-	upriv->gpe0_dwx_shift_base = dtplat->gpe0_dwx_shift_base;
-	upriv->gpe0_sts_reg = dtplat->gpe0_sts;
+	ret = dev_prop_u32(dev, dt, gpe0_dwx_mask, "gpe0-dwx-mask",
+			   &upriv->gpe0_dwx_mask);
+	if (ret)
+		return log_msg_ret("no gpe0-dwx-mask", ret);
+	ret = dev_prop_u32(dev, dt, gpe0_dwx_shift_base, "gpe0-dwx-shift-base",
+			   &upriv->gpe0_dwx_shift_base);
+	if (ret)
+		return log_msg_ret("no gpe0-dwx-shift-base", ret);
+	ret = dev_prop_u32(dev, dt, gpe0_sts, "gpe0-sts", &upriv->gpe0_sts_reg);
+	if (ret)
+		return log_msg_ret("no gpe0-sts", ret);
 	upriv->gpe0_sts_reg += upriv->acpi_base;
-	upriv->gpe0_en_reg = dtplat->gpe0_en;
+	ret = dev_prop_u32(dev, dt, gpe0_en, "gpe0-en", &upriv->gpe0_en_reg);
+	if (ret)
+		return log_msg_ret("no gpe0-en", ret);
 	upriv->gpe0_en_reg += upriv->acpi_base;
-	upriv->gpe0_count = min((int)ARRAY_SIZE(dtplat->gpe0_dw), GPE0_REG_MAX);
-	memcpy(upriv->gpe0_dw, dtplat->gpe0_dw, sizeof(dtplat->gpe0_dw));
-#endif
-	upriv->gpe_cfg = (u32 *)(upriv->pmc_bar0 + GPIO_GPE_CFG);
 
 	return 0;
 }
@@ -205,12 +204,10 @@ static const struct acpi_pmc_ops apl_pmc_ops = {
 	.global_reset_set_enable = apl_global_reset_set_enable,
 };
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static const struct udevice_id apl_pmc_ids[] = {
+static __maybe_unused const struct udevice_id apl_pmc_ids[] = {
 	{ .compatible = "intel,apl-pmc" },
 	{ }
 };
-#endif
 
 U_BOOT_DRIVER(intel_apl_pmc) = {
 	.name		= "intel_apl_pmc",
