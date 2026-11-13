@@ -157,7 +157,7 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 #define dev_prop_u32_array(_dev, _dt, _member, _name, _out, _count) \
 	(!(_dt)->has._member ? -EINVAL : \
 	 (_count) > ARRAY_SIZE((_dt)->_member) ? -EOVERFLOW : \
-	 (memcpy(_out, (_dt)->_member, (_count) * sizeof(u32)), 0))
+	 (__builtin_memcpy(_out, (_dt)->_member, (_count) * sizeof(u32)), 0))
 
 /**
  * dev_prop_u32_array_ptr() - Get a pointer to an array of 32-bit integers
