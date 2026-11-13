@@ -245,19 +245,14 @@ int pinctrl_read_pads(struct udevice *dev, ofnode node, const char *prop,
 /**
  * pinctrl_count_pads() - Count the number of pads in a pad array
  *
- * This used used with of-platdata where the array may be smaller than its
- * maximum size. This function searches for the last pad in the array by finding
- * the first 'zero' record
- *
- * This works out the number of records in the array. Each record has one word
- * for the pad and num_cfgs words for the config.
+ * Each record in the array has one word for the pad and num_cfgs words for the
+ * config.
  *
  * @dev: pinctrl device (any will do)
- * @pads: Array of pad data
- * @size: Size of pad data in bytes
+ * @words: Number of words in the array
  * Return: number of pads represented by the data
  */
-int pinctrl_count_pads(struct udevice *dev, u32 *pads, int size);
+int pinctrl_count_pads(struct udevice *dev, int words);
 
 /**
  * intel_pinctrl_get_config_reg_offset() - Get offset of pin config registers

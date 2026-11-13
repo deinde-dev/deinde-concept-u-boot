@@ -242,11 +242,9 @@ static int apl_hostbridge_of_to_plat(struct udevice *dev)
 	plat->pciex_region_size = dtplat->pciex_region_size;
 	plat->bdf = pci_ofplat_get_devfn(dtplat->reg[0]);
 
-	/* Assume that if everything is 0, it is empty */
 	plat->early_pads = dtplat->early_pads;
 	size = ARRAY_SIZE(dtplat->early_pads);
-	plat->early_pads_count = pinctrl_count_pads(pinctrl, plat->early_pads,
-						    size);
+	plat->early_pads_count = pinctrl_count_pads(pinctrl, size);
 
 #endif
 

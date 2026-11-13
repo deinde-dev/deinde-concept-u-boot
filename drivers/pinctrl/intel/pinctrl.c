@@ -556,7 +556,6 @@ int pinctrl_config_pads(struct udevice *dev, u32 *pads, int pads_count)
 int pinctrl_read_pads(struct udevice *dev, ofnode node, const char *prop,
 		      u32 **padsp, int *pad_countp)
 {
-	struct intel_pinctrl_priv *priv = dev_get_priv(dev);
 	u32 *pads;
 	int size;
 	int ret;
@@ -576,31 +575,18 @@ int pinctrl_read_pads(struct udevice *dev, ofnode node, const char *prop,
 		free(pads);
 		return ret;
 	}
-	*pad_countp = size / (1 + priv->num_cfgs);
+	*pad_countp = pinctrl_count_pads(dev, size);
 	*padsp = pads;
 
 	return 0;
 }
 
-int pinctrl_count_pads(struct udevice *dev, u32 *pads, int size)
+int pinctrl_count_pads(struct udevice *dev, int words)
 {
 	struct intel_pinctrl_priv *priv = dev_get_priv(dev);
-	int count = 0;
-	int i;
 
-	for (i = 0; i < size;) {
-		u32 val;
-		int j;
-
-		for (val = j = 0; j < priv->num_cfgs + 1; j++)
-			val |= pads[i + j];
-		if (!val)
-			break;
-		count++;
-		i += priv->num_cfgs + 1;
-	}
-
-	return count;
+	/* each pad has its number followed by its configuration */
+	return words / (1 + priv->num_cfgs);
 }
 
 int pinctrl_config_pads_for_node(struct udevice *dev, ofnode node)
