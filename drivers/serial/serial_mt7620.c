@@ -16,13 +16,9 @@
 #include <watchdog.h>
 #include <asm/io.h>
 #include <asm/types.h>
-#include <asm/addrspace.h>
 #include <dm/device_compat.h>
+#include <dm/prop.h>
 #include <linux/err.h>
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-#include <dt-structs.h>
-#endif
 
 struct mt7620_serial_regs {
 	u32 rbr;
@@ -63,10 +59,6 @@ struct mt7620_serial_regs {
 		     UART_FCR_TXSR)
 
 struct mt7620_serial_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_serial_mt7620 dtplat;
-#endif
-
 	struct mt7620_serial_regs __iomem *regs;
 	u32 clock;
 };
@@ -131,11 +123,6 @@ static int mt7620_serial_probe(struct udevice *dev)
 {
 	struct mt7620_serial_plat *plat = dev_get_plat(dev);
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	plat->regs = (void __iomem *)KSEG1ADDR(plat->dtplat.reg[0]);
-	plat->clock = plat->dtplat.clock_frequency;
-#endif
-
 	/* Disable interrupt */
 	writel(0, &plat->regs->ier);
 
@@ -145,25 +132,30 @@ static int mt7620_serial_probe(struct udevice *dev)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static int mt7620_serial_of_to_plat(struct udevice *dev)
+static int __maybe_unused mt7620_serial_of_to_plat(struct udevice *dev)
 {
 	struct mt7620_serial_plat *plat = dev_get_plat(dev);
+	DTPLAT(serial_mt7620, dt, dev);
 	struct reset_ctl reset_uart;
 	struct clk clk;
+	fdt_addr_t addr;
 	int err;
 
-	err = reset_get_by_index(dev, 0, &reset_uart);
-	if (!err)
-		reset_deassert(&reset_uart);
+	/* of-platdata does not support resets */
+	if (IS_ENABLED(CONFIG_OF_REAL)) {
+		err = reset_get_by_index(dev, 0, &reset_uart);
+		if (!err)
+			reset_deassert(&reset_uart);
+	}
 
-	plat->regs = dev_remap_addr_index(dev, 0);
-	if (!plat->regs) {
+	addr = dev_prop_addr(dev, dt);
+	if (addr == FDT_ADDR_T_NONE) {
 		dev_err(dev, "mt7620_serial: unable to map UART registers\n");
 		return -EINVAL;
 	}
+	plat->regs = map_physmem(addr, 0, MAP_NOCACHE);
 
-	err = clk_get_by_index(dev, 0, &clk);
+	err = dev_prop_clk(dev, dt, clocks, "clocks", 0, &clk);
 	if (!err) {
 		err = clk_get_rate(&clk);
 		if (!IS_ERR_VALUE(err))
@@ -174,7 +166,8 @@ static int mt7620_serial_of_to_plat(struct udevice *dev)
 	}
 
 	if (!plat->clock)
-		plat->clock = dev_read_u32_default(dev, "clock-frequency", 0);
+		plat->clock = dev_prop_u32_default(dev, dt, clock_frequency,
+						   "clock-frequency", 0);
 
 	if (!plat->clock) {
 		dev_err(dev, "mt7620_serial: clock not defined\n");
@@ -184,11 +177,10 @@ static int mt7620_serial_of_to_plat(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id mt7620_serial_ids[] = {
+static __maybe_unused const struct udevice_id mt7620_serial_ids[] = {
 	{ .compatible = "mediatek,mt7620-uart" },
 	{ }
 };
-#endif
 
 static const struct dm_serial_ops mt7620_serial_ops = {
 	.putc = mt7620_serial_putc,
@@ -200,17 +192,13 @@ static const struct dm_serial_ops mt7620_serial_ops = {
 U_BOOT_DRIVER(serial_mt7620) = {
 	.name = "serial_mt7620",
 	.id = UCLASS_SERIAL,
-#if IS_ENABLED(CONFIG_OF_REAL)
-	.of_match = mt7620_serial_ids,
-	.of_to_plat = mt7620_serial_of_to_plat,
-#endif
+	.of_match = of_match_ptr(mt7620_serial_ids),
+	.of_to_plat = of_to_plat_ptr(mt7620_serial_of_to_plat),
 	.plat_auto = sizeof(struct mt7620_serial_plat),
 	.probe = mt7620_serial_probe,
 	.ops = &mt7620_serial_ops,
 	.flags = DM_FLAG_PRE_RELOC,
 };
-
-DM_DRIVER_ALIAS(serial_mt7620, mediatek_mt7620_uart);
 
 #ifdef CONFIG_DEBUG_UART_MT7620
 
