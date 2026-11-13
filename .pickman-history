@@ -106265,3 +106265,31 @@ Because nothing needed fixing, I did not create `cherry-b556c2eef228-fix1`. `che
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-920876b97520
+
+Commits:
+- 920876b97520 phy: cadence: Add optional auto-probe support
+- a6d44cbaaa69 configs: j7200_evm_a72_defconfig: Enable config to auto-probe the PHY
+- bd2f5794b7e2 Merge patch series "Add support to auto-probe Torrent PHY driver for J7200"
+
+### Conversation log
+The merge commit is empty as expected. I'll commit it with the merge message kept.
+
+All 3 commits are on branch `cherry-920876b97520`, based on `ci/master`, and the sandbox build passes with no warnings or errors.
+
+| New | Original | Subject |
+|---|---|---|
+| fc8395001441 | 920876b97520 | phy: cadence: Add optional auto-probe support |
+| 12efa053b88a | a6d44cbaaa69 | configs: j7200_evm_a72_defconfig: Enable config to auto-probe the PHY |
+| 808e2a97c610 | bd2f5794b7e2 | Merge patch series "Add support to auto-probe Torrent PHY driver for J7200" (empty) |
+
+- **Fix-ups:** none. There were no conflicts. `pickman split-check` found nothing to convert in any commit, because the driver already uses `IS_ENABLED(CONFIG_PHY_CADENCE_TORRENT_AUTO_PROBE)`.
+- **Deltas:** each commit changes exactly the same files and lines as the original (21 insertions across 2 files, then 1 insertion). The merge commit is empty, as expected for a merge pick, and keeps its full message and the `cherry picked from` line.
+- **Build:** sandbox built cleanly after each pick and again at the end.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
