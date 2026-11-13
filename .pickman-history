@@ -106458,3 +106458,52 @@ The rebase also moved the local `cherry-8d7bc8add17b` ref to the same commit as 
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-e1dcad5512b8
+
+Commits:
+- e1dcad5512b8 Azure: Switch u-boot-test-hooks to git.u-boot-project.org
+- b65f698bd0b3 binman: nxp_imx8mcst: allow selecting the SRK table index
+- c3be13fa5863 crypto: fsl: run the CAAM RNG self test on affected i.MX6 chips
+- 7461836b3a88 imx: hab: name the event left behind by the boot ROM RNG self test
+- 562dbefd181a binman: imx9image: respect BINMAN_INDIRS for external files
+- 75ddd81a8418 arm64: dts: freescale: add the MR-NAVQ95 DTS
+- b1424814877c board: nxp: add MR-NAVQ95 board support
+- 491efdfb8dc0 Merge tag 'u-boot-imx-main-20261008' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx
+
+### Conversation log
+Add the fix-up note, then verify and build.
+
+Entirely binman; this one becomes empty, so skip it.
+
+Matches the existing sibling board's conventions, so nothing to convert. Now the merge commit.
+
+Branch `cherry-e1dcad5512b8` (based on ci/master) is ready for pushing, with 7 of the 8 commits present; one was skipped because it only touched `tools/binman/`.
+
+**Build:** the final sandbox build with buildman passed with no warnings or errors, as did the build after each pick.
+
+| Original | New | Subject | Result |
+|---|---|---|---|
+| e1dcad5512b8 | cc4abddaf2d6 | Azure: Switch u-boot-test-hooks to git.u-boot-project.org | clean, delta identical |
+| b65f698bd0b3 | 4cb9fbb5c3af | binman: nxp_imx8mcst: allow selecting the SRK table index | fix-up: binman files dropped, only the doc change kept |
+| c3be13fa5863 | 0f57675ce80f | crypto: fsl: run the CAAM RNG self test on affected i.MX6 chips | clean, delta identical |
+| 7461836b3a88 | dd16fc552113 | imx: hab: name the event left behind by the boot ROM RNG self test | clean, delta identical |
+| 562dbefd181a | — | binman: imx9image: respect BINMAN_INDIRS for external files | skipped |
+| 75ddd81a8418 | 6f96cdbb80b1 | arm64: dts: freescale: add the MR-NAVQ95 DTS | clean, delta identical |
+| b1424814877c | 14b92b0e4c2f | board: nxp: add MR-NAVQ95 board support | clean, delta identical |
+| 491efdfb8dc0 | 20b5cfd18be2 | Merge tag 'u-boot-imx-main-20261008' | empty commit, message preserved |
+
+**Fix-ups:**
+- **b65f698bd0b3:** the three `tools/binman/` files were removed, leaving the 2-line change to `doc/imx/habv4/guides/mx8m_spl_secure_boot.txt`. I added a note line to the commit message: `[pickman: drop tools/binman changes, which are handled in a separate project]`.
+- **562dbefd181a:** all three files it touches are under `tools/binman/`, so it became empty and I skipped it with `git cherry-pick --skip`.
+- **491efdfb8dc0:** the only remaining differences were the same binman files, so I removed them and committed it empty.
+
+**Split-check:** `pickman split-check -f` changed nothing on any commit, so no amendments were needed. The new MR-NAVQ95 board uses the same `CONFIG_SPL_BUILD` and `CONFIG_SPL_IMX_QB` constructs as the existing `imx95_evk` board in the target.
+
+**Concerning deltas:** none, apart from the dropped binman changes.
+
+Only sandbox was built, so the new i.MX code (`imx95_navq`, the CAAM RNG self test, `hab.c`) has not been compiled here.
+
+---
+
