@@ -8,7 +8,6 @@
 #include <config.h>
 #include <clk.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <init.h>
 #include <log.h>
 #include <ram.h>
@@ -22,6 +21,7 @@
 #include <asm/arch-rockchip/hardware.h>
 #include <asm/arch-rockchip/sdram.h>
 #include <asm/arch-rockchip/sdram_rk3399.h>
+#include <dm/prop.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <time.h>
@@ -91,11 +91,7 @@ struct sdram_rk3399_ops {
 };
 
 struct rockchip_dmc_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_rockchip_rk3399_dmc dtplat;
-#else
 	struct rk3399_sdram_params sdram_params;
-#endif
 	struct regmap *map;
 };
 
@@ -3031,13 +3027,15 @@ static int sdram_init(struct dram_info *dram,
 static int rk3399_dmc_of_to_plat(struct udevice *dev)
 {
 	struct rockchip_dmc_plat *plat;
+	DTPLAT(rockchip_rk3399_dmc, dt, dev);
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_OF_REAL) || !phase_sdram_init())
+	if (!phase_sdram_init())
 		return 0;
 
 	plat = dev_get_plat(dev);
-	ret = dev_read_u32_array(dev, "rockchip,sdram-params",
+	ret = dev_prop_u32_array(dev, dt, rockchip_sdram_params,
+				 "rockchip,sdram-params",
 				 (u32 *)&plat->sdram_params,
 				 sizeof(plat->sdram_params) / sizeof(u32));
 	if (ret) {
@@ -3045,28 +3043,12 @@ static int rk3399_dmc_of_to_plat(struct udevice *dev)
 		       __func__, ret);
 		return ret;
 	}
-	ret = regmap_init_mem(dev_ofnode(dev), &plat->map);
+	ret = dev_prop_regmap(dev, dt, &plat->map);
 	if (ret)
 		printf("%s: regmap failed %d\n", __func__, ret);
 
 	return 0;
 }
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int conv_of_plat(struct udevice *dev)
-{
-	struct rockchip_dmc_plat *plat = dev_get_plat(dev);
-	struct dtd_rockchip_rk3399_dmc *dtplat = &plat->dtplat;
-	int ret;
-
-	ret = regmap_init_mem_plat(dev, dtplat->reg, sizeof(dtplat->reg[0]),
-				   ARRAY_SIZE(dtplat->reg) / 2, &plat->map);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-#endif
 
 static const struct sdram_rk3399_ops rk3399_ops = {
 #if !defined(CONFIG_RAM_ROCKCHIP_LPDDR4)
@@ -3086,18 +3068,9 @@ static int rk3399_dmc_init(struct udevice *dev)
 {
 	struct dram_info *priv = dev_get_priv(dev);
 	struct rockchip_dmc_plat *plat = dev_get_plat(dev);
-	int ret;
-#if IS_ENABLED(CONFIG_OF_REAL)
 	struct rk3399_sdram_params *params = &plat->sdram_params;
-#else
-	struct dtd_rockchip_rk3399_dmc *dtplat = &plat->dtplat;
-	struct rk3399_sdram_params *params =
-					(void *)dtplat->rockchip_sdram_params;
-
-	ret = conv_of_plat(dev);
-	if (ret)
-		return ret;
-#endif
+	DTPLAT(rockchip_rk3399_dmc, dt, dev);
+	int ret;
 
 	priv->ops = &rk3399_ops;
 	priv->cic = syscon_get_first_range(ROCKCHIP_SYSCON_CIC);
@@ -3123,11 +3096,7 @@ static int rk3399_dmc_init(struct udevice *dev)
 	debug("cru %p, cic %p, grf %p, sgrf %p, pmucru %p, pmu %p\n", priv->cru,
 	      priv->cic, priv->pmugrf, priv->pmusgrf, priv->pmucru, priv->pmu);
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	ret = clk_get_by_phandle(dev, dtplat->clocks, &priv->ddr_clk);
-#else
-	ret = clk_get_by_index(dev, 0, &priv->ddr_clk);
-#endif
+	ret = dev_prop_clk(dev, dt, clocks, "clocks", 0, &priv->ddr_clk);
 	if (ret) {
 		printf("%s clk get failed %d\n", __func__, ret);
 		return ret;
@@ -3196,7 +3165,7 @@ static const struct udevice_id rk3399_dmc_ids[] = {
 	{ }
 };
 
-U_BOOT_DRIVER(dmc_rk3399) = {
+U_BOOT_DRIVER(rockchip_rk3399_dmc) = {
 	.name = "rockchip_rk3399_dmc",
 	.id = UCLASS_RAM,
 	.of_match = rk3399_dmc_ids,
