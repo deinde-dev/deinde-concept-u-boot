@@ -29,6 +29,10 @@ static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 	plat->missing_array_ret = dev_prop_u32_array(dev, dt, dev_prop_none,
 						     "dev-prop-none", none,
 						     ARRAY_SIZE(none));
+	plat->array_size = dev_prop_size(dev, dt, dev_prop_array,
+					 "dev-prop-array");
+	plat->u32_ret = dev_prop_u32(dev, dt, dev_prop_present,
+				     "dev-prop-present", &plat->u32_val);
 
 	/* sandbox_vpl has no regmap support in TPL and VPL */
 	if (!IS_ENABLED(CONFIG_REGMAP))

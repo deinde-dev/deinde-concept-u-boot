@@ -99,6 +99,19 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	  dtplat_check_single(_dev, _idx) : 0), &(_data))
 
 /**
+ * dev_prop_u32() - Read a 32-bit integer property which must be present
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, e.g. gpe0_dwx_mask
+ * @_name: Devicetree name of the property, e.g. "gpe0-dwx-mask"
+ * @_valp: Returns the value
+ * Return: 0 if OK, -EINVAL if the property is absent
+ */
+#define dev_prop_u32(_dev, _dt, _member, _name, _valp) \
+	(!(_dt)->has._member ? -EINVAL : (*(_valp) = (_dt)->_member, 0))
+
+/**
  * dev_prop_u32_default() - Read a 32-bit integer property, with a default
  *
  * @_dev: Device to read from
@@ -144,6 +157,23 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	(!(_dt)->has._member ? -EINVAL : \
 	 (_count) > ARRAY_SIZE((_dt)->_member) ? -EOVERFLOW : \
 	 (memcpy(_out, (_dt)->_member, (_count) * sizeof(u32)), 0))
+
+/**
+ * dev_prop_size() - Get the size of a property
+ *
+ * This is normally used to find out how much space to allocate before reading
+ * an array property with dev_prop_u32_array(). With of-platdata, the size is
+ * that of the array in the generated data, which is sized for the node which
+ * has the most values.
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, e.g. intel_pmc_routes
+ * @_name: Devicetree name of the property, e.g. "intel,pmc-routes"
+ * Return: size of the property in bytes, or -EINVAL if it is absent
+ */
+#define dev_prop_size(_dev, _dt, _member, _name) \
+	((_dt)->has._member ? (int)sizeof((_dt)->_member) : -EINVAL)
 
 /**
  * dev_prop_addr() - Read the address from a device's 'reg' property
@@ -231,6 +261,9 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define DTPLAT(_drv, _var, _dev)
 
+#define dev_prop_u32(_dev, _dt, _member, _name, _valp) \
+	dev_read_u32(_dev, _name, _valp)
+
 #define dev_prop_u32_default(_dev, _dt, _member, _name, _def) \
 	dev_read_u32_default(_dev, _name, _def)
 
@@ -239,6 +272,9 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 
 #define dev_prop_u32_array(_dev, _dt, _member, _name, _out, _count) \
 	dev_read_u32_array(_dev, _name, _out, _count)
+
+#define dev_prop_size(_dev, _dt, _member, _name) \
+	dev_read_size(_dev, _name)
 
 #define dev_prop_addr(_dev, _dt) \
 	dev_read_addr(_dev)
