@@ -10,7 +10,6 @@
  */
 
 #include <dm.h>
-#include <dt-structs.h>
 #include <irq.h>
 #include <log.h>
 #include <malloc.h>
@@ -18,6 +17,7 @@
 #include <spl.h>
 #include <asm/global_data.h>
 #include <asm/itss.h>
+#include <dm/prop.h>
 
 static int set_polarity(struct udevice *dev, uint irq, bool active_low)
 {
@@ -151,10 +151,10 @@ static int route_pmc_gpio_gpe(struct udevice *dev, uint pmc_gpe_num)
 
 static int itss_bind(struct udevice *dev)
 {
-	/* This is not set with basic of-platdata, so set it manually */
-	if (IS_ENABLED(CONFIG_OF_PLATDATA) &&
-	    !IS_ENABLED(CONFIG_OF_PLATDATA_INST))
-		dev->driver_data = X86_IRQT_ITSS;
+	DTPLAT(intel_itss, dt, dev);
+
+	/* With of-platdata, nothing else sets the driver data */
+	dev->driver_data = dev_prop_driver_data(dev, dt);
 
 	return 0;
 }
@@ -162,42 +162,40 @@ static int itss_bind(struct udevice *dev)
 static int itss_of_to_plat(struct udevice *dev)
 {
 	struct itss_priv *priv = dev_get_priv(dev);
-	int ret;
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct itss_plat *plat = dev_get_plat(dev);
-	struct dtd_intel_itss *dtplat = &plat->dtplat;
+	DTPLAT(intel_itss, dt, dev);
+	int size, ret;
 
 	/*
-	 * It would be nice to do this in the bind() method, but with
-	 * of-platdata binding happens in the order that DM finds things in the
-	 * linker list (i.e. alphabetical order by driver name). So the GPIO
-	 * device may well be bound before its parent (p2sb), and this call
-	 * will fail if p2sb is not bound yet.
+	 * With a devicetree, the port ID is set when the device is bound. With
+	 * of-platdata it would be nice to do this in the bind() method too,
+	 * but binding happens in the order that DM finds things in the linker
+	 * list (i.e. alphabetical order by driver name). So the GPIO device
+	 * may well be bound before its parent (p2sb), and this call will fail
+	 * if p2sb is not bound yet.
 	 *
 	 * TODO(sjg@chromium.org): Add a parent pointer to child devices in dtoc
 	 */
-	ret = p2sb_set_port_id(dev, dtplat->intel_p2sb_port_id);
-	if (ret)
-		return log_msg_ret("Could not set port id", ret);
-	priv->route = (struct pmc_route *)dtplat->intel_pmc_routes;
-	priv->route_count = ARRAY_SIZE(dtplat->intel_pmc_routes) /
-		 sizeof(struct pmc_route);
-#else
-	int size;
+	if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
+		ret = p2sb_set_port_id(dev,
+				       dev_prop_u32_default(dev, dt,
+							    intel_p2sb_port_id,
+							    "intel,p2sb-port-id",
+							    0));
+		if (ret)
+			return log_msg_ret("Could not set port id", ret);
+	}
 
-	size = dev_read_size(dev, "intel,pmc-routes");
+	size = dev_prop_size(dev, dt, intel_pmc_routes, "intel,pmc-routes");
 	if (size < 0)
 		return size;
 	priv->route = malloc(size);
 	if (!priv->route)
 		return -ENOMEM;
-	ret = dev_read_u32_array(dev, "intel,pmc-routes", (u32 *)priv->route,
-				 size / sizeof(fdt32_t));
+	ret = dev_prop_u32_array(dev, dt, intel_pmc_routes, "intel,pmc-routes",
+				 (u32 *)priv->route, size / sizeof(fdt32_t));
 	if (ret)
 		return log_msg_ret("Cannot read pmc-routes", ret);
 	priv->route_count = size / sizeof(struct pmc_route);
-#endif
 
 	return 0;
 }
@@ -211,12 +209,10 @@ static const struct irq_ops itss_ops = {
 #endif
 };
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static const struct udevice_id itss_ids[] = {
+static __maybe_unused const struct udevice_id itss_ids[] = {
 	{ .compatible = "intel,itss", .data = X86_IRQT_ITSS },
 	{ }
 };
-#endif
 
 U_BOOT_DRIVER(intel_itss) = {
 	.name		= "intel_itss",
@@ -225,6 +221,6 @@ U_BOOT_DRIVER(intel_itss) = {
 	.ops		= &itss_ops,
 	.bind		= itss_bind,
 	.of_to_plat = itss_of_to_plat,
-	.plat_auto	= sizeof(struct itss_plat),
 	.priv_auto	= sizeof(struct itss_priv),
+	DM_HEADER(<irq.h>)
 };
