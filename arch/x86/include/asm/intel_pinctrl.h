@@ -200,7 +200,8 @@ int pinctrl_route_gpe(struct udevice *dev, uint gpe0b, uint gpe0c, uint gpe0d);
  * @pads_count: Number of pads to configure
  * Return: 0 if OK, -ve on error
  */
-int pinctrl_config_pads(struct udevice *dev, u32 *pads, int pads_count);
+int pinctrl_config_pads(struct udevice *dev, const u32 *pads,
+			int pads_count);
 
 /**
  * pinctrl_gpi_clear_int_cfg() - Set up the interrupts for use

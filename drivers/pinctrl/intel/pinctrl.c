@@ -522,7 +522,8 @@ int pinctrl_gpi_clear_int_cfg(void)
 	return 0;
 }
 
-int pinctrl_config_pads(struct udevice *dev, u32 *pads, int pads_count)
+int pinctrl_config_pads(struct udevice *dev, const u32 *pads,
+			int pads_count)
 {
 	struct intel_pinctrl_priv *priv = dev_get_priv(dev);
 	const u32 *ptr;
