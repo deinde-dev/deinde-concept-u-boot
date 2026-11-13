@@ -106507,3 +106507,27 @@ Only sandbox was built, so the new i.MX code (`imx95_navq`, the CAAM RNG self te
 
 ---
 
+### Pipeline fix: 2026-11-13 (attempt 2)
+
+Branch: cherry-e1dcad5512b8
+
+Failed jobs:
+- build all 64bit ARM platforms (world_build)
+
+### Conversation log
+The full aarch64 build (the same `buildman -PEWM aarch64` command the CI job runs) is going in the background; I'll report once it finishes.
+
+The failure is fixed: the full aarch64 build that the CI job runs now passes locally (561 boards, 0 failures, exit code 0), and the result is on local branch `cherry-e1dcad5512b8-fix2`, not pushed.
+
+- **Responsible commit:** "board: nxp: add MR-NAVQ95 board support" (was `af66c2450615`, now `b8132b4636e8`).
+- **Root cause:** the new `configs/imx95_navq.config` sets `CONFIG_TEXT_BASE=0x90200000`, but this tree renames that symbol to `CONFIG_PPL_TEXT_BASE` (the sibling `imx95_evk.config` already uses it). With no value for `PPL_TEXT_BASE`, Kconfig's syncconfig step fails with "no value for new symbol 'PPL_TEXT_BASE'", so `imx95_navq` fails to build.
+- **Fix:** changed that one line to `CONFIG_PPL_TEXT_BASE=0x90200000` and amended the commit, with a `[pickman]` note appended to its message. The two commits after it were rebased unchanged, and the empty merge-tag commit is preserved.
+
+Things to know:
+
+- **Log tail did not show the real error:** the only error-like line in it is `aarch64-linux-ld: invalid length for memory region .sram`. That line still appears in the passing build, so it is not what failed the job; I did not track down which board emits it.
+- **Suggested buildman selection matches nothing:** `buildman -o /tmp/pickman 64bit,ARM,all,platforms,sandbox` reports "No matching boards found". I ran the job's own command from `.gitlab-ci.yml` instead: `buildman -o /tmp/pickman -PEWM aarch64`.
+- **Sandbox:** `um build sandbox` is clean.
+
+---
+
