@@ -786,7 +786,7 @@ static int do_pmbus(struct cmd_tbl *cmdtp, int flag, int argc,
 	/* Vendor namespace dispatch */
 	vop = pmbus_lookup_vendor(argv[0]);
 	if (vop)
-		return vop->handler(cmdtp, flag, argc, argv);
+		return vop->handler(flag, argc, argv);
 
 	printf("pmbus: unknown subcommand '%s'\n", argv[0]);
 	return CMD_RET_USAGE;

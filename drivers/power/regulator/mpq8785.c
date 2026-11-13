@@ -288,8 +288,7 @@ restore_wp:
 	return (ret || last_rc) ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
 }
 
-static int mps_vendor_handler(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int mps_vendor_handler(int flag, int argc, char *const argv[])
 {
 	struct udevice *chip;
 	int rc;
