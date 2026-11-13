@@ -139,6 +139,10 @@ static int cmd_test_mdio_err(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("mdio", 0));
 	ut_assertok(check_usage(uts));
 
+	/* an option is refused before the handler runs */
+	ut_asserteq(1, run_command("mdio -x", 0));
+	ut_assertok(check_usage(uts));
+
 	/* but a word which is not one of them does nothing, and succeeds */
 	ut_assertok(run_command("mdio bogus", 0));
 	ut_assert_console_end();

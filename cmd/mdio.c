@@ -10,6 +10,7 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <miiphy.h>
 #include <phy.h>
 
@@ -190,9 +191,10 @@ static int extract_phy_range(char *const argv[], int argc, struct mii_dev **bus,
 }
 
 /* ---------------------------------------------------------------- */
-static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_mdio(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
+	int argc = gs->argc;
 	char op[2];
 	int addrlo, addrhi, reglo, reghi, devadlo, devadhi;
 	unsigned short	data;
@@ -224,7 +226,7 @@ static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	bus = mdio_get_current_dev();
 
-	if (flag & CMD_FLAG_REPEAT)
+	if (gs->cmd_flag & CMD_FLAG_REPEAT)
 		op[0] = last_op[0];
 
 	if (strlen(argv[1]) > 1) {
@@ -313,7 +315,7 @@ static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
 
 /***************************************************/
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mdio,	6,	1,	do_mdio,
 	"MDIO utility commands",
 	"list			- List MDIO buses\n"
