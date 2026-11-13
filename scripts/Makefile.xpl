@@ -128,22 +128,10 @@ ifdef CONFIG_OF_PLATDATA
 platdata-hdr := $(obj)/include/generated/dt-structs-gen.h \
 	$(obj)/include/generated/dt-decl.h \
 	$(obj)/include/generated/dt-prop.h
-platdata-inst := $(obj)/dts/dt-uclass.o $(obj)/dts/dt-device.o
-platdata-noinst := $(obj)/dts/dt-plat.o
-
-ifdef CONFIG_OF_PLATDATA_INST
-u-boot-spl-platdata := $(platdata-inst)
-u-boot-spl-old-platdata := $(platdata-noinst)
-else
-u-boot-spl-platdata := $(platdata-noinst)
-u-boot-spl-old-platdata := $(platdata-inst)
-endif
+u-boot-spl-platdata := $(obj)/dts/dt-plat.o
 
 # Files we need to generate
 u-boot-spl-platdata_c := $(patsubst %.o,%.c,$(u-boot-spl-platdata))
-
-# Files we won't generate and should remove
-u-boot-spl-old-platdata_c := $(patsubst %.o,%.c,$(u-boot-spl-old-platdata))
 endif  # OF_PLATDATA
 
 # Linker Script
@@ -244,9 +232,7 @@ endif
 INPUTS-y	+= $(obj)/$(XPL_BIN).bin $(obj)/$(XPL_BIN).sym
 
 ifdef CONFIG_OF_PLATDATA
-ifndef CONFIG_OF_PLATDATA_INST
 INPUTS-y	+= $(obj)/.$(XPL_BIN).dtoc-check
-endif
 endif
 
 ifneq ($(CONFIG_ARCH_EXYNOS)$(CONFIG_ARCH_S5PC1XX),)
@@ -347,10 +333,6 @@ DTOC ?= $(or $(shell command -v dtoc 2>/dev/null),$(srctree)/tools/dtoc/dtoc)
 DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) \
 	-d $(obj)/$(XPL_BIN).dtb -p $(XPL_NAME)
 
-ifneq ($(CONFIG_OF_PLATDATA_INST),)
-DTOC_ARGS += -i
-endif
-
 quiet_cmd_dtoc = DTOC    $@
 cmd_dtoc = $(DTOC_ARGS) -c $(obj)/dts -C $(obj)/include/generated all
 
@@ -364,12 +346,6 @@ $(obj)/dts/dt-%.o: $(obj)/dts/dt-%.c $(platdata-hdr) FORCE
 $(platdata-hdr) $(u-boot-spl-platdata_c) &: $(obj)/$(XPL_BIN).dtb FORCE
 	@[ -d $(obj)/dts ] || mkdir -p $(obj)/dts
 	@[ -d $(obj)/include/generated ] || mkdir -p $(obj)/include/generated
-	@# Remove old files since which ones we generate depends on the setting
-	@# of OF_PLATDATA_INST and this might change between builds. Leaving old
-	@# ones around is confusing and it is possible that switching the
-	@# setting again will use the old one instead of regenerating it.
-	@rm -f $(u-boot-spl-old-platdata_c) $(u-boot-spl-platdata_c) \
-		$(u-boot-spl-old-platdata)
 	$(call if_changed,dtoc)
 
 ifneq ($(CONFIG_ARCH_EXYNOS)$(CONFIG_ARCH_S5PC1XX),)
