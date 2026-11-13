@@ -106365,3 +106365,96 @@ Each labgrid place is held by another user (`kea/labgrid`), so the gitlab-runner
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-8d7bc8add17b
+
+Commits:
+- 8d7bc8add17b configs: Resync with savedefconfig
+- 15b4b73766f9 include: image: drop the duplicate FIT_ALGO_PROP definition
+- d0215d8718da tools: mkimage: use an explicit iv from the cipher node when encrypting
+- 195f273b6c86 tools: mkimage: resolve image-data references between FIT images
+- 4436d98341a6 tools: mkimage: share the external-data region between image-data images
+- d510292811e3 tools: mkimage: include image-data sharers in the load overlap check
+- 3272136ca701 doc: fit: document shared image data through the image-data property
+- baf80458c7fe test: py: add tests for the FIT image-data property
+- bc15e2be5bd5 Merge patch series "tools: mkimage: support shared image data through the image-data property"
+
+### Conversation log
+Branch `cherry-8d7bc8add17b` is ready for pushing with all 9 commits on top of ci/master, and the final sandbox build is clean (no warnings or errors).
+
+```
+959a8bf81df4 Merge patch series "tools: mkimage: support shared image data through the image-data property"
+edff991ed8cb test: py: add tests for the FIT image-data property
+7bc06eb254ea doc: fit: document shared image data through the image-data property
+e4dd8cffd93a tools: mkimage: include image-data sharers in the load overlap check
+82ef55797e71 tools: mkimage: share the external-data region between image-data images
+d80f4543206e tools: mkimage: resolve image-data references between FIT images
+78d372baf696 tools: mkimage: use an explicit iv from the cipher node when encrypting
+879ffe2654f8 include: image: drop the duplicate FIT_ALGO_PROP definition
+4b22fb1bd836 configs: Resync with savedefconfig
+```
+
+**Already-applied check**
+- **8d7bc8add17b vs a2a657b64ad8:** these are not the same commit. a2a657b64ad8 is "configs: toradex-smarc-imx8mp: enable SPL_SYS_MMCSD_RAW_MODE" (1 file), while the original is a 292-file resync, so I regenerated it with `./tools/qconfig.py -s -Cy` as instructed.
+
+**Fix-ups** (each has a one-line note at the end of its commit message)
+- **195f273b6c86 and 4436d98341a6:** both applied cleanly but used upstream's `struct image_tool_params *params`, which the target names `struct imgtool *itl`. I converted the new code in each commit.
+- **d510292811e3:** conflict in `tools/fit_image.c` over the `fit_import_data()` signature. I kept the target's `struct imgtool *itl` signature and added the new `fit_image_effective_data()` above it.
+- **bc15e2be5bd5 (merge):** conflict in `tools/fit_image.c`. I kept the branch's content, so it is an empty commit that preserves the merge message.
+
+**Deltas**
+- **Resync:** the regenerated commit touches 355 files (510 insertions, 788 deletions) against 292 files (495 insertions, 541 deletions) upstream. This is expected, since it reflects the target's Kconfig state.
+- **Other commits:** all match the originals' file lists and line counts exactly.
+
+**Checks**
+- **split-check:** it ran on every commit except the two that were regenerated or empty (the resync and the merge), and found nothing to convert.
+- **Builds:** I did not run buildman after each individual pick. It ran once after the first five commits and once at the end, both clean.
+- **Tests:** the new `test_fit_image_data` tests pass (7 passed) after rebuilding sandbox with `um build`.
+
+---
+
+### Review: 2026-11-13
+
+Branch: cherry-8d7bc8add17b
+
+Comments addressed:
+
+
+### Conversation log
+Rebase is 18/20 through with all sandbox builds clean; now resolving a conflict in `.pickman-history` on the final pickman record commit.
+
+The rebase onto ci/master is complete and `cherry-8d7bc8add17b-v2` is checked out, not pushed. The sandbox buildman build passed after every code commit and again at the end.
+
+Two commits conflicted and were resolved; the other eight applied unchanged.
+
+- **`configs: Resync with savedefconfig`**: conflict in `configs/chromebook_brya_defconfig`, because ci/master added `CONFIG_TPL_SYS_MALLOC_SIMPLE=y` to that file. I took the resynced version, added that option back, and re-ran `savedefconfig` for the three boards ci/master had touched (chromebook_brya, sandbox_spl, sandbox_vpl). Only brya changed: the option now sits in its savedefconfig position.
+- **`pickman: Record cherry-pick of 9 commits from us/main`**: conflict in `.pickman-history`, because ci/master gained the entry for cherry-62ed983dad41 at the same place. I kept both entries, with the ci/master one first.
+
+**Deltas before and after the rebase**
+
+| Commit | Before | After |
+|---|---|---|
+| configs: Resync with savedefconfig | 355 files, 510+/788- | 355 files, 511+/789- |
+| include: image: drop the duplicate FIT_ALGO_PROP definition | 1 file, 1- | same |
+| tools: mkimage: use an explicit iv from the cipher node when encrypting | 2 files, 19+/3- | same |
+| tools: mkimage: resolve image-data references between FIT images | 2 files, 360+ | same |
+| tools: mkimage: share the external-data region between image-data images | 1 file, 46+ | same |
+| tools: mkimage: include image-data sharers in the load overlap check | 1 file, 42+/3- | same |
+| doc: fit: document shared image data through the image-data property | 2 files, 115+ | same |
+| test: py: add tests for the FIT image-data property | 1 file, 391+ | same |
+| Merge patch series "tools: mkimage: support shared image data…" | empty | empty (preserved) |
+| pickman: Record cherry-pick of 9 commits from us/main | 1 file, 49+ | same |
+
+The rebase also moved the local `cherry-8d7bc8add17b` ref to the same commit as `-v2`. I did not re-run the `test_fit_image_data` tests or a full `qconfig.py -s` resync.
+
+**Suggested reply for the MR**
+
+> Rebased onto ci/master (18 new commits). Two conflicts resolved:
+> - `configs/chromebook_brya_defconfig` in the resync commit: ci/master added `CONFIG_TPL_SYS_MALLOC_SIMPLE=y`; kept it and re-ran savedefconfig for that board, so the commit is now 511+/789- instead of 510+/788-.
+> - `.pickman-history` in the pickman record commit: kept both the cherry-62ed983dad41 entry from ci/master and this branch's entry.
+>
+> All other commits are unchanged and the empty merge commit is preserved. `buildman -L --board sandbox -w` passes after each code commit and at the tip.
+
+---
+
