@@ -111,7 +111,7 @@ int dm_scan_plat(bool pre_reloc_only)
 {
 	int ret;
 
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_DRIVER_RT)) {
+	if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
 		struct driver_rt *dyn;
 		int n_ents;
 

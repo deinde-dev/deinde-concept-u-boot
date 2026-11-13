@@ -283,7 +283,7 @@ struct global_data {
 	 * @uclass_root_s.
 	 */
 	struct list_head *uclass_root;
-# if IS_ENABLED(CONFIG_OF_PLATDATA_DRIVER_RT)
+# if IS_ENABLED(CONFIG_OF_PLATDATA)
 	/** @dm_driver_rt: Dynamic info about the driver */
 	struct driver_rt *dm_driver_rt;
 # endif
@@ -533,7 +533,7 @@ static_assert(sizeof(struct global_data) == GD_SIZE);
 #define gd_set_of_root(_root)
 #endif
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA_DRIVER_RT)
+#if IS_ENABLED(CONFIG_OF_PLATDATA)
 #define gd_set_dm_driver_rt(dyn)	gd->dm_driver_rt = dyn
 #define gd_dm_driver_rt()		gd->dm_driver_rt
 #else
