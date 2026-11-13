@@ -12,6 +12,7 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <i2c.h>
 #include <log.h>
 #include <pmbus.h>
@@ -764,9 +765,10 @@ static struct cmd_tbl pmbus_subcmd[] = {
 	U_BOOT_CMD_MKENT(help,      1, 1, do_help,      "", ""),
 };
 
-static int do_pmbus(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_pmbus(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const struct pmbus_vendor_op *vop;
 	struct cmd_tbl *cmd;
 
@@ -780,35 +782,35 @@ static int do_pmbus(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (cmd) {
 		if (argc > cmd->maxargs)
 			return CMD_RET_USAGE;
-		return cmd_invoke(cmd, flag, argc, argv);
+		return cmd_invoke(cmd, gs->cmd_flag, argc, argv);
 	}
 
 	/* Vendor namespace dispatch */
 	vop = pmbus_lookup_vendor(argv[0]);
 	if (vop)
-		return vop->handler(flag, argc, argv);
+		return vop->handler(gs->cmd_flag, argc, argv);
 
 	printf("pmbus: unknown subcommand '%s'\n", argv[0]);
 	return CMD_RET_USAGE;
 }
 
-U_BOOT_CMD(pmbus, CONFIG_SYS_MAXARGS, 1, do_pmbus,
-	   "PMBus 1.x device interrogation and control",
-	   "list                     - list UCLASS_REGULATOR devices (DM bound)\n"
-	   "pmbus dev [<bus>:<addr>|<name>] - show / select active PMBus device\n"
-	   "                                 (<bus> decimal, <addr>/<reg>/<val> hex)\n"
-	   "pmbus info                     - identification banner + driver_info\n"
-	   "pmbus telemetry                - decoded VIN, VOUT, IIN, IOUT, TEMP\n"
-	   "pmbus status                   - decode every STATUS_* register\n"
-	   "pmbus dump                     - hex dump of every standard register\n"
-	   "pmbus read <reg> [b|w|s]       - raw read (b=byte, w=word, s=string)\n"
-	   "pmbus write <reg> <val> [b|w]  - raw write\n"
-	   "pmbus clear [faults]           - issue CLEAR_FAULTS (03h)\n"
-	   "pmbus vout [<uV>]              - read / set VOUT_COMMAND (microvolts)\n"
-	   "pmbus scan [<bus>]             - PMBus aware probe of one or all I2C buses\n"
-	   "pmbus help                     - list registered vendor extensions\n"
-	   "\n"
-	   "Vendor extensions (pmbus <vendor> ...) are registered by per chip\n"
-	   "drivers at probe time. Run 'pmbus help' after a chip is probed to\n"
-	   "see the available subcommands.\n"
+U_BOOT_CMD_NOOPTS(pmbus, CONFIG_SYS_MAXARGS, 1, do_pmbus,
+		  "PMBus 1.x device interrogation and control",
+		  "list                     - list UCLASS_REGULATOR devices (DM bound)\n"
+		  "pmbus dev [<bus>:<addr>|<name>] - show / select active PMBus device\n"
+		  "                                 (<bus> decimal, <addr>/<reg>/<val> hex)\n"
+		  "pmbus info                     - identification banner + driver_info\n"
+		  "pmbus telemetry                - decoded VIN, VOUT, IIN, IOUT, TEMP\n"
+		  "pmbus status                   - decode every STATUS_* register\n"
+		  "pmbus dump                     - hex dump of every standard register\n"
+		  "pmbus read <reg> [b|w|s]       - raw read (b=byte, w=word, s=string)\n"
+		  "pmbus write <reg> <val> [b|w]  - raw write\n"
+		  "pmbus clear [faults]           - issue CLEAR_FAULTS (03h)\n"
+		  "pmbus vout [<uV>]              - read / set VOUT_COMMAND (microvolts)\n"
+		  "pmbus scan [<bus>]             - PMBus aware probe of one or all I2C buses\n"
+		  "pmbus help                     - list registered vendor extensions\n"
+		  "\n"
+		  "Vendor extensions (pmbus <vendor> ...) are registered by per chip\n"
+		  "drivers at probe time. Run 'pmbus help' after a chip is probed to\n"
+		  "see the available subcommands.\n"
 );

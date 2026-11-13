@@ -2949,6 +2949,7 @@ config CMD_PMIC
 config CMD_PMBUS
 	bool "pmbus device interrogation and control command"
 	depends on PMBUS
+	select GETOPT
 	help
 	  Enable the pmbus U-Boot CLI command. Provides identification,
 	  decoded telemetry, STATUS_* decoding, raw register read/write,
