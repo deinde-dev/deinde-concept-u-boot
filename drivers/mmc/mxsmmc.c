@@ -59,7 +59,6 @@ struct mxsmmc_plat {
 	struct mmc mmc;
 	fdt_addr_t base;
 	int non_removable;
-	int buswidth;
 	int dma_id;
 	int clk_id;
 };
@@ -578,14 +577,13 @@ static int mxsmmc_probe(struct udevice *dev)
 	struct dtd_fsl_imx23_mmc *dtplat = &plat->dtplat;
 	struct phandle_1_arg *p1a = &dtplat->clocks[0];
 
-	priv->buswidth = dtplat->bus_width;
 	priv->regs = (struct mxs_ssp_regs *)dtplat->reg[0];
 	priv->dma_channel = dtplat->dmas[1];
 	clkid = p1a->arg[0];
 	plat->non_removable = dtplat->non_removable;
 
-	debug("OF_PLATDATA: regs: 0x%p bw: %d clkid: %d non_removable: %d\n",
-	      priv->regs, priv->buswidth, clkid, plat->non_removable);
+	debug("OF_PLATDATA: regs: 0x%p clkid: %d non_removable: %d\n",
+	      priv->regs, clkid, plat->non_removable);
 #else
 	priv->regs = (struct mxs_ssp_regs *)plat->base;
 	priv->dma_channel = plat->dma_id;
@@ -672,8 +670,6 @@ static int mxsmmc_of_to_plat(struct udevice *bus)
 	int ret;
 
 	plat->base = dev_read_addr(bus);
-	plat->buswidth =
-		dev_read_u32_default(bus, "bus-width", 1);
 	plat->non_removable = dev_read_bool(bus, "non-removable");
 
 	ret = dev_read_u32_array(bus, "dmas", prop, ARRAY_SIZE(prop));
@@ -690,8 +686,8 @@ static int mxsmmc_of_to_plat(struct udevice *bus)
 	}
 	plat->clk_id = prop[1];
 
-	debug("%s: base=0x%x, bus_width=%d %s dma_id=%d clk_id=%d\n",
-	      __func__, (uint)plat->base, plat->buswidth,
+	debug("%s: base=0x%x, %s dma_id=%d clk_id=%d\n",
+	      __func__, (uint)plat->base,
 	      plat->non_removable ? "non-removable" : NULL,
 	      plat->dma_id, plat->clk_id);
 
