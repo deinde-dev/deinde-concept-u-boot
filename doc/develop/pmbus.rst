@@ -119,7 +119,8 @@ CLI commands
 
 The framework publishes one top level command, ``pmbus``, plus a
 vendor namespace dispatcher so per chip code can register chip
-specific extensions without touching the framework.
+specific extensions without touching the framework. See
+:doc:`../usage/cmd/pmbus` for the command's own reference page.
 
 Active device model
 ~~~~~~~~~~~~~~~~~~~
