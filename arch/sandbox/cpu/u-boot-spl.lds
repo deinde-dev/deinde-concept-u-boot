@@ -13,14 +13,6 @@ SECTIONS
 		KEEP(*(SORT(__u_boot_list*)));
 	}
 
-	/* Private data for devices with OF_PLATDATA_RT */
-	. = ALIGN(4);
-	.priv_data : {
-		__priv_data_start = .;
-		*(SORT_BY_ALIGNMENT(SORT_BY_NAME(.priv_data*)))
-		__priv_data_end = .;
-	}
-
 	_u_boot_sandbox_getopt : {
 		*(_u_boot_sandbox_getopt_start)
 		KEEP(*(_u_boot_sandbox_getopt))

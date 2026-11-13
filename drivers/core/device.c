@@ -49,9 +49,6 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 	bool auto_seq = true;
 	void *ptr;
 
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_NO_BIND))
-		return -ENOSYS;
-
 	if (devp)
 		*devp = NULL;
 	if (!name)
@@ -401,31 +398,25 @@ int device_of_to_plat(struct udevice *dev)
 	if (dev_get_flags(dev) & DM_FLAG_PLATDATA_VALID)
 		return 0;
 
-	/*
-	 * This is not needed if binding is disabled, since data is allocated
-	 * at build time.
-	 */
-	if (!IS_ENABLED(CONFIG_OF_PLATDATA_NO_BIND)) {
-		/* Ensure all parents have ofdata */
-		if (dev->parent) {
-			ret = device_of_to_plat(dev->parent);
-			if (ret)
-				goto fail;
-
-			/*
-			 * The device might have already been probed during
-			 * the call to device_probe() on its parent device
-			 * (e.g. PCI bridge devices). Test the flags again
-			 * so that we don't mess up the device.
-			 */
-			if (dev_get_flags(dev) & DM_FLAG_PLATDATA_VALID)
-				return 0;
-		}
-
-		ret = device_alloc_priv(dev);
+	/* Ensure all parents have ofdata */
+	if (dev->parent) {
+		ret = device_of_to_plat(dev->parent);
 		if (ret)
 			goto fail;
+
+		/*
+		 * The device might have already been probed during the call to
+		 * device_probe() on its parent device (e.g. PCI bridge
+		 * devices). Test the flags again so that we don't mess up the
+		 * device.
+		 */
+		if (dev_get_flags(dev) & DM_FLAG_PLATDATA_VALID)
+			return 0;
 	}
+
+	ret = device_alloc_priv(dev);
+	if (ret)
+		goto fail;
 	drv = dev->driver;
 	assert(drv);
 
@@ -631,7 +622,7 @@ void *dev_get_plat(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->plat_);
+	return dev->plat_;
 }
 
 void *dev_get_parent_plat(const struct udevice *dev)
@@ -641,7 +632,7 @@ void *dev_get_parent_plat(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->parent_plat_);
+	return dev->parent_plat_;
 }
 
 void *dev_get_uclass_plat(const struct udevice *dev)
@@ -651,7 +642,7 @@ void *dev_get_uclass_plat(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->uclass_plat_);
+	return dev->uclass_plat_;
 }
 
 void *dev_get_priv(const struct udevice *dev)
@@ -661,7 +652,7 @@ void *dev_get_priv(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->priv_);
+	return dev->priv_;
 }
 
 /* notrace is needed as this is called by timer_get_rate() */
@@ -672,7 +663,7 @@ notrace void *dev_get_uclass_priv(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->uclass_priv_);
+	return dev->uclass_priv_;
 }
 
 void *dev_get_parent_priv(const struct udevice *dev)
@@ -682,7 +673,7 @@ void *dev_get_parent_priv(const struct udevice *dev)
 		return NULL;
 	}
 
-	return dm_priv_to_rw(dev->parent_priv_);
+	return dev->parent_priv_;
 }
 
 void *dev_get_attach_ptr(const struct udevice *dev, enum dm_tag_t tag)
@@ -921,17 +912,9 @@ int device_get_global_by_ofnode(ofnode ofnode, struct udevice **devp)
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 int device_get_by_ofplat_idx(uint idx, struct udevice **devp)
 {
-	struct udevice *dev;
+	struct driver_rt *drt = gd_dm_driver_rt() + idx;
+	struct udevice *dev = drt->dev;
 
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_INST)) {
-		struct udevice *base = ll_entry_start(struct udevice, udevice);
-
-		dev = base + idx;
-	} else {
-		struct driver_rt *drt = gd_dm_driver_rt() + idx;
-
-		dev = drt->dev;
-	}
 	*devp = NULL;
 
 	return device_get_device_tail(dev, dev ? 0 : -ENOENT, devp);
@@ -1265,36 +1248,3 @@ int dev_enable_by_path(const char *path)
 }
 #endif
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA_RT)
-static struct udevice_rt *dev_get_rt(const struct udevice *dev)
-{
-	struct udevice *base = ll_entry_start(struct udevice, udevice);
-	uint each_size = dm_udevice_size();
-	int idx = ((void *)dev - (void *)base) / each_size;
-
-	struct udevice_rt *urt = gd_dm_udevice_rt() + idx;
-
-	return urt;
-}
-
-u32 dev_get_flags(const struct udevice *dev)
-{
-	const struct udevice_rt *urt = dev_get_rt(dev);
-
-	return urt->flags_;
-}
-
-void dev_or_flags(const struct udevice *dev, u32 or)
-{
-	struct udevice_rt *urt = dev_get_rt(dev);
-
-	urt->flags_ |= or;
-}
-
-void dev_bic_flags(const struct udevice *dev, u32 bic)
-{
-	struct udevice_rt *urt = dev_get_rt(dev);
-
-	urt->flags_ &= ~bic;
-}
-#endif /* OF_PLATDATA_RT */

@@ -189,9 +189,7 @@ struct udevice {
 	struct list_head uclass_node;
 	struct list_head child_head;
 	struct list_head sibling_node;
-#if !IS_ENABLED(CONFIG_OF_PLATDATA_RT)
 	u32 flags_;
-#endif
 	int seq_;
 #if IS_ENABLED(CONFIG_OF_REAL)
 	ofnode node_;
@@ -212,29 +210,6 @@ struct udevice {
 #endif
 };
 
-static inline int dm_udevice_size(void)
-{
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_RT))
-		return ALIGN(sizeof(struct udevice), CONFIG_LINKER_LIST_ALIGN);
-
-	return sizeof(struct udevice);
-}
-
-/**
- * struct udevice_rt - runtime information set up by U-Boot
- *
- * This is only used with OF_PLATDATA_RT
- *
- * There is one of these for every udevice in the linker list, indexed by
- * the udevice_info idx value.
- *
- * @flags_: Flags for this device `DM_FLAG_...` (do not access outside driver
- *	model)
- */
-struct udevice_rt {
-	u32 flags_;
-};
-
 /* Maximum sequence number supported and associated string length */
 #define DM_MAX_SEQ	999
 #define DM_MAX_SEQ_STR	3
@@ -242,11 +217,6 @@ struct udevice_rt {
 /* Returns the operations for a device */
 #define device_get_ops(dev)	((dev)->driver->ops)
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA_RT)
-u32 dev_get_flags(const struct udevice *dev);
-void dev_or_flags(const struct udevice *dev, u32 or);
-void dev_bic_flags(const struct udevice *dev, u32 bic);
-#else
 static inline u32 dev_get_flags(const struct udevice *dev)
 {
 	return dev->flags_;
@@ -261,7 +231,6 @@ static inline void dev_bic_flags(struct udevice *dev, u32 bic)
 {
 	dev->flags_ &= ~bic;
 }
-#endif /* OF_PLATDATA_RT */
 
 /**
  * dev_ofnode() - get the DT node reference associated with a udevice
@@ -811,14 +780,10 @@ int device_get_global_by_ofnode(ofnode node, struct udevice **devp);
 /**
  * device_get_by_ofplat_idx() - Get a device based on of-platdata index
  *
- * Locates a device by either its struct driver_info index, or its
- * struct udevice index. The latter is used with OF_PLATDATA_INST, since we have
- * a list of build-time instantiated struct udevice records, The former is used
- * with !OF_PLATDATA_INST since in that case we have a list of
- * struct driver_info records.
+ * Locates a device by its struct driver_info index.
  *
  * The index number is written into the idx field of struct phandle_1_arg, etc.
- * It is the position of this driver_info/udevice in its linker list.
+ * It is the position of this driver_info in its linker list.
  *
  * The device is probed to activate it ready for use.
  *

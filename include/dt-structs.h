@@ -16,7 +16,7 @@ struct driver_info;
  * This holds a phandle pointing to another device. See 'Indexes' in the
  * of-plat-rst documentation.
  *
- * @idx: udevice index (or driver_info index if !OF_PLATDATA_INST)
+ * @idx: driver_info index
  * @arg: arguments
  */
 struct phandle_0_arg {
@@ -30,7 +30,7 @@ struct phandle_0_arg {
  * This holds a phandle pointing to another device. See 'Indexes' in the
  * of-plat-rst documentation.
  *
- * @idx: udevice index (or driver_info index if !OF_PLATDATA_INST)
+ * @idx: driver_info index
  * @arg: arguments
  */
 struct phandle_1_arg {
@@ -44,7 +44,7 @@ struct phandle_1_arg {
  * This holds a phandle pointing to another device. See 'Indexes' in the
  * of-plat-rst documentation.
  *
- * @idx: udevice index (or driver_info index if !OF_PLATDATA_INST)
+ * @idx: driver_info index
  * @arg: arguments
  */
 struct phandle_2_arg {

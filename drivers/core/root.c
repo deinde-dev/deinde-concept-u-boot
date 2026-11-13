@@ -55,41 +55,6 @@ void dm_fixup_for_gd_move(struct global_data *new_gd)
 	}
 }
 
-static int dm_setup_inst(void)
-{
-	DM_ROOT_NON_CONST = DM_DEVICE_GET(root);
-
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_RT)) {
-		struct udevice_rt *urt;
-		void *start, *end;
-		int each_size;
-		void *base;
-		int n_ents;
-		uint size;
-
-		/* Allocate the udevice_rt table */
-		each_size = dm_udevice_size();
-		start = ll_entry_start(struct udevice, udevice);
-		end = ll_entry_end(struct udevice, udevice);
-		size = end - start;
-		n_ents = size / each_size;
-		urt = calloc(n_ents, sizeof(struct udevice_rt));
-		if (!urt)
-			return log_msg_ret("urt", -ENOMEM);
-		gd_set_dm_udevice_rt(urt);
-
-		/* Now allocate space for the priv/plat data, and copy it in */
-		size = __priv_data_end - __priv_data_start;
-
-		base = memdup(__priv_data_start, size);
-		if (!base)
-			return log_msg_ret("priv", -ENOMEM);
-		gd_set_dm_priv_base(base);
-	}
-
-	return 0;
-}
-
 int dm_init(bool of_live)
 {
 	int ret;
@@ -98,30 +63,17 @@ int dm_init(bool of_live)
 		dm_warn("Virtual root driver already exists!\n");
 		return -EINVAL;
 	}
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_INST)) {
-		gd->uclass_root = &uclass_head;
-	} else {
-		gd->uclass_root = &DM_UCLASS_ROOT_S_NON_CONST;
-		INIT_LIST_HEAD(DM_UCLASS_ROOT_NON_CONST);
-	}
+	gd->uclass_root = &DM_UCLASS_ROOT_S_NON_CONST;
+	INIT_LIST_HEAD(DM_UCLASS_ROOT_NON_CONST);
 
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_INST)) {
-		ret = dm_setup_inst();
-		if (ret) {
-			log_debug("dm_setup_inst() failed: %d\n", ret);
-			return ret;
-		}
-	} else {
-		ret = device_bind_by_name(NULL, false, &root_info,
-					  &DM_ROOT_NON_CONST);
-		if (ret)
-			return ret;
-		if (IS_ENABLED(CONFIG_OF_CONTROL))
-			dev_set_ofnode(DM_ROOT_NON_CONST, ofnode_root());
-		ret = device_probe(DM_ROOT_NON_CONST);
-		if (ret)
-			return ret;
-	}
+	ret = device_bind_by_name(NULL, false, &root_info, &DM_ROOT_NON_CONST);
+	if (ret)
+		return ret;
+	if (IS_ENABLED(CONFIG_OF_CONTROL))
+		dev_set_ofnode(DM_ROOT_NON_CONST, ofnode_root());
+	ret = device_probe(DM_ROOT_NON_CONST);
+	if (ret)
+		return ret;
 
 	INIT_LIST_HEAD((struct list_head *)&gd->dmtag_list);
 
@@ -159,7 +111,7 @@ int dm_scan_plat(bool pre_reloc_only)
 {
 	int ret;
 
-	if (IS_ENABLED(CONFIG_OF_PLATDATA_DRIVER_RT)) {
+	if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
 		struct driver_rt *dyn;
 		int n_ents;
 
@@ -278,15 +230,6 @@ __weak int dm_scan_other(bool pre_reloc_only)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA_INST) && IS_ENABLED(CONFIG_READ_ONLY)
-void *dm_priv_to_rw(void *priv)
-{
-	long offset = priv - (void *)__priv_data_start;
-
-	return gd_dm_priv_base() + offset;
-}
-#endif
-
 /**
  * dm_probe_devices() - Check whether to probe a device and all children
  *
@@ -376,12 +319,10 @@ int dm_init_and_scan(bool pre_reloc_only)
 		dm_warn("dm_init() failed: %d\n", ret);
 		return ret;
 	}
-	if (!IS_ENABLED(CONFIG_OF_PLATDATA_INST)) {
-		ret = dm_scan(pre_reloc_only);
-		if (ret) {
-			log_debug("dm_scan() failed: %d\n", ret);
-			return ret;
-		}
+	ret = dm_scan(pre_reloc_only);
+	if (ret) {
+		log_debug("dm_scan() failed: %d\n", ret);
+		return ret;
 	}
 	if (IS_ENABLED(CONFIG_DM_EVENT)) {
 		ret = event_notify_null(gd->flags & GD_FLG_RELOC ?

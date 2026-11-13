@@ -148,7 +148,7 @@ static int dm_test_of_plat_dev(struct unit_test_state *uts)
 	uint i;
 
 	/* Skip this test if there is no platform data */
-	if (!IS_ENABLED(CONFIG_OF_PLATDATA_DRIVER_RT))
+	if (!IS_ENABLED(CONFIG_OF_PLATDATA))
 		return -EAGAIN;
 
 	/* Record the indexes that are found */

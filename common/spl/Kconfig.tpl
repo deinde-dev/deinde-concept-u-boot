@@ -148,17 +148,6 @@ config TPL_STACK
 	  The address of the initial stack-pointer for the TPL phase
 	  Usually this will be the (aligned) top-of-stack.
 
-config TPL_READ_ONLY
-	bool
-	depends on TPL_OF_PLATDATA
-	select TPL_OF_PLATDATA_NO_BIND
-	select TPL_OF_PLATDATA_RT
-	help
-	  Some platforms (e.g. x86 Apollo Lake) load SPL into a read-only
-	  section of memory. This means that of-platdata must make a copy (in
-	  writeable memory) of anything it wants to modify, such as
-	  device-private data.
-
 config TPL_BOOTROM_SUPPORT
 	bool "Support returning to the BOOTROM (from TPL)"
 	help
