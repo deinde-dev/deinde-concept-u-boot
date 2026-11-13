@@ -106414,3 +106414,47 @@ d80f4543206e tools: mkimage: resolve image-data references between FIT images
 
 ---
 
+### Review: 2026-11-13
+
+Branch: cherry-8d7bc8add17b
+
+Comments addressed:
+
+
+### Conversation log
+Rebase is 18/20 through with all sandbox builds clean; now resolving a conflict in `.pickman-history` on the final pickman record commit.
+
+The rebase onto ci/master is complete and `cherry-8d7bc8add17b-v2` is checked out, not pushed. The sandbox buildman build passed after every code commit and again at the end.
+
+Two commits conflicted and were resolved; the other eight applied unchanged.
+
+- **`configs: Resync with savedefconfig`**: conflict in `configs/chromebook_brya_defconfig`, because ci/master added `CONFIG_TPL_SYS_MALLOC_SIMPLE=y` to that file. I took the resynced version, added that option back, and re-ran `savedefconfig` for the three boards ci/master had touched (chromebook_brya, sandbox_spl, sandbox_vpl). Only brya changed: the option now sits in its savedefconfig position.
+- **`pickman: Record cherry-pick of 9 commits from us/main`**: conflict in `.pickman-history`, because ci/master gained the entry for cherry-62ed983dad41 at the same place. I kept both entries, with the ci/master one first.
+
+**Deltas before and after the rebase**
+
+| Commit | Before | After |
+|---|---|---|
+| configs: Resync with savedefconfig | 355 files, 510+/788- | 355 files, 511+/789- |
+| include: image: drop the duplicate FIT_ALGO_PROP definition | 1 file, 1- | same |
+| tools: mkimage: use an explicit iv from the cipher node when encrypting | 2 files, 19+/3- | same |
+| tools: mkimage: resolve image-data references between FIT images | 2 files, 360+ | same |
+| tools: mkimage: share the external-data region between image-data images | 1 file, 46+ | same |
+| tools: mkimage: include image-data sharers in the load overlap check | 1 file, 42+/3- | same |
+| doc: fit: document shared image data through the image-data property | 2 files, 115+ | same |
+| test: py: add tests for the FIT image-data property | 1 file, 391+ | same |
+| Merge patch series "tools: mkimage: support shared image data…" | empty | empty (preserved) |
+| pickman: Record cherry-pick of 9 commits from us/main | 1 file, 49+ | same |
+
+The rebase also moved the local `cherry-8d7bc8add17b` ref to the same commit as `-v2`. I did not re-run the `test_fit_image_data` tests or a full `qconfig.py -s` resync.
+
+**Suggested reply for the MR**
+
+> Rebased onto ci/master (18 new commits). Two conflicts resolved:
+> - `configs/chromebook_brya_defconfig` in the resync commit: ci/master added `CONFIG_TPL_SYS_MALLOC_SIMPLE=y`; kept it and re-ran savedefconfig for that board, so the commit is now 511+/789- instead of 510+/788-.
+> - `.pickman-history` in the pickman record commit: kept both the cherry-62ed983dad41 entry from ci/master and this branch's entry.
+>
+> All other commits are unchanged and the empty merge commit is preserved. `buildman -L --board sandbox -w` passes after each code commit and at the tip.
+
+---
+
