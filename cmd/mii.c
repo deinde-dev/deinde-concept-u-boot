@@ -13,6 +13,12 @@
 #include <getopt.h>
 #include <miiphy.h>
 
+/* messages which are reported from more than one place */
+#define MII_READ_ERR	"Error reading from the PHY addr=%02x reg=%02x\n"
+#define MII_WRITE_ERR	"Error writing to the PHY addr=%02x reg=%02x\n"
+#define MII_DUMP_ERR \
+	"The MII dump command only formats the standard MII registers, 0-5, 9-a.\n"
+
 typedef struct _MII_field_desc_t {
 	ushort hi;
 	ushort lo;
@@ -327,7 +333,7 @@ static int do_mii(struct getopt_state *gs)
 	}
 
 	if (addrhi > 31 && strncmp(op, "de", 2)) {
-		printf("Incorrect PHY address. Range should be 0-31\n");
+		cmd_err("Incorrect PHY address. Range should be 0-31\n");
 		return CMD_RET_USAGE;
 	}
 
@@ -372,9 +378,7 @@ static int do_mii(struct getopt_state *gs)
 			for (reg = reglo; reg <= reghi; reg++) {
 				data = 0xffff;
 				if (miiphy_read (devname, addr, reg, &data) != 0) {
-					printf(
-					"Error reading from the PHY addr=%02x reg=%02x\n",
-						addr, reg);
+					cmd_err(MII_READ_ERR, addr, reg);
 					rcode = 1;
 				} else {
 					if ((addrlo != addrhi) || (reglo != reghi))
@@ -390,8 +394,7 @@ static int do_mii(struct getopt_state *gs)
 		for (addr = addrlo; addr <= addrhi; addr++) {
 			for (reg = reglo; reg <= reghi; reg++) {
 				if (miiphy_write (devname, addr, reg, data) != 0) {
-					printf("Error writing to the PHY addr=%02x reg=%02x\n",
-						addr, reg);
+					cmd_err(MII_WRITE_ERR, addr, reg);
 					rcode = 1;
 				}
 			}
@@ -402,17 +405,14 @@ static int do_mii(struct getopt_state *gs)
 				unsigned short val = 0;
 				if (miiphy_read(devname, addr,
 						reg, &val)) {
-					printf("Error reading from the PHY");
-					printf(" addr=%02x", addr);
-					printf(" reg=%02x\n", reg);
+					cmd_err(MII_READ_ERR, addr, reg);
 					rcode = 1;
 				} else {
 					val = (val & ~mask) | (data & mask);
 					if (miiphy_write(devname, addr,
 							 reg, val)) {
-						printf("Error writing to the PHY");
-						printf(" addr=%02x", addr);
-						printf(" reg=%02x\n", reg);
+						cmd_err(MII_WRITE_ERR, addr,
+							reg);
 						rcode = 1;
 					}
 				}
@@ -421,18 +421,14 @@ static int do_mii(struct getopt_state *gs)
 	} else if (strncmp(op, "du", 2) == 0) {
 		ushort regs[MII_STAT1000 + 1];  /* Last reg is 0x0a */
 		int ok = 1;
-		if (reglo > MII_STAT1000 || reghi > MII_STAT1000) {
-			printf("The MII dump command only formats the standard MII registers, 0-5, 9-a.\n");
-			return 1;
-		}
+		if (reglo > MII_STAT1000 || reghi > MII_STAT1000)
+			return cmd_fail(0, MII_DUMP_ERR);
 		for (addr = addrlo; addr <= addrhi; addr++) {
 			for (reg = reglo; reg <= reghi; reg++) {
 				if (miiphy_read(devname, addr, reg,
 						&regs[reg - reglo]) != 0) {
 					ok = 0;
-					printf(
-					"Error reading from the PHY addr=%02x reg=%02x\n",
-						addr, reg);
+					cmd_err(MII_READ_ERR, addr, reg);
 					rcode = 1;
 				}
 			}
