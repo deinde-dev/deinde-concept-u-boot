@@ -13,7 +13,7 @@
  */
 
 #include <dm.h>
-#include <dt-structs.h>
+#include <dm/prop.h>
 #include <cpu_func.h>
 #include <errno.h>
 #include <log.h>
@@ -41,14 +41,11 @@
 #define MXS_SSP_IMX28_CLKID_SSP0 46
 
 struct mxs_spi_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_fsl_imx23_spi dtplat;
-#endif
 	s32 frequency;		/* Default clock frequency, -1 for none */
 	fdt_addr_t base;        /* SPI IP block base address */
 	int num_cs;             /* Number of CSes supported */
 	int dma_id;             /* ID of the DMA channel */
-	int clk_id;             /* ID of the SSP clock */
+	u32 clk_id;             /* ID of the SSP clock */
 };
 
 struct mxs_spi_priv {
@@ -316,25 +313,11 @@ static int mxs_spi_probe(struct udevice *bus)
 
 	debug("%s: probe\n", __func__);
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_fsl_imx23_spi *dtplat = &plat->dtplat;
-	struct phandle_1_arg *p1a = &dtplat->clocks[0];
-
-	priv->regs = (struct mxs_ssp_regs *)dtplat->reg[0];
-	priv->dma_channel = dtplat->dmas[1];
-	priv->clk_id = p1a->arg[0];
-	priv->max_freq = dtplat->spi_max_frequency;
-	plat->num_cs = dtplat->num_cs;
-
-	debug("OF_PLATDATA: regs: 0x%x max freq: %d clkid: %d\n",
-	      (unsigned int)priv->regs, priv->max_freq, priv->clk_id);
-#else
 	priv->regs = (struct mxs_ssp_regs *)plat->base;
 	priv->max_freq = plat->frequency;
 
 	priv->dma_channel = plat->dma_id;
 	priv->clk_id = plat->clk_id;
-#endif
 
 	mxs_reset_block(&priv->regs->hw_ssp_ctrl0_reg);
 
@@ -439,31 +422,30 @@ static const struct dm_spi_ops mxs_spi_ops = {
 	 */
 };
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static int mxs_of_to_plat(struct udevice *bus)
+static int __maybe_unused mxs_of_to_plat(struct udevice *bus)
 {
 	struct mxs_spi_plat *plat = dev_get_plat(bus);
+	DTPLAT(fsl_imx23_spi, dt, bus);
 	u32 prop[2];
 	int ret;
 
-	plat->base = dev_read_addr(bus);
-	plat->frequency =
-		dev_read_u32_default(bus, "spi-max-frequency", 40000000);
-	plat->num_cs = dev_read_u32_default(bus, "num-cs", 2);
+	plat->base = dev_prop_addr(bus, dt);
+	plat->frequency = dev_prop_u32_default(bus, dt, spi_max_frequency,
+					       "spi-max-frequency", 40000000);
+	plat->num_cs = dev_prop_u32_default(bus, dt, num_cs, "num-cs", 2);
 
-	ret = dev_read_u32_array(bus, "dmas", prop, ARRAY_SIZE(prop));
+	ret = dev_prop_u32_array(bus, dt, dmas, "dmas", prop, ARRAY_SIZE(prop));
 	if (ret) {
 		printf("%s: Reading 'dmas' property failed!\n", __func__);
 		return ret;
 	}
 	plat->dma_id = prop[1];
 
-	ret = dev_read_u32_array(bus, "clocks", prop, ARRAY_SIZE(prop));
+	ret = dev_prop_clk_id(bus, dt, clocks, "clocks", 0, &plat->clk_id);
 	if (ret) {
 		printf("%s: Reading 'clocks' property failed!\n", __func__);
 		return ret;
 	}
-	plat->clk_id = prop[1];
 
 	debug("%s: base=0x%x, max-frequency=%d num-cs=%d dma_id=%d clk_id=%d\n",
 	      __func__, (uint)plat->base, plat->frequency, plat->num_cs,
@@ -472,24 +454,19 @@ static int mxs_of_to_plat(struct udevice *bus)
 	return 0;
 }
 
-static const struct udevice_id mxs_spi_ids[] = {
+static __maybe_unused const struct udevice_id mxs_spi_ids[] = {
 	{ .compatible = "fsl,imx23-spi" },
 	{ .compatible = "fsl,imx28-spi" },
 	{ }
 };
-#endif
 
 U_BOOT_DRIVER(fsl_imx23_spi) = {
 	.name = "fsl_imx23_spi",
 	.id	= UCLASS_SPI,
-#if IS_ENABLED(CONFIG_OF_REAL)
-	.of_match = mxs_spi_ids,
-	.of_to_plat = mxs_of_to_plat,
-#endif
+	.of_match = of_match_ptr(mxs_spi_ids),
+	.of_to_plat = of_to_plat_ptr(mxs_of_to_plat),
 	.plat_auto	= sizeof(struct mxs_spi_plat),
 	.ops	= &mxs_spi_ops,
 	.priv_auto	= sizeof(struct mxs_spi_priv),
 	.probe	= mxs_spi_probe,
 };
-
-DM_DRIVER_ALIAS(fsl_imx23_spi, fsl_imx28_spi)

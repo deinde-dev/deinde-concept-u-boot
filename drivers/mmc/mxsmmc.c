@@ -48,20 +48,16 @@ struct mxsmmc_priv {
 };
 #else /* IS_ENABLED(CONFIG_DM_MMC) */
 #include <dm/device.h>
+#include <dm/prop.h>
 #include <dm/read.h>
-#include <dt-structs.h>
 
 struct mxsmmc_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_fsl_imx23_mmc dtplat;
-#endif
 	struct mmc_config cfg;
 	struct mmc mmc;
 	fdt_addr_t base;
 	int non_removable;
-	int buswidth;
 	int dma_id;
-	int clk_id;
+	u32 clk_id;
 };
 
 struct mxsmmc_priv {
@@ -574,23 +570,9 @@ static int mxsmmc_probe(struct udevice *dev)
 
 	debug("%s: probe\n", __func__);
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_fsl_imx23_mmc *dtplat = &plat->dtplat;
-	struct phandle_1_arg *p1a = &dtplat->clocks[0];
-
-	priv->buswidth = dtplat->bus_width;
-	priv->regs = (struct mxs_ssp_regs *)dtplat->reg[0];
-	priv->dma_channel = dtplat->dmas[1];
-	clkid = p1a->arg[0];
-	plat->non_removable = dtplat->non_removable;
-
-	debug("OF_PLATDATA: regs: 0x%p bw: %d clkid: %d non_removable: %d\n",
-	      priv->regs, priv->buswidth, clkid, plat->non_removable);
-#else
 	priv->regs = (struct mxs_ssp_regs *)plat->base;
 	priv->dma_channel = plat->dma_id;
 	clkid = plat->clk_id;
-#endif
 
 #ifdef CONFIG_MX28
 	priv->clkid = clkid - MXS_SSP_IMX28_CLKID_SSP0;
@@ -664,54 +646,49 @@ static const struct dm_mmc_ops mxsmmc_ops = {
 	.set_ios	= mxsmmc_set_ios,
 };
 
-#if IS_ENABLED(CONFIG_OF_REAL)
-static int mxsmmc_of_to_plat(struct udevice *bus)
+static int __maybe_unused mxsmmc_of_to_plat(struct udevice *bus)
 {
 	struct mxsmmc_plat *plat = dev_get_plat(bus);
+	DTPLAT(fsl_imx23_mmc, dt, bus);
 	u32 prop[2];
 	int ret;
 
-	plat->base = dev_read_addr(bus);
-	plat->buswidth =
-		dev_read_u32_default(bus, "bus-width", 1);
-	plat->non_removable = dev_read_bool(bus, "non-removable");
+	plat->base = dev_prop_addr(bus, dt);
+	plat->non_removable = dev_prop_bool(bus, dt, non_removable,
+					    "non-removable");
 
-	ret = dev_read_u32_array(bus, "dmas", prop, ARRAY_SIZE(prop));
+	ret = dev_prop_u32_array(bus, dt, dmas, "dmas", prop, ARRAY_SIZE(prop));
 	if (ret) {
 		printf("%s: Reading 'dmas' property failed!\n", __func__);
 		return ret;
 	}
 	plat->dma_id = prop[1];
 
-	ret = dev_read_u32_array(bus, "clocks", prop, ARRAY_SIZE(prop));
+	ret = dev_prop_clk_id(bus, dt, clocks, "clocks", 0, &plat->clk_id);
 	if (ret) {
 		printf("%s: Reading 'clocks' property failed!\n", __func__);
 		return ret;
 	}
-	plat->clk_id = prop[1];
 
-	debug("%s: base=0x%x, bus_width=%d %s dma_id=%d clk_id=%d\n",
-	      __func__, (uint)plat->base, plat->buswidth,
+	debug("%s: base=0x%x, %s dma_id=%d clk_id=%d\n",
+	      __func__, (uint)plat->base,
 	      plat->non_removable ? "non-removable" : NULL,
 	      plat->dma_id, plat->clk_id);
 
 	return 0;
 }
 
-static const struct udevice_id mxsmmc_ids[] = {
-	{ .compatible = "fsl,imx23-mmc", },
-	{ .compatible = "fsl,imx28-mmc", },
+static __maybe_unused const struct udevice_id mxsmmc_ids[] = {
+	{ .compatible = "fsl,imx23-mmc" },
+	{ .compatible = "fsl,imx28-mmc" },
 	{ /* sentinel */ }
 };
-#endif
 
 U_BOOT_DRIVER(fsl_imx23_mmc) = {
 	.name = "fsl_imx23_mmc",
 	.id	= UCLASS_MMC,
-#if IS_ENABLED(CONFIG_OF_REAL)
-	.of_match = mxsmmc_ids,
-	.of_to_plat = mxsmmc_of_to_plat,
-#endif
+	.of_match = of_match_ptr(mxsmmc_ids),
+	.of_to_plat = of_to_plat_ptr(mxsmmc_of_to_plat),
 	.ops	= &mxsmmc_ops,
 #if IS_ENABLED(CONFIG_BLK)
 	.bind	= mxsmmc_bind,
@@ -720,6 +697,4 @@ U_BOOT_DRIVER(fsl_imx23_mmc) = {
 	.priv_auto	= sizeof(struct mxsmmc_priv),
 	.plat_auto	= sizeof(struct mxsmmc_plat),
 };
-
-DM_DRIVER_ALIAS(fsl_imx23_mmc, fsl_imx28_mmc)
 #endif /* CONFIG_DM_MMC */

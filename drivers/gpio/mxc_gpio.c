@@ -12,8 +12,7 @@
 #include <asm/arch/imx-regs.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
-#include <dt-structs.h>
-#include <mapmem.h>
+#include <dm/prop.h>
 
 enum mxc_gpio_direction {
 	MXC_GPIO_DIRECTION_IN,
@@ -23,10 +22,6 @@ enum mxc_gpio_direction {
 #define GPIO_PER_BANK			32
 
 struct mxc_gpio_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	/* Put this first since driver model will copy the data here */
-	struct dtd_gpio_mxc dtplat;
-#endif
 	int bank_index;
 	struct gpio_regs *regs;
 };
@@ -291,12 +286,6 @@ static int mxc_gpio_probe(struct udevice *dev)
 	int banknum;
 	char name[18], *str;
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_gpio_mxc *dtplat = &plat->dtplat;
-
-	plat->regs = map_sysmem(dtplat->reg[0], dtplat->reg[1]);
-#endif
-
 	banknum = plat->bank_index;
 	if (IS_ENABLED(CONFIG_ARCH_IMX8))
 		sprintf(name, "GPIO%d_", banknum);
@@ -315,14 +304,14 @@ static int mxc_gpio_probe(struct udevice *dev)
 static int mxc_gpio_of_to_plat(struct udevice *dev)
 {
 	struct mxc_gpio_plat *plat = dev_get_plat(dev);
-	if (!IS_ENABLED(CONFIG_OF_PLATDATA)) {
-		fdt_addr_t addr;
-		addr = dev_read_addr(dev);
-		if (addr == FDT_ADDR_T_NONE)
-			return -EINVAL;
+	DTPLAT(gpio_mxc, dt, dev);
+	fdt_addr_t addr;
 
-		plat->regs = (struct gpio_regs *)addr;
-	}
+	addr = dev_prop_addr(dev, dt);
+	if (addr == FDT_ADDR_T_NONE)
+		return -EINVAL;
+
+	plat->regs = (struct gpio_regs *)addr;
 	plat->bank_index = dev_seq(dev);
 
 	return 0;
@@ -349,8 +338,6 @@ U_BOOT_DRIVER(gpio_mxc) = {
 	.of_match = mxc_gpio_ids,
 	.bind	= mxc_gpio_bind,
 };
-
-DM_DRIVER_ALIAS(gpio_mxc, fsl_imx6q_gpio)
 
 #if !IS_ENABLED(CONFIG_OF_CONTROL)
 static const struct mxc_gpio_plat mxc_plat[] = {

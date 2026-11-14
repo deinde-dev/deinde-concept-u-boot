@@ -5,13 +5,11 @@
 #include <config.h>
 #include <clk.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <init.h>
 #include <ram.h>
 #include <regmap.h>
 #include <syscon.h>
-#include <asm/global_data.h>
 #include <asm/arch-rockchip/clock.h>
 #include <asm/arch-rockchip/cru_rk322x.h>
 #include <asm/arch-rockchip/grf_rk322x.h>
@@ -20,10 +18,10 @@
 #include <asm/arch-rockchip/uart.h>
 #include <asm/arch-rockchip/sdram.h>
 #include <asm/types.h>
+#include <dm/prop.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 
-DECLARE_GLOBAL_DATA_PTR;
 struct chan_info {
 	struct rk322x_ddr_pctl *pctl;
 	struct rk322x_ddr_phy *phy;
@@ -39,9 +37,6 @@ struct dram_info {
 };
 
 struct rk322x_sdram_params {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-		struct dtd_rockchip_rk3228_dmc of_plat;
-#endif
 		struct rk322x_sdram_channel ch[1];
 		struct rk322x_pctl_timing pctl_timing;
 		struct rk322x_phy_timing phy_timing;
@@ -716,66 +711,38 @@ out:
 static int rk322x_dmc_of_to_plat(struct udevice *dev)
 {
 	struct rk322x_sdram_params *params = dev_get_plat(dev);
-	const void *blob = gd->fdt_blob;
-	int node = dev_of_offset(dev);
+	DTPLAT(rockchip_rk322x_dmc, dt, dev);
 	int ret;
-
-	if (!IS_ENABLED(CONFIG_OF_REAL))
-		return 0;
 
 	params->num_channels = 1;
 
-	ret = fdtdec_get_int_array(blob, node, "rockchip,pctl-timing",
-				   (u32 *)&params->pctl_timing,
-				   sizeof(params->pctl_timing) / sizeof(u32));
+	ret = dev_prop_u32_array(dev, dt, rockchip_pctl_timing,
+				 "rockchip,pctl-timing",
+				 (u32 *)&params->pctl_timing,
+				 sizeof(params->pctl_timing) / sizeof(u32));
 	if (ret) {
 		printf("%s: Cannot read rockchip,pctl-timing\n", __func__);
 		return -EINVAL;
 	}
-	ret = fdtdec_get_int_array(blob, node, "rockchip,phy-timing",
-				   (u32 *)&params->phy_timing,
-				   sizeof(params->phy_timing) / sizeof(u32));
+	ret = dev_prop_u32_array(dev, dt, rockchip_phy_timing,
+				 "rockchip,phy-timing",
+				 (u32 *)&params->phy_timing,
+				 sizeof(params->phy_timing) / sizeof(u32));
 	if (ret) {
 		printf("%s: Cannot read rockchip,phy-timing\n", __func__);
 		return -EINVAL;
 	}
-	ret = fdtdec_get_int_array(blob, node, "rockchip,sdram-params",
-				   (u32 *)&params->base,
-				   sizeof(params->base) / sizeof(u32));
+	ret = dev_prop_u32_array(dev, dt, rockchip_sdram_params,
+				 "rockchip,sdram-params", (u32 *)&params->base,
+				 sizeof(params->base) / sizeof(u32));
 	if (ret) {
 		printf("%s: Cannot read rockchip,sdram-params\n", __func__);
 		return -EINVAL;
 	}
-	ret = regmap_init_mem(dev_ofnode(dev), &params->map);
-	if (ret)
-		return ret;
 
-	return 0;
+	return dev_prop_regmap(dev, dt, &params->map);
 }
 #endif /* CONFIG_TPL_BUILD */
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int conv_of_plat(struct udevice *dev)
-{
-	struct rk322x_sdram_params *plat = dev_get_plat(dev);
-	struct dtd_rockchip_rk322x_dmc *of_plat = &plat->of_plat;
-	int ret;
-
-	memcpy(&plat->pctl_timing, of_plat->rockchip_pctl_timing,
-	       sizeof(plat->pctl_timing));
-	memcpy(&plat->phy_timing, of_plat->rockchip_phy_timing,
-	       sizeof(plat->phy_timing));
-	memcpy(&plat->base, of_plat->rockchip_sdram_params, sizeof(plat->base));
-
-	plat->num_channels = 1;
-	ret = regmap_init_mem_plat(dev, of_plat->reg, sizeof(of_plat->reg[0]),
-				   ARRAY_SIZE(of_plat->reg) / 2, &plat->map);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-#endif
 
 static int rk322x_dmc_probe(struct udevice *dev)
 {
@@ -788,12 +755,6 @@ static int rk322x_dmc_probe(struct udevice *dev)
 
 	priv->grf = syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
 #ifdef CONFIG_TPL_BUILD
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	ret = conv_of_plat(dev);
-	if (ret)
-		return ret;
-#endif
-
 	priv->chan[0].msch = syscon_get_first_range(ROCKCHIP_SYSCON_MSCH);
 	priv->chan[0].pctl = regmap_get_range(plat->map, 0);
 	priv->chan[0].phy = regmap_get_range(plat->map, 1);
@@ -838,7 +799,7 @@ static const struct udevice_id rk322x_dmc_ids[] = {
 	{ }
 };
 
-U_BOOT_DRIVER(dmc_rk322x) = {
+U_BOOT_DRIVER(rockchip_rk322x_dmc) = {
 	.name = "rockchip_rk322x_dmc",
 	.id = UCLASS_RAM,
 	.of_match = rk322x_dmc_ids,

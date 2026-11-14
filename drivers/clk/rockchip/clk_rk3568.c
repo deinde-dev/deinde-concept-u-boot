@@ -14,17 +14,8 @@
 #include <asm/arch-rockchip/hardware.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
+#include <dm/prop.h>
 #include <dt-bindings/clock/rk3568-cru.h>
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-struct rk3568_clk_plat {
-	struct dtd_rockchip_rk3568_cru dtd;
-};
-
-struct rk3568_pmuclk_plat {
-	struct dtd_rockchip_rk3568_pmucru dtd;
-};
-#endif
 
 #define RK3568_CPUCLK_RATE(_rate, _aclk_div, _pclk_div)		\
 {								\
@@ -484,8 +475,9 @@ static int rk3568_pmuclk_probe(struct udevice *dev)
 static int rk3568_pmuclk_ofdata_to_platdata(struct udevice *dev)
 {
 	struct rk3568_pmuclk_priv *priv = dev_get_priv(dev);
+	DTPLAT(rockchip_rk3568_pmucru, dt, dev);
 
-	priv->pmucru = dev_read_addr_ptr(dev);
+	priv->pmucru = dev_prop_addr_ptr(dev, dt);
 
 	return 0;
 }
@@ -518,10 +510,6 @@ U_BOOT_DRIVER(rockchip_rk3568_pmucru) = {
 	.ops		= &rk3568_pmuclk_ops,
 	.bind		= rk3568_pmuclk_bind,
 	.probe		= rk3568_pmuclk_probe,
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	.plat_auto	= sizeof(struct rk3568_pmuclk_plat),
-#endif
-
 };
 
 static int rk3568_armclk_set_clk(struct rk3568_clk_priv *priv, ulong hz)
@@ -2926,8 +2914,9 @@ static int rk3568_clk_probe(struct udevice *dev)
 static int rk3568_clk_ofdata_to_platdata(struct udevice *dev)
 {
 	struct rk3568_clk_priv *priv = dev_get_priv(dev);
+	DTPLAT(rockchip_rk3568_cru, dt, dev);
 
-	priv->cru = dev_read_addr_ptr(dev);
+	priv->cru = dev_prop_addr_ptr(dev, dt);
 
 	return 0;
 }
@@ -2976,7 +2965,4 @@ U_BOOT_DRIVER(rockchip_rk3568_cru) = {
 	.ops		= &rk3568_clk_ops,
 	.bind		= rk3568_clk_bind,
 	.probe		= rk3568_clk_probe,
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	.plat_auto	= sizeof(struct rk3568_clk_plat),
-#endif
 };

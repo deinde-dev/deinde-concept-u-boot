@@ -44,7 +44,6 @@
 &duart {
 	/delete-property/ clocks;
 	bootph-pre-ram;
-	type = <1>; /* TYPE_PL011 */
 };
 
 &gpio0 {

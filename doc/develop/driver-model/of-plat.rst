@@ -296,6 +296,10 @@ dev_prop_driver_data()
 dev_prop_clk()
     Clock from the 'clocks' property, by index
 
+dev_prop_clk_id()
+    ID of a clock in the 'clocks' property, by index, for a platform with no
+    clock driver in the current phase
+
 Declaring the driver
 ''''''''''''''''''''
 
