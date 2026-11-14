@@ -22,38 +22,21 @@
 #include <faraday/ftsdc010.h>
 #include "ftsdc010_mci.h"
 #include <dm.h>
-#include <dt-structs.h>
 #include <errno.h>
-#include <mapmem.h>
 #include <pwrseq.h>
 #include <syscon.h>
+#include <dm/prop.h>
 #include <linux/err.h>
 
 #define CFG_CMD_TIMEOUT (CONFIG_SYS_HZ >> 2) /* 250 ms */
 #define CFG_RST_TIMEOUT CONFIG_SYS_HZ /* 1 sec reset timeout */
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-struct ftsdc010 {
-	fdt32_t		bus_width;
-	bool		cap_mmc_highspeed;
-	bool		cap_sd_highspeed;
-	fdt32_t		clock_freq_min_max[2];
-	struct phandle_2_cell	clocks[4];
-	fdt32_t		fifo_depth;
-	fdt32_t		reg[2];
-};
-#endif
-
 struct ftsdc010_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct ftsdc010 dtplat;
-#endif
 	struct mmc_config cfg;
 	struct mmc mmc;
 };
 
 struct ftsdc_priv {
-	struct clk clk;
 	struct ftsdc010_chip chip;
 	int fifo_depth;
 	bool fifo_mode;
@@ -391,24 +374,30 @@ static int ftsdc010_mmc_of_to_plat(struct udevice *dev)
 {
 	struct ftsdc_priv *priv = dev_get_priv(dev);
 	struct ftsdc010_chip *chip = &priv->chip;
+	DTPLAT(ftsdc010_mmc, dt, dev);
 
-	if (IS_ENABLED(CONFIG_OF_REAL)) {
-		chip->name = dev->name;
-		chip->ioaddr = dev_read_addr_ptr(dev);
-		chip->buswidth = dev_read_u32_default(dev, "bus-width", 4);
-		chip->priv = dev;
-		priv->fifo_depth = dev_read_u32_default(dev, "fifo-depth", 0);
-		priv->fifo_mode = dev_read_bool(dev, "fifo-mode");
-		if (dev_read_u32_array(dev, "clock-freq-min-max", priv->minmax, 2)) {
-			if (dev_read_u32(dev, "max-frequency", &priv->minmax[1]))
-				return -EINVAL;
+	chip->name = dev->name;
+	chip->ioaddr = dev_prop_addr_ptr(dev, dt);
+	chip->buswidth = dev_prop_u32_default(dev, dt, bus_width, "bus-width",
+					      4);
+	chip->priv = dev;
+	priv->fifo_depth = dev_prop_u32_default(dev, dt, fifo_depth,
+						"fifo-depth", 0);
+	priv->fifo_mode = dev_prop_bool(dev, dt, fifo_mode, "fifo-mode");
+	if (dev_prop_u32_array(dev, dt, clock_freq_min_max,
+			       "clock-freq-min-max", priv->minmax, 2)) {
+		if (dev_prop_u32(dev, dt, max_frequency, "max-frequency",
+				 &priv->minmax[1]))
+			return -EINVAL;
 
-			priv->minmax[0] = 400000;  /* 400 kHz */
-		} else {
-			debug("%s: 'clock-freq-min-max' property was deprecated.\n",
-			      __func__);
-		}
+		priv->minmax[0] = 400000;  /* 400 kHz */
+	} else {
+		debug("%s: 'clock-freq-min-max' property was deprecated.\n",
+		      __func__);
 	}
+	if (dev_prop_bool(dev, dt, cap_mmc_highspeed, "cap-mmc-highspeed") ||
+	    dev_prop_bool(dev, dt, cap_sd_highspeed, "cap-sd-highspeed"))
+		chip->caps |= MMC_MODE_HS | MMC_MODE_HS_52MHz;
 	chip->sclk = priv->minmax[1];
 	chip->regs = chip->ioaddr;
 
@@ -422,24 +411,6 @@ static int ftsdc010_mmc_probe(struct udevice *dev)
 	struct ftsdc_priv *priv = dev_get_priv(dev);
 	struct ftsdc010_chip *chip = &priv->chip;
 	struct udevice *pwr_dev __maybe_unused;
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	int ret;
-	struct ftsdc010 *dtplat = &plat->dtplat;
-	chip->name = dev->name;
-	chip->ioaddr = map_sysmem(dtplat->reg[0], dtplat->reg[1]);
-	chip->buswidth = dtplat->bus_width;
-	chip->priv = dev;
-	chip->dev_index = 1;
-	memcpy(priv->minmax, dtplat->clock_freq_min_max, sizeof(priv->minmax));
-	ret = clk_get_by_phandle(dev, dtplat->clocks, &priv->clk);
-	if (ret < 0)
-		return ret;
-#endif
-
-	if (dev_read_bool(dev, "cap-mmc-highspeed") || \
-		  dev_read_bool(dev, "cap-sd-highspeed"))
-		chip->caps |= MMC_MODE_HS | MMC_MODE_HS_52MHz;
 
 	ftsdc_setup_cfg(&plat->cfg, dev->name, chip->buswidth, chip->caps,
 			priv->minmax[1] , priv->minmax[0]);
@@ -457,7 +428,7 @@ int ftsdc010_mmc_bind(struct udevice *dev)
 	return mmc_bind(dev, &plat->mmc, &plat->cfg);
 }
 
-static const struct udevice_id ftsdc010_mmc_ids[] = {
+static __maybe_unused const struct udevice_id ftsdc010_mmc_ids[] = {
 	{ .compatible = "andestech,atfsdc010" },
 	{ }
 };
@@ -465,7 +436,7 @@ static const struct udevice_id ftsdc010_mmc_ids[] = {
 U_BOOT_DRIVER(ftsdc010_mmc) = {
 	.name		= "ftsdc010_mmc",
 	.id		= UCLASS_MMC,
-	.of_match	= ftsdc010_mmc_ids,
+	.of_match	= of_match_ptr(ftsdc010_mmc_ids),
 	.of_to_plat = ftsdc010_mmc_of_to_plat,
 	.ops		= &dm_ftsdc010_mmc_ops,
 	.bind		= ftsdc010_mmc_bind,
