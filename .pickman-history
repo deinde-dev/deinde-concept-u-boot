@@ -106750,3 +106750,23 @@ The branch is ready for pushing and has not been merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-13 (attempt 1)
+
+Branch: cherry-77a0470e3481
+
+Failed jobs:
+- efi-x86_64-uboot-iso-install (sjg-lab-slow)
+- coral (sjg-lab)
+
+### Conversation log
+Neither failure is caused by this branch, so I made no changes and did not create `cherry-77a0470e3481-fix1`.
+
+The branch only touches `drivers/i2c/npcm_i2c.c` (plus `.pickman-history`). That driver is built only when `CONFIG_SYS_I2C_NPCM` is set, which is just `arbel_evb` and `poleg_evb`, so it is not compiled into either failing target. I did not run the sandbox or buildman builds, since there was nothing to fix.
+
+- **coral (job 771845):** this is a lab infrastructure failure. The test never started: `u-boot-test-getrole` failed with "place coral is not acquired by your user, acquired by labgrid", and the release step reported it held by `kea/labgrid`. Someone else had the board.
+- **efi-x86_64-uboot-iso-install (job 771889):** this is not attributable to the branch and looks transient. `test_distro_ubuntu_iso_install` hit a console timeout at `test_distro.py:398` while the Linux kernel was booting under QEMU. The log tail shows the kernel still printing early boot messages when the timeout fired. It also contains "Initramfs unpacking failed: invalid magic at start of compressed archive", which may be worth a look on the lab side if the retry fails the same way.
+
+Retry both jobs once the coral place is free.
+
+---
+
