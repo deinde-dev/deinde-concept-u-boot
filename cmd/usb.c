@@ -707,7 +707,7 @@ U_BOOT_CMD(
 #ifdef CONFIG_USB_STORAGE
 	"usb storage - show details of USB storage devices\n"
 	"usb dev [dev] - show or set current USB storage device\n"
-	"usb part [dev] - print partition table of one or all USB storage"
+	"usb part [dev] - print partition table of one or all USB storage\n"
 	"    devices\n"
 	"usb read addr blk# cnt - read `cnt' blocks starting at block `blk#'\n"
 	"    to memory address `addr'\n"
