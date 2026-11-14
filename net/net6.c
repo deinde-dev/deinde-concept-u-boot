@@ -66,6 +66,11 @@ static int on_gatewayip6(const char *name, const char *value, enum env_op op,
 	if (flags & H_PROGRAMMATIC)
 		return 0;
 
+	if (op == env_op_delete) {
+		net_copy_ip6(&net_gateway6, &net_null_addr_ip6);
+		return 0;
+	}
+
 	return string_to_ip6(value, strlen(value), &net_gateway6);
 }
 
@@ -76,6 +81,11 @@ static int on_serverip6(const char *name, const char *value, enum env_op op,
 {
 	if (flags & H_PROGRAMMATIC)
 		return 0;
+
+	if (op == env_op_delete) {
+		net_copy_ip6(&net_server_ip6, &net_null_addr_ip6);
+		return 0;
+	}
 
 	return string_to_ip6(value, strlen(value), &net_server_ip6);
 }
