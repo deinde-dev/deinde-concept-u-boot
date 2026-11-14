@@ -9997,7 +9997,7 @@ class TestNarrowPipelines(unittest.TestCase):
 
     def test_current_pipeline(self):
         """Test putting pickman's pipeline in place of the head pipeline"""
-        mr = self._mr(pipeline_id=98, status='skipped')
+        mr = self._mr(pipeline_id=98)
         get = mock.Mock(return_value=gitlab.PipelineJobs('bbb', 'running',
                                                          {}))
         with mock.patch.object(gitlab, 'get_pipeline_jobs', get):
@@ -10018,23 +10018,40 @@ class TestNarrowPipelines(unittest.TestCase):
             self.assertEqual((mr._replace(sha='ccc'), None),
                              control._current_pipeline(
                                  'ci', mr._replace(sha='ccc'), self.dbs))
-            newer = mr._replace(pipeline_id=120, pipeline_status='failed')
+            newer = mr._replace(pipeline_id=120)
             self.assertEqual((newer, None),
                              control._current_pipeline('ci', newer,
                                                        self.dbs))
-
-            # A newer head pipeline which is skipped, e.g. from the push that
-            # started pickman's, does not take precedence
-            new_mr, run = control._current_pipeline(
-                'ci', mr._replace(pipeline_id=120), self.dbs)
-            self.assertEqual(99, run.pipeline_id)
-            self.assertEqual((99, 'running'),
-                             (new_mr.pipeline_id, new_mr.pipeline_status))
 
             # A pipeline which cannot be read has no status
             get.return_value = None
             new_mr, _ = control._current_pipeline('ci', mr, self.dbs)
             self.assertIsNone(new_mr.pipeline_status)
+
+    def test_current_pipeline_skipped(self):
+        """Test looking past a skipped head pipeline, from a ci.skip push"""
+        mr = self._mr(pipeline_id=120, status='skipped', sha='ccc')
+        with mock.patch.object(gitlab, 'get_last_pipeline',
+                               return_value=None) as last:
+            # Nothing has run
+            self.assertEqual((mr, None),
+                             control._current_pipeline('ci', mr, self.dbs))
+            last.assert_called_once_with('ci', 1)
+
+            # The pipeline from before the push, though for another commit
+            last.return_value = (100, 'failed')
+            self.assertEqual(
+                (mr._replace(pipeline_id=100, pipeline_status='failed'),
+                 None),
+                control._current_pipeline('ci', mr, self.dbs))
+
+            # Likewise one of pickman's, e.g. from the push which started it
+            self.dbs.cirun_add(1, 101, 'bbb', 100, ['rpi3'])
+            last.return_value = (101, 'success')
+            new_mr, run = control._current_pipeline('ci', mr, self.dbs)
+            self.assertEqual(101, run.pipeline_id)
+            self.assertEqual((101, 'success'),
+                             (new_mr.pipeline_id, new_mr.pipeline_status))
 
     def test_run_passed_reported_once(self):
         """Test that a passing pipeline of pickman's is reported, once"""
@@ -10047,6 +10064,8 @@ class TestNarrowPipelines(unittest.TestCase):
         with mock.patch.object(control, 'run_git'), \
              mock.patch.object(gitlab, 'get_pipeline_jobs',
                                side_effect=lambda _, pid: pipes.get(pid)), \
+             mock.patch.object(gitlab, 'get_last_pipeline',
+                               return_value=(101, 'success')), \
              mock.patch.object(gitlab, 'reply_to_mr') as reply:
             with terminal.capture():
                 for _ in range(2):
@@ -10070,20 +10089,24 @@ class TestNarrowPipelines(unittest.TestCase):
                     'ci', self._mr(), self.dbs.cirun_latest(1), self.dbs)
         self.assertNotIn('Still failing', reply.call_args[0][2])
 
-    def _run_failed(self, head_id):
-        """Check that a failing pipeline of pickman's goes to the agent
+    def _run_failed(self, head_id, run=True):
+        """Check that a failing pipeline 101 goes to the agent
 
         Args:
             head_id (int): ID of the merge request's head pipeline, which is
                 skipped
+            run (bool): True if pipeline 101 is pickman's own
         """
-        self.dbs.cirun_add(1, 101, 'bbb', 100, ['rpi3'])
+        if run:
+            self.dbs.cirun_add(1, 101, 'bbb', 100, ['rpi3'])
         failed = [gitlab.FailedJob(id=5, name='rpi3', stage='test',
                                    web_url='u', log_tail='err')]
         with mock.patch.object(control, 'run_git'), \
              mock.patch.object(gitlab, 'get_pipeline_jobs',
                                return_value=gitlab.PipelineJobs(
                                    'bbb', 'failed', {'rpi3': 'failed'})), \
+             mock.patch.object(gitlab, 'get_last_pipeline',
+                               return_value=(101, 'failed')), \
              mock.patch.object(gitlab, 'get_failed_jobs',
                                return_value=failed) as get_failed, \
              mock.patch.object(gitlab, 'get_shared_failures',
@@ -10110,6 +10133,15 @@ class TestNarrowPipelines(unittest.TestCase):
         runs and a rebase waits for it for ever.
         """
         self._run_failed(102)
+
+    def test_failed_before_skipped_push(self):
+        """Test a failing pipeline from before a push with ci.skip
+
+        A push for review comments which change nothing the jobs read runs
+        no pipeline. The failure before it still has to be fixed, or else
+        a rebase waits for the fix for ever.
+        """
+        self._run_failed(102, run=False)
 
 
 class TestGetMrComments(unittest.TestCase):

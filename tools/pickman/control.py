@@ -5656,15 +5656,14 @@ def _push_with_ci(remote, merge_req, dbs, leave_out):
 
 
 def _current_pipeline(remote, merge_req, dbs):
-    """Use pickman's own pipeline for a merge request if it is the latest
+    """Find the pipeline which last ran for a merge request
 
-    A pipeline which runs only some jobs does not become the merge request's
-    head pipeline, so put it in place of that one when it is for the merge
-    request's commit and is newer.
-
-    The push which starts pickman's pipeline uses ci.skip, so it also makes a
-    skipped head pipeline, which can have a higher ID. That one runs nothing,
-    so it never takes precedence over pickman's.
+    A push with ci.skip runs nothing, but leaves a skipped head pipeline,
+    which says nothing about the merge request, so use the newest one which
+    is not skipped instead. That includes pickman's own pipelines which run
+    only some jobs: these do not become the head pipeline, so also put one
+    in place of the head pipeline when it is for the merge request's commit
+    and is newer.
 
     Args:
         remote (str): Remote name
@@ -5672,15 +5671,22 @@ def _current_pipeline(remote, merge_req, dbs):
         dbs (Database): Database instance
 
     Returns:
-        tuple: (PickmanMr, CiRun), with the CiRun None if the head pipeline
-            is still the current one
+        tuple: (PickmanMr, CiRun), with the CiRun None if the pipeline is not
+            one of pickman's
     """
+    if merge_req.pipeline_status == 'skipped':
+        last = gitlab_api.get_last_pipeline(remote, merge_req.iid)
+        if not last:
+            return merge_req, None
+        merge_req = merge_req._replace(pipeline_id=last[0],
+                                       pipeline_status=last[1])
+        run = dbs.cirun_latest(merge_req.iid)
+        return merge_req, (run if run and run.pipeline_id == last[0]
+                           else None)
     if not merge_req.sha:
         return merge_req, None
     run = dbs.cirun_latest(merge_req.iid)
-    if not run or run.sha != merge_req.sha:
-        return merge_req, None
-    if (merge_req.pipeline_status != 'skipped' and
+    if (not run or run.sha != merge_req.sha or
             (merge_req.pipeline_id or 0) > run.pipeline_id):
         return merge_req, None
     jobs = gitlab_api.get_pipeline_jobs(remote, run.pipeline_id)

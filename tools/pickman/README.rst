@@ -507,6 +507,11 @@ MR, since creating the MR starts its pipeline. When pushing a pipeline fix or
 changes for review comments it leaves out ``ci.skip``, so that the MR's
 pipeline runs, unless it starts a pipeline itself as below.
 
+A push with ``ci.skip`` to an open MR still leaves a skipped pipeline, which
+becomes the MR's head pipeline. Since it runs nothing, pickman looks past it to
+the newest pipeline which did run, so that a failure from before the push is
+still fixed, and a rebase waiting for that fix does not wait for ever.
+
 **Pipelines with only some jobs**
 
 A full pipeline runs about 140 jobs and takes one to two hours. When a pipeline
