@@ -8,7 +8,6 @@
 
 #include <config.h>
 #include <dm.h>
-#include <dt-structs.h>
 #include <log.h>
 #include <ns16550.h>
 #include <serial.h>

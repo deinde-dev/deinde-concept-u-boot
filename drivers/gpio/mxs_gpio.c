@@ -135,7 +135,6 @@ int name_to_gpio(const char *name)
 #else /* DM_GPIO */
 #include <dm.h>
 #include <asm/gpio.h>
-#include <dt-structs.h>
 #include <asm/arch/gpio.h>
 #define MXS_MAX_GPIO_PER_BANK		32
 
