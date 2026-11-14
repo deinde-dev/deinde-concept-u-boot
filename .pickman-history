@@ -106998,3 +106998,60 @@ To fold the `LIB_RATIONAL` fix into the commit that introduces `CLK_SPACEMIT_K3`
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-255d50f4f77e
+
+Commits:
+- 255d50f4f77e doc: Update urllib3 version for building
+- 9bf1fd5f69cb efi_loader: fix string table reallocations
+- e03009e20616 efi_selftest: test set_string() HII string table realloc
+- 060006d081a9 efi_loader: fix image info authentication attribute
+- 095d0bc0e0af efi_selftest: add minimal fmp test
+- 7aaf7f1fd347 disk: part_efi: Size the partition entry array from the block size
+- 94a399df5fba disk: part_efi: Add missing endianness conversions
+- f2164955f353 test: lib: Check the GPT layout for large sector sizes
+- 948c3f8d3383 test: lib: Check the GPT round trip against a real block device
+- 742afc84f742 configs: malta64: Enable EFI_PARTITION and BLKMAP for big-endian tests
+- 999f96633249 test: py: gpt: Bind the disk image in test_gpt_write_part_type()
+- 3a60610ae086 test: py: gpt: Test the GPT layout on a device with 4096-byte blocks
+- 6e9fd0d8d1ec efi_loader: pass GUID by address
+- e23d51cc24c9 efi_loader: remove unused function efi_dp_match()
+- ca871794e83c doc: board: toradex: colibri_vf: flash u-boot-nand.imx, not the plain image
+- ccba249c4c36 cmd/efidebug: do not allow invalid boot order
+- d3282f44bde6 efi: avoid video ghosting in EFI app
+- f77179982369 Merge tag 'efi-2027-01-rc1' of https://git.u-boot-project.org/u-boot/custodians/u-boot-efi
+
+### Conversation log
+Neither "maybe already applied" match is the same change (one is a pickman record commit, the other touches a different function), so I'll pick both.
+
+Seven of 18 commits are picked and building cleanly so far (the exit code above is just the loop's final test, not a failure); continuing with the remaining eleven.
+
+Resolving a conflict in commit 12 (`test_gpt.py`): the target tree lacks `test_gpt_write_part_type()`, so I'm keeping only the new 4k-sector test from the incoming side.
+
+Resolving the last conflict (commit 17, the EFI-app env file), then the merge commit and final build remain.
+
+The cherry-picks are done; my optional unit-test run hung at the sandbox prompt, so I'm killing it and rerunning with a timeout.
+
+All 18 commits are on `cherry-255d50f4f77e` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is left ready for pushing and is not merged anywhere.
+
+**Already-applied check:** neither "maybe already applied" commit was a real match, so both were picked.
+- `255d50f4f77e` (urllib3): `7a6d4b3e2e94` is a pickman history-record commit, and ci/master still had urllib3 2.7.0.
+- `6e9fd0d8d1ec` (pass GUID by address): `8745f13fe102` is a 2024 commit changing `efi_get_dp_from_boot()`, not `hash_algo_supported()`.
+
+**Fix-ups** (each has a `[pickman]` note at the end of its commit message):
+- **`948c3f8d3383` test: lib: GPT round trip:** split-check converted `CONFIG_IS_ENABLED(BLKMAP)` to `IS_ENABLED(CONFIG_BLKMAP)` in `test/lib/part_efi.c`.
+- **`999f96633249` test: py: gpt: Bind the disk image:** kept as an empty commit. ci/master does not have `test_gpt_write_part_type()` (7a598e633a53 was never applied), so there is nothing to fix.
+- **`3a60610ae086` test: py: gpt: 4096-byte blocks:** conflict for the same reason; I kept only the new `test_gpt_write_4k_sectors()` test (119 insertions, same as the original).
+- **`e23d51cc24c9` remove `efi_dp_match()`:** in this tree the function lives in `lib/efi/device_path.c`, so I removed it there instead of from `lib/efi_loader/efi_device_path.c`. It has no callers.
+- **`d3282f44bde6` avoid video ghosting in EFI app:** conflicted with the local `stdin=serial` change (b03a94008560). I took the upstream standalone env but kept `ramdisk_addr_r=0x8000000` to match this tree's `x86.env` (a6fca9a51b68) rather than upstream's 0x4000000.
+- **`f77179982369` merge:** kept as an empty commit, since all 17 commits in the merge are the ones already picked.
+
+**Deltas:** the other commits match the originals' stats exactly. The exceptions are the four above: the empty commit, the different file for `efi_dp_match()`, the env file (11 insertions rather than 12) and the empty merge.
+
+**For you to check:** `d3282f44bde6` drops `vidconsole` from stdout/stderr in the EFI app. That is the commit's intent, but it changes behaviour in this tree, so confirm you want it given the app's video/expo work here.
+
+Beyond the requested sandbox builds, `efi-x86_app64` also builds, and the two new unit tests (`lib_test_gpt_blksz`, `lib_test_gpt_blkmap`) pass in sandbox. I did not run the Python GPT tests.
+
+---
+
