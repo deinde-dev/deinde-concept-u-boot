@@ -392,7 +392,7 @@ static int do_tpm_dam_parameters(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	log(LOGC_NONE, LOGL_INFO, "Changing dictionary attack parameters:\n");
-	log(LOGC_NONE, LOGL_INFO, "- maxTries: %lu", max_tries);
+	log(LOGC_NONE, LOGL_INFO, "- maxTries: %lu\n", max_tries);
 	log(LOGC_NONE, LOGL_INFO, "- recoveryTime: %lu\n", recovery_time);
 	log(LOGC_NONE, LOGL_INFO, "- lockoutRecovery: %lu\n", lockout_recovery);
 
