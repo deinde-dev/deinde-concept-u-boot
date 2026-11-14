@@ -8,7 +8,9 @@
 #ifndef __ASM_TEST_H
 #define __ASM_TEST_H
 
+#include <irq.h>
 #include <pci_ids.h>
+#include <asm/gpio.h>
 
 struct unit_test_state;
 struct mouse_event;
@@ -492,6 +494,13 @@ struct sandbox_dev_prop_plat {
 	u32 u32_val;
 	int clk_id_ret;
 	u32 clk_id;
+	int gpio_ret;
+	struct gpio_desc gpio;
+	int irq_ret;
+	struct irq irq;
+	int partner_ret;
+	struct udevice *partner;
+	const char *str;
 	struct regmap *map;
 };
 

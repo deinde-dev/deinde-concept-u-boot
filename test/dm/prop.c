@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <regmap.h>
 #include <asm/global_data.h>
+#include <asm/gpio.h>
 #include <asm/test.h>
 #include <dm/device-internal.h>
 #include <dm/prop.h>
@@ -86,6 +87,16 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_asserteq(42, plat->u32_val);
 	ut_assertok(plat->clk_id_ret);
 	ut_asserteq(2, plat->clk_id);
+	if (IS_ENABLED(CONFIG_DM_GPIO)) {
+		ut_assertok(plat->gpio_ret);
+		ut_assert(dm_gpio_is_valid(&plat->gpio));
+		ut_asserteq(5, plat->gpio.offset);
+		ut_assertok(plat->partner_ret);
+		ut_asserteq_ptr(plat->gpio.dev, plat->partner);
+	}
+	ut_assertok(plat->irq_ret);
+	ut_asserteq(4, plat->irq.id);
+	ut_asserteq_str("hello", plat->str);
 	ut_asserteq(1, plat->map->range_count);
 	ut_asserteq(0x12340000, plat->map->ranges[0].start);
 	ut_asserteq(0x100, plat->map->ranges[0].size);
@@ -108,6 +119,11 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_asserteq(-EINVAL, plat->array_rw_ret);
 	ut_asserteq(-EINVAL, plat->u32_ret);
 	ut_asserteq(-ENOENT, plat->clk_id_ret);
+	if (IS_ENABLED(CONFIG_DM_GPIO))
+		ut_asserteq(-ENOENT, plat->gpio_ret);
+	ut_assert(plat->irq_ret);
+	ut_assert(plat->partner_ret);
+	ut_assertnull(plat->str);
 	ut_asserteq(SANDBOX_DEV_PROP_OTHER, dev_get_driver_data(dev));
 
 	return 0;

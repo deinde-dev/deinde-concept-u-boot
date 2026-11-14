@@ -349,6 +349,77 @@ int dtplat_check_single(const struct udevice *dev, uint idx);
 	(!(_dt)->has._member || (_idx) >= ARRAY_SIZE((_dt)->_member) ? \
 	 -ENOENT : (*(_idp) = (_dt)->_member[_idx].arg[0], 0))
 
+/**
+ * dev_prop_gpio() - Request a GPIO from a device's GPIO-list property
+ *
+ * The caller must include asm/gpio.h
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, e.g. cd_gpios
+ * @_name: Devicetree name of the property, e.g. "cd-gpios"
+ * @_idx: Index of the GPIO to request, within the property
+ * @_descp: Returns the GPIO description
+ * @_flags: Flags to use for the GPIO, e.g. GPIOD_IS_IN
+ * Return: 0 if OK, -ENOENT if there is no such GPIO, or another error from
+ * the GPIO uclass
+ */
+#define dev_prop_gpio(_dev, _dt, _member, _name, _idx, _descp, _flags) \
+	(!(_dt)->has._member || (_idx) >= ARRAY_SIZE((_dt)->_member) ? \
+	 -ENOENT : gpio_request_by_ofplat_idx(_dev, (_dt)->_member[_idx].idx, \
+			(_dt)->_member[_idx].arg, \
+			ARRAY_SIZE((_dt)->_member[_idx].arg), _descp, _flags))
+
+/**
+ * dev_prop_irq() - Get an interrupt from 'interrupts-extended'
+ *
+ * The caller must include irq.h
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, i.e. interrupts_extended
+ * @_name: Devicetree name of the property, i.e. "interrupts-extended"
+ * @_idx: Index of the interrupt to get, within the property
+ * @_irqp: Returns the interrupt
+ * Return: 0 if OK, -ENOENT if there is no such interrupt, or another error
+ * from the irq uclass
+ */
+#define dev_prop_irq(_dev, _dt, _member, _name, _idx, _irqp) \
+	(!(_dt)->has._member || (_idx) >= ARRAY_SIZE((_dt)->_member) ? \
+	 -ENOENT : irq_get_by_ofplat_idx(_dev, (_dt)->_member[_idx].idx, \
+			(_dt)->_member[_idx].arg, \
+			ARRAY_SIZE((_dt)->_member[_idx].arg), _irqp))
+
+/**
+ * dev_prop_dev() - Get the device which a phandle property refers to
+ *
+ * The property holds a phandle with no arguments. The device is probed.
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, e.g. vendor_partner
+ * @_name: Devicetree name of the property, e.g. "vendor,partner"
+ * @_id: Uclass of the device referred to
+ * @_devp: Returns the device
+ * Return: 0 if OK, -ENOENT if there is no such property, or another error
+ * if the device cannot be found or probed
+ */
+#define dev_prop_dev(_dev, _dt, _member, _name, _id, _devp) \
+	(!(_dt)->has._member ? -ENOENT : \
+	 device_get_by_ofplat_idx((_dt)->_member[0].idx, _devp))
+
+/**
+ * dev_prop_string() - Read a string property
+ *
+ * @_dev: Device to read from
+ * @_dt: Generated data, as declared by DTPLAT()
+ * @_member: C member name of the property, e.g. label
+ * @_name: Devicetree name of the property, e.g. "label"
+ * Return: string, or NULL if there is no such property
+ */
+#define dev_prop_string(_dev, _dt, _member, _name) \
+	((_dt)->has._member ? (_dt)->_member : NULL)
+
 #else /* !OF_PLATDATA */
 
 #define DTPLAT(_drv, _var, _dev)
@@ -415,6 +486,18 @@ static inline int dev_read_clk_id(const struct udevice *dev, const char *name,
 
 #define dev_prop_clk_id(_dev, _dt, _member, _name, _idx, _idp) \
 	dev_read_clk_id(_dev, _name, _idx, _idp)
+
+#define dev_prop_gpio(_dev, _dt, _member, _name, _idx, _descp, _flags) \
+	gpio_request_by_name(_dev, _name, _idx, _descp, _flags)
+
+#define dev_prop_irq(_dev, _dt, _member, _name, _idx, _irqp) \
+	irq_get_by_index(_dev, _idx, _irqp)
+
+#define dev_prop_dev(_dev, _dt, _member, _name, _id, _devp) \
+	uclass_get_device_by_phandle(_id, _dev, _name, _devp)
+
+#define dev_prop_string(_dev, _dt, _member, _name) \
+	dev_read_string(_dev, _name)
 
 #endif /* OF_PLATDATA */
 
