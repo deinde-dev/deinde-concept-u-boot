@@ -557,7 +557,7 @@ def handle_mr_comments(mr_iid, branch_name, comments, remote, target='master',
 # pylint: disable=too-many-arguments
 def build_pipeline_fix_prompt(mr_iid, branch_name, failed_jobs, remote,
                                target, mr_description, attempt,
-                               tempdir=None):
+                               tempdir=None, rebased=False):
     """Build prompt and task description for the pipeline fix agent
 
     The CI job log tails and MR description are written to temporary files
@@ -575,6 +575,8 @@ def build_pipeline_fix_prompt(mr_iid, branch_name, failed_jobs, remote,
         attempt (int): Fix attempt number
         tempdir (str): Directory for temporary log files; when None
             the log tails are embedded in the prompt (legacy behaviour)
+        rebased (bool): True if the branch is rebased onto the target since
+            the pipeline ran
 
     Returns:
         tuple: (prompt, task_desc) where prompt is the full agent prompt and
@@ -642,13 +644,22 @@ Context from MR description:
     board_names.add('sandbox')
     boards_csv = ','.join(sorted(board_names))
 
+    rebase_section = ''
+    if rebased:
+        rebase_section = f"""
+The local branch is rebased onto {remote}/{target} since this pipeline ran, \
+since it was behind. Check first whether the failure still happens on the \
+rebased branch, since it may come from the old base. If it does not, report \
+that without making changes.
+"""
+
     prompt = f"""Fix pipeline failures for merge request !{mr_iid} \
 (branch: {branch_name}, attempt {attempt}).
 {context_section}
 Failed jobs:
 
 {jobs_text}
-
+{rebase_section}
 Steps to follow:
 1. Checkout the branch: git checkout {branch_name}
 2. Diagnose the root cause from the job logs above
@@ -699,7 +710,7 @@ runner problem, etc.), report this without making changes
 
 async def run_pipeline_fix_agent(mr_iid, branch_name, failed_jobs, remote,
                                   target='master', mr_description='',
-                                  attempt=1, repo_path=None):
+                                  attempt=1, repo_path=None, rebased=False):
     """Run the Claude agent to fix pipeline failures
 
     Job log tails are written to temporary files so that the prompt
@@ -715,6 +726,8 @@ async def run_pipeline_fix_agent(mr_iid, branch_name, failed_jobs, remote,
         mr_description (str): MR description with context
         attempt (int): Fix attempt number
         repo_path (str): Path to repository (defaults to current directory)
+        rebased (bool): True if the branch is rebased onto the target since
+            the pipeline ran
 
     Returns:
         tuple: (success, conversation_log) where success is bool and
@@ -730,7 +743,7 @@ async def run_pipeline_fix_agent(mr_iid, branch_name, failed_jobs, remote,
     try:
         prompt, task_desc = build_pipeline_fix_prompt(
             mr_iid, branch_name, failed_jobs, remote, target,
-            mr_description, attempt, tempdir=tempdir)
+            mr_description, attempt, tempdir=tempdir, rebased=rebased)
 
         options = ClaudeAgentOptions(
             allowed_tools=['Bash', 'Read', 'Grep', 'Edit', 'Write'],
@@ -748,7 +761,7 @@ async def run_pipeline_fix_agent(mr_iid, branch_name, failed_jobs, remote,
 
 
 def fix_pipeline(mr_iid, branch_name, failed_jobs, remote, target='master',
-                 mr_description='', attempt=1, repo_path=None):
+                 mr_description='', attempt=1, repo_path=None, rebased=False):
     """Synchronous wrapper for running the pipeline fix agent
 
     Args:
@@ -760,6 +773,8 @@ def fix_pipeline(mr_iid, branch_name, failed_jobs, remote, target='master',
         mr_description (str): MR description with context
         attempt (int): Fix attempt number
         repo_path (str): Path to repository (defaults to current directory)
+        rebased (bool): True if the branch is rebased onto the target since
+            the pipeline ran
 
     Returns:
         tuple: (success, conversation_log) where success is bool and
@@ -767,7 +782,7 @@ def fix_pipeline(mr_iid, branch_name, failed_jobs, remote, target='master',
     """
     return asyncio.run(run_pipeline_fix_agent(
         mr_iid, branch_name, failed_jobs, remote, target,
-        mr_description, attempt, repo_path))
+        mr_description, attempt, repo_path, rebased))
 
 
 def build_subtree_conflict_prompt(name, tag, subtree_path):

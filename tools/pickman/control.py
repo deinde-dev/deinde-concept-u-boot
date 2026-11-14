@@ -5461,8 +5461,11 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
     """Rebase an MR branch onto the target before attempting a pipeline fix
 
     When a branch needs rebasing, the pipeline failure may be caused by the
-    stale base rather than by the cherry-picked commits. Rebasing and pushing
-    triggers a fresh pipeline run.
+    stale base rather than by the cherry-picked commits. The branch is only
+    rebased locally, so that the agent looks at the failure on the new base,
+    as part of the same attempt. Pushing the rebase by itself would start a
+    full pipeline which counts as no attempt, and while the target keeps
+    moving, each failure would lead to another.
 
     Args:
         remote (str): Remote name
@@ -5471,8 +5474,8 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         target (str): Target branch
 
     Returns:
-        True if the branch was rebased and pushed, False if the rebase
-        failed (conflicts), or None if no rebase is needed
+        True if the branch is rebased, False if the rebase failed (e.g.
+        conflicts), or None if no rebase is needed
     """
     if not merge_req.needs_rebase and not merge_req.has_conflicts:
         return None
@@ -5497,11 +5500,6 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
             problem = 'it cannot be rebased'
             if conflicts:
                 problem += f' (conflicts in {", ".join(conflicts)})'
-    if not problem:
-        try:
-            gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
-        except command.CommandExc:
-            problem = "the result cannot be pushed (see pickman's log)"
 
     # Record the failure, so that it is not tried again on every poll
     if problem:
@@ -5514,10 +5512,6 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
         dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebase_failed')
         dbs.commit()
         return False
-    dbs.pfix_add(mr_iid, merge_req.pipeline_id, 0, 'rebased')
-    dbs.commit()
-    tout.info(f'MR !{mr_iid}: rebased and pushed, waiting for '
-              f'new pipeline')
     return True
 
 
@@ -5821,7 +5815,7 @@ def _select_failed_jobs(remote, merge_req, dbs, attempt):
 
 
 def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
-                          selected):
+                          selected, rebased):
     """Run the agent to fix a failed pipeline and report the result
 
     Invokes the fix agent, then pushes the result and updates the MR
@@ -5836,12 +5830,15 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
         attempt (int): Current fix attempt number
         selected (tuple): (failed_jobs, leave_out, note) from
             _select_failed_jobs()
+        rebased (bool): True if the branch is already checked out and
+            rebased onto the target, by _rebase_mr_branch()
     """
     mr_iid = merge_req.iid
     failed_jobs, leave_out, note = selected
 
     # Run agent to fix the failures
-    checkout_mr_branch(remote, merge_req.source_branch)
+    if not rebased:
+        checkout_mr_branch(remote, merge_req.source_branch)
     success, conversation_log = agent.fix_pipeline(
         mr_iid,
         merge_req.source_branch,
@@ -5850,6 +5847,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
         target,
         mr_description=merge_req.description,
         attempt=attempt,
+        rebased=rebased,
     )
 
     status = 'success' if success else 'failure'
@@ -5941,12 +5939,6 @@ def process_pipeline_failures(remote, mrs, dbs, target, max_retries):
         if not selected:
             continue
 
-        rebased = _rebase_mr_branch(remote, merge_req, dbs, target)
-        if rebased is not None:
-            if rebased:
-                processed += 1
-            continue
-
         # Check retry limit
         if attempt > max_retries:
             tout.info(f'MR !{mr_iid}: reached fix retry limit '
@@ -5959,12 +5951,17 @@ def process_pipeline_failures(remote, mrs, dbs, target, max_retries):
             dbs.commit()
             continue
 
+        # The rebase is part of this attempt, not a separate pipeline
+        rebased = _rebase_mr_branch(remote, merge_req, dbs, target)
+        if rebased is False:
+            continue
+
         tout.info('')
         tout.info(f'MR !{mr_iid}: pipeline {merge_req.pipeline_id} failed, '
                   f'attempting fix (attempt {attempt}/{max_retries})...')
 
         _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt,
-                              selected=selected)
+                              selected=selected, rebased=bool(rebased))
         processed += 1
 
     # Restore original branch
