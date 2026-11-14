@@ -9,6 +9,7 @@
 
 /**
  * @FS_TYPE_VIRTIO: virtio-fs for access to the host filesystem from QEMU
+ * @FS_TYPE_9P: 9P filesystem, accessed over a 9P transport
  */
 enum fs_type_t {
 	FS_TYPE_ANY = 0,
@@ -24,6 +25,7 @@ enum fs_type_t {
 	FS_TYPE_VIRTIO,
 	FS_TYPE_ISO,
 	FS_TYPE_CBFS,
+	FS_TYPE_9P,
 };
 
 /*

@@ -106580,3 +106580,145 @@ Only sandbox was built, so the new i.MX code (`imx95_navq`, the CAAM RNG self te
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-48bb83195682
+
+Commits:
+- 48bb83195682 net: 9p: Add 9P2000.L protocol support
+- 9e14f904f8f1 fs: 9p: Add 9P filesystem support
+- 09e668e32b4c virtio: 9p: Add 9P transport driver
+- 7d963df1bc38 doc: 9p: Add 9P filesystem documentation
+- d446ef40b87d test: 9p: Add test for 9P filesystem
+- f6002d5e8018 MAINTAINERS: Add entry for 9PFS
+- 10adf52ed29d Merge patch series "fs: Add 9P filesystem support over virtio"
+
+### Conversation log
+Five of seven picked and building; now resolving a MAINTAINERS conflict on the sixth, then the merge commit and a final build.
+
+Simple: keep both entries (2048 first, then 9PFS).
+
+The merge's content is already on the branch via the individual picks, so I'll resolve it to the current tree and keep it as an empty commit.
+
+All 7 commits are on `cherry-48bb83195682` (based on ci/master) and the final sandbox build is clean, with no warnings or errors. The branch is ready to push; nothing was merged or pushed.
+
+The sandbox build does not compile any of the 9P code, because only `qemu_arm64_defconfig` enables it. I therefore also built `qemu_arm64`, which compiled the 9P client, filesystem and virtio driver cleanly. Nothing was run under QEMU, so the new `test_9p.py` is untested.
+
+```
+6f21bb8e8a89 Merge patch series "fs: Add 9P filesystem support over virtio"
+0d70eb41b03a MAINTAINERS: Add entry for 9PFS
+e98432f2260e test: 9p: Add test for 9P filesystem
+fbd3e9bf5d89 doc: 9p: Add 9P filesystem documentation
+49348864c982 virtio: 9p: Add 9P transport driver
+056e44699ffe fs: 9p: Add 9P filesystem support
+f6af3eed36bd net: 9p: Add 9P2000.L protocol support
+```
+
+## Fix-ups
+Each has a `[pickman: ...]` note at the end of its commit message.
+
+- **fs: 9p (056e44699ffe)** conflicted in `disk/part.c`, `fs/fs_legacy.c` and `include/fs.h`, because the target has split `fs/fs.c` and moved the filesystem types into an enum.
+  - The `fs.c` changes are applied to `fs/fs_legacy.c`, with a `.statfs = fs_statfs_unsupported` member added to the 9p entry to match the target's table.
+  - `FS_TYPE_9P` is appended to the enum in `include/fs_common.h`, since the source's value of 10 is already `FS_TYPE_VIRTIO` here; `include/fs.h` is left unchanged.
+  - `CONFIG_IS_ENABLED(FS_9P)` is converted by hand to `IS_ENABLED(CONFIG_FS_9P)`.
+  - In `disk/part.c` the 9p block sits after the existing virtiofs block.
+- **virtio: 9p (49348864c982)** conflicted in the virtio `Kconfig`, `Makefile`, `virtio-uclass.c` and `include/virtio.h`. The target already has `VIRTIO_ID_9P`, `VIRTIO_9P_DRV_NAME` and the driver-name table entry, so I kept those and added only the driver, the `VIRTIO_9P` Kconfig and Makefile entries, `VIRTIO_9P_MOUNT_TAG` and `struct virtio_9p_config`.
+- **MAINTAINERS (0d70eb41b03a)** conflicted with the 2048 entry; both are kept.
+- **Merge commit (6f21bb8e8a89)** is kept as an empty commit, since its content is already applied by the individual picks.
+
+`split-check` reported nothing and changed nothing on any commit.
+
+## Deltas
+- **fs: 9p:** 306 insertions against 303 in the original, with `fs_common.h` and `fs_legacy.c` in place of `fs.h` and `fs.c`.
+- **virtio: 9p:** 136 insertions over 4 files against 140 insertions and 1 deletion over 5, because the `virtio-uclass.c` change was already present.
+- The other four non-merge commits match the originals exactly.
+
+One behaviour change comes along with the fs commit: `fs_set_blk_dev()` now returns -1 when a filesystem matched by interface name fails to probe, rather than falling through to the partition lookup. This is the same as upstream, but in the target it also applies to the "virtio" entry (and to sandbox and semihosting, if they have named entries).
+
+---
+
+### Pipeline fix: 2026-11-13 (attempt 2)
+
+Branch: cherry-48bb83195682
+
+Failed jobs:
+- qemu_arm64 test.py (test.py)
+
+### Conversation log
+Still diagnosing: the 9P test passes locally under QEMU with a virtio-9p device, so I'm now checking why the CI job's QEMU doesn't expose one (test-hooks config).
+
+Now verify: builds, then the actual test under QEMU with the in-tree hooks.
+
+The failure is fixed on local branch `cherry-48bb83195682-fix2` (not pushed); `test_fs_9p` now passes locally on qemu_arm64 with the in-tree hooks.
+
+**Root cause:** the CI job launches QEMU from the in-tree hooks in `test/hooks/bin/travis-ci/conf.qemu_arm64`, which had no virtio-9p device. Upstream added that device in the separate u-boot-test-hooks repo (commit c939ed8, "travis-ci: Add 9P device support to qemu_arm64"), so the cherry-pick of the test did not bring it along. With no 9P device present, `ls 9p - /` reported "No matching 9P transport device found". The 9P code itself is fine.
+
+**Responsible commit:** "test: 9p: Add test for 9P filesystem" (was 86a18861a972, now 200f45274eb7).
+
+**Change:** I applied the upstream hooks commit c939ed8 to `test/hooks/bin/travis-ci/conf.qemu_arm64` and amended it into that commit with a `[pickman]` note. It adds a `qemu_9p_args` line exporting `${UBOOT_TRAVIS_BUILD_DIR}` with mount tag `rootfs`, and appends it to `qemu_extra_args`. This is the only difference from `cherry-48bb83195682`.
+
+**Verification:**
+- `um build sandbox` is clean.
+- The buildman command as given (`buildman -o /tmp/pickman qemu_arm64,sandbox,test.py`) reports "No matching boards found", so I ran `buildman -o /tmp/pickman --boards qemu_arm64,sandbox` instead; both boards build.
+- I built qemu_arm64 the way CI does (with `-a CONFIG_SEMIHOSTING=y`) and ran `test.py -B qemu_arm64 --id na -k test_fs_9p` against a copy of the in-tree hooks: 1 passed.
+- I did not run the full qemu_arm64 test suite. The same hook file is also used by the `qemu_arm64_lwip` and `qemu_arm64_tfa_fw_handoff` jobs, which will now get the extra device too, as they do upstream.
+
+---
+
+## 2026-11-13: us/main
+
+Branch: cherry-48bb83195682
+
+Commits:
+- 48bb83195682 net: 9p: Add 9P2000.L protocol support
+- 9e14f904f8f1 fs: 9p: Add 9P filesystem support
+- 09e668e32b4c virtio: 9p: Add 9P transport driver
+- 7d963df1bc38 doc: 9p: Add 9P filesystem documentation
+- d446ef40b87d test: 9p: Add test for 9P filesystem
+- f6002d5e8018 MAINTAINERS: Add entry for 9PFS
+- 10adf52ed29d Merge patch series "fs: Add 9P filesystem support over virtio"
+
+### Conversation log
+Five of seven picked and building; now resolving a MAINTAINERS conflict on the sixth, then the merge commit and a final build.
+
+Simple: keep both entries (2048 first, then 9PFS).
+
+The merge's content is already on the branch via the individual picks, so I'll resolve it to the current tree and keep it as an empty commit.
+
+All 7 commits are on `cherry-48bb83195682` (based on ci/master) and the final sandbox build is clean, with no warnings or errors. The branch is ready to push; nothing was merged or pushed.
+
+The sandbox build does not compile any of the 9P code, because only `qemu_arm64_defconfig` enables it. I therefore also built `qemu_arm64`, which compiled the 9P client, filesystem and virtio driver cleanly. Nothing was run under QEMU, so the new `test_9p.py` is untested.
+
+```
+6f21bb8e8a89 Merge patch series "fs: Add 9P filesystem support over virtio"
+0d70eb41b03a MAINTAINERS: Add entry for 9PFS
+e98432f2260e test: 9p: Add test for 9P filesystem
+fbd3e9bf5d89 doc: 9p: Add 9P filesystem documentation
+49348864c982 virtio: 9p: Add 9P transport driver
+056e44699ffe fs: 9p: Add 9P filesystem support
+f6af3eed36bd net: 9p: Add 9P2000.L protocol support
+```
+
+## Fix-ups
+Each has a `[pickman: ...]` note at the end of its commit message.
+
+- **fs: 9p (056e44699ffe)** conflicted in `disk/part.c`, `fs/fs_legacy.c` and `include/fs.h`, because the target has split `fs/fs.c` and moved the filesystem types into an enum.
+  - The `fs.c` changes are applied to `fs/fs_legacy.c`, with a `.statfs = fs_statfs_unsupported` member added to the 9p entry to match the target's table.
+  - `FS_TYPE_9P` is appended to the enum in `include/fs_common.h`, since the source's value of 10 is already `FS_TYPE_VIRTIO` here; `include/fs.h` is left unchanged.
+  - `CONFIG_IS_ENABLED(FS_9P)` is converted by hand to `IS_ENABLED(CONFIG_FS_9P)`.
+  - In `disk/part.c` the 9p block sits after the existing virtiofs block.
+- **virtio: 9p (49348864c982)** conflicted in the virtio `Kconfig`, `Makefile`, `virtio-uclass.c` and `include/virtio.h`. The target already has `VIRTIO_ID_9P`, `VIRTIO_9P_DRV_NAME` and the driver-name table entry, so I kept those and added only the driver, the `VIRTIO_9P` Kconfig and Makefile entries, `VIRTIO_9P_MOUNT_TAG` and `struct virtio_9p_config`.
+- **MAINTAINERS (0d70eb41b03a)** conflicted with the 2048 entry; both are kept.
+- **Merge commit (6f21bb8e8a89)** is kept as an empty commit, since its content is already applied by the individual picks.
+
+`split-check` reported nothing and changed nothing on any commit.
+
+## Deltas
+- **fs: 9p:** 306 insertions against 303 in the original, with `fs_common.h` and `fs_legacy.c` in place of `fs.h` and `fs.c`.
+- **virtio: 9p:** 136 insertions over 4 files against 140 insertions and 1 deletion over 5, because the `virtio-uclass.c` change was already present.
+- The other four non-merge commits match the originals exactly.
+
+One behaviour change comes along with the fs commit: `fs_set_blk_dev()` now returns -1 when a filesystem matched by interface name fails to probe, rather than falling through to the partition lookup. This is the same as upstream, but in the target it also applies to the "virtio" entry (and to sandbox and semihosting, if they have named entries).
+
+---
+

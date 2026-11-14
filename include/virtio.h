@@ -48,6 +48,14 @@
 #define VIRTIO_VIDEO_DEC_DRV_NAME	"virtio-viddec"
 #define VIRTIO_SND_DRV_NAME		"virtio-sound"
 
+/* Feature bits for virtio 9P */
+#define VIRTIO_9P_MOUNT_TAG	0
+
+struct virtio_9p_config {
+	__virtio16 tag_len;
+	u8 tag[];
+} __packed;
+
 /* Status byte for guest to report progress, and synchronize features */
 
 /* We have seen device and processed generic fields (VIRTIO_CONFIG_F_VIRTIO) */

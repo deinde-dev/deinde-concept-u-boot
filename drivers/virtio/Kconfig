@@ -110,4 +110,11 @@ config VIRTIO_SCSI
 	  A specification for the protocol is available at
 	  https://docs.oasis-open.org/virtio/virtio/v1.3/virtio-v1.3.html
 
+config VIRTIO_9P
+	bool "virtio 9P transport driver"
+	depends on VIRTIO && NET_9P
+	help
+	  This enables the 9P transport driver over virtio.
+	  It can be used with QEMU based targets.
+
 endmenu
