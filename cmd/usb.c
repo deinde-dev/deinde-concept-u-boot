@@ -599,8 +599,10 @@ static void usb_show_info(struct usb_device *udev)
 /******************************************************************************
  * usb command intepreter
  */
-static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_usb(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct usb_device *udev = NULL;
 	int i;
 
@@ -693,7 +695,7 @@ static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 #endif /* CONFIG_USB_STORAGE */
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	usb,	5,	1,	do_usb,
 	"USB sub-system",
 	"start - start (scan) USB controller\n"
