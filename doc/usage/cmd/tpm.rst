@@ -49,10 +49,10 @@ TPM in the system is used.
 
 Which sub-commands exist depends on the version of the selected device, not on
 the name typed. This page describes a TPMv1.x device; a TPMv2.x one has a
-different set, described by *tpm2*. The two commands share a handler, so 'tpm'
-on a board whose first TPM is a TPMv2.x device offers the TPMv2.x
-sub-commands, and 'tpm2' on a TPMv1.x device offers these ones. Only the help
-text differs.
+different set, described by :doc:`tpm2<tpm2>`. The two commands share a
+handler, so 'tpm' on a board whose first TPM is a TPMv2.x device offers the
+TPMv2.x sub-commands, and 'tpm2' on a TPMv1.x device offers these ones. Only
+the help text differs.
 
 Most of the sub-commands are a thin wrapper around a single TPM ordinal, so
 the TPM specification is the reference for what each one means.
@@ -292,5 +292,5 @@ See also
 --------
 
 * :doc:`md<md>` for showing the memory that a read fills in
-* *tpm2* for the same command driving a TPMv2.x device
+* :doc:`tpm2<tpm2>` for the same command driving a TPMv2.x device
 * :doc:`tpmtest<tpmtest>` for a suite of tests which exercise a TPMv1.x device
