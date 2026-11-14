@@ -40,7 +40,7 @@ DECLARE_GLOBAL_DATA_PTR;
 static int device_bind_common(struct udevice *parent, const struct driver *drv,
 			      const char *name, void *plat,
 			      ulong driver_data, ofnode node,
-			      uint of_plat_size, const void *dtplat,
+			      const void *dtplat,
 			      struct udevice **devp)
 {
 	struct udevice *dev;
@@ -100,35 +100,14 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 		dev->seq_ = uclass_find_next_free_seq(uc);
 
 	/* Check if we need to allocate plat */
-	if (drv->plat_auto) {
-		bool alloc = !plat;
-
-		/*
-		 * For of-platdata, we try use the existing data, but if
-		 * plat_auto is larger, we must allocate a new space
-		 */
-		if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
-			if (of_plat_size)
-				dev_or_flags(dev, DM_FLAG_OF_PLATDATA);
-			if (of_plat_size < drv->plat_auto)
-				alloc = true;
+	if (drv->plat_auto && !plat) {
+		dev_or_flags(dev, DM_FLAG_ALLOC_PDATA);
+		ptr = calloc(1, drv->plat_auto);
+		if (!ptr) {
+			ret = -ENOMEM;
+			goto fail_alloc1;
 		}
-		if (alloc) {
-			dev_or_flags(dev, DM_FLAG_ALLOC_PDATA);
-			ptr = calloc(1, drv->plat_auto);
-			if (!ptr) {
-				ret = -ENOMEM;
-				goto fail_alloc1;
-			}
-
-			/*
-			 * For of-platdata, copy the old plat into the new
-			 * space
-			 */
-			if (IS_ENABLED(CONFIG_OF_PLATDATA) && plat)
-				memcpy(ptr, plat, of_plat_size);
-			dev_set_plat(dev, ptr);
-		}
+		dev_set_plat(dev, ptr);
 	}
 
 	size = uc->uc_drv->per_device_plat_auto;
@@ -242,14 +221,14 @@ int device_bind_with_driver_data(struct udevice *parent,
 				 struct udevice **devp)
 {
 	return device_bind_common(parent, drv, name, NULL, driver_data, node,
-				  0, NULL, devp);
+				  NULL, devp);
 }
 
 int device_bind(struct udevice *parent, const struct driver *drv,
 		const char *name, void *plat, ofnode node,
 		struct udevice **devp)
 {
-	return device_bind_common(parent, drv, name, plat, 0, node, 0, NULL,
+	return device_bind_common(parent, drv, name, plat, 0, node, NULL,
 				  devp);
 }
 
@@ -257,7 +236,6 @@ int device_bind_by_name(struct udevice *parent, bool pre_reloc_only,
 			const struct driver_info *info, struct udevice **devp)
 {
 	struct driver *drv;
-	int ret;
 
 	drv = lists_driver_lookup_name(info->name);
 	if (!drv)
@@ -266,17 +244,16 @@ int device_bind_by_name(struct udevice *parent, bool pre_reloc_only,
 		return -EPERM;
 
 	/*
-	 * With of-platdata, info->plat is dtoc's generated data. A driver
-	 * which uses the dev_prop helpers reads it in place, while an older
-	 * one has plat_size set so that it is copied into its plat data
+	 * With of-platdata, info->plat is dtoc's generated data, which the
+	 * driver reads in place with the dev_prop helpers. It is never the
+	 * driver's own plat data
 	 */
-	ret = device_bind_common(parent, drv, info->name, (void *)info->plat, 0,
-				 ofnode_null(), driver_info_plat_size(info),
-				 info->plat, devp);
-	if (ret)
-		return ret;
+	if (IS_ENABLED(CONFIG_OF_PLATDATA))
+		return device_bind_common(parent, drv, info->name, NULL, 0,
+					  ofnode_null(), info->plat, devp);
 
-	return ret;
+	return device_bind_common(parent, drv, info->name, (void *)info->plat,
+				  0, ofnode_null(), NULL, devp);
 }
 
 int device_reparent(struct udevice *dev, struct udevice *new_parent)

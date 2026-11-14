@@ -45,9 +45,6 @@ struct driver_info;
 /* Device name is allocated and should be freed on unbind() */
 #define DM_FLAG_NAME_ALLOCED		(1 << 7)
 
-/* Device has platform data provided by of-platdata */
-#define DM_FLAG_OF_PLATDATA		(1 << 8)
-
 /*
  * Call driver remove function to stop currently active DMA transfers or
  * give DMA buffers back to the HW / controller. This may be needed for

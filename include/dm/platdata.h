@@ -20,25 +20,23 @@
  * available). U-Boot's driver model uses device tree for configuration.
  *
  * @name:	Driver name
- * @plat:	Driver-specific platform data
- * @plat_size: Size of platform data structure
+ * @plat:	Driver-specific platform data. With of-platdata this is the data
+ *	which dtoc generates for the driver to read with the dev_prop helpers,
+ *	or NULL if there is none
  * @parent_idx:	Index of the parent driver_info structure
  */
 struct driver_info {
 	const char *name;
 	const void *plat;
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
-	unsigned short plat_size;
 	short parent_idx;
 #endif
 };
 
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 #define driver_info_parent_id(driver_info)	driver_info->parent_idx
-#define driver_info_plat_size(driver_info)	driver_info->plat_size
 #else
 #define driver_info_parent_id(driver_info)	(-1)
-#define driver_info_plat_size(driver_info)	0
 #endif
 
 /**

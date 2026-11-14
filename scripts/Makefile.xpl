@@ -330,7 +330,7 @@ pythonpath = PYTHONPATH=scripts/dtc/pylibfdt
 # runs, so that other builds do not pay for it
 DTOC ?= $(or $(shell command -v dtoc 2>/dev/null),$(srctree)/tools/dtoc/dtoc)
 
-DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) \
+DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) --props-only \
 	-d $(obj)/$(XPL_BIN).dtb -p $(XPL_NAME)
 
 quiet_cmd_dtoc = DTOC    $@
