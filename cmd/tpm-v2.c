@@ -86,7 +86,7 @@ static int do_tpm2_clear(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	if (pw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (!strcasecmp("TPM2_RH_LOCKOUT", argv[1]))
 		handle = TPM2_RH_LOCKOUT;
@@ -127,10 +127,10 @@ static int do_tpm2_pcr_extend(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	priv = dev_get_uclass_priv(dev);
 	if (!priv)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (index >= priv->pcr_count)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	digest = map_sysmem(simple_strtoul(argv[2], NULL, 0), 0);
 	rc = tpm2_pcr_extend(dev, index, algo, digest, algo_len);
@@ -172,11 +172,11 @@ static int do_tpm_pcr_read(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	priv = dev_get_uclass_priv(dev);
 	if (!priv)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	index = simple_strtoul(argv[1], NULL, 0);
 	if (index >= priv->pcr_count)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	data = map_sysmem(simple_strtoul(argv[2], NULL, 0), 0);
 
@@ -352,7 +352,7 @@ static int do_tpm_dam_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	if (pw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	return report_return_code(tpm2_dam_reset(dev, pw, pw_sz));
 }
@@ -380,7 +380,7 @@ static int do_tpm_dam_parameters(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	if (pw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (strict_strtoul(argv[1], 0, &max_tries))
 		return CMD_RET_USAGE;
@@ -423,7 +423,7 @@ static int do_tpm_change_auth(struct cmd_tbl *cmdtp, int flag, int argc,
 	oldpw_sz = oldpw ? strlen(oldpw) : 0;
 
 	if (newpw_sz > TPM2_DIGEST_LEN || oldpw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (!strcasecmp("TPM2_RH_LOCKOUT", argv[1]))
 		handle = TPM2_RH_LOCKOUT;
@@ -463,7 +463,7 @@ static int do_tpm_pcr_setauthpolicy(struct cmd_tbl *cmdtp, int flag, int argc,
 	pw_sz = pw ? strlen(pw) : 0;
 
 	if (strlen(key) != TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	return report_return_code(tpm2_pcr_setauthpolicy(dev, pw, pw_sz, index,
 							 key));
@@ -494,7 +494,7 @@ static int do_tpm_pcr_setauthvalue(struct cmd_tbl *cmdtp, int flag,
 	pw_sz = pw ? strlen(pw) : 0;
 
 	if (key_sz != TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	return report_return_code(tpm2_pcr_setauthvalue(dev, pw, pw_sz, index,
 							key, key_sz));
