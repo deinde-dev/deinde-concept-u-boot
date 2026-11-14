@@ -460,6 +460,9 @@ U_BOOT_CMD_NOOPTS(
 #if IS_ENABLED(CONFIG_CMD_PING6)
 int do_ping6(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 {
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
 	if (string_to_ip6(argv[1], strlen(argv[1]), &net_ping_ip6))
 		return CMD_RET_USAGE;
 
