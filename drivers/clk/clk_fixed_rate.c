@@ -9,6 +9,7 @@
 #include <dm.h>
 #include <log.h>
 #include <dm/device-internal.h>
+#include <dm/prop.h>
 #include <linux/clk-provider.h>
 
 #define UBOOT_DM_CLK_FIXED_RATE "fixed_rate_clock"
@@ -35,9 +36,6 @@ void clk_fixed_rate_ofdata_to_plat_(struct udevice *dev,
 				    struct clk_fixed_rate *plat)
 {
 	struct clk *clk = &plat->clk;
-	if (dev_has_ofnode(dev))
-		plat->fixed_rate = dev_read_u32_default(dev, "clock-frequency",
-							0);
 
 	/* Make fixed rate clock accessible from higher level struct clk */
 	/* FIXME: This is not allowed */
@@ -59,7 +57,15 @@ const struct clk_ops clk_fixed_rate_raw_ops = {
 
 static int clk_fixed_rate_of_to_plat(struct udevice *dev)
 {
-	clk_fixed_rate_ofdata_to_plat_(dev, to_clk_fixed_rate(dev));
+	struct clk_fixed_rate *plat = to_clk_fixed_rate(dev);
+	DTPLAT(fixed_clock, dt, dev);
+
+	/* A device bound without a node already has its rate */
+	if (IS_ENABLED(CONFIG_OF_PLATDATA) || dev_has_ofnode(dev))
+		plat->fixed_rate = dev_prop_u32_default(dev, dt,
+							clock_frequency,
+							"clock-frequency", 0);
+	clk_fixed_rate_ofdata_to_plat_(dev, plat);
 
 	return 0;
 }
@@ -90,7 +96,7 @@ struct clk *clk_register_fixed_rate(struct device *dev, const char *name,
 }
 #endif
 
-static const struct udevice_id clk_fixed_rate_match[] = {
+static __maybe_unused const struct udevice_id clk_fixed_rate_match[] = {
 	{
 		.compatible = "fixed-clock",
 	},
@@ -100,7 +106,7 @@ static const struct udevice_id clk_fixed_rate_match[] = {
 U_BOOT_DRIVER(fixed_clock) = {
 	.name = "fixed_clock",
 	.id = UCLASS_CLK,
-	.of_match = clk_fixed_rate_match,
+	.of_match = of_match_ptr(clk_fixed_rate_match),
 	.of_to_plat = clk_fixed_rate_of_to_plat,
 	.plat_auto	= sizeof(struct clk_fixed_rate),
 	.ops = &clk_fixed_rate_ops,
