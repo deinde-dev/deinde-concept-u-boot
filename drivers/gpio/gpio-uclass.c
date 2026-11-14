@@ -1372,14 +1372,6 @@ int gpio_request_by_ofplat_idx(struct udevice *dev, uint idx, const int *arg,
 	return gpio_request_tail(ret, NULL, &args, NULL, 0, desc, flags,
 				 false, gpio_dev);
 }
-
-int gpio_request_by_phandle(struct udevice *dev,
-			    const struct phandle_2_arg *cells,
-			    struct gpio_desc *desc, int flags)
-{
-	return gpio_request_by_ofplat_idx(dev, cells->idx, cells->arg,
-					  ARRAY_SIZE(cells->arg), desc, flags);
-}
 #endif
 
 int dm_gpio_free(struct udevice *dev, struct gpio_desc *desc)

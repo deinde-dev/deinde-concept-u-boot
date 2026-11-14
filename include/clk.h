@@ -98,37 +98,7 @@ struct clk_bulk {
 	unsigned int count;
 };
 
-struct phandle_1_arg;
-
 #if IS_ENABLED(CONFIG_OF_CONTROL) && IS_ENABLED(CONFIG_CLK)
-/**
- * clk_get_by_phandle() - Get a clock by its phandle information (of-platadata)
- * @dev: Device containing the phandle
- * @cells: Phandle info
- * @clk: A pointer to a clock struct to initialise
- *
- * This function is used when of-platdata is enabled.
- *
- * This looks up a clock using the phandle info. With dtoc, each phandle in the
- * 'clocks' property is transformed into an idx representing the device.
- * For example::
- *
- *	clocks = <&dpll_mpu_ck 23>;
- *
- * might result in::
- *
- *	.clocks = {1, {23}},},
- *
- * indicating that the clock is udevice idx 1 in dt-plat.c with an argument of
- * 23. This function can return a valid clock given the above information. In
- * this example it would return a clock containing the 'dpll_mpu_ck' device and
- * the clock ID 23.
- *
- * Return: 0 if OK, or a negative error code.
- */
-int clk_get_by_phandle(struct udevice *dev, const struct phandle_1_arg *cells,
-		       struct clk *clk);
-
 /**
  * clk_get_by_ofplat_idx() - Get a clock from its device index (of-platdata)
  * @dev: Device which uses the clock
@@ -136,9 +106,18 @@ int clk_get_by_phandle(struct udevice *dev, const struct phandle_1_arg *cells,
  * @arg: Argument for the clock, i.e. the clock ID
  * @clk: A pointer to a clock struct to initialise
  *
- * This is the same as clk_get_by_phandle() but takes the values themselves,
- * so the compiler can see them when they are constant. This avoids keeping
- * the generated data just so its address can be passed.
+ * With dtoc, each phandle in the 'clocks' property is turned into the index
+ * of the clock device, followed by its argument. For example::
+ *
+ *	clocks = <&dpll_mpu_ck 23>;
+ *
+ * might result in::
+ *
+ *	.clocks = {1, {23}},},
+ *
+ * so @idx is 1 and @arg is 23. The values are passed themselves, rather than
+ * a pointer to them, so the compiler can see them when they are constant.
+ * This avoids keeping the generated data just so its address can be passed.
  *
  * Return: 0 if OK, or a negative error code.
  */
@@ -274,13 +253,6 @@ static inline struct clk *devm_clk_get_optional(struct udevice *dev,
 int clk_release_all(struct clk *clk, unsigned int count);
 
 #else
-
-static inline int clk_get_by_phandle(struct udevice *dev, const
-				     struct phandle_1_arg *cells,
-				     struct clk *clk)
-{
-	return -ENOSYS;
-}
 
 static inline int clk_get_by_ofplat_idx(struct udevice *dev, uint idx,
 					int arg, struct clk *clk)
