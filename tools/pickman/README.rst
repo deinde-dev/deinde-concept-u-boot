@@ -446,9 +446,7 @@ for failed pipelines. For each failed pipeline:
    failures remain, it stops there
 3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
-4. The fix is pushed to the MR branch, triggering a new pipeline. If the fix
-   cannot affect the jobs which passed, the pipeline runs only the others (see
-   `CI Pipelines`_)
+4. The fix is pushed to the MR branch, triggering a new pipeline
 5. The attempt is recorded in the database to avoid reprocessing
 
 If any failures remain after step 2 and the MR's branch is behind its target
@@ -505,30 +503,30 @@ A push with ``-o ci.skip`` starts no pipeline at all, not even a merge-request
 pipeline for an open MR. Pickman uses this when pushing the branch for a new
 MR, since creating the MR starts its pipeline. When pushing a pipeline fix or
 changes for review comments it leaves out ``ci.skip``, so that the MR's
-pipeline runs, unless it starts a pipeline itself as below.
+pipeline runs, unless no pipeline is needed, as below.
 
 A push with ``ci.skip`` to an open MR still leaves a skipped pipeline, which
 becomes the MR's head pipeline. Since it runs nothing, pickman looks past it to
 the newest pipeline which did run, so that a failure from before the push is
 still fixed, and a rebase waiting for that fix does not wait for ever.
 
-**Pipelines with only some jobs**
+**Pipelines which are not needed**
 
-A full pipeline runs about 140 jobs and takes one to two hours. When a pipeline
-fix or a review only changes files which no job reads (for now just
-``.pickman-history``), or changes nothing at all, pickman pushes with
-``ci.skip`` and starts a pipeline with only the jobs which did not pass, apart
-from any which also fail in other MRs. Jobs which are manual, or skipped because
-they need a manual job, do not run in a full pipeline either, so they are left
-out too. It does this with the ``ONLY_JOBS``
-pipeline variable, which holds a regex of job names (see ``.gitlab-ci.yml``).
-If that pipeline cannot be started, pickman starts a full MR pipeline instead.
+A full pipeline runs about 140 jobs and takes one to two hours. When a review
+only changes files which no job reads (for now just ``.pickman-history``), or
+changes nothing at all, running the jobs again would just retry them. So pickman
+pushes with ``ci.skip`` and says on the MR that no pipeline is needed, listing
+any jobs which are still failing. A failure stays failed until something
+changes it. Jobs which are manual, or skipped because they need a manual job,
+do not run in a full pipeline either, so they do not count as failing.
 
-Such a pipeline is a branch pipeline, so GitLab does not show it as the MR's
-pipeline. Pickman records it in its database and treats it as the MR's pipeline
-while it is the newest for the MR's commit. When it passes, pickman says so on
-the MR, naming the pipeline whose results it carries over for the other jobs.
-Pickman never merges an MR itself.
+Pickman used to start a pipeline with only the jobs which did not pass, using
+the ``ONLY_JOBS`` pipeline variable (see ``.gitlab-ci.yml``). Such a pipeline is
+a branch pipeline, so GitLab does not show it as the MR's pipeline. Pickman
+treats one which it has recorded as the MR's pipeline while it is the newest for
+the MR's commit, and when it passes, pickman says so on the MR, naming the
+pipeline whose results it carries over for the other jobs. Pickman never merges
+an MR itself.
 
 **Summary**
 
@@ -536,9 +534,9 @@ Pickman never merges an MR itself.
 Action                           Pipeline Skipped  Reason
 ===============================  ================  ==============================
 Initial branch push for new MR   Yes               MR creation triggers pipeline
-Push after rebase                No                MR pipeline runs
-Push of a pipeline fix           Sometimes         Only some jobs may need to run
-Push after review                Sometimes         Only some jobs may need to run
+Push after rebase                Sometimes         Not once the pipeline is good
+Push of a pipeline fix           No                MR pipeline runs
+Push after review                Sometimes         Not if no job is affected
 ===============================  ================  ==============================
 
 Usage

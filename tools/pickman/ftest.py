@@ -2756,7 +2756,7 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                             control.process_mr_reviews('ci', mrs, dbs)
 
             # The result is pushed by pickman, with no note to post
-            push.assert_called_once_with('ci', mrs[0], dbs, ())
+            push.assert_called_once_with('ci', mrs[0], dbs)
 
             # Agent should only receive the new comment
             call_args = moc.call_args
@@ -9810,7 +9810,7 @@ class TestEnsureMrPipeline(unittest.TestCase):
 
 
 class TestNarrowPipelines(unittest.TestCase):
-    """Tests for running only the jobs which a pipeline fix can affect"""
+    """Tests for working out which pipeline a merge request needs"""
 
     def setUp(self):
         """Set up a database"""
@@ -9860,30 +9860,21 @@ class TestNarrowPipelines(unittest.TestCase):
         'snow': 'canceled', 'manual-job': 'manual',
         'manual-job (variant)': 'skipped'})
 
-    def test_narrow_jobs(self):
-        """Test working out which jobs a new commit needs"""
-        statuses = self.BASE.jobs
-        with mock.patch.object(control, 'run_git',
-                               side_effect=self._git('.pickman-history\n')):
-            self.assertEqual(['rpi3', 'samus', 'snow'],
-                             control.narrow_jobs('aaa', 'bbb', statuses))
-            self.assertEqual(['rpi3', 'snow'],
-                             control.narrow_jobs('aaa', 'bbb', statuses,
-                                                 ['samus']))
+    def test_jobs_affected(self):
+        """Test working out whether a new commit can affect any job"""
+        # Only files which no job reads, or no change at all
+        for changed in ('.pickman-history\n', ''):
+            with mock.patch.object(control, 'run_git',
+                                   side_effect=self._git(changed)):
+                self.assertFalse(control.jobs_affected('aaa', 'bbb'))
 
-        # No change at all, e.g. for a transient failure
-        with mock.patch.object(control, 'run_git',
-                               side_effect=self._git('')):
-            self.assertEqual(['rpi3', 'samus', 'snow'],
-                             control.narrow_jobs('aaa', 'aaa', statuses))
-
-        # Anything else, or a diff which fails, needs every job
+        # Anything else, or a diff which fails, can affect them
         with mock.patch.object(control, 'run_git', side_effect=self._git(
                 '.pickman-history\nboard/foo.c\n')):
-            self.assertIsNone(control.narrow_jobs('aaa', 'bbb', statuses))
+            self.assertTrue(control.jobs_affected('aaa', 'bbb'))
         with mock.patch.object(control, 'run_git',
                                side_effect=self._git(None)):
-            self.assertIsNone(control.narrow_jobs('aaa', 'bbb', statuses))
+            self.assertTrue(control.jobs_affected('aaa', 'bbb'))
 
     def test_job_view(self):
         """Test combining the results of several pipelines"""
@@ -9917,54 +9908,113 @@ class TestNarrowPipelines(unittest.TestCase):
             del pipes[100]
             self.assertIsNone(control._job_view('ci', self._mr(), self.dbs))
 
-    def _push_with_ci(self, changed, started=99, leave_out=()):
+    def _push_with_ci(self, changed):
         """Run _push_with_ci() with pipeline 100 as the merge request's
 
+        Args:
+            changed (str): Output of 'git diff --name-only' since pipeline 100
+
         Returns:
-            tuple: (note, push mock, start mock, start_mr mock)
+            tuple: (note, push mock)
         """
         with mock.patch.object(control, 'run_git',
                                side_effect=self._git(changed)), \
              mock.patch.object(gitlab, 'get_pipeline_jobs',
                                return_value=self.BASE), \
-             mock.patch.object(gitlab, 'push_branch') as push, \
-             mock.patch.object(gitlab, 'start_only_jobs_pipeline',
-                               return_value=started) as start, \
-             mock.patch.object(gitlab, 'start_mr_pipeline') as start_mr:
+             mock.patch.object(gitlab, 'push_branch') as push:
             with terminal.capture():
-                note = control._push_with_ci('ci', self._mr(), self.dbs,
-                                         leave_out)
-        return note, push, start, start_mr
+                note = control._push_with_ci('ci', self._mr(), self.dbs)
+        return note, push
 
-    def test_push_with_ci_narrow(self):
-        """Test that a fix which no job can see re-runs only failed jobs"""
-        note, push, start, start_mr = self._push_with_ci('.pickman-history',
-                                                     leave_out=['samus'])
+    def test_push_with_ci_skip(self):
+        """Test that a change which no job reads runs no pipeline"""
+        for changed in ('.pickman-history', ''):
+            note, push = self._push_with_ci(changed)
+            push.assert_called_once_with('ci', 'cherry-test', force=True)
+            self.assertIn('No pipeline is needed: nothing which the jobs read '
+                          'has changed since pipeline 100 (commit aaa), so '
+                          'its results stand. Still failing: rpi3, samus, '
+                          'snow.', note)
+        self.assertIsNone(self.dbs.cirun_latest(1))
+
+        # Without failures, there is nothing more to say
+        passed = gitlab.PipelineJobs('aaa', 'success', {'rpi3': 'success'})
+        with mock.patch.object(control, 'run_git',
+                               side_effect=self._git('')), \
+             mock.patch.object(gitlab, 'get_pipeline_jobs',
+                               return_value=passed), \
+             mock.patch.object(gitlab, 'push_branch'):
+            with terminal.capture():
+                note = control._push_with_ci(
+                    'ci', self._mr(status='success'), self.dbs)
+        self.assertTrue(note.endswith('so its results stand.'))
+
+    def _review_after_failure(self, fix):
+        """Push a review which changes only the history, after a failure
+
+        The push runs no pipeline. The failure before it still counts, so
+        it is not fixed again, and a rebase sees it as dealt with rather
+        than waiting for a fix.
+
+        Args:
+            fix (str): How the pipeline fix handled failed pipeline 100
+
+        Returns:
+            str: Why the pipeline is good, from _last_pipeline(), or None
+        """
+        self.dbs.pfix_add(1, 100, 1, fix)
+        self.dbs.commit()
+        with mock.patch.object(control, 'run_git',
+                               side_effect=self._git('.pickman-history')), \
+             mock.patch.object(gitlab, 'get_pipeline_jobs',
+                               return_value=self.BASE), \
+             mock.patch.object(gitlab, 'push_branch') as push:
+            with terminal.capture():
+                note = control._push_review('ci', self._mr(), self.dbs,
+                                            'master', False)
         push.assert_called_once_with('ci', 'cherry-test', force=True)
-        start.assert_called_once_with('ci', 'cherry-test', ['rpi3', 'snow'])
-        start_mr.assert_not_called()
-        self.assertIn('Started pipeline 99 with only the jobs which did not '
-                      'pass: rpi3, snow', note)
-        self.assertIn('pipeline 100 (commit aaa)', note)
-        self.assertEqual(
-            database.CiRun(99, 'bbb', 100, ['rpi3', 'snow'], False),
-            self.dbs.cirun_latest(1))
+        self.assertIn('No pipeline is needed', note)
+
+        # The head pipeline is now a skipped one, on a new commit
+        count = self.dbs.pfix_count(1)
+        after = self._mr(pipeline_id=101, status='skipped', sha='ccc')
+        with mock.patch.object(control, 'run_git'), \
+             mock.patch.object(gitlab, 'get_last_pipeline',
+                               return_value=(100, 'failed')), \
+             mock.patch.object(gitlab, 'get_failed_jobs') as failed, \
+             mock.patch.object(agent, 'fix_pipeline') as agent_fix:
+            with terminal.capture():
+                self.assertEqual(0, control.process_pipeline_failures(
+                    'ci', [after], self.dbs, 'master', 3))
+            last = control._last_pipeline('ci', after, self.dbs)
+        failed.assert_not_called()
+        agent_fix.assert_not_called()
+        self.assertEqual(count, self.dbs.pfix_count(1))
+        self.assertEqual((100, 'failed', fix), last[:3])
+        return last[3]
+
+    def test_review_after_failure(self):
+        """Test a review push after a failure which the fix looked at"""
+        self.assertIsNone(self._review_after_failure('failure'))
+
+    def test_review_after_shared_failure(self):
+        """Test a review push after a failure not down to the series"""
+        self.assertIn('fail in other merge requests too',
+                      self._review_after_failure('shared'))
 
     def test_push_with_ci_full(self):
         """Test that a fix which changes code runs every job"""
-        note, push, start, _ = self._push_with_ci('board/foo.c')
+        note, push = self._push_with_ci('board/foo.c')
         push.assert_called_once_with('ci', 'cherry-test', force=True,
                                      skip_ci=False)
-        start.assert_not_called()
         self.assertEqual('', note)
-        self.assertIsNone(self.dbs.cirun_latest(1))
 
         # Likewise if the pipeline cannot be read
         with mock.patch.object(gitlab, 'get_pipeline_jobs',
                                return_value=None), \
              mock.patch.object(gitlab, 'push_branch') as push:
             self.assertEqual('', control._push_with_ci('ci', self._mr(),
-                                                       self.dbs, ()))
+                                                       self.dbs))
         push.assert_called_once_with('ci', 'cherry-test', force=True,
                                      skip_ci=False)
 
@@ -9972,28 +10022,10 @@ class TestNarrowPipelines(unittest.TestCase):
         with mock.patch.object(gitlab, 'get_pipeline_jobs') as get, \
              mock.patch.object(gitlab, 'push_branch') as push:
             self.assertEqual('', control._push_with_ci(
-                'ci', self._mr(status='running'), self.dbs, ()))
+                'ci', self._mr(status='running'), self.dbs))
         get.assert_not_called()
         push.assert_called_once_with('ci', 'cherry-test', force=True,
                                      skip_ci=False)
-
-    def test_push_with_ci_nothing_to_run(self):
-        """Test that no pipeline starts when only shared failures remain"""
-        note, push, start, _ = self._push_with_ci(
-            '', leave_out=['rpi3', 'samus', 'snow'])
-        push.assert_called_once_with('ci', 'cherry-test', force=True)
-        start.assert_not_called()
-        self.assertIn('No pipeline is needed: every job passed in pipeline '
-                      '100 (commit aaa) or also fails', note)
-
-    def test_push_with_ci_cannot_narrow(self):
-        """Test falling back to a full pipeline, e.g. without ONLY_JOBS"""
-        note, push, start, start_mr = self._push_with_ci('', started=None)
-        push.assert_called_once_with('ci', 'cherry-test', force=True)
-        start.assert_called_once()
-        start_mr.assert_called_once_with('ci', 1)
-        self.assertEqual('', note)
-        self.assertIsNone(self.dbs.cirun_latest(1))
 
     def test_current_pipeline(self):
         """Test putting pickman's pipeline in place of the head pipeline"""
@@ -10290,8 +10322,8 @@ class TestGetSharedFailures(unittest.TestCase):
         self.assertIsNone(gitlab.mr_iid_of_ref(None))
 
 
-class TestOnlyJobsPipeline(unittest.TestCase):
-    """Tests for pipelines which run only some jobs"""
+class TestPipelineApi(unittest.TestCase):
+    """Tests for reading pipelines and their jobs"""
 
     @staticmethod
     def _job(name, status):
@@ -10352,59 +10384,6 @@ class TestOnlyJobsPipeline(unittest.TestCase):
             with terminal.capture() as (_, err):
                 self.assertIsNone(gitlab.get_pipeline_jobs('ci', 7))
         self.assertIn('Could not read pipeline 7: gone', err.getvalue())
-
-    def test_only_jobs_regex(self):
-        """Test that job names are matched exactly"""
-        self.assertEqual(
-            r'/^(rpi3|BeagleBone Black \(lwIP\)|sandbox test\.py|a\/b)$/',
-            gitlab.only_jobs_regex(['rpi3', 'BeagleBone Black (lwIP)',
-                                    'sandbox test.py', 'a/b']))
-
-    def test_start_only_jobs_pipeline(self):
-        """Test starting a pipeline which runs only some jobs"""
-        project = mock.Mock()
-        project.pipelines.create.return_value = mock.Mock(id=99)
-        with mock.patch.object(gitlab, 'get_project', return_value=project):
-            self.assertEqual(99, gitlab.start_only_jobs_pipeline(
-                'ci', 'cherry-abc', ['rpi3', 'samus']))
-        project.pipelines.create.assert_called_once_with({
-            'ref': 'cherry-abc',
-            'variables': [{'key': 'ONLY_JOBS',
-                           'value': '/^(rpi3|samus)$/'}]})
-
-        with mock.patch.object(gitlab, 'get_project', return_value=None):
-            self.assertIsNone(gitlab.start_only_jobs_pipeline(
-                'ci', 'cherry-abc', ['rpi3']))
-
-        project.pipelines.create.side_effect = \
-            gitlab.gitlab.exceptions.GitlabError('filtered out')
-        with mock.patch.object(gitlab, 'get_project', return_value=project):
-            with terminal.capture() as (_, err):
-                self.assertIsNone(gitlab.start_only_jobs_pipeline(
-                    'ci', 'cherry-abc', ['rpi3']))
-        self.assertIn('Could not start a pipeline with only some jobs',
-                      err.getvalue())
-
-    def test_start_mr_pipeline(self):
-        """Test starting a full pipeline for a merge request"""
-        project = mock.Mock()
-        merge_req = project.mergerequests.get.return_value
-        with mock.patch.object(gitlab, 'get_project', return_value=project):
-            self.assertTrue(gitlab.start_mr_pipeline('ci', 42))
-        project.mergerequests.get.assert_called_once_with(42)
-        merge_req.pipelines.create.assert_called_once_with({})
-
-        with mock.patch.object(gitlab, 'get_project', return_value=None):
-            self.assertFalse(gitlab.start_mr_pipeline('ci', 42))
-
-        merge_req.pipelines.create.side_effect = \
-            gitlab.gitlab.exceptions.GitlabError('nope')
-        with mock.patch.object(gitlab, 'get_project', return_value=project):
-            with terminal.capture() as (_, err):
-                self.assertFalse(gitlab.start_mr_pipeline('ci', 42))
-        self.assertIn('MR !42: could not start a pipeline: nope',
-                      err.getvalue())
-
 
 class TestRemovedIdentifiers(unittest.TestCase):
     """Tests for finding names a revert would take away"""

@@ -63,12 +63,6 @@ FailedJob = namedtuple('FailedJob',
 # job name -> job status
 PipelineJobs = namedtuple('PipelineJobs', ['sha', 'status', 'jobs'])
 
-# Pipeline variable holding a regex of the jobs to run, see .gitlab-ci.yml
-ONLY_JOBS = 'ONLY_JOBS'
-
-# Characters with a special meaning in a regex held in a GitLab variable
-RE_SPECIAL = re.compile(r'([\\.^$|?*+()\[\]{}/])')
-
 
 def check_available():
     """Check if the python-gitlab module is available
@@ -905,8 +899,8 @@ def get_last_pipeline(remote, mr_iid):
 
     A push with ci.skip leaves a skipped pipeline, which says nothing about
     the merge request, so the head pipeline may not be the one which last
-    ran. The list includes the pipelines which pickman starts on the branch
-    to run only some jobs.
+    ran. The list includes pipelines started on the branch, such as those
+    which pickman used to start to run only some jobs.
 
     Args:
         remote (str): Remote name
@@ -931,71 +925,6 @@ def get_last_pipeline(remote, mr_iid):
     except gitlab.exceptions.GitlabError as exc:
         tout.warning(f'MR !{mr_iid}: could not read its pipelines: {exc}')
         return None
-
-
-def only_jobs_regex(names):
-    """Make a regex for ONLY_JOBS which matches just the given job names
-
-    Args:
-        names (list of str): Job names, e.g. 'BeagleBone Black (lwIP)'
-
-    Returns:
-        str: Regex in GitLab's /.../ form
-    """
-    return '/^(' + '|'.join(RE_SPECIAL.sub(r'\\\1', name)
-                            for name in names) + ')$/'
-
-
-def start_only_jobs_pipeline(remote, branch, names):
-    """Start a pipeline on a branch which runs only the given jobs
-
-    This relies on the ONLY_JOBS support in .gitlab-ci.yml. The pipeline is
-    a branch pipeline, not a merge request's, so it does not become the
-    merge request's head pipeline: the caller has to keep track of it.
-
-    Args:
-        remote (str): Remote name
-        branch (str): Branch to run on
-        names (list of str): Names of the jobs to run, which must not be
-            empty, since GitLab refuses a pipeline with no jobs
-
-    Returns:
-        int: Pipeline ID, or None if it could not be started
-    """
-    try:
-        project = get_project(remote)
-        if not project:
-            return None
-        pipeline = project.pipelines.create({
-            'ref': branch,
-            'variables': [{'key': ONLY_JOBS,
-                           'value': only_jobs_regex(names)}]})
-        return pipeline.id
-    except gitlab.exceptions.GitlabError as exc:
-        tout.warning(f'Could not start a pipeline with only some jobs: '
-                     f'{exc}')
-        return None
-
-
-def start_mr_pipeline(remote, mr_iid):
-    """Start a full pipeline for a merge request
-
-    Args:
-        remote (str): Remote name
-        mr_iid (int): Merge request IID
-
-    Returns:
-        bool: True if it was started
-    """
-    try:
-        project = get_project(remote)
-        if not project:
-            return False
-        project.mergerequests.get(mr_iid).pipelines.create({})
-        return True
-    except gitlab.exceptions.GitlabError as exc:
-        tout.error(f'MR !{mr_iid}: could not start a pipeline: {exc}')
-        return False
 
 
 def push_and_create_mr(remote, branch, target, title, desc=''):
