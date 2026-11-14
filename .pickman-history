@@ -106828,3 +106828,28 @@ I did not run the sandbox or buildman builds, since there was nothing to fix.
 
 ---
 
+### Pipeline fix: 2026-11-13 (attempt 3)
+
+Branch: cherry-ce82cd191de2
+
+Failed jobs:
+- ff3399 (sjg-lab)
+
+### Conversation log
+No changes made: this is the same failure as attempt 2 and the branch does not cause it, so I did not create `cherry-ce82cd191de2-fix3`.
+
+**Failure:** `test_distro_shim_arm64` on ff3399 timed out waiting for `EFI stub: Booting Linux Kernel` (`test/py/tests/test_distro.py:365`). It was again the only failure: 46 passed, 1 failed.
+
+**Why the branch is not responsible:**
+- **Scope of the branch:** against its base (3d5a04e945bd) it only adds `drivers/rng/airoha-rng.c`, the `RNG_AIROHA` Kconfig entry, one Makefile line, two lines in `configs/an7581_evb_defconfig`, and `.pickman-history`.
+- **Build check:** I built `firefly-rk3399` from the branch head. Its `.config` has `# CONFIG_ARCH_AIROHA is not set`, with no `RNG_AIROHA` symbol at all, and `drivers/rng/` contains only `rng-uclass.o` and `rockchip_rng.o`. The new driver is not compiled into the ff3399 image.
+- **Test origin:** the failing test comes from b7378e57a85f ("test/py: Boot Ubuntu through shim on the Firefly-RK3399"), which is already in the base, not in this MR.
+
+**Likely cause:** a lab-side problem, or a real problem already on master, in the Ubuntu-through-shim boot on the Firefly-RK3399. The test got past `Booting /\EFI\BOOT\BOOTAA64.EFI`, then nothing matched within 200 seconds, so shim/GRUB started but the kernel never reported in. The log tail does not include the console output from that stretch, so I can't narrow it further. Two identical failures in a row make a one-off flake less likely.
+
+**Suggested next step:** run the ff3399 job on master. If it fails there too, the problem is in the base or the lab (SD card contents, shim/GRUB, or the board) and this MR can go in regardless. The `test-log.html` artifact from job 772042 should show where the boot stalls.
+
+The local `firefly-rk3399` build stopped at the binman step with "Some images are invalid" after compiling `u-boot.bin`; I did not investigate that further. I did not run the sandbox build, since there was nothing to fix.
+
+---
+
