@@ -107112,3 +107112,58 @@ A final `split-check` over the whole branch reports nothing outstanding.
 
 ---
 
+### Pipeline fix: 2026-11-14 (attempt 1)
+
+Branch: cherry-40e72866bb42
+
+Failed jobs:
+- sandbox test.py (test.py)
+- sandbox with clang test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox64 test.py (test.py)
+- build all 64bit ARM platforms (world_build)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+The test failure is diagnosed (the cherry-pick dropped the `fastboot_init()` call the local test relies on); now tracing the separate ARM64 `.sram` link error to a board and commit.
+
+Test fix is in place in the first commit; amending it now and finishing the rebase, while the full aarch64 build runs in the background to locate the `.sram` link error.
+
+Sandbox test fix verified; checking the sandbox-family buildman results (3 of 9 reported errors) while the aarch64 build still runs.
+
+Waiting on the background aarch64 build to finish before I can say anything about the `.sram` link error.
+
+The aarch64 build is still running in the background; I'll pick up when it completes.
+
+Both failures still happen on the rebased branch and both come from the first commit, `fastboot: factor out the USB session runner`. I amended that commit with two fixes, and the result is on `cherry-40e72866bb42-fix1` (not pushed).
+
+## What was wrong
+
+- **Test failure (all sandbox test.py jobs, `make check`, `make qcheck`):** `ut cmd fastboot_buf` failed with "Expected 0000000000001000, got 0000000000000000". The upstream commit moves `fastboot_init()` out of `do_fastboot()` into each transport, after the "not enabled" check. This tree's `test/cmd/fastboot.c` relies on -l and -s taking effect before the transport is dispatched to.
+- **Build failure (build all 64bit ARM platforms):** `cmd/fastboot.c` failed on e850-96 and librem5-devkit with "implicit declaration of function 'strcmp'". The commit drops the headers that used to pull in `<string.h>` indirectly. The CI log tail did not show this error; I found it by building all 561 aarch64 boards locally.
+
+## What I changed
+
+Both changes are in `cmd/fastboot.c`, each with a `[pickman]` note at the end of the commit message:
+
+- **`fastboot_init()`:** restored the call in `do_fastboot()` and removed the two copies the commit added to the UDP and TCP paths, which were then duplicates. The call inside `fastboot_usb_run()` stays, since SPL callers need it.
+- **`<string.h>`:** added the include.
+
+## Verification
+
+- **Sandbox:** `um build sandbox` is clean, and the five fastboot tests (`fastboot_base`, `_buf`, `_usb`, `_tcp`, `_udp`) pass on it.
+- **buildman:** e850-96, librem5-devkit, sandbox, sandbox64 and sandbox_flattree all build. I did not run the tests on the sandbox64 or sandbox_flattree binaries, nor the full test.py suite.
+- **Not re-run:** the full aarch64 sweep was done before the `<string.h>` fix; afterwards I only rebuilt the two boards that failed because of this branch.
+
+## Failures not caused by this branch
+
+- **rk3328 boards (11 of them, e.g. evb-rk3328):** fail locally in `sdram_rk3328.c` with "no member named 'has'". evb-rk3328 fails identically on ci/master.
+- **sandbox_noinst, sandbox_spl, sandbox_vpl:** fail locally in `drivers/misc/prop_sandbox.c` with the same kind of error. The MR description already records this for sandbox_spl on ci/master, and CI built sandbox_noinst without trouble, so this looks like a local environment problem.
+- **"invalid length for memory region .sram":** the one error line visible in the CI log tail comes from jaguar-rk3588, is non-fatal (the board builds) and also appears on ci/master.
+
+If the ARM job fails again in CI, the rk3328 boards are the first place to look, since I could only show they fail locally on ci/master, not how they behave in CI.
+
+---
+
