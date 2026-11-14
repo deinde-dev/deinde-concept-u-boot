@@ -152,6 +152,8 @@ static int sandbox_scsi_remove(struct udevice *dev)
 	struct sandbox_scsi_priv *priv = dev_get_priv(dev);
 	struct scsi_emul_info *info = &priv->eminfo;
 
+	if (priv->fd != -1)
+		os_close(priv->fd);
 	free(info->buff);
 
 	return 0;
