@@ -88,4 +88,4 @@ See also
 * :doc:`bootp<bootp>` for obtaining the name-server address from a BOOTP
   server
 * *dhcp* for obtaining the name-server address automatically
-* *ping* for checking that a host answers
+* :doc:`ping<ping>` for checking that a host answers
