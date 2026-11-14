@@ -5649,6 +5649,10 @@ def _current_pipeline(remote, merge_req, dbs):
     head pipeline, so put it in place of that one when it is for the merge
     request's commit and is newer.
 
+    The push which starts pickman's pipeline uses ci.skip, so it also makes a
+    skipped head pipeline, which can have a higher ID. That one runs nothing,
+    so it never takes precedence over pickman's.
+
     Args:
         remote (str): Remote name
         merge_req (PickmanMr): Merge request
@@ -5661,7 +5665,9 @@ def _current_pipeline(remote, merge_req, dbs):
     if not merge_req.sha:
         return merge_req, None
     run = dbs.cirun_latest(merge_req.iid)
-    if (not run or run.sha != merge_req.sha or
+    if not run or run.sha != merge_req.sha:
+        return merge_req, None
+    if (merge_req.pipeline_status != 'skipped' and
             (merge_req.pipeline_id or 0) > run.pipeline_id):
         return merge_req, None
     jobs = gitlab_api.get_pipeline_jobs(remote, run.pipeline_id)
