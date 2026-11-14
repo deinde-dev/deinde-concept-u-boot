@@ -9,6 +9,7 @@
 #include <dm.h>
 #include <env.h>
 #include <fdtdec.h>
+#include <getopt.h>
 #include <log.h>
 #include <malloc.h>
 #include <net.h>
@@ -22,6 +23,25 @@
 #include <ndisc.h>
 
 #define DM_TEST_ETH_NUM		4
+
+/**
+ * run_ping() - run the ping command with the arguments a test has set up
+ *
+ * The handler takes a getopt state rather than an argument list, so set one
+ * up for it.
+ *
+ * @argv: Arguments, starting with the command name
+ * @argc: Number of arguments
+ * Return: result (see enum command_ret_t)
+ */
+static int run_ping(char *const argv[], int argc)
+{
+	struct getopt_state gs;
+
+	getopt_init_state(&gs, argc, argv);
+
+	return do_ping(&gs);
+}
 
 #if IS_ENABLED(CONFIG_IPV6)
 static int dm_test_string_to_ip6(struct unit_test_state *uts)
@@ -174,15 +194,15 @@ static int dm_test_eth(struct unit_test_state *uts)
 	char *argv[] = { "ping", "1.1.2.2" };
 
 	env_set("ethact", "eth@10002000");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10002000", env_get("ethact"));
 
 	env_set("ethact", "eth@10003000");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10003000", env_get("ethact"));
 
 	env_set("ethact", "eth@10004000");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10004000", env_get("ethact"));
 
 	return 0;
@@ -194,20 +214,20 @@ static int dm_test_eth_alias(struct unit_test_state *uts)
 	char *argv[] = { "ping", "1.1.2.2" };
 
 	env_set("ethact", "eth0");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10002000", env_get("ethact"));
 
 	env_set("ethact", "eth6");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10004000", env_get("ethact"));
 
 	/* Expected to fail since eth1 is not defined in the device tree */
 	env_set("ethact", "eth1");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10002000", env_get("ethact"));
 
 	env_set("ethact", "eth5");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10003000", env_get("ethact"));
 
 	return 0;
@@ -221,13 +241,13 @@ static int dm_test_eth_prime(struct unit_test_state *uts)
 	/* Expected to be "eth@10003000" because of ethprime variable */
 	env_set("ethact", NULL);
 	env_set("ethprime", "eth5");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10003000", env_get("ethact"));
 
 	/* Expected to be "eth@10002000" because it is first */
 	env_set("ethact", NULL);
 	env_set("ethprime", NULL);
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10002000", env_get("ethact"));
 
 	return 0;
@@ -282,7 +302,7 @@ static int dm_test_eth_act(struct unit_test_state *uts)
 	env_set("ethact", ethname[0]);
 
 	/* Segment fault might happen if something is wrong */
-	ut_asserteq(CMD_RET_FAILURE, do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_asserteq(CMD_RET_FAILURE, run_ping(argv, ARRAY_SIZE(argv)));
 
 	for (i = 0; i < DM_TEST_ETH_NUM; i++) {
 		/* Restore the env */
@@ -339,13 +359,13 @@ static int _dm_test_eth_rotate1(struct unit_test_state *uts)
 
 	/* Make sure that the default is to rotate to the next interface */
 	env_set("ethact", "eth@10004000");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10002000", env_get("ethact"));
 
 	/* If ethrotate is no, then we should fail on a bad MAC */
 	env_set("ethact", "eth@10004000");
 	env_set("ethrotate", "no");
-	ut_asserteq(CMD_RET_FAILURE, do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_asserteq(CMD_RET_FAILURE, run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10004000", env_get("ethact"));
 
 	return 0;
@@ -357,12 +377,12 @@ static int _dm_test_eth_rotate2(struct unit_test_state *uts)
 
 	/* Make sure we can skip invalid devices */
 	env_set("ethact", "eth@10004000");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10004000", env_get("ethact"));
 
 	/* Make sure we can handle device name which is not eth# */
 	env_set("ethact", "sbe5");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("sbe5", env_get("ethact"));
 
 	return 0;
@@ -419,7 +439,7 @@ static int _dm_test_net_retry(struct unit_test_state *uts)
 	env_set("ethact", "eth@10002000");
 	env_set("netretry", "yes");
 	sandbox_eth_skip_timeout();
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10003000", env_get("ethact"));
 
 	/*
@@ -429,7 +449,7 @@ static int _dm_test_net_retry(struct unit_test_state *uts)
 	env_set("ethact", "eth@10002000");
 	env_set("netretry", "no");
 	sandbox_eth_skip_timeout();
-	ut_asserteq(CMD_RET_FAILURE, do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_asserteq(CMD_RET_FAILURE, run_ping(argv, ARRAY_SIZE(argv)));
 	ut_asserteq_str("eth@10002000", env_get("ethact"));
 
 	return 0;

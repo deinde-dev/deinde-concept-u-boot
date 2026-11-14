@@ -4,6 +4,7 @@
  */
 
 #include <env.h>
+#include <getopt.h>
 #include <net/dsa.h>
 #include <dm/test.h>
 #include <test/ut.h>
@@ -65,14 +66,17 @@ DM_TEST(dm_test_dsa_probe, UTF_SCAN_FDT);
 static int dm_test_dsa(struct unit_test_state *uts)
 {
 	char *argv[] = { "ping", "1.1.2.2" };
+	struct getopt_state gs;
+
+	getopt_init_state(&gs, ARRAY_SIZE(argv), argv);
 
 	env_set("ethact", "eth2");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(do_ping(&gs));
 
 	env_set("ethact", "lan0");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(do_ping(&gs));
 	env_set("ethact", "lan1");
-	ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(argv), argv));
+	ut_assertok(do_ping(&gs));
 
 	env_set("ethact", "");
 

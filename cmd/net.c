@@ -428,9 +428,11 @@ static int netboot_common(enum proto_t proto, int argc, char *const argv[])
 }
 
 #if defined(CONFIG_CMD_PING)
-int do_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_ping(struct getopt_state *gs)
 {
-	if (argc < 2)
+	char *const *argv = gs->argv;
+
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
 	net_ping_ip = string_to_ip(argv[1]);
@@ -447,7 +449,7 @@ int do_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	ping,	2,	1,	do_ping,
 	"send ICMP ECHO_REQUEST to network host",
 	"pingAddress"

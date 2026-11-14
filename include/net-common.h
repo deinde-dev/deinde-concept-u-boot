@@ -570,13 +570,10 @@ int tftpb_run(ulong addr, const char *fname);
 /**
  * do_ping - Run the ping command
  *
- * @cmdtp: Unused
- * @flag: Command flags (CMD_FLAG_...)
- * @argc: Number of arguments
- * @argv: List of arguments
+ * @gs: Command state, holding the arguments
  * Return: result (see enum command_ret_t)
  */
-int do_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
+int do_ping(struct getopt_state *gs);
 
 /**
  * do_sntp - Run the sntp command

@@ -2446,6 +2446,7 @@ config NFS_TIMEOUT
 
 config CMD_PING
 	bool "ping"
+	select GETOPT
 	select PROT_RAW_LWIP if NET_LWIP
 	help
 	  Send ICMP ECHO_REQUEST to network host
