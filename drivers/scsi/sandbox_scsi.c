@@ -58,7 +58,9 @@ static int sandbox_scsi_exec(struct udevice *dev, struct scsi_cmd *req)
 		if (bytes_read != info->buff_used)
 			return -EIO;
 	} else if (!ret) {
-		req->pdata = info->buff;
+		/* the caller reads the response from its own buffer */
+		memcpy(req->pdata, info->buff,
+		       min_t(ulong, info->buff_used, req->datalen));
 		info->phase = SCSIPH_STATUS;
 		log_debug("sending buf\n");
 	} else {
