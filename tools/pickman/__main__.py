@@ -273,6 +273,12 @@ def add_main_commands(subparsers):
     poll_cmd.add_argument('-t', '--target', default='master',
                           help='Target branch for MR (default: master)')
 
+    subparsers.add_parser(
+        'stop', help="Ask a running 'poll' to stop once its round is done")
+    subparsers.add_parser(
+        'restart',
+        help="Ask a running 'poll' to restart once its round is done")
+
     push_cmd = subparsers.add_parser('push-branch',
                                      help='Push branch using GitLab API token')
     push_cmd.add_argument('branch', help='Branch name to push')
