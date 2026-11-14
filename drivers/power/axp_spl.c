@@ -196,7 +196,7 @@ int axp_init(void)
 }
 
 #if !IS_ENABLED(CONFIG_ARM_PSCI_FW) && !IS_ENABLED(CONFIG_SYSRESET_CMD_POWEROFF)
-int do_poweroff(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_poweroff(void)
 {
 	pmic_bus_setbits(AXP_SHUTDOWN_REG, AXP_SHUTDOWN_MASK);
 

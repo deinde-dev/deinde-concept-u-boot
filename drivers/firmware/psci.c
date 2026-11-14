@@ -304,7 +304,7 @@ void psci_sys_poweroff(void)
 }
 
 #if IS_ENABLED(CONFIG_CMD_POWEROFF) && !IS_ENABLED(CONFIG_SYSRESET_CMD_POWEROFF)
-int do_poweroff(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_poweroff(void)
 {
 	do_psci_probe();
 

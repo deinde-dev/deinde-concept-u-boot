@@ -20,8 +20,7 @@
 #define   SLEEP_MODE_BIT	BIT(3)
 
 #ifdef CONFIG_CMD_POWEROFF
-int do_poweroff(struct cmd_tbl *cmdtp,
-		int flag, int argc, char *const argv[])
+int do_poweroff(void)
 {
 	struct udevice *dev;
 	uchar data_buffer[1];

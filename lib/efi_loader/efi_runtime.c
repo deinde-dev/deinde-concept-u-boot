@@ -287,7 +287,7 @@ static void EFIAPI efi_reset_system_boottime(
 		break;
 	case EFI_RESET_SHUTDOWN:
 #ifdef CONFIG_CMD_POWEROFF
-		do_poweroff(NULL, 0, 0, NULL);
+		do_poweroff();
 #endif
 		break;
 	}

@@ -175,7 +175,7 @@ void twl4030_power_mmc_init(int dev_index)
 }
 
 #ifdef CONFIG_CMD_POWEROFF
-int do_poweroff(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_poweroff(void)
 {
 	twl4030_power_off();
 
