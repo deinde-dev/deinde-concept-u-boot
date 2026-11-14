@@ -431,6 +431,7 @@ static int netboot_common(enum proto_t proto, int argc, char *const argv[])
 int do_ping(struct getopt_state *gs)
 {
 	char *const *argv = gs->argv;
+	int ret;
 
 	if (gs->argc < 2)
 		return CMD_RET_USAGE;
@@ -439,10 +440,10 @@ int do_ping(struct getopt_state *gs)
 	if (net_ping_ip.s_addr == 0)
 		return CMD_RET_USAGE;
 
-	if (net_loop(PING) < 0) {
-		printf("ping failed; host %s is not alive\n", argv[1]);
-		return CMD_RET_FAILURE;
-	}
+	ret = net_loop(PING);
+	if (ret < 0)
+		return cmd_fail(ret, "ping failed; host %s is not alive\n",
+				argv[1]);
 
 	printf("host %s is alive\n", argv[1]);
 

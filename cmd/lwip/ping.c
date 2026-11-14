@@ -149,7 +149,8 @@ static int ping_loop(struct net_lwip_ctx *net, const ip_addr_t *addr)
 	if (ctx.alive)
 		return 0;
 
-	printf("ping failed; host %s is not alive\n", ipaddr_ntoa(addr));
+	cmd_err("ping failed; host %s is not alive\n", ipaddr_ntoa(addr));
+
 	return -1;
 }
 
