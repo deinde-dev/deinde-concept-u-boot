@@ -829,13 +829,14 @@ Some other changes are made with of-platdata:
    This has been removed since we now use indexes to obtain a driver from
    `struct phandle_0_arg` and the like.
 
-Multiple-pass binding
+Order of binding
    The idx value relies on alphabetical order, so that dtoc and U-Boot's
-   linker_lists agree on it. Devices are bound in order of idx, having no
-   regard to parent/child relationships. For this reason, device binding
-   happens in multiple passes, with parents being bound before their children.
-   This is important so that children can find their parents in the bind()
-   method if needed.
+   linker_lists agree on it. Devices are bound in order of idx. dtoc names
+   each record after the full path of its node, e.g. `i2c_at_0_rtc_at_43`,
+   so that the name of a parent is a prefix of the names of its children and
+   comes before them. Devices are therefore bound in a single pass, with each
+   parent bound before its children, so that a child can find its parent in
+   its bind() method if needed.
 
 The dm_populate_phandle_data() function that was previous needed has now been
 removed, since dtoc can address the drivers directly from dt-plat.c and does

@@ -52,35 +52,20 @@ struct uclass_driver *lists_uclass_lookup(enum uclass_id id)
 	return NULL;
 }
 
-/**
- * bind_drivers_pass() - Perform a pass of driver binding
- *
- * Work through the driver_info records binding a driver for each one. If the
- * binding fails, continue binding others, but return the error.
- *
- * For OF_PLATDATA we must bind parent devices before their children. So only
- * children of bound parents are bound on each call to this function. When a
- * child is left unbound, -EAGAIN is returned, indicating that this function
- * should be called again
- *
- * @parent: Parent device to use when binding each child device
- * Return: 0 if OK, -EAGAIN if unbound children exist, -ENOENT if there is no
- * driver for one of the devices, other -ve on other error
- */
-static int bind_drivers_pass(struct udevice *parent, bool pre_reloc_only)
+int lists_bind_drivers(struct udevice *parent, bool pre_reloc_only)
 {
 	struct driver_info *info =
 		ll_entry_start(struct driver_info, driver_info);
 	const int n_ents = ll_entry_count(struct driver_info, driver_info);
-	bool missing_parent = false;
 	int result = 0;
 	int idx;
 
 	/*
-	 * Do one iteration through the driver_info records. For of-platdata,
-	 * bind only devices whose parent is already bound. If we find any
-	 * device we can't bind, set missing_parent to true, which will cause
-	 * this function to be called again.
+	 * Bind a device for each driver_info record. If binding fails, carry
+	 * on with the others, but return the error.
+	 *
+	 * With of-platdata, dtoc names each record so that it comes after that
+	 * of its parent, so a parent is always bound before its children
 	 */
 	for (idx = 0; idx < n_ents; idx++) {
 		struct udevice *par = parent;
@@ -97,15 +82,16 @@ static int bind_drivers_pass(struct udevice *parent, bool pre_reloc_only)
 
 			if (IS_ENABLED(CONFIG_OF_PLATDATA_PARENT) &&
 			    parent_idx != -1) {
-				struct driver_rt *parent_drt;
+				struct driver_rt *rt = gd_dm_driver_rt();
 
-				parent_drt = gd_dm_driver_rt() + parent_idx;
-				if (!parent_drt->dev) {
-					missing_parent = true;
+				par = rt[parent_idx].dev;
+
+				/* Without its parent, the device cannot work */
+				if (!par) {
+					if (!result)
+						result = -ENOENT;
 					continue;
 				}
-
-				par = parent_drt->dev;
 			}
 		}
 		ret = device_bind_by_name(par, pre_reloc_only, entry, &dev);
@@ -118,29 +104,6 @@ static int bind_drivers_pass(struct udevice *parent, bool pre_reloc_only)
 			if (!result || ret != -ENOENT)
 				result = ret;
 		}
-	}
-
-	return result ? result : missing_parent ? -EAGAIN : 0;
-}
-
-int lists_bind_drivers(struct udevice *parent, bool pre_reloc_only)
-{
-	int result = 0;
-	int pass;
-
-	/*
-	 * 10 passes is 10 levels deep in the devicetree, which is plenty. If
-	 * OF_PLATDATA_PARENT is not enabled, then bind_drivers_pass() will
-	 * always succeed on the first pass.
-	 */
-	for (pass = 0; pass < 10; pass++) {
-		int ret;
-
-		ret = bind_drivers_pass(parent, pre_reloc_only);
-		if (!result || result == -EAGAIN)
-			result = ret;
-		if (ret != -EAGAIN)
-			break;
 	}
 
 	return result;

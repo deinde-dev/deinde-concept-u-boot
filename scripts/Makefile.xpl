@@ -335,7 +335,7 @@ pythonpath = PYTHONPATH=scripts/dtc/pylibfdt
 DTOC ?= $(or $(shell command -v dtoc 2>/dev/null),$(srctree)/tools/dtoc/dtoc)
 
 DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) --props-only \
-	--driver-ref \
+	--driver-ref --parent-first \
 	-d $(obj)/$(XPL_BIN).dtb -p $(XPL_NAME)
 
 quiet_cmd_dtoc = DTOC    $@
