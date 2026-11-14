@@ -106770,3 +106770,86 @@ Retry both jobs once the coral place is free.
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-ce82cd191de2
+
+Commits:
+- ce82cd191de2 rng: airoha: add support for the Airoha TRNG
+- 2b8358483c3e configs: an7581_evb: enable the Airoha TRNG
+- 0a55b098d6f5 Merge patch series "rng: airoha: add support for the Airoha TRNG"
+
+### Conversation log
+Not already applied; the conflict is simple (the target has dropped `$(PHASE_)`). Resolving by keeping the target's line and adding the new driver.
+
+All 3 commits are cherry-picked onto `cherry-ce82cd191de2` (based on ci/master) and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+```
+1eb75fe866e4 Merge patch series "rng: airoha: add support for the Airoha TRNG"
+fda9c739da1b configs: an7581_evb: enable the Airoha TRNG
+994f005689de rng: airoha: add support for the Airoha TRNG
+```
+
+**Fix-ups**
+- **994f005689de (rng: airoha driver):** conflict in `drivers/rng/Makefile`, because the source's context line uses `$(CONFIG_$(PHASE_)DM_RNG)` while the target has `$(CONFIG_DM_RNG)`. I kept the target's line and added the new `airoha-rng.o` line, with a note in the commit message.
+- **1eb75fe866e4 (merge):** the same context-line conflict; I kept the target's line, so the commit is empty as expected and carries a note saying so.
+- **fda9c739da1b (defconfig):** applied cleanly.
+
+**Checks**
+- **Already-applied check:** the first pick conflicted, so I searched ci/master for the three subjects and found none, so the series was not already applied.
+- **Deltas:** both non-merge commits match the originals exactly (3 files / 144 insertions, and 1 file / 2 insertions).
+- **split-check:** ran after each pick and changed nothing.
+- **Build coverage:** the sandbox build does not compile `airoha-rng.c`, since only `an7581_evb` enables `RNG_AIROHA`, so the new driver itself is not build-tested here.
+
+---
+
+### Pipeline fix: 2026-11-13 (attempt 2)
+
+Branch: cherry-ce82cd191de2
+
+Failed jobs:
+- ff3399 (sjg-lab)
+
+### Conversation log
+No changes made: this failure is not caused by the branch, so I did not create `cherry-ce82cd191de2-fix2`.
+
+**Failure:** `test_distro_shim_arm64` on the ff3399 lab board timed out waiting for `EFI stub: Booting Linux Kernel` (`test/py/tests/test_distro.py:365`). It was the only failure in the job: 46 passed, 1 failed.
+
+**Why the branch cannot be responsible:**
+- The three cherry-picked commits only add `drivers/rng/airoha-rng.c`, a `RNG_AIROHA` Kconfig entry (which depends on `ARCH_AIROHA`), one Makefile line, and two lines in `configs/an7581_evb_defconfig`.
+- ff3399 is a Rockchip board, so `RNG_AIROHA` cannot be selected and the new driver is not compiled. The ff3399 binary should therefore be the same as on the target branch; I did not build both to confirm that.
+- Nothing in the branch touches EFI, boot, distro or test code.
+
+**Likely cause:** a lab-side or flaky problem in the Ubuntu-through-shim boot on the Firefly-RK3399 (boot media, shim/GRUB/kernel load time, or the board itself). The log tail only shows the timeout, not the console output leading up to it, so I can't say which.
+
+**Suggested next step:** retry the ff3399 job. If it fails again, check whether it also fails on master. The test comes from b7378e57a85f ("test/py: Boot Ubuntu through shim on the Firefly-RK3399"), which is not part of this MR.
+
+I did not run the sandbox or buildman builds, since there was nothing to fix.
+
+---
+
+### Pipeline fix: 2026-11-13 (attempt 3)
+
+Branch: cherry-ce82cd191de2
+
+Failed jobs:
+- ff3399 (sjg-lab)
+
+### Conversation log
+No changes made: this is the same failure as attempt 2 and the branch does not cause it, so I did not create `cherry-ce82cd191de2-fix3`.
+
+**Failure:** `test_distro_shim_arm64` on ff3399 timed out waiting for `EFI stub: Booting Linux Kernel` (`test/py/tests/test_distro.py:365`). It was again the only failure: 46 passed, 1 failed.
+
+**Why the branch is not responsible:**
+- **Scope of the branch:** against its base (3d5a04e945bd) it only adds `drivers/rng/airoha-rng.c`, the `RNG_AIROHA` Kconfig entry, one Makefile line, two lines in `configs/an7581_evb_defconfig`, and `.pickman-history`.
+- **Build check:** I built `firefly-rk3399` from the branch head. Its `.config` has `# CONFIG_ARCH_AIROHA is not set`, with no `RNG_AIROHA` symbol at all, and `drivers/rng/` contains only `rng-uclass.o` and `rockchip_rng.o`. The new driver is not compiled into the ff3399 image.
+- **Test origin:** the failing test comes from b7378e57a85f ("test/py: Boot Ubuntu through shim on the Firefly-RK3399"), which is already in the base, not in this MR.
+
+**Likely cause:** a lab-side problem, or a real problem already on master, in the Ubuntu-through-shim boot on the Firefly-RK3399. The test got past `Booting /\EFI\BOOT\BOOTAA64.EFI`, then nothing matched within 200 seconds, so shim/GRUB started but the kernel never reported in. The log tail does not include the console output from that stretch, so I can't narrow it further. Two identical failures in a row make a one-off flake less likely.
+
+**Suggested next step:** run the ff3399 job on master. If it fails there too, the problem is in the base or the lab (SD card contents, shim/GRUB, or the board) and this MR can go in regardless. The `test-log.html` artifact from job 772042 should show where the boot stalls.
+
+The local `firefly-rk3399` build stopped at the binman step with "Some images are invalid" after compiling `u-boot.bin`; I did not investigate that further. I did not run the sandbox build, since there was nothing to fix.
+
+---
+
