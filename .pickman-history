@@ -107055,3 +107055,60 @@ Beyond the requested sandbox builds, `efi-x86_app64` also builds, and the two ne
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-40e72866bb42
+
+Commits:
+- 40e72866bb42 fastboot: factor out the USB session runner
+- aa41376f63ad fastboot: use the common handler for USB reboot
+- 1130a059b0fc fastboot: make shared configuration checks phase-aware
+- 254b23988b30 image: sparse: add phase-aware SPL support
+- db0772ba6088 fastboot: add SPL support
+- ae9721e50312 Merge tag 'u-boot-dfu-20261012' of https://git.u-boot-project.org/u-boot/custodians/u-boot-dfu
+
+### Conversation log
+First commit is in (one conflict resolved in `cmd/fastboot.c`, sandbox builds); moving on to the second.
+
+Three of six commits are in and building; picking the image-sparse commit next.
+
+Fifth commit is applied and converted; checking whether the `conf_nospl` entries added earlier now clash with the new SPL_FASTBOOT symbols.
+
+sandbox builds fine; sandbox_spl fails in an unrelated file (`prop_sandbox.c`), so I'm checking whether that failure already exists on ci/master.
+
+The SPL fastboot objects compile, and the sandbox_spl failure is already present on ci/master; picking the final merge commit now.
+
+The merge only brings in the five commits already picked, so I resolve it to an empty commit by keeping the current tree.
+
+All 6 commits are on `cherry-40e72866bb42` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready to push; nothing was merged elsewhere.
+
+One thing to know first: `sandbox_spl` does not build, with errors in `drivers/misc/prop_sandbox.c`. The same errors occur on ci/master, so they are not from this series. Because the last fastboot commit enables `SPL_FASTBOOT` in `sandbox_spl_defconfig`, I ran a keep-going build there and the SPL fastboot and gadget objects do compile, but the SPL link is untested.
+
+| Commit | Subject | Result |
+|---|---|---|
+| fc6569a8fbbe | fastboot: factor out the USB session runner | conflict resolved, delta matches |
+| 73d086d31556 | fastboot: use the common handler for USB reboot | clean, delta matches |
+| 7d076dde0dde | fastboot: make shared configuration checks phase-aware | conflicts resolved, smaller delta |
+| 84dfe9152d81 | image: sparse: add phase-aware SPL support | conflict resolved, small delta change |
+| 9fd09b90250c | fastboot: add SPL support | conflicts resolved, delta matches |
+| 98fb8ad88ffb | Merge tag 'u-boot-dfu-20261012' | empty commit |
+
+**Fix-ups** (each noted at the end of the commit message):
+- **fc6569a8fbbe:** conflict in `cmd/fastboot.c`; I kept the target's getopt-based `do_fastboot()` and `IS_ENABLED(CONFIG_NET_LEGACY)`, and dropped the `fastboot_init()` call as the commit intends.
+- **7d076dde0dde:** conflicts in `drivers/Makefile` and four `drivers/fastboot` files.
+  - `split-check` converted the macros and added 12 options to `scripts/conf_nospl`: ANDROID_BOOT_IMAGE, CMD_FASTBOOT_ABORT_KEYED, FASTBOOT, FASTBOOT_FLASH, FASTBOOT_FLASH_BLOCK, FASTBOOT_FLASH_MMC, FASTBOOT_FLASH_NAND, FASTBOOT_FLASH_NAND_TRIMFFS, FASTBOOT_FLASH_SPI, FASTBOOT_MMC_BOOT_SUPPORT, FASTBOOT_MMC_USER_SUPPORT and USB_FUNCTION_FASTBOOT.
+  - I restored the target's existing line alignment where the converted lines were otherwise identical.
+- **84dfe9152d81:** conflict in `lib/Makefile`. After conversion the `CONFIG_VAL()` change in `lib/image-sparse.c` is a no-op, so that file is unchanged.
+- **9fd09b90250c:** conflicts in `drivers/fastboot/fb_usb.c` and `drivers/usb/gadget/Makefile`. `split-check` converted the macros, and I re-aligned the continuation lines it left over-indented.
+- **98fb8ad88ffb:** the merge brings in only the five commits above, so I resolved it to an empty commit that keeps the merge message.
+
+**Deltas:**
+- **7d076dde0dde** is 33+/19- across 5 files against 68+/61- across 9 upstream. This is expected: most of the upstream change converts to `CONFIG_IS_ENABLED()`/`CONFIG_VAL()`/`$(PHASE_)`, which the target already expresses as plain `CONFIG_`.
+- **84dfe9152d81** is 14+/1- across 2 files against 15+/2- across 3, for the `image-sparse.c` reason above.
+
+Six of the `conf_nospl` entries added by 7d076dde0dde (FASTBOOT, FASTBOOT_FLASH, FASTBOOT_FLASH_MMC, FASTBOOT_MMC_BOOT_SUPPORT, FASTBOOT_MMC_USER_SUPPORT, USB_FUNCTION_FASTBOOT) became redundant once 9fd09b90250c added `SPL_` versions of them. From reading `scripts/kconfig/confdata.c` they are harmless, and the SPL config does get `CONFIG_FASTBOOT=y`. I left them in; say if you want them removed.
+
+A final `split-check` over the whole branch reports nothing outstanding.
+
+---
+
