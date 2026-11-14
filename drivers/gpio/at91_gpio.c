@@ -16,6 +16,7 @@
 #include <asm/gpio.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/at91_pio.h>
+#include <dm/prop.h>
 
 #define GPIO_PER_BANK	32
 
@@ -686,10 +687,11 @@ static int at91_gpio_probe(struct udevice *dev)
 	struct at91_port_priv *port = dev_get_priv(dev);
 	struct at91_port_plat *plat = dev_get_plat(dev);
 	struct gpio_dev_priv *uc_priv = dev_get_uclass_priv(dev);
+	DTPLAT(atmel_at91rm9200_gpio, dt, dev);
 	struct clk clk;
 	int ret;
 
-	ret = clk_get_by_index(dev, 0, &clk);
+	ret = dev_prop_clk(dev, dt, clocks, "clocks", 0, &clk);
 	if (ret)
 		return ret;
 
@@ -698,7 +700,7 @@ static int at91_gpio_probe(struct udevice *dev)
 		return ret;
 
 #if IS_ENABLED(CONFIG_OF_CONTROL)
-	plat->base_addr = dev_read_addr(dev);
+	plat->base_addr = dev_prop_addr(dev, dt);
 #endif
 	plat->bank_name = at91_get_bank_name(plat->base_addr);
 	port->regs = (struct at91_port *)plat->base_addr;
