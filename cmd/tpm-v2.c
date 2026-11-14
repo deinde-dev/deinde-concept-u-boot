@@ -25,7 +25,8 @@ static int do_tpm2_startup(struct cmd_tbl *cmdtp, int flag, int argc,
 		return ret;
 
 	/* argv[2] is optional to perform a TPM2_CC_SHUTDOWN */
-	if (argc > 3 || (argc == 3 && strcasecmp("off", argv[2])))
+	if (argc < 2 || argc > 3 ||
+	    (argc == 3 && strcasecmp("off", argv[2])))
 		return CMD_RET_USAGE;
 
 	if (!strcasecmp("TPM2_SU_CLEAR", argv[1])) {
@@ -85,7 +86,7 @@ static int do_tpm2_clear(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	if (pw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (!strcasecmp("TPM2_RH_LOCKOUT", argv[1]))
 		handle = TPM2_RH_LOCKOUT;
@@ -102,8 +103,8 @@ static int do_tpm2_pcr_extend(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 	struct udevice *dev;
 	struct tpm_chip_priv *priv;
-	u32 index = simple_strtoul(argv[1], NULL, 0);
-	void *digest = map_sysmem(simple_strtoul(argv[2], NULL, 0), 0);
+	u32 index;
+	void *digest;
 	int algo = TPM2_ALG_SHA256;
 	int algo_len;
 	int ret;
@@ -111,6 +112,8 @@ static int do_tpm2_pcr_extend(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (argc < 3 || argc > 4)
 		return CMD_RET_USAGE;
+
+	index = simple_strtoul(argv[1], NULL, 0);
 	if (argc == 4) {
 		algo = tpm2_name_to_algorithm(argv[3]);
 		if (algo == TPM2_ALG_INVAL)
@@ -124,11 +127,12 @@ static int do_tpm2_pcr_extend(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	priv = dev_get_uclass_priv(dev);
 	if (!priv)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (index >= priv->pcr_count)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
+	digest = map_sysmem(simple_strtoul(argv[2], NULL, 0), 0);
 	rc = tpm2_pcr_extend(dev, index, algo, digest, algo_len);
 	if (!rc) {
 		printf("PCR #%u extended with %d byte %s digest\n", index,
@@ -168,11 +172,11 @@ static int do_tpm_pcr_read(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	priv = dev_get_uclass_priv(dev);
 	if (!priv)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	index = simple_strtoul(argv[1], NULL, 0);
 	if (index >= priv->pcr_count)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	data = map_sysmem(simple_strtoul(argv[2], NULL, 0), 0);
 
@@ -348,7 +352,7 @@ static int do_tpm_dam_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	if (pw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	return report_return_code(tpm2_dam_reset(dev, pw, pw_sz));
 }
@@ -376,7 +380,7 @@ static int do_tpm_dam_parameters(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	if (pw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (strict_strtoul(argv[1], 0, &max_tries))
 		return CMD_RET_USAGE;
@@ -388,7 +392,7 @@ static int do_tpm_dam_parameters(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	log(LOGC_NONE, LOGL_INFO, "Changing dictionary attack parameters:\n");
-	log(LOGC_NONE, LOGL_INFO, "- maxTries: %lu", max_tries);
+	log(LOGC_NONE, LOGL_INFO, "- maxTries: %lu\n", max_tries);
 	log(LOGC_NONE, LOGL_INFO, "- recoveryTime: %lu\n", recovery_time);
 	log(LOGC_NONE, LOGL_INFO, "- lockoutRecovery: %lu\n", lockout_recovery);
 
@@ -401,10 +405,8 @@ static int do_tpm_change_auth(struct cmd_tbl *cmdtp, int flag, int argc,
 			      char *const argv[])
 {
 	u32 handle;
-	const char *newpw = argv[2];
-	const char *oldpw = (argc == 3) ? NULL : argv[3];
-	const ssize_t newpw_sz = strlen(newpw);
-	const ssize_t oldpw_sz = oldpw ? strlen(oldpw) : 0;
+	const char *newpw, *oldpw;
+	ssize_t newpw_sz, oldpw_sz;
 	struct udevice *dev;
 	int ret;
 
@@ -415,8 +417,13 @@ static int do_tpm_change_auth(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc < 3 || argc > 4)
 		return CMD_RET_USAGE;
 
+	newpw = argv[2];
+	oldpw = (argc == 3) ? NULL : argv[3];
+	newpw_sz = strlen(newpw);
+	oldpw_sz = oldpw ? strlen(oldpw) : 0;
+
 	if (newpw_sz > TPM2_DIGEST_LEN || oldpw_sz > TPM2_DIGEST_LEN)
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 
 	if (!strcasecmp("TPM2_RH_LOCKOUT", argv[1]))
 		handle = TPM2_RH_LOCKOUT;
@@ -436,10 +443,10 @@ static int do_tpm_change_auth(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_tpm_pcr_setauthpolicy(struct cmd_tbl *cmdtp, int flag, int argc,
 				    char *const argv[])
 {
-	u32 index = simple_strtoul(argv[1], NULL, 0);
-	char *key = argv[2];
-	const char *pw = (argc < 4) ? NULL : argv[3];
-	const ssize_t pw_sz = pw ? strlen(pw) : 0;
+	u32 index;
+	char *key;
+	const char *pw;
+	ssize_t pw_sz;
 	struct udevice *dev;
 	int ret;
 
@@ -447,11 +454,16 @@ static int do_tpm_pcr_setauthpolicy(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (ret)
 		return ret;
 
-	if (strlen(key) != TPM2_DIGEST_LEN)
-		return -EINVAL;
-
 	if (argc < 3 || argc > 4)
 		return CMD_RET_USAGE;
+
+	index = simple_strtoul(argv[1], NULL, 0);
+	key = argv[2];
+	pw = (argc < 4) ? NULL : argv[3];
+	pw_sz = pw ? strlen(pw) : 0;
+
+	if (strlen(key) != TPM2_DIGEST_LEN)
+		return CMD_RET_FAILURE;
 
 	return report_return_code(tpm2_pcr_setauthpolicy(dev, pw, pw_sz, index,
 							 key));
@@ -460,11 +472,11 @@ static int do_tpm_pcr_setauthpolicy(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_tpm_pcr_setauthvalue(struct cmd_tbl *cmdtp, int flag,
 				   int argc, char *const argv[])
 {
-	u32 index = simple_strtoul(argv[1], NULL, 0);
-	char *key = argv[2];
-	const ssize_t key_sz = strlen(key);
-	const char *pw = (argc < 4) ? NULL : argv[3];
-	const ssize_t pw_sz = pw ? strlen(pw) : 0;
+	u32 index;
+	char *key;
+	ssize_t key_sz;
+	const char *pw;
+	ssize_t pw_sz;
 	struct udevice *dev;
 	int ret;
 
@@ -472,11 +484,17 @@ static int do_tpm_pcr_setauthvalue(struct cmd_tbl *cmdtp, int flag,
 	if (ret)
 		return ret;
 
-	if (strlen(key) != TPM2_DIGEST_LEN)
-		return -EINVAL;
-
 	if (argc < 3 || argc > 4)
 		return CMD_RET_USAGE;
+
+	index = simple_strtoul(argv[1], NULL, 0);
+	key = argv[2];
+	key_sz = strlen(key);
+	pw = (argc < 4) ? NULL : argv[3];
+	pw_sz = pw ? strlen(pw) : 0;
+
+	if (key_sz != TPM2_DIGEST_LEN)
+		return CMD_RET_FAILURE;
 
 	return report_return_code(tpm2_pcr_setauthvalue(dev, pw, pw_sz, index,
 							key, key_sz));

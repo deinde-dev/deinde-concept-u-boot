@@ -140,3 +140,5 @@ See also
 --------
 
 * :doc:`tpm<tpm>` for selecting the TPM to test and driving it by hand
+* :doc:`tpm2<tpm2>` for the same, on a TPMv2.x device, which these tests do
+  not cover
