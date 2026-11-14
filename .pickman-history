@@ -106770,3 +106770,36 @@ Retry both jobs once the coral place is free.
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-ce82cd191de2
+
+Commits:
+- ce82cd191de2 rng: airoha: add support for the Airoha TRNG
+- 2b8358483c3e configs: an7581_evb: enable the Airoha TRNG
+- 0a55b098d6f5 Merge patch series "rng: airoha: add support for the Airoha TRNG"
+
+### Conversation log
+Not already applied; the conflict is simple (the target has dropped `$(PHASE_)`). Resolving by keeping the target's line and adding the new driver.
+
+All 3 commits are cherry-picked onto `cherry-ce82cd191de2` (based on ci/master) and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+```
+1eb75fe866e4 Merge patch series "rng: airoha: add support for the Airoha TRNG"
+fda9c739da1b configs: an7581_evb: enable the Airoha TRNG
+994f005689de rng: airoha: add support for the Airoha TRNG
+```
+
+**Fix-ups**
+- **994f005689de (rng: airoha driver):** conflict in `drivers/rng/Makefile`, because the source's context line uses `$(CONFIG_$(PHASE_)DM_RNG)` while the target has `$(CONFIG_DM_RNG)`. I kept the target's line and added the new `airoha-rng.o` line, with a note in the commit message.
+- **1eb75fe866e4 (merge):** the same context-line conflict; I kept the target's line, so the commit is empty as expected and carries a note saying so.
+- **fda9c739da1b (defconfig):** applied cleanly.
+
+**Checks**
+- **Already-applied check:** the first pick conflicted, so I searched ci/master for the three subjects and found none, so the series was not already applied.
+- **Deltas:** both non-merge commits match the originals exactly (3 files / 144 insertions, and 1 file / 2 insertions).
+- **split-check:** ran after each pick and changed nothing.
+- **Build coverage:** the sandbox build does not compile `airoha-rng.c`, since only `an7581_evb` enables `RNG_AIROHA`, so the new driver itself is not build-tested here.
+
+---
+
