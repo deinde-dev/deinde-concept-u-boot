@@ -188,5 +188,3 @@ U_BOOT_DRIVER(fsl_imx23_pinctrl) = {
 	.priv_auto	= sizeof(struct mxs_pinctrl_priv),
 	.ops = &mxs_pinctrl_ops,
 };
-
-DM_DRIVER_ALIAS(fsl_imx23_pinctrl, fsl_imx28_pinctrl)

@@ -567,5 +567,3 @@ U_BOOT_DRIVER(atmel_sama5d3_pinctrl) = {
 	.priv_auto	= sizeof(struct at91_pinctrl_priv),
 	.ops = &at91_pinctrl_ops,
 };
-
-DM_DRIVER_ALIAS(atmel_sama5d3_pinctrl, atmel_at91rm9200_pinctrl)

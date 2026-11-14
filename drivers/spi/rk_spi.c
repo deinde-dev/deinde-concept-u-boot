@@ -571,5 +571,3 @@ U_BOOT_DRIVER(rockchip_rk3288_spi) = {
 	.priv_auto	= sizeof(struct rockchip_spi_priv),
 	.probe	= rockchip_spi_probe,
 };
-
-DM_DRIVER_ALIAS(rockchip_rk3288_spi, rockchip_rk3368_spi)

@@ -430,17 +430,6 @@ struct driver {
 	ll_entry_ref(struct driver, _name, driver)
 
 /**
- * DM_DRIVER_ALIAS() - Declare a macro to state an alias for a driver name
- *
- * This macro will produce no code but its information will be parsed by tools
- * like dtoc
- *
- * @__name:	name of driver
- * @__alias:	alias for the driver name
- */
-#define DM_DRIVER_ALIAS(__name, __alias)
-
-/**
  * DM_PHASE() - Declare a macro to indicate which phase of U-Boot this driver is for.
  *
  * This macro produces no code but its information will be parsed by dtoc. The

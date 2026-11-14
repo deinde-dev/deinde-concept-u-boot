@@ -165,8 +165,6 @@ static const struct udevice_id testfdt_ids[] = {
 	{ }
 };
 
-DM_DRIVER_ALIAS(denx_u_boot_fdt_test, google_another_fdt_test)
-
 U_BOOT_DRIVER(denx_u_boot_fdt_test) = {
 	.name	= "testfdt_drv",
 	.of_match	= testfdt_ids,
