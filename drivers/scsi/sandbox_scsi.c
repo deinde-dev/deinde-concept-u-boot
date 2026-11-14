@@ -57,6 +57,21 @@ static int sandbox_scsi_exec(struct udevice *dev, struct scsi_cmd *req)
 			return bytes_read;
 		if (bytes_read != info->buff_used)
 			return -EIO;
+	} else if (ret == SCSI_EMUL_DO_WRITE && priv->fd != -1) {
+		long bytes_written;
+
+		/* the drive has a fixed size, so a write must not extend it */
+		if ((loff_t)(info->seek_block + info->write_len) *
+		    info->block_size > info->file_size)
+			return -EIO;
+		log_debug("write %x %x\n", info->seek_block, info->write_len);
+		os_lseek(priv->fd, info->seek_block * info->block_size,
+			 OS_SEEK_SET);
+		bytes_written = os_write(priv->fd, req->pdata, info->buff_used);
+		if (bytes_written < 0)
+			return bytes_written;
+		if (bytes_written != info->buff_used)
+			return -EIO;
 	} else if (!ret) {
 		/* the caller reads the response from its own buffer */
 		memcpy(req->pdata, info->buff,
@@ -115,7 +130,10 @@ static int sandbox_scsi_probe(struct udevice *dev)
 		 */
 		if (!os_persistent_file(buf, sizeof(buf), priv->pathname))
 			pathname = buf;
-		priv->fd = os_open(pathname, OS_O_RDONLY);
+		/* a file which cannot be written still gives a readable drive */
+		priv->fd = os_open(pathname, OS_O_RDWR);
+		if (priv->fd < 0)
+			priv->fd = os_open(pathname, OS_O_RDONLY);
 		if (priv->fd >= 0) {
 			ret = os_get_filesize(pathname, &info->file_size);
 			if (ret)
