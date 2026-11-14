@@ -1,0 +1,21 @@
+if TARGET_SNAPPER9260
+
+config SYS_BOARD
+	default "snapper9260"
+
+config SYS_VENDOR
+	default "bluewater"
+
+config SYS_CONFIG_NAME
+	default "snapper9260"
+
+config SNAPPER9G20
+	bool "Snapper 9G20 module"
+	select AT91SAM9G20
+	help
+	  The Snapper module comes with either an AT91SAM9260 or an
+	  AT91SAM9G20. Enable this to build for the AT91SAM9G20, which
+	  divides its clocks differently. Otherwise U-Boot is built for
+	  the AT91SAM9260
+
+endif
