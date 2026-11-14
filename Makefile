@@ -2269,6 +2269,11 @@ quiet_cmd_u-boot-api.h = APIH    $@
 include/u-boot-api.h: $(srctree)/lib/ulib/rename.syms \
 		$(srctree)/scripts/build_api.py FORCE
 	$(call if_changed,u-boot-api.h)
+targets += include/u-boot-api.h
+
+# ulib_test.c includes the API header, which is not in the source tree, so the
+# header must be generated before the file is compiled
+test/ulib/ulib_test.o: include/u-boot-api.h
 
 # Build ulib_test that links with shared library
 # ulib_test.o itself is built with the same KBUILD_CFLAGS as libu-boot, so it
