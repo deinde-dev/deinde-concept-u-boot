@@ -279,8 +279,15 @@ int common_diskboot(const char *intf, int argc, char *const argv[]);
 
 int do_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 	     char *const argv[]);
-int do_poweroff(struct cmd_tbl *cmdtp, int flag, int argc,
-		char *const argv[]);
+/**
+ * do_poweroff() - Switch the board off
+ *
+ * Each platform which can cut its own power provides this, either through the
+ * sysreset uclass or in code of its own. It does not return when it works.
+ *
+ * Return: CMD_RET_FAILURE, or another non-zero value, if the power is still on
+ */
+int do_poweroff(void);
 
 unsigned long do_go_exec(ulong (*entry)(int, char * const []), int argc,
 			 char *const argv[]);

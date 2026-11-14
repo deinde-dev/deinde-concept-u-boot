@@ -63,5 +63,5 @@ See also
 * :doc:`reset<reset>` for restarting the board without reporting a problem
 * :doc:`exception<exception>` for provoking a processor exception, which is
   another way of bringing U-Boot down
-* *poweroff* for switching the board off, which is what a panic does with
-  CONFIG_PANIC_POWEROFF=y
+* :doc:`poweroff<poweroff>` for switching the board off, which is what a
+  panic does with CONFIG_PANIC_POWEROFF=y

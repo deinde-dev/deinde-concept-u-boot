@@ -1893,6 +1893,7 @@ config CMD_PINMUX
 
 config CMD_POWEROFF
 	bool "poweroff"
+	select GETOPT
 	help
 	  Poweroff/Shutdown the system
 

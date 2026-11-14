@@ -231,7 +231,7 @@ int axp_init(void)
 }
 
 #if !IS_ENABLED(CONFIG_SYSRESET_CMD_POWEROFF)
-int do_poweroff(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_poweroff(void)
 {
 	pmic_bus_write(AXP209_SHUTDOWN, AXP209_POWEROFF);
 

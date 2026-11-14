@@ -69,8 +69,13 @@ U_BOOT_CMD(
 );
 
 #ifdef CONFIG_CMD_POWEROFF
-U_BOOT_CMD(
-	poweroff, 1, 0,	do_poweroff,
+static int do_poweroff_cmd(struct getopt_state *gs)
+{
+	return do_poweroff();
+}
+
+U_BOOT_CMD_NOOPTS(
+	poweroff, 1, 0,	do_poweroff_cmd,
 	"Perform POWEROFF of the device",
 	""
 );
