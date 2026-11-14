@@ -106722,3 +106722,31 @@ One behaviour change comes along with the fs commit: `fs_set_blk_dev()` now retu
 
 ---
 
+## 2026-11-13: us/main
+
+Branch: cherry-77a0470e3481
+
+Commits:
+- 77a0470e3481 i2c: npcm: Add segment feature for bus select
+- c5da31504279 i2c: npcm: Add deblock callback for bus recovery
+- 261b75898bac Merge tag 'i2c-updates-for-u-boot-i2c-main-20261009' of https://git.u-boot-project.org/u-boot/custodians/hs/u-boot-i2c
+
+### Conversation log
+Two i2c commits are picked and building cleanly; the merge commit came out empty and the cherry-pick is paused, so I'm committing it as an empty commit now.
+
+All 3 commits are cherry-picked onto `cherry-77a0470e3481` (based on ci/master), and the sandbox build passes with no warnings or errors.
+
+| Commit | Original | Result |
+|---|---|---|
+| `545daad75f9b` i2c: npcm: Add segment feature for bus select | `77a0470e3481` | Clean, 14 insertions, identical to the original |
+| `07aba380a642` i2c: npcm: Add deblock callback for bus recovery | `c5da31504279` | Clean, +12/-3, identical to the original |
+| `f65dfa530986` Merge tag 'i2c-updates-for-u-boot-i2c-main-20261009' | `261b75898bac` | Empty commit, as expected, since its two commits are already picked |
+
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passed after each pick. The final run was just before the empty merge commit was committed, so it covers the same tree.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing on any of the three commits.
+- **Deltas:** nothing concerning. `drivers/i2c/npcm_i2c.c` is now identical to the version at `261b75898bac`.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
