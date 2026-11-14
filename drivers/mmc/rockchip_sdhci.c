@@ -8,7 +8,6 @@
 #include <clk.h>
 #include <dm.h>
 #include <dm/ofnode.h>
-#include <dt-structs.h>
 #include <linux/bitfield.h>
 #include <linux/delay.h>
 #include <linux/err.h>

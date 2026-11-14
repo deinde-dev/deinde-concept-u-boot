@@ -4,11 +4,35 @@
  */
 
 #include <dm.h>
-#include <log.h>
+#include <regmap.h>
 #include <syscon.h>
 #include <asm/arch-rockchip/clock.h>
+#include <dm/prop.h>
 
-static const struct udevice_id rk3399_syscon_ids[] = {
+static int rk3399_syscon_bind(struct udevice *dev)
+{
+	DTPLAT(syscon_rk3399, dt, dev);
+
+	/* With of-platdata, nothing else sets the driver data */
+	dev->driver_data = dev_prop_driver_data(dev, dt);
+
+	/* With a devicetree, bind the child devices too */
+	if (IS_ENABLED(CONFIG_OF_REAL))
+		return dm_scan_fdt_dev(dev);
+
+	return 0;
+}
+
+/* With a devicetree, the syscon uclass sets up the regmap instead */
+static int rk3399_syscon_of_to_plat(struct udevice *dev)
+{
+	struct syscon_uc_info *priv = dev_get_uclass_priv(dev);
+	DTPLAT(syscon_rk3399, dt, dev);
+
+	return dev_prop_regmap(dev, dt, &priv->regmap);
+}
+
+static __maybe_unused const struct udevice_id rk3399_syscon_ids[] = {
 	{ .compatible = "rockchip,rk3399-grf", .data = ROCKCHIP_SYSCON_GRF },
 	{ .compatible = "rockchip,rk3399-pmugrf", .data = ROCKCHIP_SYSCON_PMUGRF },
 	{ .compatible = "rockchip,rk3399-pmusgrf", .data = ROCKCHIP_SYSCON_PMUSGRF },
@@ -18,55 +42,11 @@ static const struct udevice_id rk3399_syscon_ids[] = {
 };
 
 U_BOOT_DRIVER(syscon_rk3399) = {
-	.name = "rk3399_syscon",
+	.name = "syscon_rk3399",
 	.id = UCLASS_SYSCON,
-#if IS_ENABLED(CONFIG_OF_REAL)
-	.bind = dm_scan_fdt_dev,
-#endif
-	.of_match = rk3399_syscon_ids,
+	.of_match = of_match_ptr(rk3399_syscon_ids),
+	.bind = rk3399_syscon_bind,
+	.of_to_plat = IS_ENABLED(CONFIG_OF_PLATDATA) ?
+		rk3399_syscon_of_to_plat : NULL,
+	DM_HEADER(<asm/arch-rockchip/clock.h>)
 };
-
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-static int rk3399_syscon_bind_of_plat(struct udevice *dev)
-{
-	dev->driver_data = dev->driver->of_match->data;
-	debug("syscon: %s %d\n", dev->name, (uint)dev->driver_data);
-
-	return 0;
-}
-
-U_BOOT_DRIVER(rockchip_rk3399_grf) = {
-	.name = "rockchip_rk3399_grf",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3399_syscon_ids,
-	.bind = rk3399_syscon_bind_of_plat,
-};
-
-U_BOOT_DRIVER(rockchip_rk3399_pmugrf) = {
-	.name = "rockchip_rk3399_pmugrf",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3399_syscon_ids + 1,
-	.bind = rk3399_syscon_bind_of_plat,
-};
-
-U_BOOT_DRIVER(rockchip_rk3399_pmusgrf) = {
-	.name = "rockchip_rk3399_pmusgrf",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3399_syscon_ids + 2,
-	.bind = rk3399_syscon_bind_of_plat,
-};
-
-U_BOOT_DRIVER(rockchip_rk3399_cic) = {
-	.name = "rockchip_rk3399_cic",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3399_syscon_ids + 3,
-	.bind = rk3399_syscon_bind_of_plat,
-};
-
-U_BOOT_DRIVER(rockchip_rk3399_pmu) = {
-	.name = "rockchip_rk3399_pmu",
-	.id = UCLASS_SYSCON,
-	.of_match = rk3399_syscon_ids + 4,
-	.bind = rk3399_syscon_bind_of_plat,
-};
-#endif

@@ -10,7 +10,6 @@
 #include <clk.h>
 #include <dm.h>
 #include <dm/of_access.h>
-#include <dt-structs.h>
 #include <errno.h>
 #include <linux/bitops.h>
 #include <linux/bug.h>

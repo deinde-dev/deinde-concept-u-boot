@@ -10,7 +10,6 @@
 #include <log.h>
 #include <dm/ofnode.h>
 #include <mapmem.h>
-#include <dt-structs.h>
 #include <timer.h>
 #include <asm/io.h>
 
