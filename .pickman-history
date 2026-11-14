@@ -106803,3 +106803,28 @@ fda9c739da1b configs: an7581_evb: enable the Airoha TRNG
 
 ---
 
+### Pipeline fix: 2026-11-13 (attempt 2)
+
+Branch: cherry-ce82cd191de2
+
+Failed jobs:
+- ff3399 (sjg-lab)
+
+### Conversation log
+No changes made: this failure is not caused by the branch, so I did not create `cherry-ce82cd191de2-fix2`.
+
+**Failure:** `test_distro_shim_arm64` on the ff3399 lab board timed out waiting for `EFI stub: Booting Linux Kernel` (`test/py/tests/test_distro.py:365`). It was the only failure in the job: 46 passed, 1 failed.
+
+**Why the branch cannot be responsible:**
+- The three cherry-picked commits only add `drivers/rng/airoha-rng.c`, a `RNG_AIROHA` Kconfig entry (which depends on `ARCH_AIROHA`), one Makefile line, and two lines in `configs/an7581_evb_defconfig`.
+- ff3399 is a Rockchip board, so `RNG_AIROHA` cannot be selected and the new driver is not compiled. The ff3399 binary should therefore be the same as on the target branch; I did not build both to confirm that.
+- Nothing in the branch touches EFI, boot, distro or test code.
+
+**Likely cause:** a lab-side or flaky problem in the Ubuntu-through-shim boot on the Firefly-RK3399 (boot media, shim/GRUB/kernel load time, or the board itself). The log tail only shows the timeout, not the console output leading up to it, so I can't say which.
+
+**Suggested next step:** retry the ff3399 job. If it fails again, check whether it also fails on master. The test comes from b7378e57a85f ("test/py: Boot Ubuntu through shim on the Firefly-RK3399"), which is not part of this MR.
+
+I did not run the sandbox or buildman builds, since there was nothing to fix.
+
+---
+
