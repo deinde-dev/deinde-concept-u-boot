@@ -19,14 +19,20 @@
  * is not feasible (e.g. serial driver in SPL where <8KB of SRAM is
  * available). U-Boot's driver model uses device tree for configuration.
  *
- * @name:	Driver name
+ * @name:	Driver name (without of-platdata)
+ * @drv:	Driver to use (with of-platdata), or NULL if this phase does not
+ *	have the node's driver, in which case no device is bound
  * @plat:	Driver-specific platform data. With of-platdata this is the data
  *	which dtoc generates for the driver to read with the dev_prop helpers,
  *	or NULL if there is none
  * @parent_idx:	Index of the parent driver_info structure
  */
 struct driver_info {
+#if IS_ENABLED(CONFIG_OF_PLATDATA)
+	const struct driver *drv;
+#else
 	const char *name;
+#endif
 	const void *plat;
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 	short parent_idx;
@@ -35,8 +41,26 @@ struct driver_info {
 
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 #define driver_info_parent_id(driver_info)	driver_info->parent_idx
+#define driver_info_drv(_info)			((_info)->drv)
+#define driver_info_name(_info)	\
+	((_info)->drv ? (_info)->drv->name : "(none)")
+
+/* Set the driver for a record, where the driver is always in the build */
+#define DM_DRVINFO_REF(_name)	.drv = DM_DRIVER_REF(_name)
+
+/*
+ * Set the driver for a record which dtoc generates. The build creates
+ * dt-drivers.h with a DM_HAS_DRIVER_<name> for each driver in this phase, so
+ * a node whose driver is not built has a NULL driver, rather than a reference
+ * which cannot be resolved
+ */
+#define DM_DRVINFO_DRIVER(_name) \
+	.drv = IS_ENABLED(DM_HAS_DRIVER_##_name) ? DM_DRIVER_REF(_name) : NULL
 #else
 #define driver_info_parent_id(driver_info)	(-1)
+#define driver_info_drv(_info)	lists_driver_lookup_name((_info)->name)
+#define driver_info_name(_info)			((_info)->name)
+#define DM_DRVINFO_REF(_name)			.name = #_name
 #endif
 
 /**

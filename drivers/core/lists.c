@@ -113,7 +113,8 @@ static int bind_drivers_pass(struct udevice *parent, bool pre_reloc_only)
 			if (IS_ENABLED(CONFIG_OF_PLATDATA))
 				drt->dev = dev;
 		} else if (ret != -EPERM) {
-			dm_warn("No match for driver '%s'\n", entry->name);
+			dm_warn("No match for driver '%s'\n",
+				driver_info_name(entry));
 			if (!result || ret != -ENOENT)
 				result = ret;
 		}

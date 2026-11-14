@@ -91,15 +91,22 @@ The rest of the node is left out. It also generates a device declaration:
 
     /* Node /dwmmc@ff0c0000 index 2 */
     U_BOOT_DRVINFO(dwmmc_at_ff0c0000) = {
-            .name           = "rockchip_rk3288_dw_mshc",
+            DM_DRVINFO_DRIVER(rockchip_rk3288_dw_mshc),
             .plat           = &dtv_dwmmc_at_ff0c0000,
             .parent_idx     = -1,
     };
 
-The device is bound at run time from this record. The 'name' is that of the
-driver, as given to `U_BOOT_DRIVER()`, and 'plat' points to the generated data,
-which the driver reads in place. See `What dtoc generates`_ for an example of
-the struct and its data.
+The device is bound at run time from this record. `DM_DRVINFO_DRIVER()` names
+the driver, as given to `U_BOOT_DRIVER()`, and sets the record's `drv` member
+to point to it, so the driver need not be looked up by name. 'plat' points to
+the generated data, which the driver reads in place. See
+`What dtoc generates`_ for an example of the struct and its data.
+
+A devicetree for SPL or TPL often has nodes whose driver is not built in that
+phase, such as a pin controller which is there only because its children are
+needed. The build lists the drivers which each phase has, in `dt-drivers.h`,
+and `DM_DRVINFO_DRIVER()` gives NULL for a driver which is not in the list.
+Such a record binds no device.
 
 A node whose driver reads no properties has a record with no data. The record
 is still needed so that the device is bound, and so that the indexes which
@@ -329,7 +336,7 @@ and this for the UART in `dt-plat.c`:
             },
     };
     U_BOOT_DRVINFO(serial_at_ff690000) = {
-            .name           = "ns16550_serial",
+            DM_DRVINFO_DRIVER(ns16550_serial),
             .plat           = &dtv_serial_at_ff690000,
             .parent_idx     = -1,
     };
@@ -732,6 +739,13 @@ spl/include/generated/dt-prop.h
 spl/dts/dt-plat.c
    Contains the `U_BOOT_DRVINFO()` declarations that U-Boot uses to bind devices
    at start-up. See above for an example
+
+The build itself generates one more:
+
+spl/include/generated/dt-drivers.h
+   Contains a `DM_HAS_DRIVER_<driver>` for each driver in the objects built
+   for the phase. It is included only when compiling dt-plat.c, which is why
+   that file is compiled after everything else
 
 The dt-structs.h file includes the generated file
 `(include/generated/dt-structs.h`) if CONFIG_SPL_OF_PLATDATA is enabled.

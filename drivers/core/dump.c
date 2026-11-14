@@ -281,7 +281,8 @@ void dm_dump_static_driver_info(void)
 	puts("Driver                    Address\n");
 	puts("---------------------------------\n");
 	for (entry = drv; entry != drv + n_ents; entry++)
-		printf("%-25.25s %p\n", entry->name, entry->plat);
+		printf("%-25.25s %p\n", driver_info_name(entry),
+		       entry->plat);
 }
 
 void dm_dump_mem(struct dm_stats *stats)

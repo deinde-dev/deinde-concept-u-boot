@@ -235,9 +235,9 @@ int device_bind(struct udevice *parent, const struct driver *drv,
 int device_bind_by_name(struct udevice *parent, bool pre_reloc_only,
 			const struct driver_info *info, struct udevice **devp)
 {
-	struct driver *drv;
+	const struct driver *drv;
 
-	drv = lists_driver_lookup_name(info->name);
+	drv = driver_info_drv(info);
 	if (!drv)
 		return -ENOENT;
 	if (pre_reloc_only && !(drv->flags & DM_FLAG_PRE_RELOC))
@@ -249,10 +249,10 @@ int device_bind_by_name(struct udevice *parent, bool pre_reloc_only,
 	 * driver's own plat data
 	 */
 	if (IS_ENABLED(CONFIG_OF_PLATDATA))
-		return device_bind_common(parent, drv, info->name, NULL, 0,
+		return device_bind_common(parent, drv, drv->name, NULL, 0,
 					  ofnode_null(), info->plat, devp);
 
-	return device_bind_common(parent, drv, info->name, (void *)info->plat,
+	return device_bind_common(parent, drv, drv->name, (void *)info->plat,
 				  0, ofnode_null(), NULL, devp);
 }
 

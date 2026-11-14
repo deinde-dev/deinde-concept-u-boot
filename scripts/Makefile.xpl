@@ -130,6 +130,10 @@ platdata-hdr := $(obj)/include/generated/dt-structs-gen.h \
 	$(obj)/include/generated/dt-prop.h
 u-boot-spl-platdata := $(obj)/dts/dt-plat.o
 
+# Lists the drivers which are in this phase, so that dt-plat.c can refer to
+# each node's driver directly, or not at all if it is not built
+platdata-drivers := $(obj)/include/generated/dt-drivers.h
+
 # Files we need to generate
 u-boot-spl-platdata_c := $(patsubst %.o,%.c,$(u-boot-spl-platdata))
 endif  # OF_PLATDATA
@@ -331,16 +335,29 @@ pythonpath = PYTHONPATH=scripts/dtc/pylibfdt
 DTOC ?= $(or $(shell command -v dtoc 2>/dev/null),$(srctree)/tools/dtoc/dtoc)
 
 DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) --props-only \
+	--driver-ref \
 	-d $(obj)/$(XPL_BIN).dtb -p $(XPL_NAME)
 
 quiet_cmd_dtoc = DTOC    $@
 cmd_dtoc = $(DTOC_ARGS) -c $(obj)/dts -C $(obj)/include/generated all
 
 quiet_cmd_plat = PLAT    $@
-cmd_plat = $(CC) $(c_flags) -c $< -o $(filter-out $(PHONY),$@)
+cmd_plat = $(CC) $(c_flags) -include $(platdata-drivers) -c $< \
+	-o $(filter-out $(PHONY),$@)
 
-$(obj)/dts/dt-%.o: $(obj)/dts/dt-%.c $(platdata-hdr) FORCE
+$(obj)/dts/dt-%.o: $(obj)/dts/dt-%.c $(platdata-hdr) $(platdata-drivers) FORCE
 	$(call if_changed,plat)
+
+# Find the drivers in the objects for this phase. Only update the file if the
+# list changes, so that dt-plat.c is not compiled each time
+quiet_cmd_dt_drivers = DRIVERS $@
+cmd_dt_drivers = $(NM) $(u-boot-spl-main) 2>/dev/null | \
+	sed -n 's/^[0-9a-fA-F]* *[A-TV-Za-z] _u_boot_list_2_driver_2_\(.*\)$$/\#define DM_HAS_DRIVER_\1 1/p' | \
+	sort -u >$@.tmp; \
+	if cmp -s $@.tmp $@; then rm -f $@.tmp; else mv -f $@.tmp $@; fi
+
+$(platdata-drivers): $(u-boot-spl-main)
+	$(call cmd,dt_drivers)
 
 # Don't use dts_dir here, since it forces running this expensive rule every time
 $(platdata-hdr) $(u-boot-spl-platdata_c) &: $(obj)/$(XPL_BIN).dtb FORCE
@@ -526,7 +543,7 @@ $(obj)/.$(XPL_BIN).dtoc-check: $(obj)/$(XPL_BIN)
 $(sort $(u-boot-spl-init) $(u-boot-spl-main)): $(u-boot-spl-dirs) ;
 
 PHONY += $(u-boot-spl-dirs)
-$(u-boot-spl-dirs): $(u-boot-spl-platdata) prepare
+$(u-boot-spl-dirs): $(platdata-hdr) prepare
 	$(Q)$(MAKE) $(build)=$@ need-builtin=1
 
 PHONY += prepare
