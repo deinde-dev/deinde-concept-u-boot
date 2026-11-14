@@ -301,7 +301,7 @@ See also
 * :doc:`lsblk<lsblk>` for listing every block device the board has
 * :doc:`read<read>` for reading from a partition rather than from the whole
   device
-* :doc:`ide<ide>`, :doc:`nvme<nvme>`, :doc:`virtio<virtio>` and *scsi* for the
-  same set of sub-commands on other kinds of drive
+* :doc:`ide<ide>`, :doc:`nvme<nvme>`, :doc:`virtio<virtio>` and
+  :doc:`scsi<scsi>` for the same set of sub-commands on other kinds of drive
 * :doc:`dm<dm>` for showing the driver-model tree the USB devices are bound
   into

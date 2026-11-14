@@ -162,7 +162,8 @@ See also
 * :doc:`write<write>` for writing blocks to a partition
 * :doc:`usb<usb>` for the same set of sub-commands on a USB storage device,
   along with the enumeration of the bus it sits on
-* *scsi* for the same set of sub-commands on a SCSI drive
+* :doc:`scsi<scsi>` for the same set of sub-commands on a SCSI drive, along
+  with the erase which that interface provides
 * :doc:`scsiboot<scsiboot>` and :doc:`usbboot<usbboot>` for loading and
   starting an image held on a SCSI drive or a USB storage device, there being
   no such command for NVMe

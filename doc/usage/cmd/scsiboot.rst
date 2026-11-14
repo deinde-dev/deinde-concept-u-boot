@@ -119,7 +119,8 @@ requirement of the command.
 See also
 --------
 
-* *scsi* for scanning the bus and for reading blocks without booting them
+* :doc:`scsi<scsi>` for scanning the bus and for reading blocks without
+  booting them
 * :doc:`bootm<bootm>` for booting an image which is already in memory, which
   is what this command uses once the image is loaded
 * :doc:`ide<ide>` for the IDE equivalent of the scsi command

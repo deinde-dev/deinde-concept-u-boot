@@ -292,6 +292,7 @@ See also
   NVMe namespace or an IDE drive
 * :doc:`usb<usb>` for the same set of sub-commands on a USB storage device,
   along with the enumeration of the bus it sits on
-* *scsi* for the same set of sub-commands on a SCSI drive
+* :doc:`scsi<scsi>` for the same set of sub-commands on a SCSI drive, along
+  with the erase which that interface provides
 * :doc:`blkcache<blkcache>` for the cache which sits in front of the reads
   these sub-commands do
