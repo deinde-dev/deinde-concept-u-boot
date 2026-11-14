@@ -106921,3 +106921,27 @@ The branch is ready for pushing and has not been merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-14 (attempt 1)
+
+Branch: cherry-5f483154b5e6
+
+Failed jobs:
+- qemu-arm64-win11-installed (sjg-lab)
+- colibrimx8 (sjg-lab)
+- ff3399 (sjg-lab)
+
+### Conversation log
+No changes made: none of the three failures can be caused by this MR, so I left the branch alone and did not create `cherry-5f483154b5e6-fix1`.
+
+The branch only touches MediaTek code: `drivers/clk/mediatek`, `drivers/pinctrl/mediatek`, `arch/arm/dts/mt8189.dtsi`, `arch/arm/mach-mediatek/mt8516/init.c`, plus `.pickman-history`. Those driver directories are built only with `CONFIG_ARCH_MEDIATEK` / `CONFIG_PINCTRL_MTK`, and none of the three failing boards' defconfigs (`qemu_arm64_acpi`, `colibri-imx8x`, `firefly-rk3399`) mentions MediaTek. So the binaries under test are identical in function to those built from the base, `a0d65a270163`.
+
+- **qemu-arm64-win11-installed:** the test actually passed (`1 passed`, `UBOOT-WINDOWS-LOGON` seen), but the Windows boot took 20m13s and hit the 20-minute job timeout. This is a slow-runner / tight-timeout problem.
+- **ff3399:** `test_distro_shim_arm64` timed out waiting for `EFI stub: Booting Linux Kernel`. The other 46 tests passed, so U-Boot itself was running fine. This looks like a lab or boot-media flake, though the log tail does not show why the kernel did not start.
+- **colibrimx8:** `test_dm_compat` failed with `bad_drivers = {'`--', '|', '|--'}`. The test is picking up tree-drawing characters instead of driver names from `dm tree` on this board. That is a test-parsing or board-output issue not connected to this series; the log tail does not include the `dm tree` output, so I can't say exactly which line triggers it.
+
+I did not check whether these jobs also fail on the base commit, and I did not run the sandbox or buildman builds since nothing changed.
+
+Retrying the three jobs is the next step. If colibrimx8 fails `test_dm_compat` again, it should be fixed on master rather than in this MR.
+
+---
+
