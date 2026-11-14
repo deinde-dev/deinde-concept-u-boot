@@ -43,6 +43,8 @@ The return value $? is always set to 0 (true).
 See also
 --------
 
+* :doc:`poweroff<poweroff>` for switching the board off rather than
+  restarting it
 * :doc:`bootcount<bootcount>` for the counter which each reset steps on
 * :doc:`panic<panic>` for stopping the board after reporting a problem
 * :doc:`wdt<wdt>` for a watchdog timer, which resets the board when it is

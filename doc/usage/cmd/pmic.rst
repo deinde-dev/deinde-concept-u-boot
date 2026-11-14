@@ -138,3 +138,5 @@ See also
   of volts rather than register values
 * :doc:`pmbus<pmbus>` for the registers of a regulator which answers the PMBus
   command set, which are named and decoded
+* :doc:`poweroff<poweroff>` for switching the board off, which such a chip
+  does on many boards
