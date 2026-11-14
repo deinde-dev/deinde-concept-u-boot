@@ -25,9 +25,10 @@ static int do_scsiboot(struct getopt_state *gs)
 /*
  * scsi command intepreter
  */
-static int do_scsi(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_scsi(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret;
 
 	if (argc == 2) {
@@ -42,7 +43,7 @@ static int do_scsi(struct cmd_tbl *cmdtp, int flag, int argc,
 	return blk_common_cmd(argc, argv, UCLASS_SCSI, &scsi_curr_dev);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	scsi, 5, 1, do_scsi,
 	"SCSI sub-system",
 	"info  - show available SCSI devices\n"

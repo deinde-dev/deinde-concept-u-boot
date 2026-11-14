@@ -158,7 +158,8 @@ See also
   block-device
 * :doc:`usb<usb>` for the same set of sub-commands on a USB storage device,
   along with the enumeration of the bus it sits on
-* *scsi* for the same set of sub-commands on a SCSI drive
+* :doc:`scsi<scsi>` for the same set of sub-commands on a SCSI drive, along
+  with the scan and erase which that interface provides
 * :doc:`scsiboot<scsiboot>` for loading and starting an image held on a SCSI
   drive, which is the same command as diskboot with another interface
 * :doc:`usbboot<usbboot>` for the same on a USB storage device

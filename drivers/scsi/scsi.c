@@ -334,22 +334,20 @@ static ulong scsi_erase(struct udevice *dev, lbaint_t blknr, lbaint_t blkcnt)
 	debug("\n%s: dev %d startblk " LBAF ", blccnt " LBAF "\n",
 	      __func__, block_dev->devnum, start, blks);
 	do {
-		if (blks > max_blks) {
-			scsi_setup_erase_ext(pccb, start, max_blks);
-			start += max_blks;
-			blks -= max_blks;
-		} else {
-			scsi_setup_erase_ext(pccb, start, blks);
-			start += blks;
-			blks = 0;
-		}
+		lbaint_t to_erase = min(blks, max_blks);
+
+		scsi_setup_erase_ext(pccb, start, to_erase);
 		if (scsi_exec(bdev, pccb)) {
 			scsi_print_error(pccb);
-			blkcnt -= blks;
 			break;
 		}
+
+		/* update ready for the next erase */
+		start += to_erase;
+		blks -= to_erase;
 	} while (blks != 0);
-	return blkcnt;
+
+	return blkcnt - blks;
 }
 
 #if IS_ENABLED(CONFIG_BOUNCE_BUFFER)
