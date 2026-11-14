@@ -458,9 +458,11 @@ U_BOOT_CMD_NOOPTS(
 #endif
 
 #if IS_ENABLED(CONFIG_CMD_PING6)
-int do_ping6(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+int do_ping6(struct getopt_state *gs)
 {
-	if (argc < 2)
+	char *const *argv = gs->argv;
+
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
 	if (string_to_ip6(argv[1], strlen(argv[1]), &net_ping_ip6))
@@ -479,7 +481,7 @@ int do_ping6(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 	return 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	ping6,  2,      1,      do_ping6,
 	"send ICMPv6 ECHO_REQUEST to network host",
 	"pingAddress"
