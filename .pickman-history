@@ -107167,3 +107167,56 @@ If the ARM job fails again in CI, the rk3328 boards are the first place to look,
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-4242282e4ec2
+
+Commits:
+- 4242282e4ec2 watchdog: meson_gxbb: Add support for s4/t7 SoCs
+- fd46e031ba47 reset: meson: Add s4 support
+- 5bbec48b820f serial: meson: Add s4 support
+- f7e3eaebd300 mmc: meson: Parse devicetree properties
+- bea8681a9491 configs: sei510: drop Android support
+- e06e8b3e7970 configs: sei610: drop Android support
+- aeb24d97a378 configs: remove unused meson64_android.h
+- a2d0134bfc14 configs: khadas-vim3: drop non-A/B Android defconfigs
+- 349d13ce42f6 configs: khadas-vim3: enlarge the fastboot buffer
+- 09aee880eea6 configs: khadas-vim3: update the Android partition layout
+- 7a403d3db56d configs: khadas-vim3: fix the Android DTB index
+- a0f6e4a9f1b3 arm64: meson: Add s4 SoC support
+- 81b3945a2096 clk: meson: a1: Eliminate separate id parameter
+- 99bd1d3f5158 clk: meson: a1: Use clk_set_rate from meson_mux_set_rate
+- 1f6152572132 clk: meson: Use soc-specific naming for common functions
+- 5dadc8a09b07 clk: meson: Export a1 functions to common file
+- 538d95ef9ed6 clk: meson: Support fractional fixed-factor clocks
+- 10176b815d01 clk: meson: Support power-of-two dividers
+- 5363c69e08d0 clk: meson: Add s4 clock driver
+- 9c048da44bed meson: Add Khadas VIM1S support
+- fed92546960a Gitlab CI: sage: Update for labgrid 26.0 behavior
+- 0c0921d14776 Merge tag 'u-boot-amlogic-next-20261012' of https://git.u-boot-project.org/u-boot/custodians/neil.armstrong/u-boot-amlogic
+
+### Conversation log
+Six of the 22 commits are in and building cleanly; the seventh (removing meson64_android.h) hit a conflict in MAINTAINERS, which I'm looking at now.
+
+21 of 22 commits are in and building; the final merge commit stopped during cherry-pick, so I'm checking whether it's a real conflict or just an empty result.
+
+Same MAINTAINERS context mismatch as before; our side is already correct, so the merge becomes an empty commit.
+
+All 22 commits are cherry-picked onto `cherry-4242282e4ec2` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+**Fix-ups** (each has a one-line `[pickman: ...]` note at the end of its commit message):
+
+- **aeb24d97a378** (configs: remove unused meson64_android.h): conflict in `MAINTAINERS`, because the upstream context includes an `F: tools/amlimage*` line that ci/master does not have. I removed only the `meson64_android.h` line and did not add the amlimage one.
+- **a2d0134bfc14** (configs: khadas-vim3: drop non-A/B Android defconfigs): modify/delete conflict, because both defconfigs are modified in ci/master. I deleted both, as the commit intends.
+- **0c0921d14776** (the merge): the same `MAINTAINERS` context conflict. I kept the current file, so the merge is an empty commit, since all its content is already in the individual picks.
+
+**Deltas:** every non-merge commit matches its original exactly in files changed and line counts, including the two that needed fix-ups, so there are no concerning deltas.
+
+**split-check:** reported nothing and changed nothing on any commit.
+
+The sandbox build does not compile any of the meson code, so the picked drivers and board configs themselves are untested here.
+
+The branch is ready to push; nothing was merged or force-pushed.
+
+---
+
