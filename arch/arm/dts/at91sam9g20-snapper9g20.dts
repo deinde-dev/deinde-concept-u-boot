@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Bluewater Systems Snapper 9G20 module
+ *
+ * Copyright 2026 Simon Glass <sjg@chromium.org>
+ */
+
+/dts-v1/;
+#include "at91sam9g20.dtsi"
+#include "at91-snapper9260.dtsi"
+
+/ {
+	model = "Bluewater Systems Snapper 9G20";
+	compatible = "bluewater,snapper9g20", "atmel,at91sam9g20",
+		"atmel,at91sam9";
+};
