@@ -691,6 +691,24 @@ int gpio_request_list_by_name(struct udevice *dev, const char *list_name,
  */
 int dm_gpio_request(struct gpio_desc *desc, const char *label);
 
+/**
+ * gpio_request_by_ofplat_idx() - Request a GPIO from its device index
+ *
+ * This is used with of-platdata, where dtoc turns each phandle in a GPIO list
+ * into the index of the GPIO device, followed by the arguments.
+ *
+ * @dev: Device requesting the GPIO
+ * @idx: Index of the GPIO device in dt-plat.c
+ * @arg: Arguments from the GPIO specifier
+ * @arg_count: Number of arguments
+ * @desc: Returns the GPIO description
+ * @flags: Flags to use for the GPIO, e.g. GPIOD_IS_IN
+ * Return: 0 if OK, -ve on error
+ */
+int gpio_request_by_ofplat_idx(struct udevice *dev, uint idx, const int *arg,
+			       int arg_count, struct gpio_desc *desc,
+			       int flags);
+
 struct phandle_2_arg;
 int gpio_request_by_phandle(struct udevice *dev,
 			    const struct phandle_2_arg *cells,
