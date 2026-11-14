@@ -207,6 +207,7 @@ obj-$(CONFIG_CMD_TPM_TEST) += tpmtest.o
 obj-$(CONFIG_CMD_TKEY) += tkey.o
 obj-$(CONFIG_CMD_UFETCH) += ufetch.o
 ifdef CONFIG_CMD_USB
+obj-y += usb.o
 obj-$(CONFIG_USB_STORAGE) += usbboot.o
 endif
 ifdef CONFIG_VIRTIO_SANDBOX_EMUL
