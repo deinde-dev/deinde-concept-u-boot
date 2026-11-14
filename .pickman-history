@@ -106853,3 +106853,95 @@ The local `firefly-rk3399` build stopped at the binman step with "Some images ar
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-5f483154b5e6
+
+Commits:
+- 5f483154b5e6 clk: mediatek: mt8183: fix infracfg gate lookup
+- 707bcaef02f0 clk: mediatek: mt8518: fix top gate lookup
+- 8f7bc58060ea clk: mediatek: mt8188: make the clock trees static
+- 18e150656ef1 clk: mediatek: add a helper to declare gate-only clock trees
+- 27a72726804c clk: mediatek: use MTK_GATE_CLK_TREE() for the gate-only clock trees
+- 7bb80f591c04 clk: mediatek: mt8183: merge the clock drivers into a single driver
+- 3cec8ee10ff2 clk: mediatek: mt8188: merge the clock drivers into a single driver
+- 9550e1d0d313 clk: mediatek: mt8189: merge the clock drivers into a single driver
+- d7234a59ee7a clk: mediatek: mt8195: merge the clock drivers into a single driver
+- ee6b1eed1a7e clk: mediatek: mt8365: merge the clock drivers into a single driver
+- 57b83a33ad08 clk: mediatek: mt8512: merge the clock drivers into a single driver
+- 381ef1fdc245 clk: mediatek: mt8516: merge the clock drivers into a single driver
+- 80b893fbe173 clk: mediatek: mt8518: merge the clock drivers into a single driver
+- fcbaea5e1c14 clk: mediatek: mt8189: match the mmsys compatible
+- 367d41c61a75 clk: mediatek: add fclks_offs to struct mtk_clk_tree
+- 16a16e613bcd clk: mediatek: merge the of_xlate callbacks
+- 24c3c3736a8b clk: mediatek: merge the enable and disable callbacks
+- 711d290e0c37 clk: mediatek: merge the get_rate callbacks
+- 48e35b243d29 clk: mediatek: merge the dump callbacks
+- 28f8fa08ac8e clk: mediatek: use a single clk_ops for all drivers
+- eca730a3f051 clk: mediatek: mt8183: merge the apmixedsys driver into mt8183-clk
+- 0ad22fb840a7 clk: mediatek: mt8188: merge the apmixedsys driver into mt8188-clk
+- 228f76ec2eb5 clk: mediatek: mt8189: merge the remaining drivers into mt8189-clk
+- 83a8eec613e3 clk: mediatek: mt8195: merge the apmixedsys driver into mt8195-clk
+- 9f4758332d47 clk: mediatek: mt8365: merge the apmixedsys driver into mt8365-clk
+- d6994d289ab5 clk: mediatek: mt8366: merge the apmixedsys driver into mt8366-clk
+- ca7b1adeed79 clk: mediatek: mt8512: merge the apmixedsys driver into mt8512-clk
+- 2dc2bc4d7e23 clk: mediatek: mt8516: merge the apmixedsys driver into mt8516-clk
+- 667a3a2f5a54 clk: mediatek: mt8518: merge the apmixedsys driver into mt8518-clk
+- ee35a24596ba clk: mediatek: mt8365: add multimedia clocks
+- 41828337d592 pinctrl: mediatek: further increase max number of base addresses
+- 35ad65d94325 pinctrl: mediatek: add pinctrl driver for MT8196
+- 837387a5aebc Merge tag 'mediatek-for-main-2026-10-09' of https://git.u-boot-project.org/u-boot/custodians/u-boot-mediatek
+
+### Conversation log
+17 of 33 commits are picked cleanly; commit 711d290e0c37 (merge the get_rate callbacks) has a conflict in clk-mtk.c, which I'm inspecting now.
+
+Same kind of conflict (only the `CONFIG_IS_ENABLED` spelling differs); resolving the same way and checking against upstream.
+
+All 32 regular commits are picked (three needed the same trivial conflict fix); now adding the merge commit and running the final checks.
+
+All 33 commits are on `cherry-5f483154b5e6` (based on ci/master), and the final sandbox build passes with no warnings or errors. The sandbox build does not compile the MediaTek clk or pinctrl drivers, so it says little about this series.
+
+**Fix-ups**
+
+Four commits conflicted in `drivers/clk/mediatek/clk-mtk.c`, all for the same reason: the target already uses `IS_ENABLED(CONFIG_CMD_CLK)` where the source has `CONFIG_IS_ENABLED(CMD_CLK)`. Each has a `[pickman: ...]` note at the end of its commit message.
+
+- **711d290e0c37** (merge the get_rate callbacks): took the upstream side, keeping `IS_ENABLED(CONFIG_CMD_CLK)`.
+- **48e35b243d29** (merge the dump callbacks): same resolution.
+- **28f8fa08ac8e** (use a single clk_ops for all drivers): same resolution.
+- **837387a5aebc** (the merge commit): kept our side, so it is an empty commit as expected.
+
+After each of the three regular-commit resolutions, `clk-mtk.c` differed from the upstream version of that commit only in those `#if` lines.
+
+**Checks**
+
+- **Deltas:** all 32 regular commits have the same shortstat (file count, insertions, deletions) as their originals, so there are no concerning deltas.
+- **split-check:** it reported nothing to convert on any commit.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
+### Pipeline fix: 2026-11-14 (attempt 1)
+
+Branch: cherry-5f483154b5e6
+
+Failed jobs:
+- qemu-arm64-win11-installed (sjg-lab)
+- colibrimx8 (sjg-lab)
+- ff3399 (sjg-lab)
+
+### Conversation log
+No changes made: none of the three failures can be caused by this MR, so I left the branch alone and did not create `cherry-5f483154b5e6-fix1`.
+
+The branch only touches MediaTek code: `drivers/clk/mediatek`, `drivers/pinctrl/mediatek`, `arch/arm/dts/mt8189.dtsi`, `arch/arm/mach-mediatek/mt8516/init.c`, plus `.pickman-history`. Those driver directories are built only with `CONFIG_ARCH_MEDIATEK` / `CONFIG_PINCTRL_MTK`, and none of the three failing boards' defconfigs (`qemu_arm64_acpi`, `colibri-imx8x`, `firefly-rk3399`) mentions MediaTek. So the binaries under test are identical in function to those built from the base, `a0d65a270163`.
+
+- **qemu-arm64-win11-installed:** the test actually passed (`1 passed`, `UBOOT-WINDOWS-LOGON` seen), but the Windows boot took 20m13s and hit the 20-minute job timeout. This is a slow-runner / tight-timeout problem.
+- **ff3399:** `test_distro_shim_arm64` timed out waiting for `EFI stub: Booting Linux Kernel`. The other 46 tests passed, so U-Boot itself was running fine. This looks like a lab or boot-media flake, though the log tail does not show why the kernel did not start.
+- **colibrimx8:** `test_dm_compat` failed with `bad_drivers = {'`--', '|', '|--'}`. The test is picking up tree-drawing characters instead of driver names from `dm tree` on this board. That is a test-parsing or board-output issue not connected to this series; the log tail does not include the `dm tree` output, so I can't say exactly which line triggers it.
+
+I did not check whether these jobs also fail on the base commit, and I did not run the sandbox or buildman builds since nothing changed.
+
+Retrying the three jobs is the next step. If colibrimx8 fails `test_dm_compat` again, it should be fixed on master rather than in this MR.
+
+---
+
