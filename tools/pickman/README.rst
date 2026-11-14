@@ -462,14 +462,21 @@ end of ``.pickman-history``, so the rebase keeps the entries from both. If the r
 stops on a conflict elsewhere, pickman aborts it and says on the MR which files
 conflict, leaving the branch to be updated by hand.
 
+If the agent changes nothing apart from ``.pickman-history``, e.g. because the
+failure is transient or in the infrastructure, pickman does not push or run the
+failed jobs again, since that would just retry them. It posts the agent's
+diagnosis on the MR instead, and records the pipeline as dealt with, so a rebase
+need not wait for a fix. This counts as an attempt, since the agent ran. A
+rebase before the fix changes what is tested, so the failed jobs do then run
+again, on the new base.
+
 Pickman checks out the MR's branch before running the agent, so the result is
-pushed to the right branch even when the agent finds nothing to change. If the
-branch on the remote has commits which the local one lacks, e.g. because
-someone has pushed a fix by hand, pickman starts again from the remote branch,
-carrying over any local commits which only add to ``.pickman-history``, so that
-it does not throw that work away when it pushes. If a
-push fails, pickman says so on the MR and carries on with the other MRs; the
-error itself goes only to pickman's log, since it may show the API token.
+pushed to the right branch. If the branch on the remote has commits which the
+local one lacks, e.g. because someone has pushed a fix by hand, pickman starts
+again from the remote branch, carrying over any local commits which only add to
+``.pickman-history``, so that it does not throw that work away when it pushes.
+If a push fails, pickman says so on the MR and carries on with the other MRs;
+the error itself goes only to pickman's log, since it may show the API token.
 
 **Retry behaviour**
 
@@ -1195,7 +1202,8 @@ Tables
     - ``mr_iid``: GitLab merge request IID
     - ``pipeline_id``: GitLab pipeline ID
     - ``attempt``: Attempt number
-    - ``status``: Result ('success', 'failure', 'skipped', 'no_jobs')
+    - ``status``: Result ('success', 'failure', 'no_change', 'skipped',
+      'no_jobs')
     - ``created_at``: Timestamp when the attempt was made
 
     The ``(mr_iid, pipeline_id)`` pair is unique, so each pipeline is only
