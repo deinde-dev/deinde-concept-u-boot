@@ -452,11 +452,13 @@ for failed pipelines. For each failed pipeline:
 5. The attempt is recorded in the database to avoid reprocessing
 
 If any failures remain after step 2 and the MR's branch is behind its target
-or has conflicts, pickman rebases it and pushes it instead, since the failure
-may come from the old base, then looks at the new pipeline in turn. Failures
-left out in step 2 are not a reason to rebase, since the series is not their
-cause. Both sides add entries at the end of
-``.pickman-history``, so the rebase keeps the entries from both. If the rebase
+or has conflicts, pickman rebases it locally before step 3, since the failure
+may come from the old base, and tells the agent to check first whether the
+failure still happens. The rebase is pushed with the fix, so it is part of the
+same attempt and needs no pipeline of its own; once the retry limit is reached,
+the branch is not rebased either. Failures left out in step 2 are not a reason
+to rebase, since the series is not their cause. Both sides add entries at the
+end of ``.pickman-history``, so the rebase keeps the entries from both. If the rebase
 stops on a conflict elsewhere, pickman aborts it and says on the MR which files
 conflict, leaving the branch to be updated by hand.
 

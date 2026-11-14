@@ -7470,88 +7470,58 @@ class TestProcessPipelineFailures(PipelineFailures):
             dbs.close()
 
     def test_rebases_before_fix(self):
-        """Test that a branch needing rebase is rebased instead of fixed"""
-        with terminal.capture():
-            dbs = database.Database(self.db_path)
-            dbs.start()
-
-            mrs = [self._make_mr(needs_rebase=True)]
-            with mock.patch.object(control, 'run_git'):
-                with mock.patch.object(
-                        gitlab, 'push_branch',
-                        return_value=True) as mock_push:
-                    with mock.patch.object(agent, 'fix_pipeline') as mock_fix:
-                        result = control.process_pipeline_failures(
-                            'ci', mrs, dbs, 'master', 3)
-
-            self.assertEqual(result, 1)
-            # Should push the rebased branch, not call fix_pipeline
-            mock_push.assert_called_once_with(
-                'ci', 'cherry-test-1', force=True, skip_ci=False)
-            mock_fix.assert_not_called()
-            # Should be recorded as 'rebased' in database
-            self.assertTrue(dbs.pfix_has(1, 100))
-            dbs.close()
-
-    def test_rebase_with_conflicts_skips(self):
-        """Test that a failed rebase skips the pipeline fix and says so"""
-        with terminal.capture():
-            dbs = database.Database(self.db_path)
-            dbs.start()
-
-            mrs = [self._make_mr(has_conflicts=True)]
-
-            def mock_run_git_fn(args):
-                if 'rebase' in args and '--abort' not in args:
-                    raise command.CommandExc('conflict', None)
-                if args[0] == 'diff':
-                    return 'boot/a.c\nboot/b.c'
-                return ''
-
-            with mock.patch.object(control, 'run_git',
-                                   side_effect=mock_run_git_fn), \
-                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
-                 mock.patch.object(gitlab, 'reply_to_mr',
-                                   return_value=True) as mock_reply:
-                result = control.process_pipeline_failures(
-                    'ci', mrs, dbs, 'master', 3)
-
-            self.assertEqual(result, 0)
-            mock_fix.assert_not_called()
-            self.assertIn('Pipeline 100 failed, but the branch needs '
-                          'updating to master first and it cannot be '
-                          'rebased (conflicts in boot/a.c, boot/b.c)',
-                          mock_reply.call_args[0][2])
-
-            # Recorded, so not tried again on the next poll
-            self.assertTrue(dbs.pfix_has(1, 100))
-            self.assertEqual(0, dbs.pfix_count(1))
-            dbs.close()
-
-    def test_rebase_push_fails(self):
-        """Test that a rebased branch which cannot be pushed is reported"""
+        """Test that the rebase is part of the fix attempt, not pushed alone"""
         with terminal.capture():
             dbs = database.Database(self.db_path)
             dbs.start()
 
             mrs = [self._make_mr(needs_rebase=True)]
             with mock.patch.object(control, 'run_git'), \
-                 mock.patch.object(gitlab, 'push_branch',
-                                   side_effect=command.CommandExc(
-                                       'push', None)), \
-                 mock.patch.object(agent, 'fix_pipeline') as mock_fix, \
-                 mock.patch.object(gitlab, 'reply_to_mr',
-                                   return_value=True) as mock_reply:
+                 mock.patch.object(control, 'rebase_onto',
+                                   return_value=(True, [])) as rebase, \
+                 mock.patch.object(control, 'checkout_mr_branch') as checkout, \
+                 mock.patch.object(gitlab, 'push_branch') as mock_push, \
+                 mock.patch.object(gitlab, 'reply_to_mr'), \
+                 mock.patch.object(control, '_abort_in_progress'), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No')) as mock_fix:
+                result = control.process_pipeline_failures(
+                    'ci', mrs, dbs, 'master', 3)
+
+            self.assertEqual(result, 1)
+            rebase.assert_called_once_with('ci/master')
+
+            # The rebased branch is checked out once, for the rebase
+            checkout.assert_called_once_with('ci', 'cherry-test-1')
+            mock_push.assert_not_called()
+            self.assertTrue(mock_fix.call_args.kwargs['rebased'])
+
+            # The rebase and the fix are a single attempt
+            self.assertEqual(1, dbs.pfix_count(1))
+            dbs.close()
+
+    def test_no_rebase_after_limit(self):
+        """Test that a branch is not rebased once the retry limit is reached"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            for pipeline_id in range(3):
+                dbs.pfix_add(1, pipeline_id, pipeline_id + 1, 'failure')
+
+            mrs = [self._make_mr(needs_rebase=True)]
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(control, 'rebase_onto') as rebase, \
+                 mock.patch.object(gitlab, 'push_branch') as mock_push, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply, \
+                 mock.patch.object(agent, 'fix_pipeline') as mock_fix:
                 result = control.process_pipeline_failures(
                     'ci', mrs, dbs, 'master', 3)
 
             self.assertEqual(result, 0)
+            rebase.assert_not_called()
+            mock_push.assert_not_called()
             mock_fix.assert_not_called()
-            self.assertIn('updating to master first and the result cannot '
-                          "be pushed (see pickman's log)",
-                          mock_reply.call_args[0][2])
-            self.assertTrue(dbs.pfix_has(1, 100))
-            self.assertEqual(0, dbs.pfix_count(1))
+            self.assertIn('reached retry limit', reply.call_args[0][2])
             dbs.close()
 
     def _recreate_subtree(self, pulled):
@@ -7583,7 +7553,9 @@ class TestProcessPipelineFailures(PipelineFailures):
                  mock.patch.object(gitlab, 'push_branch') as push, \
                  mock.patch.object(gitlab, 'reply_to_mr',
                                    return_value=True) as reply, \
-                 mock.patch.object(agent, 'fix_pipeline') as fix:
+                 mock.patch.object(control, '_abort_in_progress'), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No')) as fix:
                 result = control.process_pipeline_failures(
                     'ci', mrs, dbs, 'master', 3)
             pull.assert_called_once_with('dts', 'v7.2-dts')
@@ -7600,9 +7572,8 @@ class TestProcessPipelineFailures(PipelineFailures):
         self.assertIn(['checkout', '-B', 'cherry-test-1', 'ci/master'],
                       git_calls)
         self.assertFalse([a for a in git_calls if 'rebase' in a])
-        push.assert_called_once_with('ci', 'cherry-test-1', force=True,
-                                     skip_ci=False)
-        fix.assert_not_called()
+        push.assert_not_called()
+        self.assertTrue(fix.call_args.kwargs['rebased'])
 
     def test_recreate_subtree_fails(self):
         """Test that nothing is pushed if the subtree update fails"""
