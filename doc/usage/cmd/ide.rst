@@ -156,7 +156,9 @@ See also
   along with the scan and detail which that interface provides
 * :doc:`virtio<virtio>` for the same set of sub-commands on a virtio
   block-device
-* *scsi* and *usb* for the same set of sub-commands on other kinds of drive
+* :doc:`usb<usb>` for the same set of sub-commands on a USB storage device,
+  along with the enumeration of the bus it sits on
+* *scsi* for the same set of sub-commands on a SCSI drive
 * :doc:`scsiboot<scsiboot>` for loading and starting an image held on a SCSI
   drive, which is the same command as diskboot with another interface
 * :doc:`usbboot<usbboot>` for the same on a USB storage device

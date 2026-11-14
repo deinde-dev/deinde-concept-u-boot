@@ -490,14 +490,17 @@ void usb_show_tree(void)
 #endif
 }
 
+/* the message for an unknown test mode, in two pieces so each line fits */
+#define USB_BAD_MODE_MSG	"Unrecognized test mode: %s\nAvailable modes: "
+#define USB_TEST_MODES		"J, K, S[E0_NAK], P[acket], F[orce_Enable]"
+
 static int usb_test(struct usb_device *dev, int port, char* arg)
 {
 	int mode;
 
-	if (port > dev->maxchild) {
-		printf("Device is no hub or does not have %d ports.\n", port);
-		return 1;
-	}
+	if (port > dev->maxchild)
+		return cmd_fail(0, "Device is no hub or does not have %d ports.\n",
+				port);
 
 	switch (arg[0]) {
 	case 'J':
@@ -526,9 +529,7 @@ static int usb_test(struct usb_device *dev, int port, char* arg)
 		mode = USB_TEST_MODE_FORCE_ENABLE;
 		break;
 	default:
-		printf("Unrecognized test mode: %s\nAvailable modes: "
-		       "J, K, S[E0_NAK], P[acket], F[orce_Enable]\n", arg);
-		return 1;
+		return cmd_fail(0, USB_BAD_MODE_MSG USB_TEST_MODES "\n", arg);
 	}
 
 	if (port)
@@ -541,8 +542,7 @@ static int usb_test(struct usb_device *dev, int port, char* arg)
 			    port ? USB_PORT_FEAT_TEST : USB_FEAT_TEST,
 			    (mode << 8) | port,
 			    NULL, 0, USB_CNTL_TIMEOUT) == -1) {
-		printf("Error during SET_FEATURE.\n");
-		return 1;
+		return cmd_fail(0, "Error during SET_FEATURE.\n");
 	} else {
 		printf("Test mode successfully set. Use 'usb start' "
 		       "to return to normal operation.\n");
@@ -599,8 +599,10 @@ static void usb_show_info(struct usb_device *udev)
 /******************************************************************************
  * usb command intepreter
  */
-static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_usb(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct usb_device *udev = NULL;
 	int i;
 
@@ -628,10 +630,9 @@ static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		usb_stop();
 		return 0;
 	}
-	if (!usb_started) {
-		printf("USB is stopped. Please issue 'usb start' first.\n");
-		return 1;
-	}
+	if (!usb_started)
+		return cmd_fail(0,
+				"USB is stopped. Please issue 'usb start' first.\n");
 	if (strncmp(argv[1], "tree", 4) == 0) {
 		puts("USB device tree:\n");
 		usb_show_tree();
@@ -662,7 +663,7 @@ static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			printf("config for device %d\n", i);
 			udev = usb_find_device(i);
 			if (udev == NULL) {
-				printf("*** No device available ***\n");
+				cmd_err("*** No device available ***\n");
 				return 0;
 			} else {
 				usb_display_desc(udev);
@@ -676,10 +677,8 @@ static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			return CMD_RET_USAGE;
 		i = dectoul(argv[2], NULL);
 		udev = usb_find_device(i);
-		if (udev == NULL) {
-			printf("Device %d does not exist.\n", i);
-			return 1;
-		}
+		if (!udev)
+			return cmd_fail(0, "Device %d does not exist.\n", i);
 		i = dectoul(argv[3], NULL);
 		return usb_test(udev, i, argv[4]);
 	}
@@ -693,7 +692,7 @@ static int do_usb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 #endif /* CONFIG_USB_STORAGE */
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	usb,	5,	1,	do_usb,
 	"USB sub-system",
 	"start - start (scan) USB controller\n"
@@ -707,7 +706,7 @@ U_BOOT_CMD(
 #ifdef CONFIG_USB_STORAGE
 	"usb storage - show details of USB storage devices\n"
 	"usb dev [dev] - show or set current USB storage device\n"
-	"usb part [dev] - print partition table of one or all USB storage"
+	"usb part [dev] - print partition table of one or all USB storage\n"
 	"    devices\n"
 	"usb read addr blk# cnt - read `cnt' blocks starting at block `blk#'\n"
 	"    to memory address `addr'\n"
