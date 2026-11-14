@@ -14,6 +14,7 @@
 #include <malloc.h>
 #include <scsi.h>
 #include <scsi_emul.h>
+#include <asm/unaligned.h>
 
 enum {
 	SANDBOX_SCSI_BLOCK_LEN		= 512,
@@ -33,6 +34,49 @@ struct sandbox_scsi_priv {
 	int fd;
 };
 
+/**
+ * sandbox_scsi_unmap() - Erase the blocks which an UNMAP command lists
+ *
+ * An unmapped block on the emulated drive reads back as zeroes, so this writes
+ * zeroes over each range given by the block descriptors, which follow an
+ * 8-byte header giving their total length
+ *
+ * @priv: Drive state
+ * @req: UNMAP command, with its parameter list in @req->pdata
+ * Return: 0 if OK, -EIO if a range runs past the end of the drive or cannot be
+ * written
+ */
+static int sandbox_scsi_unmap(struct sandbox_scsi_priv *priv,
+			      struct scsi_cmd *req)
+{
+	struct scsi_emul_info *info = &priv->eminfo;
+	loff_t blocks = info->file_size / info->block_size;
+	const u8 *param = req->pdata;
+	uint len, i;
+
+	if (priv->fd == -1 || req->datalen < 8)
+		return -EIO;
+	len = min_t(ulong, get_unaligned_be16(param + 2), req->datalen - 8);
+	memset(info->buff, '\0', info->block_size);
+	for (i = 0; i + 16 <= len; i += 16) {
+		u64 lba = get_unaligned_be64(param + 8 + i);
+		u32 count = get_unaligned_be32(param + 16 + i);
+
+		if (lba + count > blocks)
+			return -EIO;
+		log_debug("unmap %llx %x\n", lba, count);
+		os_lseek(priv->fd, lba * info->block_size, OS_SEEK_SET);
+		for (; count; count--) {
+			if (os_write(priv->fd, info->buff, info->block_size) !=
+			    info->block_size)
+				return -EIO;
+		}
+	}
+	info->phase = SCSIPH_STATUS;
+
+	return 0;
+}
+
 static int sandbox_scsi_exec(struct udevice *dev, struct scsi_cmd *req)
 {
 	struct sandbox_scsi_priv *priv = dev_get_priv(dev);
@@ -41,6 +85,8 @@ static int sandbox_scsi_exec(struct udevice *dev, struct scsi_cmd *req)
 
 	if (req->lun || req->target)
 		return -EIO;
+	if (req->cmd[0] == SCSI_UNMAP)
+		return sandbox_scsi_unmap(priv, req);
 	ret = sb_scsi_emul_command(info, req, req->cmdlen);
 	if (ret < 0) {
 		log_debug("SCSI command 0x%02x ret errno %d\n", req->cmd[0],
