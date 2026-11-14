@@ -806,6 +806,22 @@ To run step continuously in a polling loop::
 This runs the ``step`` command repeatedly with a configurable interval,
 creating new MRs as previous ones are merged. Press Ctrl+C to stop.
 
+Ctrl+C can land part way through a round, for example while an agent is running
+or a branch is being pushed. To stop between rounds instead, run this in the
+same directory as the poll::
+
+    ./tools/pickman/pickman stop
+
+To pick up a change to pickman's code, ask the poll to restart::
+
+    ./tools/pickman/pickman restart
+
+Each leaves a request in ``.pickman.request``, which the poll checks at the end
+of each round and every few seconds while it sleeps. On ``stop`` it exits. On
+``restart`` it runs itself again with the same arguments, so it stays in the
+same terminal. A SIGTERM also stops the poll once its round is done. A request
+left from before the poll starts is dropped.
+
 Options for the poll command:
 
 - ``-F, --fix-retries``: Max pipeline-fix attempts per MR (default: 3, 0 to disable)

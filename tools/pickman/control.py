@@ -12,6 +12,7 @@ import fnmatch
 import json
 import os
 import re
+import signal
 import sys
 import tempfile
 import time
@@ -40,6 +41,15 @@ from u_boot_pylib import tout
 
 # Default database filename
 DB_FNAME = '.pickman.db'
+
+# File asking a running 'poll' to stop or restart once its round is done
+REQUEST_FNAME = '.pickman.request'
+
+# Requests which 'stop' and 'restart' can make of a running 'poll'
+POLL_REQUESTS = ('stop', 'restart')
+
+# Seconds between checks for a request while 'poll' sleeps
+REQUEST_CHECK = 5
 
 # Branch names to compare
 BRANCH_MASTER = 'ci/master'
@@ -6308,11 +6318,113 @@ def _do_step(args, dbs):
     return do_apply(args, dbs, info=info)
 
 
+def _request_poll(request):
+    """Ask a running poll to act on a request once its round is done
+
+    Args:
+        request (str): Request to make, one of POLL_REQUESTS
+
+    Returns:
+        int: 0 on success
+    """
+    tools.write_file(REQUEST_FNAME, request, binary=False)
+    tout.info(f"Asked 'poll' to {request} once its round is done")
+    return 0
+
+
+def do_stop(args, dbs):  # pylint: disable=unused-argument
+    """Ask a running poll to stop once its round is done
+
+    Args:
+        args (Namespace): Parsed arguments
+        dbs (Database): Database instance
+
+    Returns:
+        int: 0 on success
+    """
+    return _request_poll('stop')
+
+
+def do_restart(args, dbs):  # pylint: disable=unused-argument
+    """Ask a running poll to restart once its round is done
+
+    The poll runs again with the same arguments, so it picks up any change
+    to pickman's code.
+
+    Args:
+        args (Namespace): Parsed arguments
+        dbs (Database): Database instance
+
+    Returns:
+        int: 0 on success
+    """
+    return _request_poll('restart')
+
+
+def _take_request(signalled):
+    """Get any request for the poll to stop or restart, removing it
+
+    Args:
+        signalled (list of str): Requests made by signals
+
+    Returns:
+        str: Request ('stop' or 'restart'), or None if there is none
+    """
+    if signalled:
+        return signalled[0]
+    if not os.path.exists(REQUEST_FNAME):
+        return None
+    request = tools.read_file(REQUEST_FNAME, binary=False).strip()
+    os.remove(REQUEST_FNAME)
+    if request not in POLL_REQUESTS:
+        tout.warning(f"Ignoring unknown request '{request}' in "
+                     f'{REQUEST_FNAME}')
+        return None
+    return request
+
+
+def _poll_sleep(interval, signalled):
+    """Sleep between rounds, waking early if there is a request
+
+    Args:
+        interval (int): Seconds to sleep
+        signalled (list of str): Requests made by signals
+
+    Returns:
+        str: Request ('stop' or 'restart'), or None if there is none
+    """
+    end = time.monotonic() + interval
+    while True:
+        request = _take_request(signalled)
+        left = end - time.monotonic()
+        if request or left <= 0:
+            return request
+        time.sleep(min(left, REQUEST_CHECK))
+
+
+def _restart_poll(dbs):
+    """Run pickman again with the same arguments, to pick up new code
+
+    Args:
+        dbs (Database): Database instance, closed before restarting
+    """
+    tout.info('Restarting at request')
+    if dbs:
+        dbs.close()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
 def do_poll(args, dbs):
     """Run step repeatedly until stopped
 
     Runs the step command in a loop with a configurable interval. Useful for
     automated workflows that continuously process cherry-picks.
+
+    Between rounds, the poll stops or restarts if 'stop' or 'restart' asks it
+    to. A SIGTERM asks it to stop in the same way, so the round in progress
+    is not cut short.
 
     Args:
         args (Namespace): Parsed arguments with 'source', 'interval', 'remote',
@@ -6323,11 +6435,21 @@ def do_poll(args, dbs):
         int: 0 on success (never returns unless interrupted)
     """
     interval = args.interval
+    signalled = []
+
+    def on_term(_signum, _frame):
+        tout.info('Got SIGTERM: stopping once this round is done')
+        signalled.append('stop')
+
     tout.info(f'Polling every {interval} seconds (Ctrl+C to stop)...')
     tout.info('')
 
-    while True:
-        try:
+    # A request left from before this poll started is stale
+    if os.path.exists(REQUEST_FNAME):
+        os.remove(REQUEST_FNAME)
+    old_handler = signal.signal(signal.SIGTERM, on_term)
+    try:
+        while True:
             ret = do_step(args, dbs)
             if ret != 0:
                 tout.warning(f'step returned {ret}')
@@ -6338,14 +6460,23 @@ def do_poll(args, dbs):
                 tout.error('Stopping: the agent cannot run at all')
                 tout.error(f'  {claude.fatal_seen}')
                 return 1
-            tout.info('')
-            tout.info(f'Sleeping {interval} seconds...')
-            time.sleep(interval)
-            tout.info('')
-        except KeyboardInterrupt:
-            tout.info('')
-            tout.info('Polling stopped by user')
-            return 0
+            request = _take_request(signalled)
+            if not request:
+                tout.info('')
+                tout.info(f'Sleeping {interval} seconds...')
+                request = _poll_sleep(interval, signalled)
+                tout.info('')
+            if request == 'stop':
+                tout.info('Stopping at request')
+                return 0
+            if request == 'restart':
+                _restart_poll(dbs)
+    except KeyboardInterrupt:
+        tout.info('')
+        tout.info('Polling stopped by user')
+        return 0
+    finally:
+        signal.signal(signal.SIGTERM, old_handler)
 
 
 def do_test(args, dbs):  # pylint: disable=unused-argument
@@ -6387,10 +6518,12 @@ COMMANDS = {
     'pick': do_pick,
     'poll': do_poll,
     'push-branch': do_push_branch,
+    'restart': do_restart,
     'review': do_review,
     'rewind': do_rewind,
     'status': do_status,
     'step': do_step,
+    'stop': do_stop,
     'switch-source': do_switch_source,
     'test': do_test,
 }
@@ -6399,7 +6532,7 @@ COMMANDS = {
 # Commands which do not use the database, so need not create it
 NO_DB_COMMANDS = {
     'check', 'check-external', 'check-gitlab', 'compare', 'drift-accept',
-    'pick', 'push-branch', 'split-check', 'test',
+    'pick', 'push-branch', 'restart', 'split-check', 'stop', 'test',
 }
 
 

@@ -13,6 +13,7 @@ import inspect
 import json
 import os
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -3068,49 +3069,159 @@ class TestParsePoll(unittest.TestCase):
 class TestPoll(unittest.TestCase):
     """Tests for poll command."""
 
-    def test_poll_stops_on_keyboard_interrupt(self):
-        """Test poll stops gracefully on KeyboardInterrupt."""
-        call_count = [0]
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        tout.init(tout.INFO)
+
+    def tearDown(self):
+        tout.init(tout.WARNING)
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _poll(self, steps, interval=0, dbs=None, sleep=None):
+        """Run a poll whose rounds are given functions
+
+        Args:
+            steps (list of callable): Function to call for each round,
+                returning the step's exit code; the round after the last
+                raises KeyboardInterrupt
+            interval (int): Interval between rounds
+            dbs (Database): Database to pass to the poll
+            sleep (callable): Side effect for time.sleep()
+
+        Returns:
+            tuple:
+                int: Exit code from the poll
+                int: Number of rounds run
+                str: Output from the poll
+                str: Errors from the poll
+        """
+        rounds = []
 
         def mock_step(_args, _dbs):
-            call_count[0] += 1
-            if call_count[0] >= 2:
+            if len(rounds) == len(steps):
                 raise KeyboardInterrupt
-            return 0
+            rounds.append(True)
+            return steps[len(rounds) - 1]()
 
-        with mock.patch.object(control, 'do_step', mock_step):
-            with mock.patch('time.sleep'):
-                args = argparse.Namespace(
-                    cmd='poll', source='us/next', interval=1,
-                    remote='ci', target='master'
-                )
-                with terminal.capture():
-                    ret = control.do_poll(args, None)
+        args = argparse.Namespace(cmd='poll', source='us/next',
+                                  interval=interval, remote='ci',
+                                  target='master')
+        with mock.patch.object(control, 'do_step', mock_step), \
+                mock.patch('time.sleep', side_effect=sleep):
+            with terminal.capture() as (stdout, stderr):
+                ret = control.do_poll(args, dbs)
+        return ret, len(rounds), stdout.getvalue(), stderr.getvalue()
 
+    def test_poll_stops_on_keyboard_interrupt(self):
+        """Test poll stops gracefully on KeyboardInterrupt."""
+        ret, rounds, out, _ = self._poll([lambda: 0])
         self.assertEqual(ret, 0)
-        self.assertEqual(call_count[0], 2)
+        self.assertEqual(rounds, 1)
+        self.assertIn('Polling stopped by user', out)
 
     def test_poll_continues_on_step_error(self):
         """Test poll continues when step returns non-zero."""
-        call_count = [0]
-
-        def mock_step(_args, _dbs):
-            call_count[0] += 1
-            if call_count[0] >= 2:
-                raise KeyboardInterrupt
-            return 1  # Return error
-
-        with mock.patch.object(control, 'do_step', mock_step):
-            with mock.patch('time.sleep'):
-                args = argparse.Namespace(
-                    cmd='poll', source='us/next', interval=1,
-                    remote='ci', target='master'
-                )
-                with terminal.capture() as (_, stderr):
-                    ret = control.do_poll(args, None)
-
+        ret, rounds, _, err = self._poll([lambda: 1, lambda: 0])
         self.assertEqual(ret, 0)
-        self.assertIn('returned 1', stderr.getvalue())
+        self.assertEqual(rounds, 2)
+        self.assertIn('returned 1', err)
+
+    def test_request(self):
+        """Test that stop and restart leave a request for the poll"""
+        with terminal.capture() as (stdout, _):
+            self.assertEqual(0, control.do_stop(None, None))
+        self.assertEqual('stop', tools.read_file(control.REQUEST_FNAME,
+                                                 binary=False))
+        self.assertIn("Asked 'poll' to stop", stdout.getvalue())
+        with terminal.capture():
+            self.assertEqual(0, control.do_restart(None, None))
+        self.assertEqual('restart', tools.read_file(control.REQUEST_FNAME,
+                                                    binary=False))
+
+    def test_parse(self):
+        """Test parsing the stop and restart commands"""
+        self.assertEqual('stop', pickman.parse_args(['stop']).cmd)
+        self.assertEqual('restart', pickman.parse_args(['restart']).cmd)
+
+    def _request(self, request):
+        """Make a request of the poll, returning 0 like a step"""
+        tools.write_file(control.REQUEST_FNAME, request, binary=False)
+        return 0
+
+    def test_stop_after_round(self):
+        """Test that a request made during a round stops the poll after it"""
+        ret, rounds, out, _ = self._poll([lambda: self._request('stop'),
+                                          lambda: 0])
+        self.assertEqual(0, ret)
+        self.assertEqual(1, rounds)
+        self.assertIn('Stopping at request', out)
+        self.assertNotIn('Sleeping', out)
+        self.assertFalse(os.path.exists(control.REQUEST_FNAME))
+
+    def test_stop_while_sleeping(self):
+        """Test that a request made during the sleep stops the poll early"""
+        sleeps = []
+
+        def sleep(secs):
+            sleeps.append(secs)
+            if len(sleeps) == 2:
+                self._request('stop')
+
+        ret, rounds, out, _ = self._poll([lambda: 0, lambda: 0],
+                                         interval=300, sleep=sleep)
+        self.assertEqual(0, ret)
+        self.assertEqual(1, rounds)
+        self.assertEqual([control.REQUEST_CHECK] * 2, sleeps)
+        self.assertIn('Stopping at request', out)
+
+    def test_restart(self):
+        """Test that a restart request runs pickman again"""
+        dbs = mock.Mock()
+        with mock.patch.object(os, 'execv') as execv:
+            ret, rounds, out, _ = self._poll(
+                [lambda: self._request('restart'), lambda: 0], dbs=dbs)
+
+        # The mock execv() returns, so the poll carries on to the next round
+        self.assertEqual(0, ret)
+        self.assertEqual(2, rounds)
+        self.assertIn('Restarting at request', out)
+        dbs.close.assert_called_once_with()
+        execv.assert_called_once_with(sys.executable,
+                                      [sys.executable] + sys.argv)
+
+    def test_unknown_request(self):
+        """Test that an unknown request is reported and ignored"""
+        ret, rounds, _, err = self._poll([lambda: self._request('bogus'),
+                                          lambda: 0])
+        self.assertEqual(0, ret)
+        self.assertEqual(2, rounds)
+        self.assertIn("Ignoring unknown request 'bogus'", err)
+        self.assertFalse(os.path.exists(control.REQUEST_FNAME))
+
+    def test_stale_request(self):
+        """Test that a request left before the poll starts is dropped"""
+        self._request('stop')
+        ret, rounds, _, _ = self._poll([lambda: 0, lambda: 0])
+        self.assertEqual(0, ret)
+        self.assertEqual(2, rounds)
+
+    def test_sigterm(self):
+        """Test that SIGTERM stops the poll once its round is done"""
+        orig = signal.getsignal(signal.SIGTERM)
+
+        def step():
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+            return 0
+
+        ret, rounds, out, _ = self._poll([step, lambda: 0])
+        self.assertEqual(0, ret)
+        self.assertEqual(1, rounds)
+        self.assertIn('Got SIGTERM', out)
+        self.assertIn('Stopping at request', out)
+        self.assertIs(orig, signal.getsignal(signal.SIGTERM))
 
 
 class TestParseInstruction(unittest.TestCase):
