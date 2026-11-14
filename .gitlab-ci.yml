@@ -1162,6 +1162,12 @@ bpif3:
     ROLE: bpif3
   <<: *sjg_lab_dfn
 
+# Bluewater Snapper 9260 (AT91SAM9260, booted from RAM over SAM-BA)
+sn9260:
+  variables:
+    ROLE: sn9260
+  <<: *sjg_lab_dfn
+
 # Felwinter Chromebook (brya, Alder Lake), booting U-Boot as a coreboot
 # payload from an EM100 flash emulator
 felwinter-cb:
