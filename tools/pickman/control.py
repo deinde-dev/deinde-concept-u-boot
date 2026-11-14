@@ -5528,6 +5528,9 @@ def _rebase_mr_branch(remote, merge_req, dbs, target):
 # Files which no CI job reads, so a change to them cannot affect a result
 NO_JOBS_READ = {HISTORY_FILE}
 
+# Most characters of the agent's diagnosis to post on a merge request
+DIAGNOSIS_LEN = 2000
+
 # Job statuses which need no re-run: passed, or never started in a full run.
 # A job is skipped when it needs a manual one, such as the variants of a sage
 # lab board; naming it in ONLY_JOBS would make it run, and wait for a runner
@@ -5830,6 +5833,58 @@ def _select_failed_jobs(remote, merge_req, dbs, attempt):
     return failed_jobs, set(lab) | set(shared), note
 
 
+def _fix_changes_branch(remote, merge_req):
+    """Check whether the fix changes what the failed pipeline tested
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): MR with a failed pipeline
+
+    Returns:
+        bool: True if HEAD differs from the commit which the pipeline
+            tested, apart from the history file
+    """
+    tested = merge_req.sha or f'{remote}/{merge_req.source_branch}'
+    return bool(run_git(['diff', '--name-only', tested, 'HEAD', '--', '.',
+                         f':!{HISTORY_FILE}']))
+
+
+def _report_no_change(remote, merge_req, dbs, attempt, conversation_log,
+                      note):
+    """Report a fix attempt in which the agent changes nothing
+
+    Running the failed jobs again on the same code would just retry them, so
+    report the agent's diagnosis instead, for someone to act on.
+
+    Args:
+        remote (str): Remote name
+        merge_req (PickmanMr): MR with a failed pipeline
+        dbs (Database): Database instance for tracking fix attempts
+        attempt (int): Current fix attempt number
+        conversation_log (str): The agent's output
+        note (str): Note about the jobs left out, from _select_failed_jobs()
+    """
+    mr_iid = merge_req.iid
+    dbs.pfix_add(mr_iid, merge_req.pipeline_id, attempt, 'no_change')
+    dbs.commit()
+
+    # The diagnosis comes at the end, so keep whole paragraphs from there
+    diagnosis = conversation_log
+    if len(diagnosis) > DIAGNOSIS_LEN:
+        diagnosis = diagnosis[-DIAGNOSIS_LEN:]
+        para = diagnosis.find('\n\n')
+        if para >= 0:
+            diagnosis = diagnosis[para + 2:]
+        diagnosis = f'(The start of the output is left out)\n\n{diagnosis}'
+    gitlab_api.reply_to_mr(
+        remote, mr_iid,
+        f'Pipeline fix (attempt {attempt}): the agent made no change, so the '
+        f'failed jobs are not run again. Its diagnosis:\n\n'
+        f'{diagnosis}{note}')
+    tout.info(f'MR !{mr_iid}: pipeline fix made no change '
+              f'(attempt {attempt})')
+
+
 def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
                           selected, rebased):
     """Run the agent to fix a failed pipeline and report the result
@@ -5865,6 +5920,11 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
         attempt=attempt,
         rebased=rebased,
     )
+
+    if success and not _fix_changes_branch(remote, merge_req):
+        _report_no_change(remote, merge_req, dbs, attempt, conversation_log,
+                          note)
+        return
 
     status = 'success' if success else 'failure'
     dbs.pfix_add(mr_iid, merge_req.pipeline_id, attempt, status)

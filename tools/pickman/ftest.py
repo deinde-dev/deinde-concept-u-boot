@@ -7486,24 +7486,28 @@ class TestProcessPipelineFailures(PipelineFailures):
             self.assertIn('build', reply_msg)
             dbs.close()
 
-    def _fix(self, push_error=None):
-        """Process a failed pipeline for which the agent finds nothing to do
+    def _fix(self, push_error=None, changed=True):
+        """Process a failed pipeline, with the agent reporting success
 
         Args:
             push_error (Exception): Error for the push to raise, or None
+            changed (bool): True if the agent leaves the branch changed
 
         Returns:
-            tuple: (result, calls, Mock, Mock), where calls lists the git
-                commands with 'agent', 'history' and 'push' where the agent
-                runs, the history is updated and the branch is pushed, and
-                the mocks are for replies to the MR and for the history
-                update
+            tuple:
+                int: Result of process_pipeline_failures()
+                list: Git commands, with 'agent', 'history' and 'push' where
+                    the agent runs, the history is updated and the branch is
+                    pushed
+                Namespace: Mocks for the replies to the MR ('reply'), the
+                    history update ('history') and the push ('push'), with
+                    the pipeline's fix 'status' and the attempt 'count'
         """
         calls = []
 
         def run_git(args):
             calls.append(args)
-            return ''
+            return 'a.c' if changed and args[0] == 'diff' else ''
 
         def fix_pipeline(*_args, **_kwargs):
             calls.append('agent')
@@ -7538,33 +7542,95 @@ class TestProcessPipelineFailures(PipelineFailures):
                                    side_effect=history) as history_mock:
                 result = control.process_pipeline_failures(
                     'ci', [self._make_mr()], dbs, 'master', 3)
-            self.assertTrue(dbs.pfix_has(1, 100))
+            out = argparse.Namespace(reply=reply, history=history_mock,
+                                     push=push_mock,
+                                     status=dbs.pfix_status(1, 100),
+                                     count=dbs.pfix_count(1))
             dbs.close()
-        push_mock.assert_called_once()
-        return result, calls, reply, history_mock
+        return result, calls, out
 
     def test_fix_checks_out_branch(self):
         """Test that the branch is checked out before the agent runs"""
-        result, calls, _, history = self._fix()
+        result, calls, out = self._fix()
         self.assertEqual(1, result)
+        self.assertEqual('success', out.status)
+        out.push.assert_called_once()
 
         # The agent need not check out the branch itself
         self.assertLess(calls.index(['checkout', 'cherry-test-1']),
                         calls.index('agent'))
-        history.assert_called_once()
+        out.history.assert_called_once()
 
         # The push must take the history entry with it
         self.assertLess(calls.index('history'), calls.index('push'))
 
     def test_fix_push_fails(self):
         """Test that a fix which cannot be pushed does not stop pickman"""
-        result, _, reply, history = self._fix(command.CommandExc(
+        result, _, out = self._fix(command.CommandExc(
             "Error running 'git push https://token@host'", None))
         self.assertEqual(1, result)
-        history.assert_called_once()
-        reply.assert_called_once_with(
+        out.push.assert_called_once()
+        out.history.assert_called_once()
+        out.reply.assert_called_once_with(
             'ci', 1, 'Cannot push the fix from attempt 1 to the branch. '
             "Please check the branch; pickman's log has the error.")
+
+    def test_fix_no_change(self):
+        """Test that a fix which changes nothing does not rerun the jobs"""
+        result, calls, out = self._fix(changed=False)
+        self.assertEqual(1, result)
+
+        # Running the same code again would just retry the jobs
+        out.push.assert_not_called()
+        out.history.assert_not_called()
+        self.assertIn(['diff', '--name-only', 'ci/cherry-test-1', 'HEAD',
+                       '--', '.', ':!.pickman-history'], calls)
+
+        # It is dealt with, so a rebase need not wait, and counts as an
+        # attempt, since the agent ran
+        self.assertEqual('no_change', out.status)
+        self.assertEqual(1, out.count)
+        out.reply.assert_called_once()
+        msg = out.reply.call_args[0][2]
+        self.assertIn('Pipeline fix (attempt 1): the agent made no change, '
+                      'so the failed jobs are not run again', msg)
+        self.assertIn('Nothing to change', msg)
+        self.assertNotIn('left out', msg)
+
+    def test_no_change_long(self):
+        """Test that the end of a long diagnosis is posted, where it ends"""
+        merge_req = self._make_mr()
+        log = 'Looking around\n\n' + 'x' * 3000 + '\n\nIt is a lab timeout'
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            with mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                control._report_no_change('ci', merge_req, dbs, 1, log, '')
+            dbs.close()
+        msg = reply.call_args[0][2]
+        self.assertIn('Its diagnosis:\n\n(The start of the output is left '
+                      'out)\n\nIt is a lab timeout', msg)
+        self.assertNotIn('Looking around', msg)
+        self.assertNotIn('x', msg.split('left out')[1])
+
+        # Without a paragraph break, it is just the last characters
+        with mock.patch.object(gitlab, 'reply_to_mr') as reply:
+            control._report_no_change('ci', merge_req, mock.Mock(), 1,
+                                      'a' + 'y' * 2500, '')
+        msg = reply.call_args[0][2]
+        self.assertIn('left out)\n\n' + 'y' * control.DIAGNOSIS_LEN, msg)
+
+    def test_fix_changes_branch(self):
+        """Test comparing the fix with the commit the pipeline tested"""
+        merge_req = self._make_mr()._replace(sha='abc')
+        with mock.patch.object(control, 'run_git',
+                               return_value='') as run_git:
+            self.assertFalse(control._fix_changes_branch('ci', merge_req))
+        run_git.assert_called_once_with(
+            ['diff', '--name-only', 'abc', 'HEAD', '--', '.',
+             ':!.pickman-history'])
+        with mock.patch.object(control, 'run_git', return_value='a.c\n'):
+            self.assertTrue(control._fix_changes_branch('ci', merge_req))
 
     def test_skips_skipped_mr(self):
         """Test that MRs without pipeline_id are skipped"""
