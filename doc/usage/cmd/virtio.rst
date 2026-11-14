@@ -290,6 +290,8 @@ See also
 * :doc:`write<write>` for writing blocks to a partition
 * :doc:`nvme<nvme>` and :doc:`ide<ide>` for the same set of sub-commands on an
   NVMe namespace or an IDE drive
-* *scsi* and *usb* for the same set of sub-commands on other kinds of drive
+* :doc:`usb<usb>` for the same set of sub-commands on a USB storage device,
+  along with the enumeration of the bus it sits on
+* *scsi* for the same set of sub-commands on a SCSI drive
 * :doc:`blkcache<blkcache>` for the cache which sits in front of the reads
   these sub-commands do

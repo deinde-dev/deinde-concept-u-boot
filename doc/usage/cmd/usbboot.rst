@@ -135,7 +135,8 @@ the command.
 See also
 --------
 
-* *usb* for enumerating the bus and for reading blocks without booting them
+* :doc:`usb<usb>` for enumerating the bus and for reading blocks without
+  booting them
 * :doc:`bootm<bootm>` for booting an image which is already in memory, which
   is what this command uses once the image is loaded
 * :doc:`scsiboot<scsiboot>` for the same command on a SCSI drive

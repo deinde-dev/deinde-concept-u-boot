@@ -62,8 +62,8 @@ If an error occurs, the return value $? is set to 1 (false).
 See also
 --------
 
-* *usb* for finding and reading the storage devices which this command
-  exports to a host
+* :doc:`usb<usb>` for finding and reading the storage devices which this
+  command exports to a host
 * :doc:`usbboot<usbboot>` for loading and starting an image held on a USB
   storage device
 * :doc:`part<part>` for listing the partitions a device offers
