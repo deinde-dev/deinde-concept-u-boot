@@ -106945,3 +106945,56 @@ Retrying the three jobs is the next step. If colibrimx8 fails `test_dm_compat` a
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-9fd9df71e243
+
+Commits:
+- 9fd9df71e243 pinctrl: spacemit: k3: add K3 pin support
+- 60106e0385b4 gpio: spacemit: add support for K3 SoC
+- d1a7fb596ec6 clk: spacemit: ccu_mix: fix inverted condition in ccu_mix_trigger_fc()
+- d2cc0aa2ba32 clk: spacemit: ccu_mix: add inverted enable gate clock
+- 57ecf2e5448f clk: spacemit: ccu_pll: add plla type clock
+- c80731fa3247 clk: spacemit: k3: extract common header
+- efe62df16050 clk: spacemit: k3: add the clock tree
+- 20c4c8b40995 clk: spacemit: k3: add CPU PLL rate tables
+- c2dcfbe319b0 reset: spacemit: Extract common K1 reset code
+- 89269413d4f5 reset: spacemit: Add SpacemiT K3 reset driver
+- 43798d61492b clk: spacemit: program the mux when setting a mix clock's rate
+- 31d3bdb0e37d board: spacemit: add SpacemiT K3 Pico-ITX
+- 262a0267b663 riscv: dts: spacemit: k3: add binman node
+- d56972c3f331 configs: spacemit: Add K3 default configuration
+- ee7bd2529853 doc: spacemit: k3: Add Pico-ITX board
+- 01b0d2681dac configs: spacemit: k3: Enable Ethernet support
+- 5e3b01c8466d Merge tag 'spacemit-main-20261010' of https://git.u-boot-project.org/u-boot/custodians/u-boot-spacemit
+
+### Conversation log
+Eight of the 17 commits are picked and building cleanly; the ninth (c2dcfbe319b0, the reset common-code extraction) hit a conflict in `drivers/clk/spacemit/Kconfig`, which I'm looking at now.
+
+The second conflict (31d3bdb0e37d, `arch/riscv/Kconfig`) is resolved with an identical delta, but the sandbox build after it returned 101, so I'm checking the build log.
+
+All 17 commits are in place with the extra `LIB_RATIONAL` fix folded into the K3 clock commit; now running the final sandbox build plus the SpacemiT K1/K3 boards to confirm that fix.
+
+All 17 commits are cherry-picked onto `cherry-9fd9df71e243` (based on ci/master), and the final sandbox build is clean with no warnings or errors. The branch is ready to push and has not been merged anywhere.
+
+I also built `spacemit_k3` and `spacemit_k1`: both compile and link, and the only warning is the missing OpenSBI blob (`fw_dynamic.bin`) on `spacemit_k1`.
+
+## Fix-ups
+Each has a note line at the end of its commit message.
+
+- **c2dcfbe319b0 (reset: spacemit: Extract common K1 reset code):** conflict in `drivers/clk/spacemit/Kconfig`. I kept the target's existing `LIB_RATIONAL` and `SPL_REGMAP` selects alongside the new `select RESET_SPACEMIT_K1`.
+- **31d3bdb0e37d (board: spacemit: add SpacemiT K3 Pico-ITX):**
+  - Conflict in `arch/riscv/Kconfig`: the context includes a k230 `source` line that the target does not have, so I added only the k3 line.
+  - I renamed `config TEXT_BASE` to `config PPL_TEXT_BASE` in `board/spacemit/k3/Kconfig`, matching the target's rename. Without it the sandbox build warned "config symbol defined without type".
+- **efe62df16050 (clk: spacemit: k3: add the clock tree):** I added `select LIB_RATIONAL` to `CLK_SPACEMIT_K3`. Upstream selects it from `CLK_SPACEMIT`, but the target only selects it from `CLK_SPACEMIT_K1`, so `spacemit_k3` failed to link (`rational_best_approximation` undefined). The sandbox build does not catch this.
+- **89269413d4f5 (reset: spacemit: Add SpacemiT K3 reset driver):** carries a trivial resolution next to that added line, with no note of its own.
+- **5e3b01c8466d (Merge tag 'spacemit-main-20261010'):** kept as an empty commit, since its whole diff is already applied by the individual picks. Its conflicts were only against the fix-ups above.
+
+To fold the `LIB_RATIONAL` fix into the commit that introduces `CLK_SPACEMIT_K3`, I rebased the last 11 commits of the new, unpushed branch. Their hashes differ from the first pass, but the content is otherwise unchanged.
+
+## Deltas and split-check
+- **Deltas:** every commit matches its original in files and line counts, apart from the one extra line in efe62df16050.
+- **Split-check:** it reported nothing to convert on the 16 regular commits and was not run on the empty merge commit. efe62df16050 and 89269413d4f5 were not re-checked after the rebase.
+
+---
+
