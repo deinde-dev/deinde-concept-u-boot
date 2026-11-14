@@ -186,6 +186,7 @@ obj-$(CONFIG_CMD_MMC) += mmcinfo.o
 obj-$(CONFIG_CMD_MOUSE) += mouse.o
 obj-$(CONFIG_CMD_PINMUX) += pinmux.o
 obj-$(CONFIG_CMD_PMC) += pmc.o
+obj-$(CONFIG_CMD_POWEROFF) += poweroff.o
 obj-$(CONFIG_CMD_PWM) += pwm.o
 obj-$(CONFIG_CMD_READ) += rw.o
 ifdef CONFIG_REMOTEPROC_SANDBOX
