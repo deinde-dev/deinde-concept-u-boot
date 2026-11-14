@@ -1274,6 +1274,27 @@ static inline phy_interface_t dev_read_phy_mode(const struct udevice *dev)
 #endif /* CONFIG_DM_DEV_READ_INLINE */
 
 /**
+ * dev_read_u32_array_alloc() - Read an array of 32-bit integers into memory
+ *
+ * This allocates space for the whole property and reads it. The caller may
+ * free the array with free()
+ *
+ * @dev: device to look up
+ * @propname: name of the property to read
+ * @arrayp: returns a pointer to the values
+ * @countp: returns the number of values
+ * Return: 0 on success, -EINVAL if the property does not exist, -ENOMEM if
+ * out of memory, or another error from dev_read_u32_array()
+ */
+static inline int dev_read_u32_array_alloc(const struct udevice *dev,
+					   const char *propname,
+					   const u32 **arrayp, int *countp)
+{
+	return ofnode_read_u32_array_alloc(dev_ofnode(dev), propname, arrayp,
+					   countp);
+}
+
+/**
  * dev_for_each_subnode() - Helper function to iterate through subnodes
  *
  * This creates a for() loop which works through the subnodes in a device's

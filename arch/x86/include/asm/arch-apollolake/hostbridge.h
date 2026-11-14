@@ -15,7 +15,7 @@
  * @bdf: Bus/device/function of hostbridge
  */
 struct apl_hostbridge_plat {
-	u32 *early_pads;
+	const u32 *early_pads;
 	int early_pads_count;
 	uint pciex_region_size;
 	pci_dev_t bdf;

@@ -667,6 +667,30 @@ int ofnode_read_u32_array(ofnode node, const char *propname,
 	}
 }
 
+int ofnode_read_u32_array_alloc(ofnode node, const char *propname,
+				const u32 **arrayp, int *countp)
+{
+	int size, count, ret;
+	u32 *array;
+
+	size = ofnode_read_size(node, propname);
+	if (size < 0)
+		return size;
+	array = malloc(size);
+	if (!array)
+		return -ENOMEM;
+	count = size / sizeof(u32);
+	ret = ofnode_read_u32_array(node, propname, array, count);
+	if (ret) {
+		free(array);
+		return ret;
+	}
+	*arrayp = array;
+	*countp = count;
+
+	return 0;
+}
+
 int ofnode_read_u64_array(ofnode node, const char *propname,
 			  u64 *out_values, size_t sz)
 {

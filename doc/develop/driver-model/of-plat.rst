@@ -271,6 +271,15 @@ dev_prop_bool()
 dev_prop_u32_array()
     Array of 32-bit integers; returns -EINVAL if the property is absent
 
+dev_prop_u32_array_ptr()
+    Pointer to an array of 32-bit integers, for a driver which only reads it;
+    with of-platdata nothing is copied
+
+dev_prop_u32_array_rw()
+    Pointer to an array of 32-bit integers which the driver may write to; with
+    of-platdata nothing is copied and the array is the only writable part of
+    the generated data
+
 dev_prop_size()
     Size of a property in bytes, e.g. to allocate space for an array
 

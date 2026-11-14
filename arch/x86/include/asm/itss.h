@@ -51,7 +51,7 @@ struct pmc_route {
 };
 
 struct itss_priv {
-	struct pmc_route *route;
+	const struct pmc_route *route;
 	uint route_count;
 	u32 irq_snapshot[NUM_IPC_REGS];
 };

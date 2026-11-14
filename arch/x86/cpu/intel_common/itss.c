@@ -138,7 +138,7 @@ static int restore_polarities(struct udevice *dev)
 static int route_pmc_gpio_gpe(struct udevice *dev, uint pmc_gpe_num)
 {
 	struct itss_priv *priv = dev_get_priv(dev);
-	struct pmc_route *route;
+	const struct pmc_route *route;
 	int i;
 
 	for (i = 0, route = priv->route; i < priv->route_count; i++, route++) {
@@ -163,7 +163,8 @@ static int itss_of_to_plat(struct udevice *dev)
 {
 	struct itss_priv *priv = dev_get_priv(dev);
 	DTPLAT(intel_itss, dt, dev);
-	int size, ret;
+	const u32 *routes;
+	int count, ret;
 
 	/*
 	 * With a devicetree, the port ID is set when the device is bound. With
@@ -185,17 +186,12 @@ static int itss_of_to_plat(struct udevice *dev)
 			return log_msg_ret("Could not set port id", ret);
 	}
 
-	size = dev_prop_size(dev, dt, intel_pmc_routes, "intel,pmc-routes");
-	if (size < 0)
-		return size;
-	priv->route = malloc(size);
-	if (!priv->route)
-		return -ENOMEM;
-	ret = dev_prop_u32_array(dev, dt, intel_pmc_routes, "intel,pmc-routes",
-				 (u32 *)priv->route, size / sizeof(fdt32_t));
+	ret = dev_prop_u32_array_ptr(dev, dt, intel_pmc_routes,
+				     "intel,pmc-routes", &routes, &count);
 	if (ret)
 		return log_msg_ret("Cannot read pmc-routes", ret);
-	priv->route_count = size / sizeof(struct pmc_route);
+	priv->route = (const struct pmc_route *)routes;
+	priv->route_count = count * sizeof(u32) / sizeof(struct pmc_route);
 
 	return 0;
 }

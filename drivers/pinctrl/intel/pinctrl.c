@@ -522,7 +522,8 @@ int pinctrl_gpi_clear_int_cfg(void)
 	return 0;
 }
 
-int pinctrl_config_pads(struct udevice *dev, u32 *pads, int pads_count)
+int pinctrl_config_pads(struct udevice *dev, const u32 *pads,
+			int pads_count)
 {
 	struct intel_pinctrl_priv *priv = dev_get_priv(dev);
 	const u32 *ptr;
@@ -556,27 +557,19 @@ int pinctrl_config_pads(struct udevice *dev, u32 *pads, int pads_count)
 int pinctrl_read_pads(struct udevice *dev, ofnode node, const char *prop,
 		      u32 **padsp, int *pad_countp)
 {
-	u32 *pads;
-	int size;
+	const u32 *pads;
+	int count;
 	int ret;
 
 	*padsp = NULL;
 	*pad_countp = 0;
-	size = ofnode_read_size(node, prop);
-	if (size < 0)
+	ret = ofnode_read_u32_array_alloc(node, prop, &pads, &count);
+	if (ret == -EINVAL)
 		return 0;
-
-	pads = malloc(size);
-	if (!pads)
-		return -ENOMEM;
-	size /= sizeof(fdt32_t);
-	ret = ofnode_read_u32_array(node, prop, pads, size);
-	if (ret) {
-		free(pads);
+	if (ret)
 		return ret;
-	}
-	*pad_countp = pinctrl_count_pads(dev, size);
-	*padsp = pads;
+	*pad_countp = pinctrl_count_pads(dev, count);
+	*padsp = (u32 *)pads;
 
 	return 0;
 }

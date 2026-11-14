@@ -10,6 +10,13 @@
 #include <asm/test.h>
 #include <dm/prop.h>
 
+/* Fill in the last value, as a driver might do with something it detects */
+static void sandbox_dev_prop_update(struct sandbox_dev_prop_plat *plat)
+{
+	if (!plat->array_rw_ret && plat->array_rw_count == 4)
+		plat->array_rw[3] = plat->array_rw[0] + plat->array_rw[1];
+}
+
 static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 {
 	struct sandbox_dev_prop_plat *plat = dev_get_plat(dev);
@@ -31,6 +38,15 @@ static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 						     ARRAY_SIZE(none));
 	plat->array_size = dev_prop_size(dev, dt, dev_prop_array,
 					 "dev-prop-array");
+	plat->array_ptr_ret = dev_prop_u32_array_ptr(dev, dt, dev_prop_array,
+						     "dev-prop-array",
+						     &plat->array_ptr,
+						     &plat->array_ptr_count);
+	plat->array_rw_ret = dev_prop_u32_array_rw(dev, dt, dev_prop_rw,
+						   "dev-prop-rw",
+						   &plat->array_rw,
+						   &plat->array_rw_count);
+	sandbox_dev_prop_update(plat);
 	plat->u32_ret = dev_prop_u32(dev, dt, dev_prop_present,
 				     "dev-prop-present", &plat->u32_val);
 
@@ -60,6 +76,9 @@ static int sandbox_dev_prop_bind(struct udevice *dev)
 static int sandbox_dev_prop_remove(struct udevice *dev)
 {
 	struct sandbox_dev_prop_plat *plat = dev_get_plat(dev);
+
+	dev_prop_u32_array_free(dev, plat->array_ptr);
+	dev_prop_u32_array_free(dev, plat->array_rw);
 
 	return IS_ENABLED(CONFIG_REGMAP) ? regmap_uninit(plat->map) : 0;
 }
@@ -96,6 +115,11 @@ static int sandbox_dev_prop_single_of_to_plat(struct udevice *dev)
 					     "dev-prop-present", 7);
 	plat->absent = dev_prop_u32_default(dev, dt, dev_prop_absent,
 					    "dev-prop-absent", 9);
+	plat->array_rw_ret = dev_prop_u32_array_rw(dev, dt, dev_prop_rw,
+						   "dev-prop-rw",
+						   &plat->array_rw,
+						   &plat->array_rw_count);
+	sandbox_dev_prop_update(plat);
 
 	if (!IS_ENABLED(CONFIG_REGMAP))
 		return 0;

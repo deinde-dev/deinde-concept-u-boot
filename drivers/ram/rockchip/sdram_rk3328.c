@@ -39,7 +39,7 @@ struct dram_info {
 struct rk3328_sdram_channel sdram_ch;
 
 struct rockchip_dmc_plat {
-	struct rk3328_sdram_params sdram_params;
+	struct rk3328_sdram_params *sdram_params;
 	struct regmap *map;
 };
 
@@ -495,7 +495,7 @@ static int rk3328_dmc_init(struct udevice *dev)
 {
 	struct dram_info *priv = dev_get_priv(dev);
 	struct rockchip_dmc_plat *plat = dev_get_plat(dev);
-	struct rk3328_sdram_params *params = &plat->sdram_params;
+	struct rk3328_sdram_params *params = plat->sdram_params;
 	int ret;
 
 	priv->phy = regmap_get_range(plat->map, 0);
@@ -521,17 +521,20 @@ static int rk3328_dmc_of_to_plat(struct udevice *dev)
 {
 	struct rockchip_dmc_plat *plat = dev_get_plat(dev);
 	DTPLAT(rockchip_rk3328_dmc, dt, dev);
-	int ret;
+	int count, ret;
+	u32 *params;
 
-	ret = dev_prop_u32_array(dev, dt, rockchip_sdram_params,
-				 "rockchip,sdram-params",
-				 (u32 *)&plat->sdram_params,
-				 sizeof(plat->sdram_params) / sizeof(u32));
+	/* DRAM detection updates the parameters, so they must be writable */
+	ret = dev_prop_u32_array_rw(dev, dt, rockchip_sdram_params,
+				    "rockchip,sdram-params", &params, &count);
+	if (!ret && count < sizeof(*plat->sdram_params) / sizeof(u32))
+		ret = -EOVERFLOW;
 	if (ret) {
 		printf("%s: Cannot read rockchip,sdram-params %d\n",
 		       __func__, ret);
 		return ret;
 	}
+	plat->sdram_params = (struct rk3328_sdram_params *)params;
 
 	return dev_prop_regmap(dev, dt, &plat->map);
 }

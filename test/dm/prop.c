@@ -71,6 +71,17 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_asserteq(3, plat->array[2]);
 	ut_asserteq(-EINVAL, plat->missing_array_ret);
 	ut_asserteq(3 * sizeof(u32), plat->array_size);
+	ut_assertok(plat->array_ptr_ret);
+	ut_asserteq(3, plat->array_ptr_count);
+	ut_asserteq(1, plat->array_ptr[0]);
+	ut_asserteq(3, plat->array_ptr[2]);
+
+	/* The driver sets the last value to the sum of the first two */
+	ut_assertok(plat->array_rw_ret);
+	ut_asserteq(4, plat->array_rw_count);
+	ut_asserteq(5, plat->array_rw[0]);
+	ut_asserteq(7, plat->array_rw[2]);
+	ut_asserteq(11, plat->array_rw[3]);
 	ut_assertok(plat->u32_ret);
 	ut_asserteq(42, plat->u32_val);
 	ut_asserteq(1, plat->map->range_count);
@@ -91,6 +102,8 @@ static int dm_test_dev_prop(struct unit_test_state *uts)
 	ut_assert(!plat->flag);
 	ut_asserteq(-EINVAL, plat->array_ret);
 	ut_asserteq(-EINVAL, plat->array_size);
+	ut_asserteq(-EINVAL, plat->array_ptr_ret);
+	ut_asserteq(-EINVAL, plat->array_rw_ret);
 	ut_asserteq(-EINVAL, plat->u32_ret);
 	ut_asserteq(SANDBOX_DEV_PROP_OTHER, dev_get_driver_data(dev));
 
@@ -116,6 +129,10 @@ static int dm_test_dev_prop_single(struct unit_test_state *uts)
 	ut_asserteq(0x100, plat->map->ranges[0].size);
 	ut_asserteq(0x12368000, plat->map->ranges[1].start);
 	ut_asserteq(0x40, plat->map->ranges[1].size);
+	ut_assertok(plat->array_rw_ret);
+	ut_asserteq(4, plat->array_rw_count);
+	ut_asserteq(20, plat->array_rw[0]);
+	ut_asserteq(50, plat->array_rw[3]);
 
 	/* With of-platdata, the device does not point to the data */
 	if (IS_ENABLED(CONFIG_OF_PLATDATA))
