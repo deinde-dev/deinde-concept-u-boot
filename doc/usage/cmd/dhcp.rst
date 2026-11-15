@@ -122,6 +122,7 @@ downloaded only when the command is given one to download. It also sets
 See also
 --------
 
+* :doc:`dhcp6<dhcp6>` for obtaining an address over IPv6 instead
 * :doc:`bootp<bootp>` for obtaining the settings from a BOOTP server instead
 * :doc:`rarpboot<rarpboot>` for obtaining the address of the board over RARP
 * :doc:`linklocal<linklocal>` for setting up the network with no server at all

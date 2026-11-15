@@ -87,5 +87,5 @@ See also
 * :doc:`dns<dns>` for looking up the address of a host by name
 * :doc:`pcap<pcap>` for capturing the packets a ping puts on the wire
 * :doc:`mii<mii>` for checking that the link is up at all
-* *dhcp6* for obtaining the IPv6 settings automatically
+* :doc:`dhcp6<dhcp6>` for obtaining the IPv6 settings automatically
 * :doc:`net<net>` for listing the Ethernet devices which can be made current

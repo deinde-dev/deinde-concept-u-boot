@@ -150,6 +150,7 @@ See also
 
 * :doc:`bootp<bootp>` for obtaining the network settings before a download
 * :doc:`dhcp<dhcp>` for obtaining the settings and the file in one command
+* :doc:`dhcp6<dhcp6>` for doing the same over IPv6
 * :doc:`tftpput<tftpput>` for sending a file to a server
 * :doc:`tftpsrv<tftpsrv>` for receiving a file from a host
 * :doc:`wget<wget>` for downloading a file over HTTP
