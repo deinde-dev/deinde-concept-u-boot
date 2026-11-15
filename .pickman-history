@@ -107614,3 +107614,25 @@ The branch is ready for pushing and has not been merged anywhere.
 
 ---
 
+## 2026-11-15: us/main
+
+Branch: cherry-534370fcd4ac
+
+Commits:
+- 534370fcd4ac watchdog: stm32mp: fix watchdog status detection on STM32MP15
+- ca0344c714a5 Merge tag 'u-boot-stm32-20261016' of https://git.u-boot-project.org/u-boot/custodians/u-boot-stm
+
+### Conversation log
+Both commits are cherry-picked onto `cherry-534370fcd4ac` (based on ci/master), and the branch is ready for pushing.
+
+| Commit | Original | Result |
+|---|---|---|
+| `9f55c61cac54` | `534370fcd4ac` watchdog: stm32mp: fix watchdog status detection on STM32MP15 | Applied cleanly; delta identical to the original (`drivers/watchdog/stm32mp_wdt.c`, 1 insertion, 1 deletion) |
+| `1ef476b908c9` | `ca0344c714a5` Merge tag 'u-boot-stm32-20261016' | Empty commit, as expected, since its only content is the commit above; message preserved |
+
+- **Build:** the sandbox build passed with no warnings or errors, both after the first cherry-pick and in the final run.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing unconverted on either commit.
+- **Concerning deltas:** none.
+
+---
+
