@@ -107325,3 +107325,52 @@ Retry both jobs on the rebased branch. If `test_distro_arm_app_efi` times out ag
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-1f138c27ab3c
+
+Commits:
+- 1f138c27ab3c qemu-xtensa: Increase the U-Boot memory reservation
+- b3dc30dc4ef0 net: e1000: use all RX descriptors
+- 35a8457b8b4b net: dhcp6 use link local address
+- 9d4cdaa1e3ff net: fsl_ls_mdio: add match fsl,fman-memac-mdio
+- c239e9c3d353 net: fix UDP checksum check for odd-length packets
+- 2aae070fbcaa net: phy: prioritize GMII2RGMII bridge over DM-bound PHY lookup
+- b1b75b676247 net: dwc_eth_qos: bring PHY up before triggering DMA soft reset
+- bad9b5b2d96b net: phy: add support for Maxio MAE0621A Ethernet PHYs
+- f0d7704f970f boot: pxe_utils: Fix buffer overflow in pxe_label.num
+- 7b08b44376fb boot: pxe_utils: Fix leak and double free when using fallback
+- 79c87fbab212 net: phy: dp83867: fix register number for extended read/write
+- fc9d7bfd18f0 net: designware: Use if instead of #if for DM_MDIO
+- 5344a389b9e5 net: designware: Fix MDIO bus getting bound multiple times
+- 87ca702df6bf net: mdio-mux: Don't crash if our parent never shows up
+- 37392031d58a net: mdio-mux: Remove ourselves when our parent is removed
+- 82d06a3e723e net: dwc_eth_qos_rockchip: Relax dependency on reset controls
+- 58cf22423a0c net: dwc_eth_qos_rockchip: Do not keep reset controls asserted
+- ff2dba1a1d32 net: eth-phy: Refactor DM_GPIO guard
+- ee39377042bc net: eth-phy: Add reset control support
+- acbb408dcd59 net: dwc_eth_qos: spacemit: add support for K3 SoC
+- b871f72273c1 Merge tag 'net-20261013' of https://git.u-boot-project.org/u-boot/custodians/u-boot-net
+
+### Conversation log
+Eleven of the 21 commits are picked and building cleanly; the twelfth (designware `DM_MDIO`) needed split-config conversion, which I'm checking now before amending.
+
+Seventeen commits are in; the eighteenth (eth-phy `DM_GPIO` guard refactor) hit a conflict in `drivers/net/eth-phy-uclass.c`, which I'm inspecting now.
+
+Twenty commits are picked and building; just the merge commit and the final verification build remain.
+
+All 21 commits are cherry-picked onto `cherry-1f138c27ab3c` (based on ci/master), and the branch is ready to push; nothing was merged or pushed.
+
+**Build:** the final `buildman -L --board sandbox -w -o /tmp/pickman` passed with no warnings or errors, as did the build after each regular commit.
+
+**Fix-ups** (each has a `[pickman]` note at the end of its commit message):
+
+- **fc9d7bfd18f0** (net: designware: Use if instead of #if for DM_MDIO): split-check converted one `CONFIG_IS_ENABLED(DM_MDIO)` to `IS_ENABLED(CONFIG_DM_MDIO)` and added `DM_MDIO` to `scripts/conf_nospl`, so this commit touches one extra file compared with the original.
+- **ff2dba1a1d32** (net: eth-phy: Refactor DM_GPIO guard): conflict in `drivers/net/eth-phy-uclass.c`, because the target already used `IS_ENABLED(CONFIG_DM_GPIO)` in the lines being refactored. I took the incoming refactor and converted its two macros by hand.
+- **ee39377042bc** (net: eth-phy: Add reset control support): split-check converted two `CONFIG_IS_ENABLED(DM_RESET)` uses to `IS_ENABLED(CONFIG_DM_RESET)`.
+- **b871f72273c1** (the merge commit): it conflicted in `designware.c` and `eth-phy-uclass.c`, purely on the macro conversions above. I kept the converted code, so it is an empty commit with the original merge message preserved.
+
+**Deltas:** none concerning. Every commit matches the original's files and line counts, apart from the extra `conf_nospl` line in fc9d7bfd18f0.
+
+---
+
