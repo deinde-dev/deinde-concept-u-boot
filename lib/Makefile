@@ -48,7 +48,6 @@ obj-$(CONFIG_GENERATE_SMBIOS_TABLE) += smbios.o
 endif
 
 obj-$(CONFIG_SMBIOS_PARSER) += smbios-parser.o
-obj-$(CONFIG_IMAGE_SPARSE) += image-sparse.o
 obj-y += ldiv.o
 obj-$(CONFIG_XXHASH) += xxhash.o
 obj-y += net_utils.o
@@ -61,6 +60,7 @@ obj-y += list_sort.o
 obj-$(CONFIG_PMBUS) += pmbus.o
 endif
 
+obj-$(CONFIG_IMAGE_SPARSE) += image-sparse.o
 obj-$(CONFIG_TPM) += tpm-common.o
 ifeq ($(CONFIG_TPM),y)
 obj-$(CONFIG_TPM) += tpm_api.o
