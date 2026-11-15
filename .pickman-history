@@ -107374,3 +107374,62 @@ All 21 commits are cherry-picked onto `cherry-1f138c27ab3c` (based on ci/master)
 
 ---
 
+### Pipeline fix: 2026-11-15 (attempt 1)
+
+Branch: cherry-1f138c27ab3c
+
+Failed jobs:
+- sandbox_noinst_test.py (test.py)
+- sandbox_noinst with LOAD_FIT_FULL test.py (test.py)
+- build all other platforms (world_build)
+- build all 64bit ARM platforms (world_build)
+- build all 32bit ARM platforms (world_build)
+- qemu-x86_64-win-install (sjg-lab-slow)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Now amending the designware commit to drop the `DM_MDIO` entry from `scripts/conf_nospl`, then I'll fix the event-dump test in the mdio-mux commit and rebuild.
+
+Both fixes are in; I'm now sorting out two local build-environment errors (a `binman` import and a dtoc-generated struct mismatch) that CI didn't hit, so I can verify the builds properly.
+
+The local build failure is pre-existing: the tree uses the pip `dtoc` package and my local copy looks older than CI's 0.5.4. Checking the version so I can build with a matching one.
+
+The temporary worktree is gone and the working tree is clean. The all-boards build (1565 boards) has just started; I'll wait for it to finish before reporting.
+
+Two commits on the branch caused the real failures; both are amended on local branch `cherry-1f138c27ab3c-fix1` (not pushed). The Windows-install failure is not explained and the `make check` timeout also happens on master, so neither is fixed here.
+
+## Fixes made
+
+**1. `net: designware: Use if instead of #if for DM_MDIO`** — SPL link failures
+- **Root cause:** when converting the upstream `CONFIG_IS_ENABLED(DM_MDIO)` line, pickman added `DM_MDIO` to `scripts/conf_nospl`. That turns `DM_MDIO` off in every xPL build, so `mdio-uclass.c` is no longer built there. `DM_MDIO_MUX`, `DM_DSA` and the TI drivers (`am65-cpsw-nuss`, `icssg_prueth`) still need it, hence the undefined `dm_mdio_read()`, `dm_eth_phy_connect()` and friends.
+- **Change:** removed `DM_MDIO` from `scripts/conf_nospl`.
+- **Jobs covered:** `sandbox_noinst_test.py`, `sandbox_noinst with LOAD_FIT_FULL`, the `sandbox_noinst` part of `make qcheck`, and the 64-bit ARM world build.
+
+**2. `net: mdio-mux: Remove ourselves when our parent is removed`** — `test_event_dump`
+- **Root cause:** the commit adds an `EVT_DM_PRE_REMOVE` spy, `dm_mdio_mux_parent_pre_remove()`, which the test's expected list did not include.
+- **Change:** added that line to `test/py/tests/test_event_dump.py`.
+- **Jobs covered:** the sandbox failure in `make qcheck`. The "qconfig: hwids_to_dtsi: Tests FAILED" line there is just the summary of the two failures above.
+
+Each amended commit has a `[pickman]` note appended. The total diff against the original branch is one line removed and one line added.
+
+## Not fixed
+
+- **`Check make check`:** it timed out at 1 hour. The same job timed out on master pipeline 11663 (commit 5621ab6cd196, the base of this branch), so the timeout itself is not from this MR. No changes made.
+- **`qemu-x86_64-win-install`:** QEMU exited cleanly mid-install before the logon marker appeared. I found no link to this series: the e1000 device never starts in that run ("No valid MAC address found"), and the e1000 commit doesn't touch the MAC-reading code. I could not check the job's history (it is manual on master). I'd retry it, but treat it as unverified.
+- **32-bit ARM and "other platforms" world builds:** the log tails don't show the failing boards, so I can't confirm the cause from the logs. After the fix none of those boards fail locally.
+
+## Verification
+
+- `um build sandbox` passes.
+- `sandbox_noinst` builds from clean and its SPL links.
+- The event-dump output matches the updated regex. I checked this by running `scripts/event_dump.py` directly, as the pytest wrapper fails locally on a `binman` import.
+- A full `buildman` run of all 1565 boards gave 5 failures, none from this series:
+  - `xtfpga`, `qemu-xtensa-dc233c`: no local xtensa toolchain.
+  - `gigabyte_mz33_ar1_opensil`: needs the external openSIL tree.
+  - `P1010RDB-PA_36BIT_NOR`, `T4240RDB`: a binman error in the loaded parallel build; both pass when rebuilt, including from clean.
+
+The board list in step 5b was the job names split into words, so I built everything instead. `/tmp/pickman` is already in use as someone's build tree, so I used `/tmp/pickman-fix1*`. The builds also needed CI's pinned `dtoc`/`binman` in a throwaway venv (`/tmp/pm-venv`), because the local dtoc checkout fails `sandbox_noinst` even on master.
+
+---
+
