@@ -5817,28 +5817,32 @@ def _select_failed_jobs(remote, merge_req, dbs, attempt):
     return failed_jobs, note
 
 
-def _fix_changes_branch(remote, merge_req):
-    """Check whether the fix changes what the failed pipeline tested
+def _fix_changes_branch(before):
+    """Check whether the agent changes the branch
+
+    A rebase before the fix changes what is tested, but only by bringing in
+    the target's changes, which do not touch the failures this series may
+    cause. So it is the agent's change which counts.
 
     Args:
-        remote (str): Remote name
-        merge_req (PickmanMr): MR with a failed pipeline
+        before (str): Commit which the agent starts from
 
     Returns:
-        bool: True if HEAD differs from the commit which the pipeline
-            tested, apart from the history file
+        bool: True if HEAD differs from that commit, apart from the history
+            file
     """
-    tested = merge_req.sha or f'{remote}/{merge_req.source_branch}'
-    return bool(run_git(['diff', '--name-only', tested, 'HEAD', '--', '.',
+    return bool(run_git(['diff', '--name-only', before, 'HEAD', '--', '.',
                          f':!{HISTORY_FILE}']))
 
 
 def _report_no_change(remote, merge_req, dbs, attempt, conversation_log,
-                      note):
+                      note, rebased):
     """Report a fix attempt in which the agent changes nothing
 
     Running the failed jobs again on the same code would just retry them, so
-    report the agent's diagnosis instead, for someone to act on.
+    report the agent's diagnosis instead, for someone to act on. Any rebase
+    before the fix is dropped too, since pushing it by itself would run the
+    pipeline again.
 
     Args:
         remote (str): Remote name
@@ -5847,6 +5851,7 @@ def _report_no_change(remote, merge_req, dbs, attempt, conversation_log,
         attempt (int): Current fix attempt number
         conversation_log (str): The agent's output
         note (str): Note about the jobs left out, from _select_failed_jobs()
+        rebased (bool): True if the branch is rebased before the fix
     """
     mr_iid = merge_req.iid
     dbs.pfix_add(mr_iid, merge_req.pipeline_id, attempt, 'no_change')
@@ -5860,10 +5865,14 @@ def _report_no_change(remote, merge_req, dbs, attempt, conversation_log,
         if para >= 0:
             diagnosis = diagnosis[para + 2:]
         diagnosis = f'(The start of the output is left out)\n\n{diagnosis}'
+    why = ''
+    if rebased:
+        why = (' Nor is the branch rebased, since pushing the rebase by '
+               'itself would run them again too.')
     gitlab_api.reply_to_mr(
         remote, mr_iid,
         f'Pipeline fix (attempt {attempt}): the agent made no change, so the '
-        f'failed jobs are not run again. Its diagnosis:\n\n'
+        f'failed jobs are not run again.{why} Its diagnosis:\n\n'
         f'{diagnosis}{note}')
     tout.info(f'MR !{mr_iid}: pipeline fix made no change '
               f'(attempt {attempt})')
@@ -5894,6 +5903,7 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
     # Run agent to fix the failures
     if not rebased:
         checkout_mr_branch(remote, merge_req.source_branch)
+    before = run_git(['rev-parse', 'HEAD'])
     success, conversation_log = agent.fix_pipeline(
         mr_iid,
         merge_req.source_branch,
@@ -5905,9 +5915,9 @@ def _attempt_pipeline_fix(remote, merge_req, dbs, target, attempt, *,
         rebased=rebased,
     )
 
-    if success and not _fix_changes_branch(remote, merge_req):
+    if success and not _fix_changes_branch(before):
         _report_no_change(remote, merge_req, dbs, attempt, conversation_log,
-                          note)
+                          note, rebased)
         return
 
     status = 'success' if success else 'failure'
