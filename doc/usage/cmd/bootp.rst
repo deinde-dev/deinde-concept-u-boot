@@ -43,11 +43,11 @@ well; each of those which arrives is written to the matching environment
 variable (*ipaddr*, *netmask*, *gatewayip*, *dnsip*, *hostname*, *domain* and
 *rootpath*).
 
-The file is then downloaded over TFTP, as the *tftpboot* command would do, and
-*filesize* and *fileaddr* are set to describe it. Setting the *autoload*
-environment variable to 'no' stops this, so that the command obtains the
-network settings alone. Where it is set to 'NFS' the file is fetched over NFS
-instead.
+The file is then downloaded over TFTP, as the :doc:`tftpboot<tftpboot>`
+command would do, and *filesize* and *fileaddr* are set to describe it.
+Setting the *autoload* environment variable to 'no' stops this, so that the
+command obtains the network settings alone. Where it is set to 'NFS' the file
+is fetched over NFS instead.
 
 Once the file is loaded the command boots it, as the *bootm* command would,
 if the *autostart* environment variable is set to 'yes'.
@@ -129,6 +129,6 @@ See also
 * :doc:`rarpboot<rarpboot>` for obtaining the address of the board over RARP
 * :doc:`sntp<sntp>` for setting the clock from the time server the settings
   name
-* *tftpboot* for downloading a file over TFTP by hand
+* :doc:`tftpboot<tftpboot>` for downloading a file over TFTP by hand
 * :doc:`pxe<pxe>` for downloading a PXELINUX configuration file over TFTP and
   booting what it names

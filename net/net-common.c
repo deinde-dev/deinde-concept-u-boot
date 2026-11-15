@@ -107,14 +107,16 @@ int dhcp_run(ulong addr, const char *fname, bool autoload)
 int tftpb_run(ulong addr, const char *fname)
 {
 	char *tftp_argv[] = {"tftpboot", NULL, (char *)fname, NULL};
-	struct cmd_tbl cmdtp = {};      /* dummy */
 	char file_addr[17] = {0};
+	struct getopt_state gs;
 
 	log_debug("addr=%lx, fname=%s\n", addr, fname);
 	sprintf(file_addr, "%lx", addr);
 	tftp_argv[1] = file_addr;
 
-	int result = do_tftpb(&cmdtp, 0, fname ? 3 : 2, tftp_argv);
+	getopt_init_state(&gs, fname ? 3 : 2, tftp_argv);
+
+	int result = do_tftpb(&gs);
 
 	if (result)
 		return log_msg_ret("res", -ENOENT);

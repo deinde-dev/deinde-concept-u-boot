@@ -18,6 +18,7 @@
 #include <efi_loader.h>
 #include <extension_board.h>
 #include <fs_legacy.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <mapmem.h>
 #include <mmc.h>
@@ -224,8 +225,8 @@ static int distro_efi_read_bootflow_net(struct bootflow *bflow)
 {
 	char file_addr[17], fname[256];
 	char *tftp_argv[] = {"tftp", file_addr, fname, NULL};
-	struct cmd_tbl cmdtp = {};	/* dummy */
 	const char *addr_str, *fdt_addr_str, *bootfile_name;
+	struct getopt_state gs;
 	int ret, arch, size;
 	ulong addr, fdt_addr;
 	char str[36];
@@ -292,7 +293,8 @@ static int distro_efi_read_bootflow_net(struct bootflow *bflow)
 	if (!bflow->fdt_fname)
 		return log_msg_ret("fil", -ENOMEM);
 
-	if (!do_tftpb(&cmdtp, 0, 3, tftp_argv)) {
+	getopt_init_state(&gs, 3, tftp_argv);
+	if (!do_tftpb(&gs)) {
 		bflow->fdt_size = env_get_hex("filesize", 0);
 		bflow->fdt_addr = fdt_addr;
 	} else {

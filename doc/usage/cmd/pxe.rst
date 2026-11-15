@@ -149,7 +149,7 @@ See also
 
 * :doc:`bootp<bootp>` for obtaining the network configuration which the
   search names depend on
-* *tftpboot* for downloading a single file over TFTP
+* :doc:`tftpboot<tftpboot>` for downloading a single file over TFTP
 * :doc:`sysboot<sysboot>` for the same file format read from a local
   filesystem instead
 * :doc:`bootm<bootm>` for booting an image which is already in memory
