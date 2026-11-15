@@ -674,3 +674,23 @@ static int cmd_test_dhcp6_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_dhcp6_usage, UTF_CONSOLE);
+
+/* An option is refused rather than being taken as a file name */
+static int cmd_test_dhcp6_badopt(struct unit_test_state *uts)
+{
+	struct dhcp6_ctx ctx = { .uts = uts };
+
+	/* the emulated server is attached, so a command which runs would boot */
+	ut_assertok(dhcp6_setup(uts, &ctx));
+
+	ut_asserteq(1, run_command("dhcp6 -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(0, ctx.advertises);
+	ut_asserteq_str("", ctx.fname);
+
+	ut_assertok(dhcp6_restore(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_dhcp6_badopt, UTF_CONSOLE);
