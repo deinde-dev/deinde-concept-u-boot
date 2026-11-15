@@ -107258,3 +107258,37 @@ The CI log also has one "aarch64-linux-ld: invalid length for memory region .sra
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-31daa2e65bd8
+
+Commits:
+- 31daa2e65bd8 interconnect: qcom: add SC7280 interconnect driver
+- 9db5fb79c263 interconnect: qcom: Add QCS8300 interconnect driver
+- 3f530789a37f Merge tag 'u-boot-interconnect-next-20261012' of https://git.u-boot-project.org/u-boot/custodians/neil.armstrong/u-boot-interconnect
+
+### Conversation log
+Not already applied; the conflict is a simple one ($(PHASE_) doesn't exist in the target). Resolving in target style.
+
+Two driver commits are in and build clean; the merge commit hits the same Makefile conflict, so I'm resolving it to the already-applied content and keeping it as an empty commit.
+
+All 3 commits are cherry-picked onto `cherry-31daa2e65bd8` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing; nothing was merged or pushed.
+
+| Commit | New hash | Result |
+|---|---|---|
+| 31daa2e65bd8 interconnect: qcom: add SC7280 interconnect driver | 4994fc1c029d | applied with fix-up |
+| 9db5fb79c263 interconnect: qcom: Add QCS8300 interconnect driver | 8f02ab270f7c | applied with fix-up |
+| 3f530789a37f Merge tag 'u-boot-interconnect-next-20261012' | 9808f22a6600 | empty commit, kept for history |
+
+**Fix-ups** (each recorded as a `[pickman: ...]` note at the end of the commit message):
+
+- **Both driver commits:** `drivers/interconnect/qcom/Makefile` conflicted because the source uses `CONFIG_$(PHASE_)...` and the target does not. I resolved it by adding the new line in the target form, e.g. `obj-$(CONFIG_INTERCONNECT_QCOM_SC7280) += sc7280.o`.
+- **`scripts/conf_nospl`:** I added `INTERCONNECT_QCOM_SC7280` and `INTERCONNECT_QCOM_QCS8300` by hand, following the existing `INTERCONNECT_QCOM_SM8650` entry. `split-check` reported nothing, because the `$(PHASE_)` usage was already gone after the conflict resolution, so it had nothing to detect. The note is my own wording, not a line printed by the tool.
+- **Merge commit:** it hit the same Makefile conflict. I kept the target version, which left no changes, so it is an empty commit.
+
+**Deltas:** none concerning. The SC7280 commit matches the original (5 files, 2065 insertions) plus one line in `conf_nospl`. The QCS8300 commit matches (300 insertions) plus one line in `conf_nospl`. The full branch diff against ci/master is 2367 insertions, against 2365 for the original merge.
+
+The first cherry-pick conflicted, so I ran the already-applied check: none of the three subjects exist in ci/master, so no signal file was written.
+
+---
+
