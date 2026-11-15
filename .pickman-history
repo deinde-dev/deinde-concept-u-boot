@@ -107220,3 +107220,41 @@ The branch is ready to push; nothing was merged or force-pushed.
 
 ---
 
+### Pipeline fix: 2026-11-14 (attempt 1)
+
+Branch: cherry-4242282e4ec2
+
+Failed jobs:
+- build all 64bit ARM platforms (world_build)
+
+### Conversation log
+The full buildman run is in progress in the background; I'll report once it completes.
+
+The fix is applied and `khadas-vim1s` now builds, but the full aarch64 verification is still running, so the result is not confirmed yet.
+
+The board spec in step 5b (`64bit,ARM,all,platforms,sandbox`) matched no boards, so I am running what the CI job itself uses instead: `buildman -o /tmp/pickman -PEWM aarch64 sandbox`. I'll report the outcome when it completes.
+
+The CI failure is fixed on local branch `cherry-4242282e4ec2-fix1` (not pushed), but the full aarch64 build still fails locally on 14 boards that fail identically on `ci/master`.
+
+## Root cause
+
+- **Responsible commit:** "meson: Add Khadas VIM1S support" (upstream 9c048da44bed, was c82a90abd0f0 on the branch, now 50b558f86e64).
+- **Problem:** the new `configs/khadas-vim1s_defconfig` sets `CONFIG_TEXT_BASE=0x0`, but this tree names that option `CONFIG_PPL_TEXT_BASE`. With no value for it, `syncconfig` stops with "no value for new symbol 'PPL_TEXT_BASE'" and the board fails to configure.
+- **Fix:** changed that one line to `CONFIG_PPL_TEXT_BASE=0x0`, amended into the responsible commit with a `[pickman]` note.
+
+## Verification
+
+- **Sandbox:** `um build sandbox` is clean.
+- **VIM1S:** `khadas-vim1s` now builds.
+- **Full build:** the board spec in step 5b (`64bit,ARM,all,platforms,sandbox`) matches no boards, so I ran what the CI job uses, `buildman -o /tmp/pickman -PEWM aarch64 sandbox`. Of 569 boards, 14 fail.
+- **The 14 failures:** eleven rk3328 boards (e.g. `evb-rk3328`) plus `sandbox_noinst`, `sandbox_spl` and `sandbox_vpl`. They fail with of-platdata errors such as "'const struct dtd_drv_rockchip_rk3328_dmc' has no member named 'has'".
+- **Not caused by this branch:** I rebuilt `evb-rk3328` and `sandbox_spl` from a clean `ci/master` worktree and got the same errors. These errors also do not appear in the CI job log tail. I did not investigate them further.
+
+The CI log also has one "aarch64-linux-ld: invalid length for memory region .sram" line that the log tail does not attribute to a board. I did not trace it.
+
+## Branch state
+
+`rf` rewrote `cherry-4242282e4ec2` itself, so that local branch now points at the same fixed commits as `cherry-4242282e4ec2-fix1`, which is checked out. The last three commits on the branch were rebased unchanged on top of the amended one.
+
+---
+
