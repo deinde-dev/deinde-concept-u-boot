@@ -107482,3 +107482,51 @@ All 21 commits are cherry-picked onto `cherry-1f138c27ab3c` (based on ci/master)
 
 ---
 
+## 2026-11-15: us/main
+
+Branch: cherry-10eef5457b92
+
+Commits:
+- 10eef5457b92 mtd: bind the block device without leaking on failure
+- 79ca2f85bfe6 cmd: ubi: report a failed UBI block device bind
+- 74ee4f18abc8 cmd: ubi: unbind the block device when detaching UBI
+- 0989171be0a4 boot: imagemap: free the reservation a replaced record owned
+- 614e9fc19f18 boot: imagemap: do not resize a region the caller owns
+- 8e5116836a8f boot: imagemap: read only the bytes an extend adds
+- 96270dfb5c71 boot: fit: unmap the load address after a storage read
+- 06d6f1705550 boot: fit: keep the load message for RAM-backed images
+- 148c55c66c33 boot: bootm: release the imagemap on every failing exit
+- d828f37d96af test: boot: imagemap: detach UBI when the test is done
+- 9f938a377f65 test: boot: imagemap: reset driver-model state between tests
+- d7a239469f6c Merge patch series "imagemap: fixes from the v1 review"
+
+### Conversation log
+Three of twelve commits are picked and building (one needed a small conflict fix in cmd/ubi.c); continuing with the remaining nine.
+
+Seven of twelve are in and building; now resolving a conflict in boot/image-fit.c for the eighth (06d6f1705550).
+
+Eleven regular commits are picked and building; now adding the merge commit and running the final build.
+
+All 12 commits are on `cherry-10eef5457b92` (based on ci/master) and the final sandbox build passes with no warnings or errors. I did not run the imagemap tests, only the builds.
+
+The build after each pick passed, except that I did not check the exit code for the first three; later builds of the full branch are clean.
+
+## Fix-ups
+
+Each fix-up has a `[pickman…]` note at the end of its commit message.
+
+- **74ee4f18abc8** (cmd: ubi: unbind the block device when detaching UBI): conflict in `cmd/ubi.c`, because the block being moved already used `IS_ENABLED(CONFIG_UBI_BLOCK)` here. I resolved it as upstream does, and split-check then converted the new `CONFIG_IS_ENABLED(UBI_BLOCK)`.
+- **0989171be0a4** (free the reservation a replaced record owned): the pick applied cleanly but the build failed, because `lmb_free()` takes two arguments in this tree. I dropped the `LMB_NONE` argument.
+- **614e9fc19f18** and **8e5116836a8f** (imagemap resize and extend): conflicts in `boot/imagemap.c` for the same `lmb_free()` reason. I kept the two-argument form.
+- **06d6f1705550** (keep the load message for RAM-backed images): conflict in `boot/image-fit.c`. Here the code lives in `handle_load_op()`, which has no `images` pointer, so I added one as a parameter and passed it from `fit_image_load()`.
+- **d7a239469f6c** (merge): conflicted in `boot/imagemap.c` and `cmd/ubi.c` against the already-adapted code. I kept the tree as it was, so it is an empty commit carrying the merge message.
+
+## Deltas worth a look
+
+- **06d6f1705550**: 7 insertions and 4 deletions against 2 and 1 upstream, in the same file. The extra lines are the added parameter; this is the one fix-up that changes a function signature, so it deserves a review.
+- **148c55c66c33** (bootm: release the imagemap on every failing exit): 4 and 3 against 4 and 5 upstream. Upstream also removes an `if (iflag) enable_interrupts()` that `bootm_run_states()` does not have here, so nothing is missing.
+
+The other ten match upstream line counts exactly. The branch is left unmerged and ready to push.
+
+---
+
