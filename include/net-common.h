@@ -583,13 +583,10 @@ int do_sntp(struct getopt_state *gs);
 /**
  * do_tftpb - Run the tftpboot command
  *
- * @cmdtp: Command information for tftpboot
- * @flag: Command flags (CMD_FLAG_...)
- * @argc: Number of arguments
- * @argv: List of arguments
+ * @gs: Command state, holding the arguments
  * Return: result (see enum command_ret_t)
  */
-int do_tftpb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
+int do_tftpb(struct getopt_state *gs);
 
 /**
  * wget_do_request() - sends a wget request

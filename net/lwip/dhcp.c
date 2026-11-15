@@ -122,9 +122,7 @@ int do_dhcp(struct getopt_state *gs)
 		goto out;
 
 	if (gs->argc > 1) {
-		struct cmd_tbl cmdtp = {};
-
-		ret = do_tftpb(&cmdtp, 0, gs->argc, gs->argv);
+		ret = do_tftpb(gs);
 		goto out;
 	}
 

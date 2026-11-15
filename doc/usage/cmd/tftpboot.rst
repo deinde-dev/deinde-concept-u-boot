@@ -110,6 +110,9 @@ The return value $? is set to 0 (true) if the file was downloaded, and to 1
 arguments cannot be parsed. Where *autostart* is set to 'yes' the value is
 that of the boot, which does not return if it succeeds.
 
+A command line with more arguments than the command takes, or with an option
+other than *-ipv6*, shows the usage message instead.
+
 Configuration
 -------------
 

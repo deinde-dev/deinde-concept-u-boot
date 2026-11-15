@@ -6,6 +6,7 @@
 #include <env.h>
 #include <dm/device.h>
 #include <dm/uclass.h>
+#include <getopt.h>
 #include <hexdump.h>
 #include <linux/compiler_attributes.h>
 #include <linux/kernel.h>
@@ -699,12 +700,14 @@ void net_process_received_packet(uchar *in_packet, int len)
 
 int net_loop(enum proto_t protocol)
 {
+	struct getopt_state gs;
 	char *argv[1];
 
 	switch (protocol) {
 	case TFTPGET:
 		argv[0] = "tftpboot";
-		return do_tftpb(NULL, 0, 1, argv);
+		getopt_init_state(&gs, 1, argv);
+		return do_tftpb(&gs);
 	default:
 		return -EINVAL;
 	}

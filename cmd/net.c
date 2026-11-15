@@ -39,18 +39,31 @@ U_BOOT_CMD_NOOPTS(
 #endif
 
 #ifdef CONFIG_CMD_TFTPBOOT
-int do_tftpb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_tftpb(struct getopt_state *gs)
 {
 	int ret;
 
+	/*
+	 * The only option is the IPv6 parameter, which has to come last, so
+	 * getopt() in POSIX mode stops at the arguments before it and sees it
+	 * only on a command line which has nothing else. Anything else
+	 * starting with '-' is refused, rather than being taken as a file
+	 * name. Without IPv6 there is no option at all and U_BOOT_CMD_NOOPTS()
+	 * refuses one before the command runs
+	 */
+	if (IS_ENABLED(CONFIG_IPV6) && IS_ENABLED(CONFIG_CMD_ARG_CHECK) &&
+	    (gs->argc != 2 || strcmp(gs->argv[1], USE_IP6_CMD_PARAM)) &&
+	    getopt(gs, "+") > 0)
+		return CMD_RET_USAGE;
+
 	bootstage_mark_name(BOOTSTAGE_KERNELREAD_START, "tftp_start");
-	ret = netboot_common(TFTPGET, argc, argv);
+	ret = netboot_common(TFTPGET, gs->argc, gs->argv);
 	bootstage_mark_name(BOOTSTAGE_KERNELREAD_STOP, "tftp_done");
 	return ret;
 }
 
 #if IS_ENABLED(CONFIG_IPV6)
-U_BOOT_CMD(
+U_BOOT_CMD_GETOPT(
 	tftpboot,	4,	1,	do_tftpb,
 	"boot image via network using TFTP protocol\n"
 	"To use IPv6 add -ipv6 parameter or use IPv6 hostIPaddr framed "
@@ -58,7 +71,7 @@ U_BOOT_CMD(
 	"[loadAddress] [[hostIPaddr:]bootfilename] [" USE_IP6_CMD_PARAM "]"
 );
 #else
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	tftpboot,	3,	1,	do_tftpb,
 	"load file via network using TFTP protocol",
 	"[loadAddress] [[hostIPaddr:]bootfilename]"

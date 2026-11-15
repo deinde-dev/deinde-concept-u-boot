@@ -429,8 +429,9 @@ out:
 	return ret;
 }
 
-int do_tftpb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_tftpb(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	struct net_lwip_ctx net = {};
 	int ret = CMD_RET_SUCCESS;
 	char *arg = NULL;
@@ -438,6 +439,7 @@ int do_tftpb(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	char *fname = NULL;
 	char *server_ip = NULL;
 	char *server_port = NULL;
+	int argc = gs->argc;
 	char *end;
 	ip_addr_t srvip;
 	u16 port = TFTP_PORT;

@@ -631,3 +631,23 @@ static int cmd_test_tftpboot_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_tftpboot_usage, UTF_CONSOLE);
+
+/* An option is refused rather than being taken as a load address */
+static int cmd_test_tftpboot_badopt(struct unit_test_state *uts)
+{
+	struct tftpboot_ctx ctx = { .uts = uts };
+
+	/* the server is attached, so a command which ran would load a file */
+	ut_assertok(tftpboot_setup(uts, &ctx));
+
+	/* the option is refused only with CONFIG_CMD_ARG_CHECK */
+	ut_asserteq(1, run_commandf("tftpboot -x %s", TFTPBOOT_FILE));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(0, ctx.requests);
+
+	ut_assertok(tftpboot_restore(uts, &ctx));
+
+	return 0;
+}
+CMD_TEST(cmd_test_tftpboot_badopt, UTF_CONSOLE);
