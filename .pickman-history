@@ -107292,3 +107292,36 @@ The first cherry-pick conflicted, so I ran the already-applied check: none of th
 
 ---
 
+### Pipeline fix: 2026-11-15 (attempt 1)
+
+Branch: cherry-31daa2e65bd8
+
+Failed jobs:
+- build all 32bit ARM platforms (world_build)
+- efi-aarch64 (sjg-lab)
+
+### Conversation log
+Both CI failures look unrelated to the branch so far; I'm now checking whether the sandbox build errors I just saw locally also occur on plain ci/master.
+
+Neither failure comes from this branch, so I made no changes and did not create `cherry-31daa2e65bd8-fix1`. I couldn't re-run either CI job locally, so this rests on the logs and on what the branch touches.
+
+## Why the failures aren't from this branch
+
+- **build all 32bit ARM platforms (777626):** this is a runner problem. The build itself finished cleanly at 06:23 with `755 total built` and 0 errors. The job then sat idle for 22 minutes, hit the 1h limit (`execution took longer than 1h0m0s`) and could not remove its containers.
+- **efi-aarch64 (777616):** `test_distro_arm_app_efi` timed out waiting for the `Ubuntu 25.04 qarm ttyAMA0` prompt on the lab board; the other 38 tests passed. The branch cannot affect this build: I rebuilt `efi-arm_app64` on the rebased branch and its `.config` has `# CONFIG_INTERCONNECT is not set`, so none of the new code is compiled in. This looks like a lab or boot-time flake, or something from the old base.
+
+The branch only adds two Qualcomm interconnect drivers (`sc7280.c`, `qcs8300.c`) with their Kconfig/Makefile entries and enables `CONFIG_INTERCONNECT_QCOM_SC7280` in `qcom_defconfig`. `qcom` is the only board whose config changes, and it is aarch64, so it is not in the 32-bit ARM job either.
+
+## Local build results
+
+- `um build sandbox` passes with no output.
+- `buildman -o /tmp/pickman efi-arm_app64 qcom sandbox` builds `efi-arm_app64` and `qcom` without errors. I did not rebuild the full 32-bit ARM set, since CI already built all 755 with 0 errors.
+- `sandbox_spl`, `sandbox_vpl` and `sandbox_noinst` fail under buildman with of-platdata errors in `drivers/misc/prop_sandbox.c`. The same errors appear on untouched ci/master, so they are not from this branch.
+- The plain `sandbox` board fails under buildman on the branch with errors that changed between runs (`i386-linux-ar: No such file`, then `demo.o: file in wrong format` in `examples/ulib`). It did not fail in the ci/master run. I did not track down the cause; it looks like a local toolchain mix-up, and the branch adds nothing that sandbox compiles.
+
+## Suggested action
+
+Retry both jobs on the rebased branch. If `test_distro_arm_app_efi` times out again there, the cause is in ci/master or the lab rather than this MR.
+
+---
+
