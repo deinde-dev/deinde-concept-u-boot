@@ -15,6 +15,7 @@ def test_event_dump(ubman):
     out = utils.run_and_log(ubman, ['scripts/event_dump.py', sandbox])
     expect = '''.*Event type            Id                              Source location
 --------------------  ------------------------------  ------------------------------
+EVT_DM_PRE_REMOVE     dm_mdio_mux_parent_pre_remove   .*net/mdio-mux-uclass.c:.*
 EVT_FT_FIXUP          abrec_ft_fixup                  .*boot/vbe_abrec_fixup.c:.*
 EVT_FT_FIXUP          bootmeth_vbe_ft_fixup           .*boot/vbe_request.c:.*
 EVT_FT_FIXUP          bootmeth_vbe_simple_ft_fixup    .*boot/vbe_simple_os.c:.*

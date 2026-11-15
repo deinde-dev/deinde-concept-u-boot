@@ -54,7 +54,7 @@
  * @list: lets these form a list, which a pxe_menu struct will hold.
  */
 struct pxe_label {
-	char num[4];
+	char num[12];
 	char *name;
 	char *menu;
 	char *kernel_label;
