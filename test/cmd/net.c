@@ -82,6 +82,31 @@ static int cmd_test_net_stats_missing(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_net_stats_missing, UTF_CONSOLE);
 
+/* Check that neither sub-command is reported as repeatable */
+static int cmd_test_net_repeat(struct unit_test_state *uts)
+{
+	char *const list_args[] = { "net", "list", NULL };
+	char *const stats_args[] = { "net", "stats", NET_DEV, NULL };
+	int repeatable;
+
+	/*
+	 * The net command itself is marked repeatable, so without the
+	 * dispatcher narrowing it, both sub-commands would look repeatable
+	 */
+	repeatable = 1;
+	ut_assertok(cmd_process(0, 2, list_args, &repeatable, NULL));
+	ut_asserteq(0, repeatable);
+	console_record_reset();
+
+	repeatable = 1;
+	ut_asserteq(1, cmd_process(0, 3, stats_args, &repeatable, NULL));
+	ut_asserteq(0, repeatable);
+	console_record_reset();
+
+	return 0;
+}
+CMD_TEST(cmd_test_net_repeat, UTF_CONSOLE);
+
 /* Check the arguments the command refuses */
 static int cmd_test_net_usage(struct unit_test_state *uts)
 {
