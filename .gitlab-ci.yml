@@ -922,6 +922,8 @@ coreboot test.py:
     - export OUT_EXTRA="${SRC}/build/${ROLE}_extra"
     - export PATH=$PATH:~/bin
     - export PATH=$PATH:test/hooks/bin
+    # Pick up the per-board test settings for this lab, as ub-pyt does
+    - export PYTHONPATH="${SRC}/test/hooks/py/$(hostname)"
 
     # Install the binman and buildman versions this tree expects, in a
     # per-job virtualenv which can still see the host's Python packages
