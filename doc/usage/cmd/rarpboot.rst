@@ -43,13 +43,13 @@ fill in the subnet mask, the gateway or the boot file name, and a RARP server
 must see the request on the local link. Prefer :doc:`dhcp<dhcp>` or
 :doc:`bootp<bootp>` unless the server at hand speaks RARP alone.
 
-The file is then downloaded over TFTP, as the *tftpboot* command would do, and
-*filesize* and *fileaddr* are set to describe it. The name comes from the
-command line or from *bootfile*, since the reply carries none; with neither,
-the download falls back to a name made up from the address of the board, such
-as 'C000020A.img'. Setting the *autoload* environment variable to 'no' stops
-this step, so that the command obtains the address alone. Where it is set to
-'NFS' the file is fetched over NFS instead.
+The file is then downloaded over TFTP, as the :doc:`tftpboot<tftpboot>`
+command would do, and *filesize* and *fileaddr* are set to describe it. The
+name comes from the command line or from *bootfile*, since the reply carries
+none; with neither, the download falls back to a name made up from the address
+of the board, such as 'C000020A.img'. Setting the *autoload* environment
+variable to 'no' stops this step, so that the command obtains the address
+alone. Where it is set to 'NFS' the file is fetched over NFS instead.
 
 Once the file is loaded the command boots it, as the *bootm* command would,
 if the *autostart* environment variable is set to 'yes'.
@@ -107,4 +107,4 @@ See also
   well as the address
 * :doc:`linklocal<linklocal>` for choosing an address with no server at all
 * :doc:`dhcp<dhcp>` for obtaining a lease from a DHCP server
-* *tftpboot* for downloading a file over TFTP by hand
+* :doc:`tftpboot<tftpboot>` for downloading a file over TFTP by hand

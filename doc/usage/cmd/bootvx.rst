@@ -64,10 +64,10 @@ addr
     address of the image. It defaults to the value of CONFIG_SYS_LOAD_ADDR
 
 tftp
-    fetch the image over TFTP before starting it, in the way the tftpboot
-    command does, using the serverip and bootfile variables. The image lands
-    at CONFIG_SYS_LOAD_ADDR, since the word 'tftp' takes the place of the
-    address argument
+    fetch the image over TFTP before starting it, in the way the
+    :doc:`tftpboot<tftpboot>` command does, using the serverip and bootfile
+    variables. The image lands at CONFIG_SYS_LOAD_ADDR, since the word 'tftp'
+    takes the place of the address argument
 
 On x86 the command also fills in an e820 memory map and, where a VESA mode is
 active, a framebuffer information block, both at the address given by the
@@ -141,4 +141,4 @@ See also
 * :doc:`bootm<bootm>` for booting a uImage or FIT, which carries the load
   address and entry point in the image rather than on the command line
 * :doc:`go<go>` for jumping to an address without loading anything first
-* *tftpboot* for fetching the image separately from starting it
+* :doc:`tftpboot<tftpboot>` for fetching the image separately from starting it

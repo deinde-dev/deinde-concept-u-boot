@@ -85,4 +85,4 @@ See also
 * :doc:`bootp<bootp>` for obtaining the network settings before listening
 * :doc:`tftpput<tftpput>` for sending a file to a server
 * :doc:`wget<wget>` for downloading a file over HTTP
-* *tftpboot* for downloading a file over TFTP
+* :doc:`tftpboot<tftpboot>` for downloading a file over TFTP

@@ -22,10 +22,11 @@ against U-Boot's own API which does its work and then returns to the command
 line, unlike an operating system, which never comes back.
 
 Nothing is loaded, relocated, decompressed or checked. The address must
-already hold the code, put there by :doc:`load<load>`, tftpboot or whatever
-suits, and it must be the entry point rather than the start of an image
-header. The command does not look at the memory before jumping to it, so an
-address which holds something else usually takes the board down.
+already hold the code, put there by :doc:`load<load>`,
+:doc:`tftpboot<tftpboot>` or whatever suits, and it must be the entry point
+rather than the start of an image header. The command does not look at the
+memory before jumping to it, so an address which holds something else usually
+takes the board down.
 
 The application is called with the arguments given, and with the address
 itself as *argv[0]*, in the same form as it was typed. It therefore sees an

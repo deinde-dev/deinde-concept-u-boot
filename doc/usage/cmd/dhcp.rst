@@ -46,11 +46,11 @@ variable (*ipaddr*, *netmask*, *gatewayip*, *dnsip*, *hostname*, *domain* and
 *rootpath*). The lease time is noted but not acted on: the command obtains a
 lease and never renews it.
 
-The file is then downloaded over TFTP, as the *tftpboot* command would do, and
-*filesize* and *fileaddr* are set to describe it. Setting the *autoload*
-environment variable to 'no' stops this, so that the command obtains the
-network settings alone. Where it is set to 'NFS' the file is fetched over NFS
-instead.
+The file is then downloaded over TFTP, as the :doc:`tftpboot<tftpboot>`
+command would do, and *filesize* and *fileaddr* are set to describe it.
+Setting the *autoload* environment variable to 'no' stops this, so that the
+command obtains the network settings alone. Where it is set to 'NFS' the file
+is fetched over NFS instead.
 
 Once the file is loaded the command boots it, as the *bootm* command would,
 if the *autostart* environment variable is set to 'yes'.
@@ -130,7 +130,7 @@ See also
 * :doc:`dns<dns>` for looking up a host once the lease is held
 * :doc:`ping<ping>` for checking that a host answers
 * :doc:`sntp<sntp>` for setting the clock from the time server the lease names
-* *tftpboot* for downloading a file over TFTP by hand
+* :doc:`tftpboot<tftpboot>` for downloading a file over TFTP by hand
 * :doc:`tftpput<tftpput>` for sending a file to a server
 * :doc:`wget<wget>` for downloading a file over HTTP
 * :doc:`pxe<pxe>` for downloading a PXELINUX configuration file over TFTP and
