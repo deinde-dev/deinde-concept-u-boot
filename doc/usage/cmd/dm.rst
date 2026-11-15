@@ -533,6 +533,8 @@ See also
   probed rather than from the devicetree
 * :doc:`mux<mux>` for the state of each mux controller, which ``dm tree``
   shows as a device in the mux uclass
+* :doc:`net<net>` for the devices of the Ethernet uclass, with the sequence
+  number and MAC address each of them is given
 * :doc:`sound<sound>` for a device which reaches the audio codec and i2s
   devices it plays through by phandle, so ``dm tree`` shows the three side by
   side rather than nested

@@ -87,4 +87,4 @@ See also
 * :doc:`mii<mii>` for checking that the link is up at all
 * :doc:`ping6<ping6>` for the same thing over IPv6
 * :doc:`dhcp<dhcp>` for obtaining the network settings automatically
-* *net* for listing the Ethernet devices which can be made current
+* :doc:`net<net>` for listing the Ethernet devices which can be made current

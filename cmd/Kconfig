@@ -2150,6 +2150,7 @@ if NET
 menuconfig CMD_NET
 	bool "Network commands"
 	default y
+	select GETOPT
 
 if CMD_NET
 

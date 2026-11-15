@@ -88,4 +88,4 @@ See also
 * :doc:`pcap<pcap>` for capturing the packets a ping puts on the wire
 * :doc:`mii<mii>` for checking that the link is up at all
 * *dhcp6* for obtaining the IPv6 settings automatically
-* *net* for listing the Ethernet devices which can be made current
+* :doc:`net<net>` for listing the Ethernet devices which can be made current
