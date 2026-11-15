@@ -461,6 +461,7 @@ U_BOOT_CMD_NOOPTS(
 int do_ping6(struct getopt_state *gs)
 {
 	char *const *argv = gs->argv;
+	int ret;
 
 	if (gs->argc < 2)
 		return CMD_RET_USAGE;
@@ -469,11 +470,11 @@ int do_ping6(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	use_ip6 = true;
-	if (net_loop(PING6) < 0) {
+	ret = net_loop(PING6);
+	if (ret < 0) {
 		use_ip6 = false;
-		printf("ping6 failed; host %pI6c is not alive\n",
-		       &net_ping_ip6);
-		return 1;
+		return cmd_fail(ret, "ping6 failed; host %pI6c is not alive\n",
+				&net_ping_ip6);
 	}
 
 	use_ip6 = false;
