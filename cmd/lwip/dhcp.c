@@ -4,6 +4,6 @@
 #include <command.h>
 #include <net.h>
 
-U_BOOT_CMD(dhcp, 3, 1, do_dhcp,
-	   "boot image via network using DHCP/TFTP protocol",
-	   "[loadAddress] [[hostIPaddr:]bootfilename]");
+U_BOOT_CMD_NOOPTS(dhcp, 3, 1, do_dhcp,
+		  "boot image via network using DHCP/TFTP protocol",
+		  "[loadAddress] [[hostIPaddr:]bootfilename]");

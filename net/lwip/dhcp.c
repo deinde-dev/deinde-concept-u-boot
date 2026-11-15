@@ -4,6 +4,7 @@
 #include <command.h>
 #include <console.h>
 #include <env.h>
+#include <getopt.h>
 #include <log.h>
 #include <dm/device.h>
 #include <linux/delay.h>
@@ -108,7 +109,7 @@ static int dhcp_loop(struct net_lwip_ctx *net)
 	return CMD_RET_SUCCESS;
 }
 
-int do_dhcp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_dhcp(struct getopt_state *gs)
 {
 	struct net_lwip_ctx net = {};
 	int ret;
@@ -120,10 +121,10 @@ int do_dhcp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (ret)
 		goto out;
 
-	if (argc > 1) {
+	if (gs->argc > 1) {
 		struct cmd_tbl cmdtp = {};
 
-		ret = do_tftpb(&cmdtp, 0, argc, argv);
+		ret = do_tftpb(&cmdtp, 0, gs->argc, gs->argv);
 		goto out;
 	}
 

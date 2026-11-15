@@ -132,13 +132,12 @@ U_BOOT_CMD(dhcp6,	3,	1,	do_dhcp6,
 #endif
 
 #if defined(CONFIG_CMD_DHCP)
-int do_dhcp(struct cmd_tbl *cmdtp, int flag, int argc,
-	    char *const argv[])
+int do_dhcp(struct getopt_state *gs)
 {
-	return netboot_common(DHCP, argc, argv);
+	return netboot_common(DHCP, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	dhcp,	3,	1,	do_dhcp,
 	"boot image via network using DHCP/TFTP protocol",
 	"[loadAddress] [[hostIPaddr:]bootfilename]"
