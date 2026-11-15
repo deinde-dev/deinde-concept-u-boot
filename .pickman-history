@@ -107583,3 +107583,34 @@ The pipeline failure is real and still happens on the rebased branch; it is fixe
 
 ---
 
+## 2026-11-15: us/main
+
+Branch: cherry-7b1b8fc581a9
+
+Commits:
+- 7b1b8fc581a9 arm: arch_timer: prevent recursive function tracing
+- 400e46a0df84 cmd: config: Add additional embedded text option
+- 6bbb926339da test: ut: run every suite in a comma separated list
+- 03e0ee96b1cf xyz-modem: only strip trailing ^Z bytes from the final XMODEM block
+- 0dd3208056a8 mtd: spi-nor: drop the duplicate EN4B/EX4B opcode definitions
+- 08bf39e9f336 scsi: drop the duplicate COMPARE and SEND DIAGNOSTIC opcodes
+- d8cd5fe59af1 acpi: drop the duplicate ACPI_PPTT_CACHE_TYPE_DATA definition
+- 968b1689fba3 pci: gt64120: drop the duplicate GT_PCI1M1LD/HD_OFS definitions
+- 45261587bfec dt-bindings: soc: imx8_pd: drop the duplicate PD_LVDS0_PWM definition
+- 367c7098e7db test: video: define WHITE and SCROLL_LINES once at file scope
+- 32ebe922e574 Merge patch series "Drop duplicate macro definitions"
+
+### Conversation log
+Ten commits are picked cleanly and build; the merge commit came out empty as expected, so I'm committing it as an empty commit and running the final checks.
+
+All 11 commits are cherry-picked onto `cherry-7b1b8fc581a9` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+- **Build:** ok after every commit and for the final build.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing on any commit.
+- **Deltas:** all 10 regular commits match the originals exactly in files and line counts.
+- **Merge commit:** 32ebe922e574 ("Drop duplicate macro definitions") is kept as an empty commit, since its content is already in the individual picks.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
