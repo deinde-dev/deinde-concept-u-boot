@@ -2,6 +2,7 @@
 
 #include <dm/uclass.h>
 #include <env.h>
+#include <getopt.h>
 #include <net-common.h>
 #include <linux/time.h>
 #include <rtc.h>
@@ -71,7 +72,7 @@ void net_sntp_set_rtc(u32 seconds)
 int dhcp_run(ulong addr, const char *fname, bool autoload)
 {
 	char *dhcp_argv[] = {"dhcp", NULL, (char *)fname, NULL};
-	struct cmd_tbl cmdtp = {};	/* dummy */
+	struct getopt_state gs;
 	char file_addr[17];
 	int old_autoload;
 	int ret, result;
@@ -87,7 +88,8 @@ int dhcp_run(ulong addr, const char *fname, bool autoload)
 		dhcp_argv[1] = file_addr;
 	}
 
-	result = do_dhcp(&cmdtp, 0, !autoload ? 1 : fname ? 3 : 2, dhcp_argv);
+	getopt_init_state(&gs, !autoload ? 1 : fname ? 3 : 2, dhcp_argv);
+	result = do_dhcp(&gs);
 
 	ret = env_set("autoload", old_autoload == -1 ? NULL :
 		      old_autoload ? "y" : "n");

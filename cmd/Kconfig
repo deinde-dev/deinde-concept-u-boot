@@ -2384,6 +2384,7 @@ endif  # if NET_LEGACY
 
 config CMD_DHCP
 	bool "dhcp"
+	select GETOPT
 	select PROT_DHCP_LWIP if NET_LWIP
 	select CMD_BOOTP if NET_LEGACY
 	help

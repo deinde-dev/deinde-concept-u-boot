@@ -92,4 +92,4 @@ See also
 * :doc:`bootp<bootp>` for obtaining an address once the VLAN is known
 * :doc:`linklocal<linklocal>` for setting up the network with no server at all
 * :doc:`dns<dns>` for looking up a host once the network is up
-* *dhcp* for obtaining an address from a server instead
+* :doc:`dhcp<dhcp>` for obtaining an address from a server instead

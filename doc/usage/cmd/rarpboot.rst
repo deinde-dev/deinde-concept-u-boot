@@ -40,7 +40,7 @@ for the download when *serverip* is not set already.
 RARP is the oldest of the three ways U-Boot has of asking for an address and
 the least useful: a reply holds the addresses alone, so there is nothing to
 fill in the subnet mask, the gateway or the boot file name, and a RARP server
-must see the request on the local link. Prefer *dhcp* or
+must see the request on the local link. Prefer :doc:`dhcp<dhcp>` or
 :doc:`bootp<bootp>` unless the server at hand speaks RARP alone.
 
 The file is then downloaded over TFTP, as the *tftpboot* command would do, and
@@ -106,5 +106,5 @@ See also
 * :doc:`bootp<bootp>` for obtaining the subnet mask and the boot file name as
   well as the address
 * :doc:`linklocal<linklocal>` for choosing an address with no server at all
-* *dhcp* for obtaining a lease from a DHCP server
+* :doc:`dhcp<dhcp>` for obtaining a lease from a DHCP server
 * *tftpboot* for downloading a file over TFTP by hand

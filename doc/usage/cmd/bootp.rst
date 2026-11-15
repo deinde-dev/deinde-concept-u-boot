@@ -123,7 +123,7 @@ See also
 * :doc:`dns<dns>` for looking up a host once the settings are in place
 * :doc:`linklocal<linklocal>` for setting up the network with no server at all
 * :doc:`wget<wget>` for downloading a file over HTTP
-* *dhcp* for obtaining a lease from a DHCP server
+* :doc:`dhcp<dhcp>` for obtaining a lease from a DHCP server
 * :doc:`cdp<cdp>` for obtaining the VLAN settings of the port before asking for
   an address
 * :doc:`rarpboot<rarpboot>` for obtaining the address of the board over RARP
