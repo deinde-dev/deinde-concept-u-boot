@@ -451,9 +451,9 @@ static struct nand_chip *nand_chip;
 int sand_nand_remove(struct udevice *dev)
 {
 	struct sand_nand_priv *priv = dev_get_priv(dev);
-	struct sand_nand_chip *chip;
+	struct sand_nand_chip *chip, *next;
 
-	list_for_each_entry(chip, &priv->chips, node) {
+	list_for_each_entry_safe(chip, next, &priv->chips, node) {
 		struct nand_chip *nand = &chip->nand;
 
 		if (nand_chip == nand)

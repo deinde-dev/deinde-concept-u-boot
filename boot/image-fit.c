@@ -1777,6 +1777,7 @@ static int fit_image_load_storage(struct bootm_headers *images, const void *fit,
 	ulong img_load;
 	u8 img_comp = IH_COMP_NONE;
 	void *mapped;
+	void *dst;
 
 	if (IS_ENABLED(CONFIG_FIT_VERITY)) {
 		u8 img_type;
@@ -1813,10 +1814,11 @@ static int fit_image_load_storage(struct bootm_headers *images, const void *fit,
 
 	if (img_comp == IH_COMP_NONE && load_op != FIT_LOAD_IGNORED &&
 	    !fit_image_get_load(fit, noffset, &img_load)) {
-		void *dst = map_sysmem(img_load, data_sz);
+		dst = map_sysmem(img_load, data_sz);
 
 		mapped = imagemap_map_to(images->imagemap, data_off, data_sz,
 					 dst);
+		unmap_sysmem(dst);
 	} else {
 		mapped = imagemap_map(images->imagemap, data_off, data_sz);
 	}
@@ -2226,6 +2228,7 @@ int decomp_image(const void *fit, int noffset, const char *prop_name,
  * that it has been located. Decompress and move as necessary to get the image
  * into the right place - see decomp_image()
  *
+ * @images: Boot images structure, used to check for an imagemap
  * @fit: FIT to check
  * @noffset: Node offset of the image being loaded
  * @prop_name: Property name (in the configuration node) indicating the image
@@ -2238,8 +2241,9 @@ int decomp_image(const void *fit, int noffset, const char *prop_name,
  * @loadp: Returns the address to which the data should be loaded
  * Return: 0 if OK, -ve on error
  */
-static int handle_load_op(const void *fit, int noffset, const char *prop_name,
-			  void *buf, ulong size, enum image_type_t image_type,
+static int handle_load_op(struct bootm_headers *images, const void *fit,
+			  int noffset, const char *prop_name, void *buf,
+			  ulong size, enum image_type_t image_type,
 			  enum fit_load_op load_op, int bootstage_id,
 			  ulong *loadp)
 {
@@ -2276,7 +2280,8 @@ static int handle_load_op(const void *fit, int noffset, const char *prop_name,
 			return -EXDEV;
 		}
 
-		if (!IS_ENABLED(CONFIG_IMAGEMAP) || data != load)
+		/* A storage-backed image was read straight to its load address */
+		if (!images->imagemap || data != load)
 			printf("   Loading %s from 0x%08lx to 0x%08lx\n",
 			       prop_name, data, load);
 	} else {
@@ -2334,7 +2339,7 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
 		if (ret)
 			return ret;
 
-		ret = handle_load_op(fit, noffset, prop_name, buf, len,
+		ret = handle_load_op(images, fit, noffset, prop_name, buf, len,
 				     image_type, load_op, bootstage_id, &load);
 		log_debug("handle_load_op() returned %d\n", ret);
 		if (ret)

@@ -107482,3 +107482,104 @@ All 21 commits are cherry-picked onto `cherry-1f138c27ab3c` (based on ci/master)
 
 ---
 
+## 2026-11-15: us/main
+
+Branch: cherry-10eef5457b92
+
+Commits:
+- 10eef5457b92 mtd: bind the block device without leaking on failure
+- 79ca2f85bfe6 cmd: ubi: report a failed UBI block device bind
+- 74ee4f18abc8 cmd: ubi: unbind the block device when detaching UBI
+- 0989171be0a4 boot: imagemap: free the reservation a replaced record owned
+- 614e9fc19f18 boot: imagemap: do not resize a region the caller owns
+- 8e5116836a8f boot: imagemap: read only the bytes an extend adds
+- 96270dfb5c71 boot: fit: unmap the load address after a storage read
+- 06d6f1705550 boot: fit: keep the load message for RAM-backed images
+- 148c55c66c33 boot: bootm: release the imagemap on every failing exit
+- d828f37d96af test: boot: imagemap: detach UBI when the test is done
+- 9f938a377f65 test: boot: imagemap: reset driver-model state between tests
+- d7a239469f6c Merge patch series "imagemap: fixes from the v1 review"
+
+### Conversation log
+Three of twelve commits are picked and building (one needed a small conflict fix in cmd/ubi.c); continuing with the remaining nine.
+
+Seven of twelve are in and building; now resolving a conflict in boot/image-fit.c for the eighth (06d6f1705550).
+
+Eleven regular commits are picked and building; now adding the merge commit and running the final build.
+
+All 12 commits are on `cherry-10eef5457b92` (based on ci/master) and the final sandbox build passes with no warnings or errors. I did not run the imagemap tests, only the builds.
+
+The build after each pick passed, except that I did not check the exit code for the first three; later builds of the full branch are clean.
+
+## Fix-ups
+
+Each fix-up has a `[pickman…]` note at the end of its commit message.
+
+- **74ee4f18abc8** (cmd: ubi: unbind the block device when detaching UBI): conflict in `cmd/ubi.c`, because the block being moved already used `IS_ENABLED(CONFIG_UBI_BLOCK)` here. I resolved it as upstream does, and split-check then converted the new `CONFIG_IS_ENABLED(UBI_BLOCK)`.
+- **0989171be0a4** (free the reservation a replaced record owned): the pick applied cleanly but the build failed, because `lmb_free()` takes two arguments in this tree. I dropped the `LMB_NONE` argument.
+- **614e9fc19f18** and **8e5116836a8f** (imagemap resize and extend): conflicts in `boot/imagemap.c` for the same `lmb_free()` reason. I kept the two-argument form.
+- **06d6f1705550** (keep the load message for RAM-backed images): conflict in `boot/image-fit.c`. Here the code lives in `handle_load_op()`, which has no `images` pointer, so I added one as a parameter and passed it from `fit_image_load()`.
+- **d7a239469f6c** (merge): conflicted in `boot/imagemap.c` and `cmd/ubi.c` against the already-adapted code. I kept the tree as it was, so it is an empty commit carrying the merge message.
+
+## Deltas worth a look
+
+- **06d6f1705550**: 7 insertions and 4 deletions against 2 and 1 upstream, in the same file. The extra lines are the added parameter; this is the one fix-up that changes a function signature, so it deserves a review.
+- **148c55c66c33** (bootm: release the imagemap on every failing exit): 4 and 3 against 4 and 5 upstream. Upstream also removes an `if (iflag) enable_interrupts()` that `bootm_run_states()` does not have here, so nothing is missing.
+
+The other ten match upstream line counts exactly. The branch is left unmerged and ready to push.
+
+---
+
+### Pipeline fix: 2026-11-15 (attempt 1)
+
+Branch: cherry-10eef5457b92
+
+Failed jobs:
+- sandbox with clang test.py (test.py)
+- sandbox test.py (test.py)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+The failure reproduces locally on the rebased branch and passes on ci/master, so it comes from this series. Bisecting the branch's commits now.
+
+Odd result: bisect blamed the history-only commit, and re-runs on HEAD now pass, so the failure is intermittent or state-dependent. Digging into which FDT fixup fails and why.
+
+Still narrowing down: the failure looks tied to the contents of the `mmc1.img` test image (rewritten at 09:02) rather than to the code. Checking what the VBE fixup reads from it.
+
+The fix works: with the empty `mmc1.img` the FIT tests now pass again. Amending the bootm commit and finishing the rebase, then running the wider builds and tests.
+
+Second fix works too: the two crashing imagemap tests now pass (112 passed in the related-tests run). Amending the test commit, then running the full sandbox test suite as a final check.
+
+The local full run is cut short by a timeout in `test_gpt_write_4k_sectors`; checking whether that also happens on ci/master before I wrap up.
+
+The full run (2272 passed) shows 15 failures in areas this series doesn't touch (LUKS, sb_devon, ...); verifying that the same set fails on ci/master.
+
+The pipeline failure is real and still happens on the rebased branch; it is fixed on local branch `cherry-10eef5457b92-fix1` (not pushed). There were two separate regressions from the series, each fixed by amending the responsible commit with a `[pickman]` note.
+
+## Fix 1: board reset in the FIT tests (the failure in all four jobs)
+
+- **Responsible commit:** "boot: bootm: release the imagemap on every failing exit" (now `45c9cd176239`).
+- **Root cause:** the commit sends the "subcommand failed" and earlier-state error exits of `bootm_run_states()` through the `err` label. That label resets the board when the error equals `BOOTM_ERR_RESET`, which is -1, the same value as -EPERM. In CI, `mmc1.img` cannot be mapped when `test_fit` runs, so the VBE FDT fixup fails with -EPERM during `bootm prep`. On ci/master that error is just returned and the test passes. With this commit sandbox resets, and the test session dies ("Boot fail 'bootstage restore'").
+- **Change:** those two exits now go to a new `err_release` label in `boot/bootm.c`, which releases the imagemap and returns the error without acting on its value. The unsupported-OS exit still goes through `err` as upstream intends.
+- **Reproduction:** an empty `mmc1.img` in the persistent-data directory triggers it every time. Without that, the branch passes locally, which is why it looked intermittent at first.
+
+## Fix 2: crash in two imagemap unit tests (not visible in the CI log tails)
+
+- **Responsible commit:** "test: boot: imagemap: reset driver-model state between tests" (now `2bb60fd4cdf0`).
+- **Root cause:** adding `UTF_DM | UTF_SCAN_FDT` means the sandbox NAND controller is now removed after `imagemap_test_mtd_blk` and `imagemap_test_ubiblock`. `sand_nand_remove()` frees each chip inside `list_for_each_entry()`, an existing use-after-free that segfaults in this tree.
+- **Change:** use `list_for_each_entry_safe()` in `drivers/mtd/nand/raw/sand_nand.c`. This is a driver fix folded into a test commit; say if you would rather have it as a separate commit ahead of it.
+
+## Verification
+
+- `um build sandbox` is clean.
+- `test_fit` passes, including with the empty `mmc1.img` that reproduces the CI failure.
+- The imagemap, nand, ubi, mtd and bootm tests pass (112 passed).
+- A full local `test.py` run gives 2272 passed and 15 failed. I confirmed 14 of the 15 fail identically on ci/master (LUKS, `sb_devon`, bootctl, `test_ut_dm_init_bootstd`), so they come from this machine. The fifteenth, `test_dep_esl`, fails on the fix branch; my ci/master comparison only looked at `test_ut` failures, so it is unconfirmed there.
+- That run excluded `test_env_spi_flash`, `test_event_dump` and the `test_gpt` tests, which also fail or time out on ci/master here.
+- `buildman -o /tmp/pickman sandbox` reports errors on three of the nine sandbox boards (ulib demo link, `prop_sandbox.c`); the same three fail on ci/master. The board list in the task (`clang,make,qcheck,…`) was job-name words, so I built the sandbox boards instead.
+
+`cherry-10eef5457b92` also points at the fixed tip (`820309e2b69c`), since the amends were done on it; the pre-fix tip was `3520743b170c`.
+
+---
+
