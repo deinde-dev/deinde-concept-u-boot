@@ -465,8 +465,8 @@ failure is transient or in the infrastructure, pickman does not push or run the
 failed jobs again, since that would just retry them. It posts the agent's
 diagnosis on the MR instead, and records the pipeline as dealt with, so a rebase
 need not wait for a fix. This counts as an attempt, since the agent ran. A
-rebase before the fix changes what is tested, so the failed jobs do then run
-again, on the new base.
+rebase before the fix is not pushed either, since it brings in only the
+target's changes, so pushing it by itself would just run the failed jobs again.
 
 Pickman checks out the MR's branch before running the agent, so the result is
 pushed to the right branch. If the branch on the remote has commits which the
