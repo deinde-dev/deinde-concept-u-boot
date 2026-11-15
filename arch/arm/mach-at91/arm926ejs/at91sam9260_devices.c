@@ -212,10 +212,11 @@ void at91_sdram_hw_init(void)
 }
 
 /*
- * Platform data for the GPIOs. With of-platdata, dtoc creates the GPIO devices
- * from the devicetree instead, and other records are not allowed
+ * Platform data for the GPIOs, used when there is no devicetree. With a
+ * devicetree the GPIO devices come from its nodes. With of-platdata, dtoc
+ * creates them from the devicetree instead, and other records are not allowed
  */
-#if !IS_ENABLED(CONFIG_OF_PLATDATA)
+#if !IS_ENABLED(CONFIG_OF_CONTROL)
 static const struct at91_port_plat at91sam9260_plat[] = {
 	{ ATMEL_BASE_PIOA, "PA" },
 	{ ATMEL_BASE_PIOB, "PB" },

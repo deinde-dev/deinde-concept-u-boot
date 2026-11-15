@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Common parts of the Bluewater Systems Snapper 9260 and 9G20 modules
+ *
+ * Copyright 2026 Simon Glass <sjg@chromium.org>
+ */
+
+/ {
+	chosen {
+		bootph-all;
+		stdout-path = &dbgu;
+	};
+
+	memory {
+		reg = <0x20000000 0x4000000>;
+	};
+
+	/* The expander switches the power to the Ethernet PHY, active low */
+	eth_3v3: regulator-eth {
+		compatible = "regulator-fixed";
+		regulator-name = "eth-3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&ioexp 1 GPIO_ACTIVE_LOW>;
+	};
+
+	clocks {
+		slow_xtal {
+			clock-frequency = <32768>;
+		};
+
+		main_xtal {
+			clock-frequency = <18432000>;
+		};
+	};
+
+	ahb {
+		apb {
+			macb0: ethernet@fffc4000 {
+				phy-mode = "rmii";
+				phy-supply = <&eth_3v3>;
+				status = "okay";
+			};
+
+			dbgu: serial@fffff200 {
+				bootph-all;
+				status = "okay";
+			};
+		};
+
+		ebi: ebi@10000000 {
+			status = "okay";
+
+			nand_controller: nand-controller {
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_nand>;
+				status = "okay";
+
+				nand@3 {
+					reg = <0x3 0x0 0x800000>;
+					rb-gpios = <&pioC 13 GPIO_ACTIVE_HIGH>;
+					cs-gpios = <&pioC 14 GPIO_ACTIVE_HIGH>;
+					nand-bus-width = <8>;
+					nand-ecc-mode = "soft";
+					label = "atmel_nand";
+				};
+			};
+		};
+	};
+
+	i2c@0 {
+		status = "okay";
+
+		ioexp: gpio@28 {
+			compatible = "maxim,max7312";
+			reg = <0x28>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+	};
+};
