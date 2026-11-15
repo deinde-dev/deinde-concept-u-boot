@@ -87,5 +87,5 @@ See also
 * :doc:`cdp<cdp>` for asking that switch which VLAN to tag the lookup with
 * :doc:`bootp<bootp>` for obtaining the name-server address from a BOOTP
   server
-* *dhcp* for obtaining the name-server address automatically
+* :doc:`dhcp<dhcp>` for obtaining the name-server address automatically
 * :doc:`ping<ping>` for checking that a host answers
