@@ -107258,3 +107258,70 @@ The CI log also has one "aarch64-linux-ld: invalid length for memory region .sra
 
 ---
 
+## 2026-11-14: us/main
+
+Branch: cherry-31daa2e65bd8
+
+Commits:
+- 31daa2e65bd8 interconnect: qcom: add SC7280 interconnect driver
+- 9db5fb79c263 interconnect: qcom: Add QCS8300 interconnect driver
+- 3f530789a37f Merge tag 'u-boot-interconnect-next-20261012' of https://git.u-boot-project.org/u-boot/custodians/neil.armstrong/u-boot-interconnect
+
+### Conversation log
+Not already applied; the conflict is a simple one ($(PHASE_) doesn't exist in the target). Resolving in target style.
+
+Two driver commits are in and build clean; the merge commit hits the same Makefile conflict, so I'm resolving it to the already-applied content and keeping it as an empty commit.
+
+All 3 commits are cherry-picked onto `cherry-31daa2e65bd8` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing; nothing was merged or pushed.
+
+| Commit | New hash | Result |
+|---|---|---|
+| 31daa2e65bd8 interconnect: qcom: add SC7280 interconnect driver | 4994fc1c029d | applied with fix-up |
+| 9db5fb79c263 interconnect: qcom: Add QCS8300 interconnect driver | 8f02ab270f7c | applied with fix-up |
+| 3f530789a37f Merge tag 'u-boot-interconnect-next-20261012' | 9808f22a6600 | empty commit, kept for history |
+
+**Fix-ups** (each recorded as a `[pickman: ...]` note at the end of the commit message):
+
+- **Both driver commits:** `drivers/interconnect/qcom/Makefile` conflicted because the source uses `CONFIG_$(PHASE_)...` and the target does not. I resolved it by adding the new line in the target form, e.g. `obj-$(CONFIG_INTERCONNECT_QCOM_SC7280) += sc7280.o`.
+- **`scripts/conf_nospl`:** I added `INTERCONNECT_QCOM_SC7280` and `INTERCONNECT_QCOM_QCS8300` by hand, following the existing `INTERCONNECT_QCOM_SM8650` entry. `split-check` reported nothing, because the `$(PHASE_)` usage was already gone after the conflict resolution, so it had nothing to detect. The note is my own wording, not a line printed by the tool.
+- **Merge commit:** it hit the same Makefile conflict. I kept the target version, which left no changes, so it is an empty commit.
+
+**Deltas:** none concerning. The SC7280 commit matches the original (5 files, 2065 insertions) plus one line in `conf_nospl`. The QCS8300 commit matches (300 insertions) plus one line in `conf_nospl`. The full branch diff against ci/master is 2367 insertions, against 2365 for the original merge.
+
+The first cherry-pick conflicted, so I ran the already-applied check: none of the three subjects exist in ci/master, so no signal file was written.
+
+---
+
+### Pipeline fix: 2026-11-15 (attempt 1)
+
+Branch: cherry-31daa2e65bd8
+
+Failed jobs:
+- build all 32bit ARM platforms (world_build)
+- efi-aarch64 (sjg-lab)
+
+### Conversation log
+Both CI failures look unrelated to the branch so far; I'm now checking whether the sandbox build errors I just saw locally also occur on plain ci/master.
+
+Neither failure comes from this branch, so I made no changes and did not create `cherry-31daa2e65bd8-fix1`. I couldn't re-run either CI job locally, so this rests on the logs and on what the branch touches.
+
+## Why the failures aren't from this branch
+
+- **build all 32bit ARM platforms (777626):** this is a runner problem. The build itself finished cleanly at 06:23 with `755 total built` and 0 errors. The job then sat idle for 22 minutes, hit the 1h limit (`execution took longer than 1h0m0s`) and could not remove its containers.
+- **efi-aarch64 (777616):** `test_distro_arm_app_efi` timed out waiting for the `Ubuntu 25.04 qarm ttyAMA0` prompt on the lab board; the other 38 tests passed. The branch cannot affect this build: I rebuilt `efi-arm_app64` on the rebased branch and its `.config` has `# CONFIG_INTERCONNECT is not set`, so none of the new code is compiled in. This looks like a lab or boot-time flake, or something from the old base.
+
+The branch only adds two Qualcomm interconnect drivers (`sc7280.c`, `qcs8300.c`) with their Kconfig/Makefile entries and enables `CONFIG_INTERCONNECT_QCOM_SC7280` in `qcom_defconfig`. `qcom` is the only board whose config changes, and it is aarch64, so it is not in the 32-bit ARM job either.
+
+## Local build results
+
+- `um build sandbox` passes with no output.
+- `buildman -o /tmp/pickman efi-arm_app64 qcom sandbox` builds `efi-arm_app64` and `qcom` without errors. I did not rebuild the full 32-bit ARM set, since CI already built all 755 with 0 errors.
+- `sandbox_spl`, `sandbox_vpl` and `sandbox_noinst` fail under buildman with of-platdata errors in `drivers/misc/prop_sandbox.c`. The same errors appear on untouched ci/master, so they are not from this branch.
+- The plain `sandbox` board fails under buildman on the branch with errors that changed between runs (`i386-linux-ar: No such file`, then `demo.o: file in wrong format` in `examples/ulib`). It did not fail in the ci/master run. I did not track down the cause; it looks like a local toolchain mix-up, and the branch adds nothing that sandbox compiles.
+
+## Suggested action
+
+Retry both jobs on the rebased branch. If `test_distro_arm_app_efi` times out again there, the cause is in ci/master or the lab rather than this MR.
+
+---
+
