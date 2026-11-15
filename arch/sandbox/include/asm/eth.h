@@ -42,6 +42,33 @@ int sandbox_eth_ping_req_to_reply(struct udevice *dev, void *packet,
 				  unsigned int len);
 
 /*
+ * sandbox_eth_ndisc_req_to_reply()
+ *
+ * Check for an IPv6 neighbour solicitation to be sent. If so, inject an
+ * advertisement giving the fake host's MAC address for the target
+ *
+ * @dev: device that received the packet
+ * @packet: pointer to the received packet buffer
+ * @len: length of received packet
+ * Return: 0 if injected, -EAGAIN if not
+ */
+int sandbox_eth_ndisc_req_to_reply(struct udevice *dev, void *packet,
+				   unsigned int len);
+
+/*
+ * sandbox_eth_ping6_req_to_reply()
+ *
+ * Check for an IPv6 ping request to be sent. If so, inject a reply
+ *
+ * @dev: device that received the packet
+ * @packet: pointer to the received packet buffer
+ * @len: length of received packet
+ * Return: 0 if injected, -EAGAIN if not
+ */
+int sandbox_eth_ping6_req_to_reply(struct udevice *dev, void *packet,
+				   unsigned int len);
+
+/*
  * sandbox_eth_recv_arp_req()
  *
  * Inject an ARP request for this target

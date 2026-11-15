@@ -3,6 +3,7 @@
 
 #include <dm.h>
 #include <env.h>
+#include <getopt.h>
 #include <lwip/pbuf.h>
 #include <lwip/udp.h>
 #include <net.h>
@@ -239,9 +240,12 @@ static int _dm_test_lwip_netconsole(struct unit_test_state *uts,
 
 	if (IS_ENABLED(CONFIG_CMD_PING)) {
 		static char *const ping_argv[] = { "ping", "1.1.2.2" };
+		struct getopt_state gs;
+
+		getopt_init_state(&gs, ARRAY_SIZE(ping_argv), ping_argv);
 
 		/* A foreground command shares the netif with netconsole. */
-		ut_assertok(do_ping(NULL, 0, ARRAY_SIZE(ping_argv), ping_argv));
+		ut_assertok(do_ping(&gs));
 		nc->puts(nc, after_ping);
 		ut_asserteq(++outputs, context->output_count);
 		ut_assertok(nc_test_check_output(uts, context, outputs - 1,

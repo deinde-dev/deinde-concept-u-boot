@@ -83,6 +83,54 @@ struct icmphdr {
 #define ICMP_ECHO_REPLY		0
 #define IPPROTO_ICMP		1
 
+#define IP6_LEN		16
+#define PROT_IP6	0x86DD
+#define PROT_ICMPV6	58
+
+struct ipv6hdr {
+	u8 ver_tc;
+	u8 tc_flow[3];
+	u16 payload_len;
+	u8 nexthdr;
+	u8 hop_limit;
+	u8 saddr[IP6_LEN];
+	u8 daddr[IP6_LEN];
+} __attribute__((packed));
+
+#define IPV6HDR_SIZE (sizeof(struct ipv6hdr))
+
+/* ICMPv6 header with the four bytes which follow it, whatever the type */
+struct icmpv6hdr {
+	u8 type;
+	u8 code;
+	u16 checksum;
+	u32 data;
+} __attribute__((packed));
+
+#define ICMPV6HDR_SIZE (sizeof(struct icmpv6hdr))
+
+#define ICMPV6_ECHO_REQUEST	128
+#define ICMPV6_ECHO_REPLY	129
+#define ICMPV6_NEIGH_SOLICIT	135
+#define ICMPV6_NEIGH_ADVERT	136
+
+/* neighbour advertisement flags, in the four bytes after the header */
+#define ICMPV6_NA_SOLICITED	0x40000000
+#define ICMPV6_NA_OVERRIDE	0x20000000
+
+/* neighbour solicitation or advertisement: target and link-layer address */
+struct ndmsg {
+	struct icmpv6hdr hdr;
+	u8 target[IP6_LEN];
+	u8 opt_type;
+	u8 opt_len;		/* in units of 8 bytes */
+	u8 opt_lladdr[ETHADDR_LEN];
+} __attribute__((packed));
+
+#define NDMSG_SIZE (sizeof(struct ndmsg))
+
+#define ND_OPT_TARGET_LLADDR	2
+
 static const u8 null_ethaddr[6];
 static bool skip_timeout;
 
@@ -234,6 +282,161 @@ int sandbox_eth_ping_req_to_reply(struct udevice *dev, void *packet,
 }
 
 /*
+ * icmpv6_checksum()
+ *
+ * Work out the checksum of an ICMPv6 message, which covers a pseudo-header
+ * made from the addresses, the length and the protocol in the IPv6 header as
+ * well as the message itself. The checksum field in the message must be zero.
+ *
+ * ip6 - IPv6 header of the packet
+ * msg - ICMPv6 message which follows it
+ * len - length of the message in bytes
+ */
+static u16 icmpv6_checksum(const struct ipv6hdr *ip6, const void *msg,
+			   uint len)
+{
+	struct {
+		u8 saddr[IP6_LEN];
+		u8 daddr[IP6_LEN];
+		u32 len;
+		u8 zero[3];
+		u8 nexthdr;
+	} __attribute__((packed)) pseudo;
+
+	memcpy(pseudo.saddr, ip6->saddr, IP6_LEN);
+	memcpy(pseudo.daddr, ip6->daddr, IP6_LEN);
+	pseudo.len = htonl(len);
+	memset(pseudo.zero, '\0', sizeof(pseudo.zero));
+	pseudo.nexthdr = PROT_ICMPV6;
+
+	return add_ip_checksums(sizeof(pseudo),
+				compute_ip_checksum(&pseudo, sizeof(pseudo)),
+				compute_ip_checksum(msg, len));
+}
+
+/*
+ * sandbox_eth_ndisc_req_to_reply()
+ *
+ * Check for an IPv6 neighbour solicitation to be sent. If so, inject an
+ * advertisement which gives the fake host's MAC address for the target, so
+ * that the fake host answers to any IPv6 address, as it does for IPv4
+ *
+ * returns 0 if injected, -EAGAIN if not
+ */
+int sandbox_eth_ndisc_req_to_reply(struct udevice *dev, void *packet,
+				   unsigned int len)
+{
+	struct eth_sandbox_priv *priv = dev_get_priv(dev);
+	struct ethhdr *eth = packet;
+	struct ipv6hdr *ip6;
+	struct ndmsg *ns;
+	struct ethhdr *eth_recv;
+	struct ipv6hdr *ip6r;
+	struct ndmsg *na;
+
+	if (ntohs(eth->protlen) != PROT_IP6 ||
+	    len < ETHHDR_SIZE + IPV6HDR_SIZE + ICMPV6HDR_SIZE + IP6_LEN)
+		return -EAGAIN;
+
+	ip6 = packet + ETHHDR_SIZE;
+	ns = (struct ndmsg *)(ip6 + 1);
+	if (ip6->nexthdr != PROT_ICMPV6 ||
+	    ns->hdr.type != ICMPV6_NEIGH_SOLICIT)
+		return -EAGAIN;
+
+	/* Don't allow the buffer to overrun */
+	if (priv->recv_packets >= PKTBUFSRX)
+		return 0;
+
+	/* Formulate a fake advertisement, sent from the target address */
+	eth_recv = (void *)priv->recv_packet_buffer[priv->recv_packets];
+	memcpy(eth_recv->dst, eth->src, ETHADDR_LEN);
+	memcpy(eth_recv->src, priv->fake_host_hwaddr, ETHADDR_LEN);
+	eth_recv->protlen = htons(PROT_IP6);
+
+	ip6r = (void *)eth_recv + ETHHDR_SIZE;
+	memset(ip6r, '\0', IPV6HDR_SIZE);
+	ip6r->ver_tc = 6 << 4;
+	ip6r->payload_len = htons(NDMSG_SIZE);
+	ip6r->nexthdr = PROT_ICMPV6;
+	ip6r->hop_limit = 255;
+	memcpy(ip6r->saddr, ns->target, IP6_LEN);
+	memcpy(ip6r->daddr, ip6->saddr, IP6_LEN);
+
+	na = (struct ndmsg *)(ip6r + 1);
+	memset(na, '\0', NDMSG_SIZE);
+	na->hdr.type = ICMPV6_NEIGH_ADVERT;
+	na->hdr.data = htonl(ICMPV6_NA_SOLICITED | ICMPV6_NA_OVERRIDE);
+	memcpy(na->target, ns->target, IP6_LEN);
+	na->opt_type = ND_OPT_TARGET_LLADDR;
+	na->opt_len = 1;
+	memcpy(na->opt_lladdr, priv->fake_host_hwaddr, ETHADDR_LEN);
+	na->hdr.checksum = icmpv6_checksum(ip6r, na, NDMSG_SIZE);
+
+	priv->recv_packet_length[priv->recv_packets] = ETHHDR_SIZE +
+		IPV6HDR_SIZE + NDMSG_SIZE;
+	++priv->recv_packets;
+
+	return 0;
+}
+
+/*
+ * sandbox_eth_ping6_req_to_reply()
+ *
+ * Check for an IPv6 ping request to be sent. If so, inject a reply
+ *
+ * returns 0 if injected, -EAGAIN if not
+ */
+int sandbox_eth_ping6_req_to_reply(struct udevice *dev, void *packet,
+				   unsigned int len)
+{
+	struct eth_sandbox_priv *priv = dev_get_priv(dev);
+	struct ethhdr *eth = packet;
+	struct ipv6hdr *ip6;
+	struct icmpv6hdr *icmp;
+	struct ethhdr *eth_recv;
+	struct ipv6hdr *ip6r;
+	struct icmpv6hdr *icmpr;
+	uint icmp_len;
+
+	if (ntohs(eth->protlen) != PROT_IP6 ||
+	    len < ETHHDR_SIZE + IPV6HDR_SIZE + ICMPV6HDR_SIZE)
+		return -EAGAIN;
+
+	ip6 = packet + ETHHDR_SIZE;
+	icmp = (struct icmpv6hdr *)(ip6 + 1);
+	icmp_len = ntohs(ip6->payload_len);
+	if (ip6->nexthdr != PROT_ICMPV6 ||
+	    icmp->type != ICMPV6_ECHO_REQUEST ||
+	    len < ETHHDR_SIZE + IPV6HDR_SIZE + icmp_len)
+		return -EAGAIN;
+
+	/* Don't allow the buffer to overrun */
+	if (priv->recv_packets >= PKTBUFSRX)
+		return 0;
+
+	/* reply to the ping, swapping the addresses */
+	eth_recv = (void *)priv->recv_packet_buffer[priv->recv_packets];
+	memcpy(eth_recv, packet, len);
+	memcpy(eth_recv->dst, eth->src, ETHADDR_LEN);
+	memcpy(eth_recv->src, priv->fake_host_hwaddr, ETHADDR_LEN);
+
+	ip6r = (void *)eth_recv + ETHHDR_SIZE;
+	memcpy(ip6r->saddr, ip6->daddr, IP6_LEN);
+	memcpy(ip6r->daddr, ip6->saddr, IP6_LEN);
+
+	icmpr = (struct icmpv6hdr *)(ip6r + 1);
+	icmpr->type = ICMPV6_ECHO_REPLY;
+	icmpr->checksum = 0;
+	icmpr->checksum = icmpv6_checksum(ip6r, icmpr, icmp_len);
+
+	priv->recv_packet_length[priv->recv_packets] = len;
+	++priv->recv_packets;
+
+	return 0;
+}
+
+/*
  * sandbox_eth_recv_arp_req()
  *
  * Inject an ARP request for this target
@@ -343,6 +546,10 @@ static int sb_default_handler(struct udevice *dev, void *packet,
 	if (!sandbox_eth_arp_req_to_reply(dev, packet, len))
 		return 0;
 	if (!sandbox_eth_ping_req_to_reply(dev, packet, len))
+		return 0;
+	if (!sandbox_eth_ndisc_req_to_reply(dev, packet, len))
+		return 0;
+	if (!sandbox_eth_ping6_req_to_reply(dev, packet, len))
 		return 0;
 
 	return 0;

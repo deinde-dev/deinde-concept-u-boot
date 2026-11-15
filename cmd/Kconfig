@@ -2340,6 +2340,7 @@ config SYS_DISABLE_AUTOLOAD
 config CMD_PING6
 	bool "ping6"
 	depends on IPV6
+	select GETOPT
 	default y if (CMD_PING && IPV6)
 	help
 	  Send ICMPv6 ECHO_REQUEST to network host
@@ -2446,6 +2447,7 @@ config NFS_TIMEOUT
 
 config CMD_PING
 	bool "ping"
+	select GETOPT
 	select PROT_RAW_LWIP if NET_LWIP
 	help
 	  Send ICMP ECHO_REQUEST to network host

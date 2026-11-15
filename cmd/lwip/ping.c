@@ -3,6 +3,7 @@
 
 #include <command.h>
 #include <console.h>
+#include <getopt.h>
 #include <dm/device.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
@@ -13,8 +14,9 @@
 #include <net.h>
 #include <time.h>
 
-U_BOOT_CMD(ping, 2, 1, do_ping, "send ICMP ECHO_REQUEST to network host",
-	   "pingAddressOrHostName");
+U_BOOT_CMD_NOOPTS(ping, 2, 1, do_ping,
+		  "send ICMP ECHO_REQUEST to network host",
+		  "pingAddressOrHostName");
 
 #define PING_DELAY_MS 1000
 #define PING_COUNT 5
@@ -147,17 +149,19 @@ static int ping_loop(struct net_lwip_ctx *net, const ip_addr_t *addr)
 	if (ctx.alive)
 		return 0;
 
-	printf("ping failed; host %s is not alive\n", ipaddr_ntoa(addr));
+	cmd_err("ping failed; host %s is not alive\n", ipaddr_ntoa(addr));
+
 	return -1;
 }
 
-int do_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_ping(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	struct net_lwip_ctx net = {};
 	ip_addr_t addr;
 	int ret;
 
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
 	if (net_lwip_dns_resolve(argv[1], &addr))

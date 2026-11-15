@@ -428,26 +428,29 @@ static int netboot_common(enum proto_t proto, int argc, char *const argv[])
 }
 
 #if defined(CONFIG_CMD_PING)
-int do_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_ping(struct getopt_state *gs)
 {
-	if (argc < 2)
+	char *const *argv = gs->argv;
+	int ret;
+
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
 	net_ping_ip = string_to_ip(argv[1]);
 	if (net_ping_ip.s_addr == 0)
 		return CMD_RET_USAGE;
 
-	if (net_loop(PING) < 0) {
-		printf("ping failed; host %s is not alive\n", argv[1]);
-		return CMD_RET_FAILURE;
-	}
+	ret = net_loop(PING);
+	if (ret < 0)
+		return cmd_fail(ret, "ping failed; host %s is not alive\n",
+				argv[1]);
 
 	printf("host %s is alive\n", argv[1]);
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	ping,	2,	1,	do_ping,
 	"send ICMP ECHO_REQUEST to network host",
 	"pingAddress"
@@ -455,17 +458,23 @@ U_BOOT_CMD(
 #endif
 
 #if IS_ENABLED(CONFIG_CMD_PING6)
-int do_ping6(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+int do_ping6(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
+	int ret;
+
+	if (gs->argc < 2)
+		return CMD_RET_USAGE;
+
 	if (string_to_ip6(argv[1], strlen(argv[1]), &net_ping_ip6))
 		return CMD_RET_USAGE;
 
 	use_ip6 = true;
-	if (net_loop(PING6) < 0) {
+	ret = net_loop(PING6);
+	if (ret < 0) {
 		use_ip6 = false;
-		printf("ping6 failed; host %pI6c is not alive\n",
-		       &net_ping_ip6);
-		return 1;
+		return cmd_fail(ret, "ping6 failed; host %pI6c is not alive\n",
+				&net_ping_ip6);
 	}
 
 	use_ip6 = false;
@@ -473,7 +482,7 @@ int do_ping6(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 	return 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	ping6,  2,      1,      do_ping6,
 	"send ICMPv6 ECHO_REQUEST to network host",
 	"pingAddress"
