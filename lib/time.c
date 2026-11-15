@@ -18,6 +18,9 @@
 #include <asm/io.h>
 #include <linux/delay.h>
 #include <uthread.h>
+#ifdef CONFIG_SANDBOX
+#include <asm/state.h>
+#endif
 
 #ifndef CFG_WD_PERIOD
 # define CFG_WD_PERIOD	(10 * 1000 * 1000)	/* 10 seconds default */
@@ -191,6 +194,24 @@ void __weak __udelay(unsigned long usec)
 
 /* ------------------------------------------------------------------------- */
 
+/**
+ * delays_skipped() - check whether a delay should take no time at all
+ *
+ * Sandbox can be told to treat a delay as instant, which __udelay() honours.
+ * The uthread path in udelay() busy-waits on the clock instead, so it has to
+ * ask for itself.
+ *
+ * Return: true if delays are being skipped
+ */
+static bool delays_skipped(void)
+{
+#ifdef CONFIG_SANDBOX
+	return state_get_skip_delays();
+#else
+	return false;
+#endif
+}
+
 void udelay(unsigned long usec)
 {
 	ulong kv;
@@ -198,7 +219,7 @@ void udelay(unsigned long usec)
 	do {
 		schedule();
 		kv = usec > CFG_WD_PERIOD ? CFG_WD_PERIOD : usec;
-		if (IS_ENABLED(CONFIG_UTHREAD)) {
+		if (IS_ENABLED(CONFIG_UTHREAD) && !delays_skipped()) {
 			ulong t0 = timer_get_us();
 			while (timer_get_us() - t0 < kv)
 				uthread_schedule();
