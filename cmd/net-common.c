@@ -40,17 +40,13 @@ static int do_net_stats(struct getopt_state *gs)
 	name = gs->argv[1];
 
 	err = uclass_get_device_by_name(UCLASS_ETH, name, &dev);
-	if (err) {
-		printf("Could not find device %s\n", name);
-		return CMD_RET_FAILURE;
-	}
+	if (err)
+		return cmd_fail(err, "Could not find device %s\n", name);
 
 	if (!eth_get_ops(dev)->get_sset_count ||
 	    !eth_get_ops(dev)->get_strings ||
-	    !eth_get_ops(dev)->get_stats) {
-		printf("Driver does not implement stats dump!\n");
-		return CMD_RET_FAILURE;
-	}
+	    !eth_get_ops(dev)->get_stats)
+		return cmd_fail(0, "Driver does not implement stats dump!\n");
 
 	nstats = eth_get_ops(dev)->get_sset_count(dev);
 	strings = kcalloc(nstats, ETH_GSTRING_LEN, GFP_KERNEL);
