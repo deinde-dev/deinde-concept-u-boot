@@ -184,6 +184,7 @@ obj-$(CONFIG_CMD_LSBLK) += lsblk.o
 obj-$(CONFIG_CMD_MBR) += mbr.o
 obj-$(CONFIG_CMD_MMC) += mmcinfo.o
 obj-$(CONFIG_CMD_MOUSE) += mouse.o
+obj-$(CONFIG_CMD_NET) += net.o
 obj-$(CONFIG_CMD_PINMUX) += pinmux.o
 obj-$(CONFIG_CMD_PMC) += pmc.o
 obj-$(CONFIG_CMD_POWEROFF) += poweroff.o
