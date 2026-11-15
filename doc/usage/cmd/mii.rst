@@ -173,4 +173,5 @@ See also
   which also reaches clause 45 registers
 * :doc:`ethsw<ethsw>` for the switch which the PHYs of a board with one sit
   behind
+* :doc:`net<net>` for the Ethernet devices the PHYs serve, and their counters
 * :doc:`dm<dm>` for checking which MDIO buses are bound and which have probed

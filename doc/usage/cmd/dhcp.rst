@@ -127,6 +127,7 @@ See also
 * :doc:`linklocal<linklocal>` for setting up the network with no server at all
 * :doc:`cdp<cdp>` for obtaining the VLAN settings of the port before asking for
   an address
+* :doc:`net<net>` for listing the Ethernet devices a lease may be asked on
 * :doc:`dns<dns>` for looking up a host once the lease is held
 * :doc:`ping<ping>` for checking that a host answers
 * :doc:`sntp<sntp>` for setting the clock from the time server the lease names

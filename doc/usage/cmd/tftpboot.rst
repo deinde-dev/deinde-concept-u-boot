@@ -155,4 +155,5 @@ See also
 * :doc:`wget<wget>` for downloading a file over HTTP
 * :doc:`pxe<pxe>` for downloading a PXELINUX configuration file over TFTP and
   booting what it names
+* :doc:`net<net>` for listing the Ethernet devices a download may go over
 * :doc:`bootm<bootm>` for booting the image once it is in memory
