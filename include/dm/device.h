@@ -301,6 +301,13 @@ struct udevice_id {
 #endif /* IS_ENABLED(CONFIG_OF_REAL) */
 
 /*
+ * With of-platdata and no devicetree, each device is declared by dtoc, so
+ * nothing reads the driver's match table and it only wastes space
+ */
+#define DM_OF_MATCH_UNUSED	\
+	(IS_ENABLED(CONFIG_OF_PLATDATA) && !IS_ENABLED(CONFIG_OF_REAL))
+
+/*
  * of_to_plat_ptr() - Use an of_to_plat() method only with OF_CONTROL
  *
  * Unlike of_match_ptr(), this keeps the method with of-platdata, where
@@ -391,6 +398,23 @@ struct driver {
  */
 #define U_BOOT_DRIVER(__name)						\
 	ll_entry_declare(struct driver, __name, driver)
+
+/**
+ * driver_get_of_match() - Get the list of compatible strings for a driver
+ *
+ * @drv: Driver to check
+ * Return: list of compatible strings, or NULL if the driver has none, or
+ * the list is left out since nothing reads it (see of_match_ptr())
+ */
+static inline const struct udevice_id *
+driver_get_of_match(const struct driver *drv)
+{
+#if DM_OF_MATCH_UNUSED
+	return NULL;
+#else
+	return drv->of_match;
+#endif
+}
 
 /**
  * DM_DRIVER_GET() - Get a pointer to a given driver
