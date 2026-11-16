@@ -108204,3 +108204,34 @@ All 6 commits are cherry-picked onto `cherry-d452a0d4c19b` (based on ci/master),
 
 ---
 
+## 2026-11-16: us/main
+
+Branch: cherry-b39c518941a4
+
+Commits:
+- b39c518941a4 clk: clk-uclass: Ignore -ENOSYS in clk_set_default_rates()
+- 2580bf01875b bus: ti-sysc: Tolerate disabled CLK
+- 01f891c2a7d2 bus: ti-sysc: Simplify with clk_get_by_name_optional
+- 0ad4c34260a9 bus: ti-sysc: Add omap2/4-timer compatibles
+- f31d1b37da59 Merge patch series "bus: ti-sysc: Prepare for use with am43 and OF_UPSTREAM"
+
+### Conversation log
+All 5 commits are cherry-picked onto `cherry-b39c518941a4` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+| Commit | Original | Subject | Delta |
+|---|---|---|---|
+| 50d52c10ae95 | b39c518941a4 | clk: clk-uclass: Ignore -ENOSYS in clk_set_default_rates() | 9+ / 0-, identical |
+| 02cf66fbd054 | 2580bf01875b | bus: ti-sysc: Tolerate disabled CLK | 5+ / 3-, identical |
+| d143e02fc026 | 01f891c2a7d2 | bus: ti-sysc: Simplify with clk_get_by_name_optional | 5+ / 5-, identical |
+| 0bbc2b76c6d6 | 0ad4c34260a9 | bus: ti-sysc: Add omap2/4-timer compatibles | 2+ / 0-, identical |
+| 3883ab79b006 | f31d1b37da59 | Merge patch series "bus: ti-sysc: Prepare for use with am43 and OF_UPSTREAM" | empty, as expected |
+
+- **Build:** ok after every pick and at the end. `drivers/bus/ti-sysc.c` is probably not compiled for sandbox, so the build says little about the three ti-sysc commits.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing on any commit.
+- **Concerning deltas:** none.
+- **Starting state:** the tree had only untracked files (`capsule_esl_file`, `codman.db`, two `.dtbo.S` files), which I left alone.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
