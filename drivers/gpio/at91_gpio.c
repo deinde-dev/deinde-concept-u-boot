@@ -712,7 +712,7 @@ static int at91_gpio_probe(struct udevice *dev)
 }
 
 #if IS_ENABLED(CONFIG_OF_CONTROL)
-static const struct udevice_id at91_gpio_ids[] = {
+static __maybe_unused const struct udevice_id at91_gpio_ids[] = {
 	{ .compatible = "atmel,at91rm9200-gpio" },
 	{ }
 };
@@ -722,7 +722,7 @@ U_BOOT_DRIVER(atmel_at91rm9200_gpio) = {
 	.name	= "atmel_at91rm9200_gpio",
 	.id	= UCLASS_GPIO,
 #if IS_ENABLED(CONFIG_OF_CONTROL)
-	.of_match = at91_gpio_ids,
+	.of_match = of_match_ptr(at91_gpio_ids),
 	.plat_auto	= sizeof(struct at91_port_plat),
 #endif
 	.ops	= &gpio_at91_ops,

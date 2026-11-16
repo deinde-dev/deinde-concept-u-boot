@@ -261,7 +261,7 @@ static const struct dm_serial_ops sandbox_serial_ops = {
 	.getinfo = sandbox_serial_getinfo,
 };
 
-static const struct udevice_id sandbox_serial_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_serial_ids[] = {
 	{ .compatible = "sandbox,serial" },
 	{ }
 };
@@ -269,7 +269,7 @@ static const struct udevice_id sandbox_serial_ids[] = {
 U_BOOT_DRIVER(sandbox_serial) = {
 	.name	= "sandbox_serial",
 	.id	= UCLASS_SERIAL,
-	.of_match = sandbox_serial_ids,
+	.of_match = of_match_ptr(sandbox_serial_ids),
 	.of_to_plat = sandbox_serial_of_to_plat,
 	.plat_auto	= sizeof(struct sandbox_serial_plat),
 	.priv_auto	= sizeof(struct sandbox_serial_priv),

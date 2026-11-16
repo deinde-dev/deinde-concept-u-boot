@@ -141,7 +141,7 @@ static const struct timer_ops rockchip_timer_ops = {
 	.get_count = rockchip_timer_get_count,
 };
 
-static const struct udevice_id rockchip_timer_ids[] = {
+static __maybe_unused const struct udevice_id rockchip_timer_ids[] = {
 	{ .compatible = "rockchip,rk3288-timer" },
 	{}
 };
@@ -149,7 +149,7 @@ static const struct udevice_id rockchip_timer_ids[] = {
 U_BOOT_DRIVER(rockchip_rk3288_timer) = {
 	.name	= "rockchip_rk3288_timer",
 	.id	= UCLASS_TIMER,
-	.of_match = rockchip_timer_ids,
+	.of_match = of_match_ptr(rockchip_timer_ids),
 	.probe = rockchip_timer_probe,
 	.ops	= &rockchip_timer_ops,
 	.priv_auto	= sizeof(struct rockchip_timer_priv),

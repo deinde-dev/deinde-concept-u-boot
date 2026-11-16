@@ -248,7 +248,7 @@ static const struct dm_spi_flash_ops spi_flash_std_ops = {
 	.get_sw_write_prot = spi_flash_std_get_sw_write_prot,
 };
 
-static const struct udevice_id spi_flash_std_ids[] = {
+static __maybe_unused const struct udevice_id spi_flash_std_ids[] = {
 	{ .compatible = "jedec,spi-nor" },
 	{ }
 };
@@ -256,7 +256,7 @@ static const struct udevice_id spi_flash_std_ids[] = {
 U_BOOT_DRIVER(jedec_spi_nor) = {
 	.name		= "jedec_spi_nor",
 	.id		= UCLASS_SPI_FLASH,
-	.of_match	= spi_flash_std_ids,
+	.of_match	= of_match_ptr(spi_flash_std_ids),
 	.probe		= spi_flash_std_probe,
 	.remove		= spi_flash_std_remove,
 	.priv_auto	= sizeof(struct spi_nor),

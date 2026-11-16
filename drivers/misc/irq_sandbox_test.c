@@ -9,7 +9,7 @@
 #include <irq.h>
 #include <asm/irq.h>
 
-static const struct udevice_id sandbox_irq_test_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_irq_test_ids[] = {
 	{ .compatible = "sandbox,irq-test" },
 	{ }
 };
@@ -17,5 +17,5 @@ static const struct udevice_id sandbox_irq_test_ids[] = {
 U_BOOT_DRIVER(sandbox_irq_test) = {
 	.name = "sandbox_irq_test",
 	.id = UCLASS_MISC,
-	.of_match = sandbox_irq_test_ids,
+	.of_match = of_match_ptr(sandbox_irq_test_ids),
 };

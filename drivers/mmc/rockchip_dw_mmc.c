@@ -181,7 +181,7 @@ static int rockchip_dwmmc_bind(struct udevice *dev)
 	return dwmci_bind(dev, &plat->mmc, &plat->cfg);
 }
 
-static const struct udevice_id rockchip_dwmmc_ids[] = {
+static __maybe_unused const struct udevice_id rockchip_dwmmc_ids[] = {
 	{ .compatible = "rockchip,rk2928-dw-mshc" },
 	{ .compatible = "rockchip,rk3288-dw-mshc" },
 	{ .compatible = "rockchip,rk3576-dw-mshc" },
@@ -191,7 +191,7 @@ static const struct udevice_id rockchip_dwmmc_ids[] = {
 U_BOOT_DRIVER(rockchip_rk3288_dw_mshc) = {
 	.name		= "rockchip_rk3288_dw_mshc",
 	.id		= UCLASS_MMC,
-	.of_match	= rockchip_dwmmc_ids,
+	.of_match	= of_match_ptr(rockchip_dwmmc_ids),
 	.of_to_plat = rockchip_dwmmc_of_to_plat,
 	.ops		= &dm_dwmci_ops,
 	.bind		= rockchip_dwmmc_bind,

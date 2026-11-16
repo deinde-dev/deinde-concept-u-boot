@@ -41,7 +41,7 @@ int soc_sandbox_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id soc_sandbox_ids[] = {
+static __maybe_unused const struct udevice_id soc_sandbox_ids[] = {
 	{ .compatible = "sandbox,soc" },
 	{ }
 };
@@ -50,6 +50,6 @@ U_BOOT_DRIVER(soc_sandbox) = {
 	.name           = "soc_sandbox",
 	.id             = UCLASS_SOC,
 	.ops		= &soc_sandbox_ops,
-	.of_match       = soc_sandbox_ids,
+	.of_match       = of_match_ptr(soc_sandbox_ids),
 	.probe          = soc_sandbox_probe,
 };

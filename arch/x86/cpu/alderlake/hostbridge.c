@@ -18,7 +18,7 @@ struct acpi_ops adl_hostbridge_acpi_ops = {
 };
 #endif
 
-static const struct udevice_id adl_hostbridge_ids[] = {
+static __maybe_unused const struct udevice_id adl_hostbridge_ids[] = {
 	{ .compatible = "intel,alderlake-hostbridge" },
 	{ }
 };
@@ -26,6 +26,6 @@ static const struct udevice_id adl_hostbridge_ids[] = {
 U_BOOT_DRIVER(intel_alderlake_hostbridge) = {
 	.name		= "intel_alderlake_hostbridge",
 	.id		= UCLASS_NORTHBRIDGE,
-	.of_match	= adl_hostbridge_ids,
+	.of_match	= of_match_ptr(adl_hostbridge_ids),
 	ACPI_OPS_PTR(&adl_hostbridge_acpi_ops)
 };

@@ -3535,7 +3535,7 @@ static struct ram_ops rv1126_dmc_ops = {
 	.get_info = rv1126_dmc_get_info,
 };
 
-static const struct udevice_id rv1126_dmc_ids[] = {
+static __maybe_unused const struct udevice_id rv1126_dmc_ids[] = {
 	{ .compatible = "rockchip,rv1126-dmc" },
 	{ }
 };
@@ -3543,7 +3543,7 @@ static const struct udevice_id rv1126_dmc_ids[] = {
 U_BOOT_DRIVER(dmc_rv1126) = {
 	.name = "rockchip_rv1126_dmc",
 	.id = UCLASS_RAM,
-	.of_match = rv1126_dmc_ids,
+	.of_match = of_match_ptr(rv1126_dmc_ids),
 	.ops = &rv1126_dmc_ops,
 	.probe = rv1126_dmc_probe,
 	.priv_auto = sizeof(struct dram_info),

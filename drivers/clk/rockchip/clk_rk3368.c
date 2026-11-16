@@ -622,7 +622,7 @@ static int rk3368_clk_bind(struct udevice *dev)
 	return ret;
 }
 
-static const struct udevice_id rk3368_clk_ids[] = {
+static __maybe_unused const struct udevice_id rk3368_clk_ids[] = {
 	{ .compatible = "rockchip,rk3368-cru" },
 	{ }
 };
@@ -630,7 +630,7 @@ static const struct udevice_id rk3368_clk_ids[] = {
 U_BOOT_DRIVER(rockchip_rk3368_cru) = {
 	.name		= "rockchip_rk3368_cru",
 	.id		= UCLASS_CLK,
-	.of_match	= rk3368_clk_ids,
+	.of_match	= of_match_ptr(rk3368_clk_ids),
 	.priv_auto	= sizeof(struct rk3368_clk_priv),
 	.of_to_plat = rk3368_clk_of_to_plat,
 	.ops		= &rk3368_clk_ops,

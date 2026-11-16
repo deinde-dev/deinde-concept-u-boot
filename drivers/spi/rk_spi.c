@@ -550,7 +550,7 @@ const  struct rockchip_spi_params rk3399_spi_params = {
 	.master_manages_fifo = true,
 };
 
-static const struct udevice_id rockchip_spi_ids[] = {
+static __maybe_unused const struct udevice_id rockchip_spi_ids[] = {
 	{ .compatible = "rockchip,rk3066-spi" },
 	{ .compatible = "rockchip,rk3288-spi" },
 	{ .compatible = "rockchip,rk3328-spi" },
@@ -564,7 +564,7 @@ static const struct udevice_id rockchip_spi_ids[] = {
 U_BOOT_DRIVER(rockchip_rk3288_spi) = {
 	.name	= "rockchip_rk3288_spi",
 	.id	= UCLASS_SPI,
-	.of_match = rockchip_spi_ids,
+	.of_match = of_match_ptr(rockchip_spi_ids),
 	.ops	= &rockchip_spi_ops,
 	.of_to_plat = rockchip_spi_of_to_plat,
 	.plat_auto	= sizeof(struct rockchip_spi_plat),

@@ -83,7 +83,7 @@ UCLASS_DRIVER(i2c_emul_parent) = {
 #endif
 };
 
-static const struct udevice_id i2c_emul_parent_ids[] = {
+static __maybe_unused const struct udevice_id i2c_emul_parent_ids[] = {
 	{ .compatible = "sandbox,i2c-emul-parent" },
 	{ }
 };
@@ -91,5 +91,5 @@ static const struct udevice_id i2c_emul_parent_ids[] = {
 U_BOOT_DRIVER(sandbox_i2c_emul_parent) = {
 	.name		= "sandbox_i2c_emul_parent",
 	.id		= UCLASS_I2C_EMUL_PARENT,
-	.of_match	= i2c_emul_parent_ids,
+	.of_match	= of_match_ptr(i2c_emul_parent_ids),
 };

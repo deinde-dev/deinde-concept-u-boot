@@ -791,7 +791,7 @@ UCLASS_DRIVER(i2c_generic) = {
 	.name		= "i2c_generic",
 };
 
-static const struct udevice_id generic_chip_i2c_ids[] = {
+static __maybe_unused const struct udevice_id generic_chip_i2c_ids[] = {
 	{ .compatible = "i2c-chip", .data = I2C_DEVICE_GENERIC },
 #if IS_ENABLED(CONFIG_ACPIGEN)
 	{ .compatible = "hid-over-i2c", .data = I2C_DEVICE_HID_OVER_I2C },
@@ -802,7 +802,7 @@ static const struct udevice_id generic_chip_i2c_ids[] = {
 U_BOOT_DRIVER(i2c_generic_chip_drv) = {
 	.name		= "i2c_generic_chip_drv",
 	.id		= UCLASS_I2C_GENERIC,
-	.of_match	= generic_chip_i2c_ids,
+	.of_match	= of_match_ptr(generic_chip_i2c_ids),
 #if IS_ENABLED(CONFIG_ACPIGEN)
 	.of_to_plat	= acpi_i2c_of_to_plat,
 	.priv_auto	= sizeof(struct acpi_i2c_priv),

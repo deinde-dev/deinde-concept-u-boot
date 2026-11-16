@@ -103,7 +103,7 @@ static struct sysreset_ops sandbox_sysreset_ops = {
 	.get_last	= sandbox_sysreset_get_last,
 };
 
-static const struct udevice_id sandbox_sysreset_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_sysreset_ids[] = {
 	{ .compatible = "sandbox,reset" },
 	{ }
 };
@@ -111,7 +111,7 @@ static const struct udevice_id sandbox_sysreset_ids[] = {
 U_BOOT_DRIVER(sysreset_sandbox) = {
 	.name		= "sysreset_sandbox",
 	.id		= UCLASS_SYSRESET,
-	.of_match	= sandbox_sysreset_ids,
+	.of_match	= of_match_ptr(sandbox_sysreset_ids),
 	.ops		= &sandbox_sysreset_ops,
 };
 
@@ -121,7 +121,7 @@ static struct sysreset_ops sandbox_warm_sysreset_ops = {
 	.get_last	= sandbox_warm_sysreset_get_last,
 };
 
-static const struct udevice_id sandbox_warm_sysreset_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_warm_sysreset_ids[] = {
 	{ .compatible = "sandbox,warm-reset" },
 	{ }
 };
@@ -129,7 +129,7 @@ static const struct udevice_id sandbox_warm_sysreset_ids[] = {
 U_BOOT_DRIVER(warm_sysreset_sandbox) = {
 	.name		= "warm_sysreset_sandbox",
 	.id		= UCLASS_SYSRESET,
-	.of_match	= sandbox_warm_sysreset_ids,
+	.of_match	= of_match_ptr(sandbox_warm_sysreset_ids),
 	.ops		= &sandbox_warm_sysreset_ops,
 };
 

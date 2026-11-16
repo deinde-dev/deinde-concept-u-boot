@@ -273,7 +273,9 @@ The driver declaration needs no `#if` either:
 
 `of_match_ptr()` drops the compatible strings when there is no devicetree at
 run time, since only dtoc needs them then, so the `udevice_id` table is marked
-`__maybe_unused`, before `const` so that dtoc still finds it.
+`__maybe_unused`, before `const` so that dtoc still finds it. With of-platdata
+the build fails if a driver sets `of_match` without it: see
+`Match table set directly`_.
 `of_to_plat_ptr()` keeps the method
 with of-platdata, since that is where the helpers read the generated data, and
 drops it only when OF_CONTROL is disabled. A driver which is also used without
@@ -553,7 +555,7 @@ enum. Since dtoc does not support searching for these, you must use the
 `DM_HEADER()` macro to tell dtoc which header to include. This works as a macro
 included in the driver definition::
 
-   static const struct udevice_id apl_syscon_ids[] = {
+   static __maybe_unused const struct udevice_id apl_syscon_ids[] = {
       { .compatible = "intel,apl-punit", .data = X86_SYSCON_PUNIT },
       { }
    };
@@ -561,7 +563,7 @@ included in the driver definition::
    U_BOOT_DRIVER(intel_apl_punit) = {
       .name       = "intel_apl_punit",
       .id         = UCLASS_SYSCON,
-      .of_match   = apl_syscon_ids,
+      .of_match   = of_match_ptr(apl_syscon_ids),
       .probe      = apl_punit_probe,
       DM_HEADER(<asm/cpu.h>)    /* for X86_SYSCON_PUNIT */
    };
@@ -690,6 +692,32 @@ arrives some other way::
 
 The fix is to create the device from the devicetree instead, or to drop the
 record when of-platdata is enabled.
+
+Match table set directly
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+With of-platdata and no devicetree, nothing reads the `of_match` table of a
+driver, so it should not be in the image. A driver which sets `of_match`
+directly gives a build error, or a warning with compilers before GCC 14::
+
+   error: initialization of 'const struct of_match_needs_of_match_ptr *'
+      from incompatible pointer type 'const struct udevice_id *'
+
+The fix is to use `of_match_ptr()` and to mark the table `__maybe_unused`:
+
+.. code-block:: c
+
+    static __maybe_unused const struct udevice_id mmc_ids[] = {
+            { .compatible = "vendor,mmc" },
+            { }
+    };
+
+    U_BOOT_DRIVER(mmc_drv) = {
+            ...
+            .of_match       = of_match_ptr(mmc_ids),
+
+Code which needs to read the table can use `driver_get_of_match()`, which
+returns NULL in this case.
 
 Caveats
 -------

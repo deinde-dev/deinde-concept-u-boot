@@ -218,7 +218,7 @@ void dm_dump_driver_compat(void)
 	puts("Driver                Compatible\n");
 	puts("--------------------------------\n");
 	for (entry = d; entry < d + n_ents; entry++) {
-		match = entry->of_match;
+		match = driver_get_of_match(entry);
 
 		printf("%-20.20s", entry->name);
 		if (match) {

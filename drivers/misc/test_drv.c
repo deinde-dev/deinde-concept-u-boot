@@ -80,14 +80,14 @@ static int testbus_child_post_remove(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id testbus_ids[] = {
+static __maybe_unused const struct udevice_id testbus_ids[] = {
 	{ .compatible = "denx,u-boot-test-bus", .data = DM_TEST_TYPE_FIRST },
 	{ }
 };
 
 U_BOOT_DRIVER(denx_u_boot_test_bus) = {
 	.name	= "testbus_drv",
-	.of_match	= testbus_ids,
+	.of_match	= of_match_ptr(testbus_ids),
 	.id	= UCLASS_TEST_BUS,
 	.probe	= testbus_drv_probe,
 	.child_post_bind = testbus_child_post_bind,
@@ -159,7 +159,7 @@ static int testfdt_drv_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id testfdt_ids[] = {
+static __maybe_unused const struct udevice_id testfdt_ids[] = {
 	{ .compatible = "denx,u-boot-fdt-test", .data = DM_TEST_TYPE_FIRST },
 	{ .compatible = "google,another-fdt-test", .data = DM_TEST_TYPE_SECOND },
 	{ }
@@ -167,7 +167,7 @@ static const struct udevice_id testfdt_ids[] = {
 
 U_BOOT_DRIVER(denx_u_boot_fdt_test) = {
 	.name	= "testfdt_drv",
-	.of_match	= testfdt_ids,
+	.of_match	= of_match_ptr(testfdt_ids),
 	.id	= UCLASS_TEST_FDT,
 	.of_to_plat = testfdt_of_to_plat,
 	.probe	= testfdt_drv_probe,
@@ -176,14 +176,14 @@ U_BOOT_DRIVER(denx_u_boot_fdt_test) = {
 	.plat_auto	= sizeof(struct dm_test_pdata),
 };
 
-static const struct udevice_id testfdt1_ids[] = {
+static __maybe_unused const struct udevice_id testfdt1_ids[] = {
 	{ .compatible = "denx,u-boot-fdt-test1", .data = DM_TEST_TYPE_FIRST },
 	{ }
 };
 
 U_BOOT_DRIVER(testfdt1_drv) = {
 	.name	= "testfdt1_drv",
-	.of_match	= testfdt1_ids,
+	.of_match	= of_match_ptr(testfdt1_ids),
 	.id	= UCLASS_TEST_FDT,
 	.of_to_plat = testfdt_of_to_plat,
 	.probe	= testfdt_drv_probe,
@@ -199,20 +199,20 @@ U_BOOT_DRIVER(testfdt1_drv) = {
  * than giving up at the first match. The linker list is ordered by driver
  * name, so testfdt_order1_drv is seen first
  */
-static const struct udevice_id testfdt_order_ids[] = {
+static __maybe_unused const struct udevice_id testfdt_order_ids[] = {
 	{ .compatible = "denx,u-boot-order-test" },
 	{ }
 };
 
 U_BOOT_DRIVER(testfdt_order1_drv) = {
 	.name	= "testfdt_order1_drv",
-	.of_match	= testfdt_order_ids,
+	.of_match	= of_match_ptr(testfdt_order_ids),
 	.id	= UCLASS_TEST_FDT,
 };
 
 U_BOOT_DRIVER(testfdt_order2_drv) = {
 	.name	= "testfdt_order2_drv",
-	.of_match	= testfdt_order_ids,
+	.of_match	= of_match_ptr(testfdt_order_ids),
 	.id	= UCLASS_TEST_FDT,
 	.flags = DM_FLAG_PRE_RELOC,
 };
@@ -235,14 +235,14 @@ UCLASS_DRIVER(testfdt) = {
 	.priv_auto	= sizeof(struct dm_test_uc_priv),
 };
 
-static const struct udevice_id testfdtm_ids[] = {
+static __maybe_unused const struct udevice_id testfdtm_ids[] = {
 	{ .compatible = "denx,u-boot-fdtm-test" },
 	{ }
 };
 
 U_BOOT_DRIVER(testfdtm_drv) = {
 	.name	= "testfdtm_drv",
-	.of_match	= testfdtm_ids,
+	.of_match	= of_match_ptr(testfdtm_ids),
 	.id	= UCLASS_TEST_FDT_MANUAL,
 };
 

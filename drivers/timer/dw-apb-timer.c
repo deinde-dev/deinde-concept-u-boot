@@ -98,7 +98,7 @@ static const struct timer_ops dw_apb_timer_ops = {
 	.get_count	= dw_apb_timer_get_count,
 };
 
-static const struct udevice_id dw_apb_timer_ids[] = {
+static __maybe_unused const struct udevice_id dw_apb_timer_ids[] = {
 	{ .compatible = "snps,dw-apb-timer" },
 	{}
 };
@@ -108,7 +108,7 @@ U_BOOT_DRIVER(snps_dw_apb_timer) = {
 	.id		= UCLASS_TIMER,
 	.ops		= &dw_apb_timer_ops,
 	.probe		= dw_apb_timer_probe,
-	.of_match	= dw_apb_timer_ids,
+	.of_match	= of_match_ptr(dw_apb_timer_ids),
 	.of_to_plat	= dw_apb_timer_of_to_plat,
 	.remove		= dw_apb_timer_remove,
 	.priv_auto	= sizeof(struct dw_apb_timer_priv),

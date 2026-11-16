@@ -10,7 +10,7 @@
 #include <asm/test.h>
 #include <dm/lists.h>
 
-static const struct udevice_id sandbox_syscon_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_syscon_ids[] = {
 	{ .compatible = "sandbox,syscon0", .data = SYSCON0 },
 	{ .compatible = "sandbox,syscon1", .data = SYSCON1 },
 	{ }
@@ -19,5 +19,5 @@ static const struct udevice_id sandbox_syscon_ids[] = {
 U_BOOT_DRIVER(sandbox_syscon) = {
 	.name	= "sandbox_syscon",
 	.id	= UCLASS_SYSCON,
-	.of_match = sandbox_syscon_ids,
+	.of_match = of_match_ptr(sandbox_syscon_ids),
 };

@@ -376,7 +376,7 @@ static int atmel_spi_probe(struct udevice *bus)
 	return 0;
 }
 
-static const struct udevice_id atmel_spi_ids[] = {
+static __maybe_unused const struct udevice_id atmel_spi_ids[] = {
 	{ .compatible = "atmel,at91rm9200-spi" },
 	{ }
 };
@@ -384,7 +384,7 @@ static const struct udevice_id atmel_spi_ids[] = {
 U_BOOT_DRIVER(atmel_spi) = {
 	.name	= "atmel_spi",
 	.id	= UCLASS_SPI,
-	.of_match = atmel_spi_ids,
+	.of_match = of_match_ptr(atmel_spi_ids),
 	.ops	= &atmel_spi_ops,
 	.plat_auto	= sizeof(struct atmel_spi_plat),
 	.priv_auto	= sizeof(struct atmel_spi_priv),

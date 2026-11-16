@@ -683,7 +683,7 @@ static int rk3066_clk_bind(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id rk3066_clk_ids[] = {
+static __maybe_unused const struct udevice_id rk3066_clk_ids[] = {
 	{ .compatible = "rockchip,rk3066a-cru" },
 	{ }
 };
@@ -694,7 +694,7 @@ U_BOOT_DRIVER(rockchip_rk3066a_cru) = {
 	.ops		= &rk3066_clk_ops,
 	.probe		= rk3066_clk_probe,
 	.bind		= rk3066_clk_bind,
-	.of_match	= rk3066_clk_ids,
+	.of_match	= of_match_ptr(rk3066_clk_ids),
 	.of_to_plat	= rk3066_clk_of_to_plat,
 	.priv_auto	= sizeof(struct rk3066_clk_priv),
 };

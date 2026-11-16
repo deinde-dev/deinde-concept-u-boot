@@ -55,7 +55,7 @@ static const struct timer_ops sandbox_timer_ops = {
 	.get_count = sandbox_timer_get_count,
 };
 
-static const struct udevice_id sandbox_timer_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_timer_ids[] = {
 	{ .compatible = "sandbox,timer" },
 	{ }
 };
@@ -63,7 +63,7 @@ static const struct udevice_id sandbox_timer_ids[] = {
 U_BOOT_DRIVER(sandbox_timer) = {
 	.name	= "sandbox_timer",
 	.id	= UCLASS_TIMER,
-	.of_match = sandbox_timer_ids,
+	.of_match = of_match_ptr(sandbox_timer_ids),
 	.probe = sandbox_timer_probe,
 	.ops	= &sandbox_timer_ops,
 	.flags = DM_FLAG_PRE_RELOC,

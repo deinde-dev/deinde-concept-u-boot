@@ -57,7 +57,7 @@ static int clk_fixed_factor_of_to_plat(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id clk_fixed_factor_match[] = {
+static __maybe_unused const struct udevice_id clk_fixed_factor_match[] = {
 	{
 		.compatible = "fixed-factor-clock",
 	},
@@ -67,7 +67,7 @@ static const struct udevice_id clk_fixed_factor_match[] = {
 U_BOOT_DRIVER(clk_fixed_factor) = {
 	.name = "fixed_factor_clock",
 	.id = UCLASS_CLK,
-	.of_match = clk_fixed_factor_match,
+	.of_match = of_match_ptr(clk_fixed_factor_match),
 	.of_to_plat = clk_fixed_factor_of_to_plat,
 	.plat_auto	= sizeof(struct clk_fixed_factor),
 	.ops = &clk_fixed_factor_ops,
