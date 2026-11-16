@@ -114,7 +114,7 @@ static int host_bootdev_bind(struct udevice *dev)
 static struct bootdev_ops host_bootdev_ops = {
 };
 
-static const struct udevice_id host_bootdev_ids[] = {
+static __maybe_unused const struct udevice_id host_bootdev_ids[] = {
 	{ .compatible = "u-boot,bootdev-host" },
 	{ }
 };
@@ -124,7 +124,7 @@ U_BOOT_DRIVER(host_bootdev) = {
 	.id		= UCLASS_BOOTDEV,
 	.ops		= &host_bootdev_ops,
 	.bind		= host_bootdev_bind,
-	.of_match	= host_bootdev_ids,
+	.of_match	= of_match_ptr(host_bootdev_ids),
 };
 
 int host_create_attach_file(const char *label, const char *filename,

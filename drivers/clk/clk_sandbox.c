@@ -140,7 +140,7 @@ static int sandbox_clk_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id sandbox_clk_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_clk_ids[] = {
 	{ .compatible = "sandbox,clk" },
 	{ }
 };
@@ -148,7 +148,7 @@ static const struct udevice_id sandbox_clk_ids[] = {
 U_BOOT_DRIVER(sandbox_clk) = {
 	.name		= "sandbox_clk",
 	.id		= UCLASS_CLK,
-	.of_match	= sandbox_clk_ids,
+	.of_match	= of_match_ptr(sandbox_clk_ids),
 	.of_to_plat	= sandbox_clk_of_to_plat,
 	.ops		= &sandbox_clk_ops,
 	.probe		= sandbox_clk_probe,
@@ -196,7 +196,7 @@ static int sandbox_clk_fixed_rate_of_to_plat(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id sandbox_clk_fixed_rate_match[] = {
+static __maybe_unused const struct udevice_id sandbox_clk_fixed_rate_match[] = {
 	{ .compatible = "sandbox,fixed-clock" },
 	{ /* sentinel */ }
 };
@@ -204,7 +204,7 @@ static const struct udevice_id sandbox_clk_fixed_rate_match[] = {
 U_BOOT_DRIVER(sandbox_fixed_clock) = {
 	.name = "sandbox_fixed_clock",
 	.id = UCLASS_CLK,
-	.of_match = sandbox_clk_fixed_rate_match,
+	.of_match = of_match_ptr(sandbox_clk_fixed_rate_match),
 	.of_to_plat = sandbox_clk_fixed_rate_of_to_plat,
 	.plat_auto = sizeof(struct clk_fixed_rate),
 	.ops = &clk_fixed_rate_ops,

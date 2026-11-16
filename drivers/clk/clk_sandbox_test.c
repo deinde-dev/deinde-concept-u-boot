@@ -168,7 +168,7 @@ static int sandbox_clk_test_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id sandbox_clk_test_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_clk_test_ids[] = {
 	{ .compatible = "sandbox,clk-test" },
 	{ }
 };
@@ -176,7 +176,7 @@ static const struct udevice_id sandbox_clk_test_ids[] = {
 U_BOOT_DRIVER(sandbox_clk_test) = {
 	.name = "sandbox_clk_test",
 	.id = UCLASS_MISC,
-	.of_match = sandbox_clk_test_ids,
+	.of_match = of_match_ptr(sandbox_clk_test_ids),
 	.probe = sandbox_clk_test_probe,
 	.priv_auto	= sizeof(struct sandbox_clk_test),
 };

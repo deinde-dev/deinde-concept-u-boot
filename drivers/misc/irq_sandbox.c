@@ -87,7 +87,7 @@ static const struct irq_ops sandbox_irq_ops = {
 #endif
 };
 
-static const struct udevice_id sandbox_irq_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_irq_ids[] = {
 	{ .compatible = "sandbox,irq", SANDBOX_IRQT_BASE },
 	{ }
 };
@@ -95,7 +95,7 @@ static const struct udevice_id sandbox_irq_ids[] = {
 U_BOOT_DRIVER(sandbox_irq) = {
 	.name		= "sandbox_irq",
 	.id		= UCLASS_IRQ,
-	.of_match	= sandbox_irq_ids,
+	.of_match	= of_match_ptr(sandbox_irq_ids),
 	.ops		= &sandbox_irq_ops,
 	.priv_auto	= sizeof(struct sandbox_irq_priv),
 	DM_HEADER(<asm/irq.h>)

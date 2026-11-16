@@ -7,7 +7,7 @@
 
 #include <dm.h>
 
-static const struct udevice_id generic_sandbox_firmware_ids[] = {
+static __maybe_unused const struct udevice_id generic_sandbox_firmware_ids[] = {
 	{ .compatible = "sandbox,firmware" },
 	{ }
 };
@@ -15,5 +15,5 @@ static const struct udevice_id generic_sandbox_firmware_ids[] = {
 U_BOOT_DRIVER(sandbox_firmware) = {
 	.name = "sandbox_firmware",
 	.id = UCLASS_FIRMWARE,
-	.of_match = generic_sandbox_firmware_ids,
+	.of_match = of_match_ptr(generic_sandbox_firmware_ids),
 };

@@ -8,7 +8,7 @@
 #include <dm.h>
 #include <asm-generic/gpio.h>
 
-static const struct udevice_id sandbox_gpio_test_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_gpio_test_ids[] = {
 	{ .compatible = "sandbox,gpio-test" },
 	{ }
 };
@@ -16,5 +16,5 @@ static const struct udevice_id sandbox_gpio_test_ids[] = {
 U_BOOT_DRIVER(sandbox_gpio_test) = {
 	.name = "sandbox_gpio_test",
 	.id = UCLASS_MISC,
-	.of_match = sandbox_gpio_test_ids,
+	.of_match = of_match_ptr(sandbox_gpio_test_ids),
 };

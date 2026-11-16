@@ -52,7 +52,7 @@ static int sandbox_bootdev_hunt(struct bootdev_hunter *info, bool show)
 static const struct bootdev_ops sandbox_bootdev_ops = {
 };
 
-static const struct udevice_id sandbox_bootdev_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_bootdev_ids[] = {
 	{ .compatible = "u-boot,bootdev-sandbox" },
 	{ }
 };
@@ -62,7 +62,7 @@ U_BOOT_DRIVER(sandbox_bootdev) = {
 	.id		= UCLASS_BOOTDEV,
 	.ops		= &sandbox_bootdev_ops,
 	.bind		= sandbox_bootdev_bind,
-	.of_match	= sandbox_bootdev_ids,
+	.of_match	= of_match_ptr(sandbox_bootdev_ids),
 };
 
 BOOTDEV_HUNTER(sandbox_bootdev_hunter) = {

@@ -84,7 +84,7 @@ static const struct dm_i2c_ops sandbox_i2c_ops = {
 	.xfer		= sandbox_i2c_xfer,
 };
 
-static const struct udevice_id sandbox_i2c_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_i2c_ids[] = {
 	{ .compatible = "sandbox,i2c" },
 	{ }
 };
@@ -92,7 +92,7 @@ static const struct udevice_id sandbox_i2c_ids[] = {
 U_BOOT_DRIVER(sandbox_i2c) = {
 	.name	= "sandbox_i2c",
 	.id	= UCLASS_I2C,
-	.of_match = sandbox_i2c_ids,
+	.of_match = of_match_ptr(sandbox_i2c_ids),
 	.ops	= &sandbox_i2c_ops,
 	.priv_auto	= sizeof(struct sandbox_i2c_priv),
 };

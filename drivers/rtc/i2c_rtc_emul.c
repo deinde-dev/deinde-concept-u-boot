@@ -211,7 +211,7 @@ static int sandbox_i2c_rtc_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id sandbox_i2c_rtc_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_i2c_rtc_ids[] = {
 	{ .compatible = "sandbox,i2c-rtc-emul" },
 	{ }
 };
@@ -219,7 +219,7 @@ static const struct udevice_id sandbox_i2c_rtc_ids[] = {
 U_BOOT_DRIVER(sandbox_i2c_rtc_emul) = {
 	.name		= "sandbox_i2c_rtc_emul",
 	.id		= UCLASS_I2C_EMUL,
-	.of_match	= sandbox_i2c_rtc_ids,
+	.of_match	= of_match_ptr(sandbox_i2c_rtc_ids),
 	.bind		= sandbox_i2c_rtc_bind,
 	.probe		= sandbox_i2c_rtc_probe,
 	.priv_auto	= sizeof(struct sandbox_i2c_rtc),

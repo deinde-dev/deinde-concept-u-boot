@@ -5,7 +5,7 @@
 
 #include <dm.h>
 
-static const struct udevice_id sandbox_fpga_match[] = {
+static __maybe_unused const struct udevice_id sandbox_fpga_match[] = {
 	{ .compatible = "sandbox,fpga" },
 	{ /* sentinel */ }
 };
@@ -13,5 +13,5 @@ static const struct udevice_id sandbox_fpga_match[] = {
 U_BOOT_DRIVER(sandbox_fpga) = {
 	.name	= "sandbox_fpga",
 	.id	= UCLASS_FPGA,
-	.of_match = sandbox_fpga_match,
+	.of_match = of_match_ptr(sandbox_fpga_match),
 };

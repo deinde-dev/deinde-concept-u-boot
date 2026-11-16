@@ -120,7 +120,7 @@ int misc_sandbox_probe(struct udevice *dev)
 	return 0;
 }
 
-static const struct udevice_id misc_sandbox_ids[] = {
+static __maybe_unused const struct udevice_id misc_sandbox_ids[] = {
 	{ .compatible = "sandbox,misc_sandbox" },
 	{ }
 };
@@ -129,7 +129,7 @@ U_BOOT_DRIVER(misc_sandbox) = {
 	.name           = "misc_sandbox",
 	.id             = UCLASS_MISC,
 	.ops		= &misc_sandbox_ops,
-	.of_match       = misc_sandbox_ids,
+	.of_match       = of_match_ptr(misc_sandbox_ids),
 	.probe          = misc_sandbox_probe,
 	.priv_auto	= sizeof(struct misc_sandbox_priv),
 };

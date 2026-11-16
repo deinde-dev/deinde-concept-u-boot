@@ -102,7 +102,7 @@ static int sandbox_dev_prop_remove(struct udevice *dev)
 	return IS_ENABLED(CONFIG_REGMAP) ? regmap_uninit(plat->map) : 0;
 }
 
-static const struct udevice_id sandbox_dev_prop_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_dev_prop_ids[] = {
 	{ .compatible = "sandbox,dev-prop-test", .data = SANDBOX_DEV_PROP_TEST },
 	{ .compatible = "sandbox,dev-prop-other", .data = SANDBOX_DEV_PROP_OTHER },
 	{}
@@ -111,7 +111,7 @@ static const struct udevice_id sandbox_dev_prop_ids[] = {
 U_BOOT_DRIVER(sandbox_dev_prop_test) = {
 	.name	= "sandbox_dev_prop_test",
 	.id	= UCLASS_MISC,
-	.of_match = sandbox_dev_prop_ids,
+	.of_match = of_match_ptr(sandbox_dev_prop_ids),
 	.bind	= sandbox_dev_prop_bind,
 	.of_to_plat = sandbox_dev_prop_of_to_plat,
 	.remove	= sandbox_dev_prop_remove,
@@ -146,7 +146,7 @@ static int sandbox_dev_prop_single_of_to_plat(struct udevice *dev)
 	return dev_prop_regmap(dev, dt, &plat->map);
 }
 
-static const struct udevice_id sandbox_dev_prop_single_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_dev_prop_single_ids[] = {
 	{ .compatible = "sandbox,dev-prop-single", },
 	{}
 };
@@ -154,7 +154,7 @@ static const struct udevice_id sandbox_dev_prop_single_ids[] = {
 U_BOOT_DRIVER(sandbox_dev_prop_single) = {
 	.name	= "sandbox_dev_prop_single",
 	.id	= UCLASS_MISC,
-	.of_match = sandbox_dev_prop_single_ids,
+	.of_match = of_match_ptr(sandbox_dev_prop_single_ids),
 	.of_to_plat = sandbox_dev_prop_single_of_to_plat,
 	.remove	= sandbox_dev_prop_remove,
 	.plat_auto = sizeof(struct sandbox_dev_prop_plat),

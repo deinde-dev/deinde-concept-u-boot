@@ -86,7 +86,7 @@ static const struct rtc_ops sandbox_rtc_ops = {
 	.write8 = sandbox_rtc_write8,
 };
 
-static const struct udevice_id sandbox_rtc_ids[] = {
+static __maybe_unused const struct udevice_id sandbox_rtc_ids[] = {
 	{ .compatible = "sandbox-rtc" },
 	{ }
 };
@@ -94,7 +94,7 @@ static const struct udevice_id sandbox_rtc_ids[] = {
 U_BOOT_DRIVER(sandbox_rtc) = {
 	.name	= "sandbox_rtc",
 	.id	= UCLASS_RTC,
-	.of_match = sandbox_rtc_ids,
+	.of_match = of_match_ptr(sandbox_rtc_ids),
 	.ops	= &sandbox_rtc_ops,
 	ACPI_OPS_PTR(&sandbox_rtc_acpi_ops)
 };

@@ -133,7 +133,7 @@ static struct host_ops host_sb_ops = {
 	.detach_file	= host_sb_detach_file,
 };
 
-static const struct udevice_id host_ids[] = {
+static __maybe_unused const struct udevice_id host_ids[] = {
 	{ .compatible = "sandbox,host" },
 	{ }
 };
@@ -141,7 +141,7 @@ static const struct udevice_id host_ids[] = {
 U_BOOT_DRIVER(host_sb_drv) = {
 	.name		= "host_sb_drv",
 	.id		= UCLASS_HOST,
-	.of_match	= host_ids,
+	.of_match	= of_match_ptr(host_ids),
 	.ops		= &host_sb_ops,
 	.bind		= host_sb_bind,
 	.plat_auto	= sizeof(struct host_sb_plat),
