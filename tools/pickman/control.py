@@ -2915,6 +2915,10 @@ def parked_retry(dbs, parked, branch, dry_run=False):
             _abort_in_progress()
             still.append(rec)
 
+    if applied and not dry_run and not keep_version_ok(branch, name):
+        gitutil.checkout_branch(branch)
+        gitutil.delete_branch(name)
+        return [], parked, None
     if not dry_run:
         set_status(dbs, [rec[1] for rec in still], 'conflict')
     if dry_run or not applied:
@@ -3862,6 +3866,123 @@ def write_history(source, commits, branch_name, conv_log):
     return True
 
 
+# Note added to a commit whose change to the version numbers is left out
+VERSION_NOTE = ("[pickman] Leave out the change to the version numbers, since "
+                'this tree has its own')
+
+
+def _tree_file(ref, path):
+    """Read a file from a commit, keeping its contents exactly
+
+    Args:
+        ref (str): Commit to read from
+        path (str): Path of the file within the tree
+
+    Returns:
+        str: Contents of the file
+    """
+    return command.output('git', 'show', f'{ref}:{path}')
+
+
+def _rewrite_commit(chash, parent, text, msg):
+    """Make a copy of a commit with a different Makefile
+
+    Args:
+        chash (str): Commit to copy
+        parent (str): Parent for the copy
+        text (str): Contents of the Makefile for the copy
+        msg (str): Commit message for the copy
+
+    Returns:
+        str: Hash of the copy, which keeps the original's author
+    """
+    path = drift.VERSION_FILE
+    blob = command.output('git', 'hash-object', '-w', '--stdin',
+                          stdin_data=text).strip()
+    entries = []
+    for line in run_git(['ls-tree', chash]).splitlines():
+        info, name = line.split('\t', 1)
+        if name == path:
+            line = f'{info.split()[0]} blob {blob}\t{path}'
+        entries.append(line)
+    tree = command.output('git', 'mktree',
+                          stdin_data='\n'.join(entries) + '\n').strip()
+    author, email, when = run_git(
+        ['log', '-1', '--format=%an%x00%ae%x00%ad', '--date=raw',
+         chash]).split('\0')
+    env = dict(os.environ, GIT_AUTHOR_NAME=author, GIT_AUTHOR_EMAIL=email,
+               GIT_AUTHOR_DATE=when)
+    return command.output('git', 'commit-tree', tree, '-p', parent, '-F', '-',
+                          stdin_data=msg, env=env).strip()
+
+
+def keep_version(base, branch):
+    """Keep this tree's version numbers in the commits on a branch
+
+    This tree has its own version numbers, so an upstream commit which
+    changes them, such as 'Prepare v2026.10', must leave them alone. Put the
+    version lines from the base back into each commit on the branch, keeping
+    the rest of the commit, and say so in the message of each commit whose
+    change to them is left out. A commit left with no change is kept, empty.
+
+    The commits are rewritten with git's plumbing rather than replayed, since
+    a replay would conflict where two commits in a row change the version.
+
+    Args:
+        base (str): Commit the branch starts from, e.g. 'ci/master'
+        branch (str): Branch to rewrite, which must not have uncommitted
+            changes if it is checked out
+
+    Returns:
+        list of str: Subjects of the commits whose change is left out
+    """
+    path = drift.VERSION_FILE
+    want = drift.version_lines(_tree_file(base, path))
+    commits = run_git(['rev-list', '--reverse', f'{base}..{branch}']).split()
+    parent = None
+    prev = _tree_file(base, path)
+    changed = []
+    for chash in commits:
+        text = _tree_file(chash, path)
+        mine = drift.version_lines(text) != drift.version_lines(prev)
+        prev = text
+        if not mine and not parent:
+            continue
+        msg = command.output('git', 'log', '-1', '--format=%B', chash)
+        if mine:
+            changed.append(msg.splitlines()[0])
+            msg = f'{msg.rstrip()}\n\n{VERSION_NOTE}\n'
+        parent = _rewrite_commit(chash, parent or f'{chash}^',
+                                 drift.keep_version(text, want), msg)
+    if parent:
+        if run_git(['rev-parse', '--abbrev-ref', 'HEAD']) == branch:
+            run_git(['reset', '-q', '--keep', parent])
+        else:
+            run_git(['branch', '-f', branch, parent])
+        tout.info(f'{branch}: left out the change to the version numbers '
+                  f'in {len(changed)} commit(s)')
+    return changed
+
+
+def keep_version_ok(base, branch):
+    """Keep this tree's version numbers on a branch, reporting any failure
+
+    Args:
+        base (str): Commit the branch starts from, e.g. 'ci/master'
+        branch (str): Branch to rewrite
+
+    Returns:
+        bool: True on success, False if the branch cannot be rewritten
+    """
+    try:
+        keep_version(base, branch)
+        return True
+    except command.CommandExc as exc:
+        tout.error(f'{branch}: cannot leave out the change to the version '
+                   f'numbers: {exc}')
+        return False
+
+
 def push_mr(args, branch_name, title, description):
     """Push branch and create merge request
 
@@ -4533,9 +4654,7 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
     # projects, as pull requests
     port = extern.port_commits(commits, branch_name, source, args.push)
     if not port.ok:
-        for commit in commits:
-            dbs.commit_set_status(commit.hash, 'conflict')
-        dbs.commit()
+        set_status(dbs, [c.hash for c in commits], 'conflict')
         return 1, False, ''
     if not port.tree_needed:
         tout.info('All changes are in separate projects, so there is nothing '
@@ -4583,6 +4702,9 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
                      'agent did not finish; abandoning this set')
         _abort_in_progress()
         success = False
+
+    # This tree has its own version numbers, so never take upstream's
+    success = success and keep_version_ok(BRANCH_MASTER, branch_name)
 
     ret = 0 if success else 1
     if not success:
@@ -4720,6 +4842,7 @@ def do_pick(args, dbs):  # pylint: disable=unused-argument,too-many-locals
             tout.warning(f'Branch {branch_name} does not exist - '
                          'agent may have aborted')
             success = False
+    success = success and keep_version_ok(BRANCH_MASTER, branch_name)
 
     ret = 0 if success else 1
 

@@ -3626,10 +3626,11 @@ class TestExecuteApply(unittest.TestCase):
         database.Database.instances.clear()
 
         # The commits here are made up, so do not look at what they change
-        patcher = mock.patch.object(control.extern, 'find_unconfigured',
-                                    return_value=[])
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for name, obj in (('find_unconfigured', control.extern),
+                          ('keep_version', control)):
+            patcher = mock.patch.object(obj, name, return_value=[])
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tearDown(self):
         """Clean up test fixtures."""
@@ -6815,6 +6816,11 @@ class TestDoPick(unittest.TestCase):
         control.DB_FNAME = self.db_path
         database.Database.instances.clear()
 
+        # The branches here are made up, so there is nothing to rewrite
+        patcher = mock.patch.object(control, 'keep_version', return_value=[])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def tearDown(self):
         """Clean up test fixtures."""
         control.DB_FNAME = self.old_db_fname
@@ -8582,6 +8588,81 @@ REORDER_SPLIT_DIFF = '\n'.join([
     ' CONFIG_USB=y',
     '',
 ])
+
+
+class TestDriftVersion(unittest.TestCase):
+    """Tests for leaving this tree's version numbers alone"""
+
+    MAKEFILE = ('# SPDX-License-Identifier: GPL-2.0+\n\nVERSION = 2026\n'
+                'PATCHLEVEL = 02\nSUBLEVEL =\nEXTRAVERSION = -rc1\n'
+                'NAME =\n')
+
+    @staticmethod
+    def _hunk(body, path='Makefile'):
+        """Parse a hunk of a diff of one file"""
+        diff = (f'diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n'
+                + body)
+        return drift.parse_diff(diff)[0]
+
+    def test_lines(self):
+        """Test finding and putting back the version lines"""
+        want = drift.version_lines(self.MAKEFILE)
+        self.assertEqual({'VERSION': 'VERSION = 2026',
+                          'PATCHLEVEL': 'PATCHLEVEL = 02',
+                          'SUBLEVEL': 'SUBLEVEL =',
+                          'EXTRAVERSION': 'EXTRAVERSION = -rc1'}, want)
+        theirs = self.MAKEFILE.replace('02', '10').replace('-rc1', '-rc5')
+        theirs += 'VERSION = later\n'
+        self.assertEqual(self.MAKEFILE + 'VERSION = later\n',
+                         drift.keep_version(theirs, want))
+
+    def test_only_version(self):
+        """Test that a hunk which only changes the version is accepted"""
+        fdiff = self._hunk('@@ -3,4 +3,4 @@\n VERSION = 2026\n'
+                           '-PATCHLEVEL = 10\n+PATCHLEVEL = 02\n SUBLEVEL =\n'
+                           '-EXTRAVERSION = -rc4\n+EXTRAVERSION = -rc1\n')
+        self.assertIsNone(drift.strip_version(fdiff.hunks[0]))
+        vdt = drift.classify(fdiff, [])[0]
+        self.assertEqual((drift.ACCEPTED, drift.VERSION_REASON),
+                         (vdt.state, vdt.reason))
+
+    def test_mixed(self):
+        """Test a hunk which changes the version along with other lines
+
+        Reverting what is left must keep the version lines.
+        """
+        fdiff = self._hunk('@@ -5,3 +5,3 @@\n SUBLEVEL =\n'
+                           '-EXTRAVERSION = -rc4\n+EXTRAVERSION = -rc1\n'
+                           '-NAME = up\n+NAME =\n')
+        hunk = drift.strip_version(fdiff.hunks[0])
+        self.assertEqual(['@@ -5,3 +5,3 @@', ' SUBLEVEL =',
+                          ' EXTRAVERSION = -rc1', '-NAME = up', '+NAME ='],
+                         hunk.lines)
+        self.assertEqual([7], hunk.added)
+        self.assertEqual(drift.fingerprint(hunk.lines), hunk.fingerprint)
+        vdt = drift.classify(fdiff, [])[0]
+        self.assertEqual((drift.DRIFT, hunk), (vdt.state, vdt.hunk))
+
+        # The patch reverts NAME and leaves the version alone
+        test_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, test_dir)
+        _git_init(test_dir)
+        tools.write_file(os.path.join(test_dir, 'Makefile'), self.MAKEFILE,
+                         binary=False)
+        patch = drift.build_patch([fdiff], {'Makefile': [vdt]})
+        subprocess.run(['git', '-C', test_dir, 'apply', '-R'], check=True,
+                       input=patch, text=True, capture_output=True)
+        self.assertEqual(self.MAKEFILE.replace('NAME =', 'NAME = up'),
+                         tools.read_file(os.path.join(test_dir, 'Makefile'),
+                                         binary=False))
+
+    def test_other_file(self):
+        """Test that the rule covers only the top-level Makefile"""
+        fdiff = self._hunk('@@ -1 +1 @@\n-VERSION = 1\n+VERSION = 2\n',
+                           'lib/Makefile')
+        self.assertIs(fdiff.hunks[0], drift.strip_version(fdiff.hunks[0]))
+        fdiff = self._hunk('@@ -7 +7 @@\n-NAME = up\n+NAME =\n')
+        self.assertIs(fdiff.hunks[0], drift.strip_version(fdiff.hunks[0]))
 
 
 class TestDriftReorder(unittest.TestCase):
@@ -11579,6 +11660,101 @@ class TestWriteHistory(HistoryRepo):
         self.assertFalse(ok)
         self.assertIn('Cannot check out cherry cleanly', err)
         self.assertEqual('Record cherry', self._log()[0])
+
+
+class TestKeepVersion(unittest.TestCase):
+    """Tests for keeping this tree's version numbers on a picked branch"""
+
+    def setUp(self):
+        """Set up a branch with commits which change the version"""
+        self.test_dir = tempfile.mkdtemp()
+        self.orig_dir = os.getcwd()
+        self.addCleanup(shutil.rmtree, self.test_dir)
+        self.addCleanup(os.chdir, self.orig_dir)
+        _git_init(self.test_dir)
+        os.chdir(self.test_dir)
+        self.ours = TestDriftVersion.MAKEFILE
+        self._commit({'Makefile': self.ours, 'doc.rst': 'old\n'}, 'Initial')
+        _git(self.test_dir, 'checkout', '-q', '-b', 'cherry')
+        self.first = self._commit({'a.c': 'a\n'}, 'Add a.c')
+        theirs = self.ours.replace('02', '10').replace('-rc1', '-rc5')
+        self._commit({'Makefile': theirs, 'doc.rst': 'rc5\n'},
+                     'Prepare v2026.10-rc5',
+                     '(cherry picked from commit abc)')
+        theirs = theirs.replace('-rc5', '')
+        self._commit({'Makefile': theirs}, 'Prepare v2026.10')
+        self._commit({'Makefile': theirs.replace('NAME =', 'NAME = x')},
+                     'Set the name')
+
+    def _commit(self, files, subject, body=''):
+        """Write some files and commit them, returning the commit's hash"""
+        for fname, data in files.items():
+            tools.write_file(fname, data, binary=False)
+        _git(self.test_dir, 'add', '-A')
+        _git(self.test_dir, 'commit', '-q', '--author', 'Up <up@x.org>', '-m',
+             subject + (f'\n\n{body}' if body else ''))
+        return _git(self.test_dir, 'rev-parse', 'HEAD')
+
+    def _show(self, ref, path='Makefile'):
+        """Read a file from a commit"""
+        return _git(self.test_dir, 'show', f'{ref}:{path}') + '\n'
+
+    def test_keep(self):
+        """Test that the version changes are left out of each commit"""
+        with terminal.capture():
+            changed = control.keep_version('master', 'cherry')
+        self.assertEqual(['Prepare v2026.10-rc5', 'Prepare v2026.10'],
+                         changed)
+
+        # A commit before the first change is left as it is
+        self.assertEqual(self.first, _git(self.test_dir, 'rev-parse',
+                                          'cherry~3'))
+        for ref in ('cherry~2', 'cherry~1'):
+            self.assertEqual(self.ours, self._show(ref))
+        self.assertEqual(self.ours.replace('NAME =', 'NAME = x'),
+                         self._show('cherry'))
+
+        # The rest of a commit stays, and one with nothing left is empty
+        self.assertEqual('rc5\n', self._show('cherry~2', 'doc.rst'))
+        self.assertEqual('', _git(self.test_dir, 'diff', 'cherry~2',
+                                  'cherry~1'))
+
+        # The message says so, and the author is kept
+        msg = _git(self.test_dir, 'log', '-1', '--format=%B', 'cherry~2')
+        self.assertTrue(msg.endswith('(cherry picked from commit abc)\n\n'
+                                     + control.VERSION_NOTE))
+        self.assertNotIn(control.VERSION_NOTE, _git(
+            self.test_dir, 'log', '-1', '--format=%B', 'cherry'))
+        self.assertEqual('Up <up@x.org>', _git(
+            self.test_dir, 'log', '-1', '--format=%an <%ae>', 'cherry~1'))
+
+        # The branch is checked out, so the work tree follows it
+        self.assertEqual(self.ours.replace('NAME =', 'NAME = x'),
+                         tools.read_file('Makefile', binary=False))
+        self.assertEqual('', _git(self.test_dir, 'status', '--porcelain'))
+
+        # Running it again changes nothing
+        tip = _git(self.test_dir, 'rev-parse', 'cherry')
+        self.assertEqual([], control.keep_version('master', 'cherry'))
+        self.assertEqual(tip, _git(self.test_dir, 'rev-parse', 'cherry'))
+
+    def test_not_checked_out(self):
+        """Test rewriting a branch which is not checked out"""
+        _git(self.test_dir, 'checkout', '-q', 'master')
+        with terminal.capture():
+            self.assertEqual(2, len(control.keep_version('master', 'cherry')))
+        self.assertEqual(self.ours, self._show('cherry~1'))
+        self.assertEqual('master', _git(self.test_dir, 'rev-parse',
+                                        '--abbrev-ref', 'HEAD'))
+
+    def test_failure(self):
+        """Test that a branch which cannot be rewritten is reported"""
+        with terminal.capture() as (_, stderr):
+            self.assertFalse(control.keep_version_ok('master', 'missing'))
+        self.assertIn('missing: cannot leave out the change to the version '
+                      'numbers', stderr.getvalue())
+        with terminal.capture():
+            self.assertTrue(control.keep_version_ok('master', 'cherry'))
 
 
 class TestHistoryConflict(HistoryRepo):

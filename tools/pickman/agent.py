@@ -236,6 +236,9 @@ Important:
 - Do not force push or modify history
 - If cherry-pick fails, run 'git cherry-pick --abort'
 - NEVER skip merge commits - always use --allow-empty to preserve them
+- This tree has its own version numbers, so pickman puts back the VERSION,
+  PATCHLEVEL, SUBLEVEL and EXTRAVERSION lines at the top of the Makefile
+  after the picks; resolve a conflict there by keeping this tree's lines
 
 CRITICAL - Detecting Already-Applied Commits:
 If the FIRST cherry-pick fails with conflicts, BEFORE aborting, check if the commits
