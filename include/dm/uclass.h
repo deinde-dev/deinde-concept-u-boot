@@ -61,7 +61,8 @@ struct udevice;
  * @id: ID number of this uclass
  * @post_bind: Called after a new device is bound to this uclass
  * @pre_unbind: Called before a device is unbound from this uclass. Set this,
- * @pre_remove and @destroy with dm_remove_ptr()
+ * @pre_remove and @destroy with dm_remove_ptr(), since they are left out
+ * without DM_DEVICE_REMOVE
  * @pre_probe: Called before a new device is probed
  * @post_probe: Called after a new device is probed
  * @pre_remove: Called before a device is removed
@@ -92,15 +93,21 @@ struct uclass_driver {
 	const char *name;
 	enum uclass_id id;
 	int (*post_bind)(struct udevice *dev);
-	int (*pre_unbind)(struct udevice *dev);
 	int (*pre_probe)(struct udevice *dev);
 	int (*post_probe)(struct udevice *dev);
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
+	int (*pre_unbind)(struct udevice *dev);
 	int (*pre_remove)(struct udevice *dev);
+	int (*destroy)(struct uclass *class);
+#else
+	struct dm_absent pre_unbind;
+	struct dm_absent pre_remove;
+	struct dm_absent destroy;
+#endif
 	int (*child_post_bind)(struct udevice *dev);
 	int (*child_pre_probe)(struct udevice *dev);
 	int (*child_post_probe)(struct udevice *dev);
 	int (*init)(struct uclass *class);
-	int (*destroy)(struct uclass *class);
 	int priv_auto;
 	int per_device_auto;
 	int per_device_plat_auto;

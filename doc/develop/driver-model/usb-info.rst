@@ -41,7 +41,7 @@ as drivers in the USB uclass. For example:
 		.of_match = ehci_usb_ids,
 		.of_to_plat = ehci_usb_of_to_plat,
 		.probe = tegra_ehci_usb_probe,
-		.remove = tegra_ehci_usb_remove,
+		.remove = dm_remove_ptr(tegra_ehci_usb_remove),
 		.ops	= &ehci_usb_ops,
 		.plat_auto = sizeof(struct usb_plat),
 		.priv_auto = sizeof(struct fdt_usb),

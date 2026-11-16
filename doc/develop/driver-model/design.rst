@@ -340,6 +340,26 @@ Briefly, they are:
 The sequence to get a device to work is bind, of_to_plat (if using
 device tree) and probe.
 
+Removal is optional. Without CONFIG_DM_DEVICE_REMOVE, which is the default in
+SPL, devices are never removed or unbound. In that case `struct driver` has no
+remove(), unbind() or child_post_remove() member and `struct uclass_driver` has
+no pre_unbind(), pre_remove() or destroy(). Set these methods with
+dm_remove_ptr(), so that the driver builds either way and the functions are
+left out of the image when nothing can call them:
+
+.. code-block:: c
+
+	U_BOOT_DRIVER(demo_shape_drv) = {
+		.name	= "demo_shape_drv",
+		.id	= UCLASS_DEMO,
+		.ops	= &shape_ops,
+		.remove	= dm_remove_ptr(shape_remove),
+		.priv_auto = sizeof(struct shape_data),
+	};
+
+A driver which sets one of these methods directly does not build without
+CONFIG_DM_DEVICE_REMOVE.
+
 
 Platform Data
 -------------

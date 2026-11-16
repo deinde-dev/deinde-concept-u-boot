@@ -345,7 +345,8 @@ struct udevice_id {
  * @bind: Called to bind a device to its driver
  * @probe: Called to probe a device, i.e. activate it
  * @remove: Called to remove a device, i.e. de-activate it. Set this, @unbind
- * and @child_post_remove with dm_remove_ptr()
+ * and @child_post_remove with dm_remove_ptr(), since they are left out
+ * without DM_DEVICE_REMOVE
  * @unbind: Called to unbind a device from its driver
  * @of_to_plat: Called before probe to decode device tree data
  * @child_post_bind: Called after a new child has been bound
@@ -384,12 +385,21 @@ struct driver {
 #endif
 	int (*bind)(struct udevice *dev);
 	int (*probe)(struct udevice *dev);
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
 	int (*remove)(struct udevice *dev);
 	int (*unbind)(struct udevice *dev);
+#else
+	struct dm_absent remove;
+	struct dm_absent unbind;
+#endif
 	int (*of_to_plat)(struct udevice *dev);
 	int (*child_post_bind)(struct udevice *dev);
 	int (*child_pre_probe)(struct udevice *dev);
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
 	int (*child_post_remove)(struct udevice *dev);
+#else
+	struct dm_absent child_post_remove;
+#endif
 	int priv_auto;
 	int plat_auto;
 	int per_child_auto;

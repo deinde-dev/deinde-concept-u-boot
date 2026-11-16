@@ -271,7 +271,7 @@ please follow the guideline below.
   U_BOOT_DRIVER(virtio_xxx) = {
   	.name = VIRTIO_XXX_DRV_NAME,
   	...
-  	.remove = virtio_reset,
+  	.remove = dm_remove_ptr(virtio_reset),
   	.flags = DM_FLAG_ACTIVE_DMA,
   }
 
