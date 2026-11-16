@@ -22,4 +22,11 @@
 # define SORT_BY_NAME(x) x
 #endif
 
+/*
+ * U_BOOT_LISTS - Input sections for the linker lists
+ *
+ * Every entry is kept, since nothing refers to most of them directly
+ */
+#define U_BOOT_LISTS	KEEP(*(SORT(__u_boot_list*)))
+
 #endif

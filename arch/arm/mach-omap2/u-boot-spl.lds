@@ -34,7 +34,7 @@ SECTIONS
 
 	. = ALIGN(4);
 	__u_boot_list : {
-		KEEP(*(SORT(__u_boot_list*)));
+		U_BOOT_LISTS
 		/*
 		 * Ensure 8-byte alignment at the end of the last section before
 		 * DTB is appended, to satisfy DT spec alignment requirements
