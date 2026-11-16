@@ -240,7 +240,12 @@ Important:
 CRITICAL - Detecting Already-Applied Commits:
 If the FIRST cherry-pick fails with conflicts, BEFORE aborting, check if the commits
 are already present in ci/master with different hashes. For each commit:
-1. Search for the commit subject: git log --oneline ci/master --grep="<subject>" -1
+1. Look for a commit picked from it, then for one with the same subject:
+   git log --oneline -F ci/master --grep="cherry picked from commit <hash>"
+   git log --format="%h %s" -F ci/master --grep="<subject>"
+   Only a commit whose subject is exactly the same counts, not one with a
+   longer subject or one which lists the subject in its message, such as
+   pickman's commits recording the cherry-picks
 2. If found, verify it's actually the same commit by comparing patches:
    - git show --no-ext-diff <original-hash> > /tmp/orig.patch
    - git show --no-ext-diff <found-hash> > /tmp/found.patch
