@@ -9,6 +9,7 @@
 #ifndef _DM_UCLASS_H
 #define _DM_UCLASS_H
 
+#include <dm/driver-types.h>
 #include <dm/ofnode.h>
 #include <dm/uclass-id.h>
 #include <linker_lists.h>
@@ -59,7 +60,8 @@ struct udevice;
  * @name: Name of uclass driver
  * @id: ID number of this uclass
  * @post_bind: Called after a new device is bound to this uclass
- * @pre_unbind: Called before a device is unbound from this uclass
+ * @pre_unbind: Called before a device is unbound from this uclass. Set this,
+ * @pre_remove and @destroy with dm_remove_ptr()
  * @pre_probe: Called before a new device is probed
  * @post_probe: Called after a new device is probed
  * @pre_remove: Called before a device is removed

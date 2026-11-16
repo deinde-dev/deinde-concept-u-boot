@@ -10,6 +10,7 @@
 #ifndef _DM_DEVICE_H
 #define _DM_DEVICE_H
 
+#include <dm/driver-types.h>
 #include <dm/ofnode.h>
 #include <dm/tag.h>
 #include <dm/uclass-id.h>
@@ -343,7 +344,8 @@ struct udevice_id {
  * for a driver which sets it directly.
  * @bind: Called to bind a device to its driver
  * @probe: Called to probe a device, i.e. activate it
- * @remove: Called to remove a device, i.e. de-activate it
+ * @remove: Called to remove a device, i.e. de-activate it. Set this, @unbind
+ * and @child_post_remove with dm_remove_ptr()
  * @unbind: Called to unbind a device from its driver
  * @of_to_plat: Called before probe to decode device tree data
  * @child_post_bind: Called after a new child has been bound
