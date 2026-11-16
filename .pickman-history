@@ -107717,3 +107717,42 @@ e017ed0a5bad board: cssi: Move alignment padding into __u_boot_list section
 
 ---
 
+## 2026-11-15: us/main
+
+Branch: cherry-881942d4c8fb
+
+Commits:
+- 881942d4c8fb imx8mm_evk: Drop duplicate prepare_mcore
+- e9225534c78f imx8mn_evk: Drop duplicate prepare_mcore
+- ce6179b210a1 imx: nandbcb: support the Vybrid boot ROM
+- fc428be1ca4e doc: board: toradex: colibri_vf: describe the NAND boot control block
+- e4d05f4261ed imx9: scmi: Move u-boot early MMU table to top 2MB of first 64MB DDR
+- e4a93b68092b toradex: {aquila, smarc, verdin}-imx95: Enable caches in SPL
+- 8bae10e9fd01 imx9: scmi: Add missing UART clocks
+- 905c6c3cae19 Merge tag 'u-boot-imx-main-20261017' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx
+
+### Conversation log
+Seven of the eight commits are picked and build cleanly (the exit code 1 is just the loop's final test); now the merge commit and the final checks.
+
+All 8 commits are cherry-picked onto `cherry-881942d4c8fb` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+- **Build:** ok after every pick and at the end. The sandbox build does not compile any of the imx or toradex code these commits touch, so it only shows nothing else broke.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing on any commit.
+- **Deltas:** none concerning. Each pick's file and line counts match its original exactly.
+- **Merge commit:** 905c6c3cae19 is kept as an empty commit (a2621b14171a), as expected, with its message intact.
+
+| Original | New | Subject |
+|---|---|---|
+| 881942d4c8fb | 31a807b4bbe5 | imx8mm_evk: Drop duplicate prepare_mcore |
+| e9225534c78f | 2b43bfaf0828 | imx8mn_evk: Drop duplicate prepare_mcore |
+| ce6179b210a1 | 528a5030d300 | imx: nandbcb: support the Vybrid boot ROM |
+| fc428be1ca4e | 823a556c9371 | doc: board: toradex: colibri_vf: describe the NAND boot control block |
+| e4d05f4261ed | da8291b8c01e | imx9: scmi: Move u-boot early MMU table to top 2MB of first 64MB DDR |
+| e4a93b68092b | 193b20455372 | toradex: {aquila, smarc, verdin}-imx95: Enable caches in SPL |
+| 8bae10e9fd01 | 893acdf40e03 | imx9: scmi: Add missing UART clocks |
+| 905c6c3cae19 | a2621b14171a | Merge tag 'u-boot-imx-main-20261017' (empty) |
+
+The branch is ready for pushing; it has not been pushed or merged anywhere.
+
+---
+
