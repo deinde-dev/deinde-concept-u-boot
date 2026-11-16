@@ -108166,3 +108166,41 @@ All 7 commits are on `cherry-2f736e8e3f4b` (based on `ci/master`), and the final
 
 ---
 
+## 2026-11-16: us/main
+
+Branch: cherry-d452a0d4c19b
+
+Commits:
+- d452a0d4c19b cmd: clk: Don't truncate "clk dump" clock rates to u32
+- 0745fe3426e5 rsa: fix undersized modulus buffers in rsa_gen_key_prop()
+- d29cc201be9b rsa: reject zero-bit modulus in rsa_gen_key_prop()
+- 2b696f8ead5f configs: am62x_evm_r5: Increase malloc pool
+- 6a9b4ec892ae configs: j721e_beagleboneai64_r5: enable K3_QOS
+- e36b675ebc4c Merge patch series "rsa: fix rsa_gen_key_prop() buffer-sizing and zero-modulus handling"
+
+### Conversation log
+Five of the six commits are picked (one needed a small defconfig conflict fix); now building, then picking the final merge commit.
+
+The empty merge needs committing explicitly.
+
+All 6 commits are cherry-picked onto `cherry-d452a0d4c19b` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+| Commit | Subject | Result |
+|---|---|---|
+| 9c8b45b9b8ae | cmd: clk: Don't truncate "clk dump" clock rates to u32 | clean |
+| 99c0f7e8dd77 | rsa: fix undersized modulus buffers in rsa_gen_key_prop() | clean |
+| a8ad29448fcb | rsa: reject zero-bit modulus in rsa_gen_key_prop() | clean |
+| 57d72b69bc2d | configs: am62x_evm_r5: Increase malloc pool | conflict resolved |
+| b6aa57de63c7 | configs: j721e_beagleboneai64_r5: enable K3_QOS | clean |
+| 5c279cf4ea48 | Merge patch series "rsa: fix rsa_gen_key_prop() ..." | empty, as expected |
+
+**Fix-up:** one, in `configs/am62x_evm_r5_defconfig`. `CONFIG_SPL_SYS_MALLOC_F_LEN` sits on a different line in this tree, so the pick conflicted. I changed the existing line from 0x7000 to 0x8000, which is the same one-line change as the original. The commit message ends with the note `[pickman: resolve conflict; option is on a different line here]`.
+
+**Deltas:** every pick matches its original's files and line counts, so nothing concerning.
+
+**split-check:** ran after each pick and changed nothing.
+
+**Build coverage:** the sandbox build does not exercise the two TI defconfig changes (am62x_evm_r5, j721e_beagleboneai64_r5); those boards were not built.
+
+---
+
