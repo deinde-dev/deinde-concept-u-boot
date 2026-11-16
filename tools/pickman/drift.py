@@ -100,6 +100,86 @@ ABSENT = 'absent'
 # A hunk which nothing accounts for, and which should go back to upstream
 DRIFT = 'drift'
 
+# This tree has its own version numbers, at the top of the Makefile, so a
+# change to them from upstream is never wanted
+VERSION_FILE = 'Makefile'
+RE_VERSION = re.compile(r'(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)\s*=')
+VERSION_REASON = 'This tree has its own version numbers'
+
+
+def version_lines(text):
+    """Find the version lines in the text of a Makefile
+
+    Args:
+        text (str): Contents of the Makefile
+
+    Return:
+        dict: Maps each variable, e.g. 'EXTRAVERSION', to its first line
+    """
+    found = {}
+    for line in text.splitlines():
+        match = RE_VERSION.match(line)
+        if match:
+            found.setdefault(match.group(1), line)
+    return found
+
+
+def keep_version(text, want):
+    """Put this tree's version lines into the text of a Makefile
+
+    Args:
+        text (str): Contents of the Makefile
+        want (dict): Version lines to keep, from version_lines()
+
+    Return:
+        str: Contents with the first line of each variable replaced
+    """
+    out = []
+    done = set()
+    for line in text.splitlines(keepends=True):
+        match = RE_VERSION.match(line)
+        name = match.group(1) if match else None
+        if name in want and name not in done:
+            done.add(name)
+            end = line[len(line.rstrip('\r\n')):]
+            line = want[name] + end
+        out.append(line)
+    return ''.join(out)
+
+
+def strip_version(hunk):
+    """Leave the changes to the version numbers out of a hunk
+
+    The changed version lines are turned into context on the downstream
+    side, so that reverting what is left of the hunk keeps them.
+
+    Args:
+        hunk (Hunk): Hunk to examine
+
+    Return:
+        Hunk: The hunk without its changes to the version lines, the hunk
+            itself if it changes none, or None if they are all it changes
+    """
+    if hunk.path != VERSION_FILE:
+        return hunk
+    body = []
+    for line in hunk.lines[1:]:
+        if line[:1] in '+-' and RE_VERSION.match(line[1:]):
+            if line[0] == '+':
+                body.append(' ' + line[1:])
+        else:
+            body.append(line)
+    if body == hunk.lines[1:]:
+        return hunk
+    if not any(line[:1] in '+-' for line in body):
+        return None
+    match = RE_HUNK_HEADER.match(hunk.lines[0])
+    old = sum(1 for line in body if line[:1] in ' -')
+    lines = [f'@@ -{match.group(1)},{old} +{hunk.start},{hunk.count} @@'
+             f'{hunk.lines[0][match.end():]}'] + body
+    return hunk._replace(lines=lines, added=added_lines(hunk.start, lines),
+                         fingerprint=fingerprint(lines))
+
 
 def fingerprint(lines):
     """Fingerprint the content of a hunk
@@ -370,6 +450,10 @@ def classify(fdiff, accepts, blame=None):
     no downstream commit has touched a file classified without blame, so its
     deletions cannot be deliberate and are still caught.
 
+    This tree's version numbers are its own, so a hunk which only changes
+    them is accepted, and one which changes them along with other lines is
+    classified without them.
+
     Args:
         fdiff (FileDiff): File to classify
         accepts (list of Accept): Entries from the accept file
@@ -387,7 +471,11 @@ def classify(fdiff, accepts, blame=None):
     file_reorder = is_reorder_file(fdiff)
 
     verdicts = []
-    for hunk in fdiff.hunks:
+    for orig in fdiff.hunks:
+        hunk = strip_version(orig)
+        if not hunk:
+            verdicts.append(Verdict(orig, ACCEPTED, VERSION_REASON))
+            continue
         ent = match_accept(accepts, hunk.path, hunk.fingerprint)
         if ent:
             verdicts.append(Verdict(hunk, ACCEPTED, ent.reason))

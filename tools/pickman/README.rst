@@ -389,6 +389,24 @@ an area at a time keeps each MR small enough to review and stops a CI failure
 in one area from holding up the rest; ``-c`` says how many areas to do at once,
 and running it again picks up where it left off.
 
+Version Numbers
+~~~~~~~~~~~~~~~
+
+This tree has its own version numbers, so it never takes upstream's: the
+``VERSION``, ``PATCHLEVEL``, ``SUBLEVEL`` and ``EXTRAVERSION`` lines at the top
+of the ``Makefile``. After the commits are picked, and before the branch is
+pushed, pickman puts this tree's lines back into each commit on the branch,
+keeping the rest of the commit, e.g. the documentation which a ``Prepare
+vX`` commit updates. A commit whose change to them is left out says so in a
+note at the end of its message, and one with nothing else left is kept as an
+empty commit. This also applies to ``pick`` and ``parked --retry``.
+
+The drift report never counts a change to these lines as drift, and
+``drift-fix`` never reverts it. An entry in ``.pickman-diverge`` would not
+do, since the lines change with every upstream release, and so does the
+fingerprint. A hunk which changes them along with other lines is looked at
+without them, so reverting it keeps this tree's version.
+
 Split Config
 ------------
 
