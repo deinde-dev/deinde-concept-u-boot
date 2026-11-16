@@ -346,7 +346,7 @@ int ft_board_setup(void *blob, struct bd_info *bd)
  * Only used for SPL stage, which is NOT using DM; serial and
  * eMMC configuration.
  */
-static const struct udevice_id imx28_clk_ids[] = {
+static __maybe_unused const struct udevice_id imx28_clk_ids[] = {
 	{ .compatible = "fsl,imx28-clkctrl", },
 	{ }
 };
@@ -354,6 +354,6 @@ static const struct udevice_id imx28_clk_ids[] = {
 U_BOOT_DRIVER(xea_dummy_fsl_imx28_clkctrl) = {
 	.name           = "fsl_imx28_clkctrl",
 	.id             = UCLASS_CLK,
-	.of_match       = imx28_clk_ids,
+	.of_match       = of_match_ptr(imx28_clk_ids),
 };
 #endif	/* CONFIG_XPL_BUILD */
