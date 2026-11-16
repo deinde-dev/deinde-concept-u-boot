@@ -15,11 +15,16 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define ECHI_CMD 0xcefe0010
+#define ECHI_CMD		0xcefe0010
+#define GXP_FN2_PCIE_DEV_ID	0x802f002e
+#define GXP_PCIE_DEV_ID_VAL	0x03d8
 
 int board_init(void)
 {
 	writel(0x00080002, ECHI_CMD);
+
+	/* Configure PCIe device ID presented to the host */
+	writew(GXP_PCIE_DEV_ID_VAL, GXP_FN2_PCIE_DEV_ID);
 
 	return 0;
 }
