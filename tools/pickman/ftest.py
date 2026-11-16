@@ -3132,6 +3132,86 @@ class TestPoll(unittest.TestCase):
         self.assertEqual(rounds, 2)
         self.assertIn('returned 1', err)
 
+    def _repo(self):
+        """Set up a git repo in the test directory, on branch master
+
+        Returns:
+            str: Hash of the commit on master
+        """
+        _git_init(self.test_dir)
+        tools.write_file(os.path.join(self.test_dir, 'a.c'), 'one\n',
+                         binary=False)
+        _git(self.test_dir, 'add', '-A')
+        _git(self.test_dir, 'commit', '-q', '-m', 'Initial')
+        return _git(self.test_dir, 'rev-parse', 'HEAD')
+
+    @staticmethod
+    def _fail_fetch():
+        """Fail to fetch, as when the server refuses the SSH connection"""
+        result = command.CommandResult(
+            stderr='ssh: connect to host concept.deinde.dev port 22: '
+            'Connection refused\n', return_code=128)
+        exc = command.CommandExc("Error running 'git fetch ci'", result)
+        with mock.patch.object(command, 'output', side_effect=exc):
+            control.run_git(['fetch', 'ci'])
+
+    def test_poll_survives_failed_command(self):
+        """Test that a failed git command does not end the poll"""
+        self._repo()
+        ret, rounds, out, err = self._poll([self._fail_fetch, lambda: 0])
+        self.assertEqual(0, ret)
+        self.assertEqual(2, rounds)
+        self.assertIn("Round failed: Error running 'git fetch ci'", err)
+        self.assertIn('Connection refused', err)
+        self.assertIn('step returned 1', err)
+        self.assertIn('Sleeping', out)
+        self.assertNotIn('stopping', err)
+
+    def test_poll_stops_in_progress(self):
+        """Test that a failure which leaves git part way through stops"""
+        chash = self._repo()
+        git_dir = os.path.join(self.test_dir, '.git')
+
+        def rebase():
+            os.mkdir(os.path.join(git_dir, 'rebase-merge'))
+
+        def cherry_pick():
+            tools.write_file(os.path.join(git_dir, 'CHERRY_PICK_HEAD'),
+                             f'{chash}\n', binary=False)
+
+        def detach():
+            _git(self.test_dir, 'checkout', '-q', '--detach')
+
+        for leave, state in ((rebase, 'a rebase'),
+                             (cherry_pick, 'a cherry-pick'),
+                             (detach, 'a detached HEAD')):
+            with self.subTest(state=state):
+                shutil.rmtree(git_dir)
+                self._repo()
+
+                def fail(_args, _dbs, leave=leave):
+                    leave()
+                    self._fail_fetch()
+
+                args = argparse.Namespace(cmd='poll', source='us/next',
+                                          interval=0, remote='ci',
+                                          target='master')
+                with mock.patch.object(control, 'do_step', fail), \
+                        terminal.capture() as (_, stderr):
+                    with self.assertRaises(command.CommandExc):
+                        control.do_poll(args, None)
+                self.assertIn('Connection refused', stderr.getvalue())
+                self.assertIn(f'stopping: {state} left in progress',
+                              stderr.getvalue())
+
+    def test_poll_stops_on_bug(self):
+        """Test that an exception other than a failed command ends the poll"""
+        def bug():
+            raise ValueError('bug')
+
+        with self.assertRaises(ValueError):
+            self._poll([bug, lambda: 0])
+
     def test_request(self):
         """Test that stop and restart leave a request for the poll"""
         with terminal.capture() as (stdout, _):

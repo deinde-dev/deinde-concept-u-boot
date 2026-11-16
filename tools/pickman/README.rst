@@ -875,6 +875,14 @@ of each round and every few seconds while it sleeps. On ``stop`` it exits. On
 same terminal. A SIGTERM also stops the poll once its round is done. A request
 left from before the poll starts is dropped.
 
+If a command fails part way through a round, for example a ``git fetch`` which
+cannot reach the server, the poll prints the command and its error output, then
+sleeps and tries again in the next round. It only carries on if the tree is
+still on a branch with nothing in progress: if the failure leaves a rebase,
+cherry-pick, merge or revert unfinished, or HEAD detached, the poll stops so
+that someone can look. Any other exception also stops the poll, with its
+traceback, since that points to a bug in pickman.
+
 Options for the poll command:
 
 - ``-F, --fix-retries``: Max pipeline-fix attempts per MR (default: 3, 0 to disable)
