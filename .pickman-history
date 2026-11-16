@@ -107636,3 +107636,47 @@ Both commits are cherry-picked onto `cherry-534370fcd4ac` (based on ci/master), 
 
 ---
 
+## 2026-11-15: us/main
+
+Branch: cherry-f797209060b6
+
+Commits:
+- f797209060b6 gpio: Add missing dependency for ZYNQMP_GPIO_MODEPIN
+- ef4d096c1535 firmware: zynqmp: Reduce CONFIG_ZYNQMP_IPI dependency scope
+- 2b9e567c3e91 board: xilinx: cpu-info: Fix inverted soc_get_* return value check
+- fbc2d878e2e2 board: xilinx: Check calloc() result in board_name_decode()
+- 36a4fc71d57c board: xilinx: Make ft_board_setup() weak
+- 9986b8e21a8b board: xilinx: Fix heap buffer overflow in board_name_decode()
+- 8110f7f452ad fpga: versalpl: fix OOB write in versal_align_dma_buffer()
+- 9785393d045a arm64: versal2: fix off-by-two OOB write in mem_map_fill()
+- 198444c055fc xilinx: fru: fix OOB access in OEM MAC record parsing
+- 2536e61b9607 fpga: versalpl: move PDI load operation into firmware helper
+- f1c1459db7f7 power: firmware: zynqmp: add shared request_node() helper
+- 7c56a308904f spi: cadence_qspi: Abstract PM node requests behind firmware helper
+- 59d427ea603f spi: cadence_ospi_versal: decouple OSPI mux selection from firmware calls
+- 17e06e2235d7 spi: cadence_qspi: propagate mux-select failure instead of only logging it
+- a81611d833c2 firmware: zynqmp: add OSPI flash reset IOCTL wrapper
+- d9a4c59fa624 spi: cadence_ospi_versal: route OSPI flash reset through firmware
+- 8d534cec0cc0 Merge tag 'xilinx-for-v2027.01-rc1-v2' of https://git.u-boot-project.org/u-boot/custodians/u-boot-amd
+
+### Conversation log
+Fourteen of the 17 picks are in cleanly and build; split-check has just converted macros in a81611d833c2, so I'm reviewing that diff before amending.
+
+Straightforward conversions. Amending with the note and continuing.
+
+The merge's only conflicts are the seven macro lines already converted in a81611d833c2; keeping the branch's version makes the merge empty, as expected.
+
+All 17 commits are cherry-picked onto `cherry-f797209060b6` (based on ci/master), and the branch is ready for pushing.
+
+**Build:** the final sandbox build is ok, with no warnings or errors, and it also passed after each individual pick. Sandbox does not compile the Xilinx/Versal files this series touches, so the build says little about those changes.
+
+**Fix-ups:**
+- **a81611d833c2** (firmware: zynqmp: add OSPI flash reset IOCTL wrapper): split-check converted `!CONFIG_IS_ENABLED(DM_GPIO)` to `!IS_ENABLED(CONFIG_DM_GPIO)` in seven files (the three `mach-versal*/cpu.c` files, their `sys_proto.h` headers and `drivers/firmware/firmware-zynqmp.c`). I amended the commit with the note `[pickman] convert to per-phase config macros`.
+- **8d534cec0cc0** (the merge): it conflicted on those same seven lines, because the merge diff carries the unconverted macro. I kept the branch's converted version, which leaves the commit empty as expected. I added the note `[pickman] empty: keep the per-phase config macros already converted`.
+
+split-check changed nothing on the other 15 commits, and nothing was added to `scripts/conf_nospl`. No `CONFIG_IS_ENABLED` remains in the lines the branch adds.
+
+**Deltas:** none concerning. Every non-merge commit has the same files and line counts as its original.
+
+---
+
