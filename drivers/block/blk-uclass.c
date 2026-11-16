@@ -804,8 +804,8 @@ static int part_create_block_devices(struct udevice *blk_dev)
 		snprintf(devname, sizeof(devname), "%s:%x", blk_dev->name,
 			 part);
 
-		ret = device_bind_driver(blk_dev, "blk_partition",
-					 strdup(devname), &dev);
+		ret = device_bind(blk_dev, DM_DRIVER_GET(blk_partition),
+				  strdup(devname), NULL, ofnode_null(), &dev);
 		if (ret)
 			return ret;
 		device_set_name_alloced(dev);
