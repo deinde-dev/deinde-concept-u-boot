@@ -351,11 +351,11 @@ cmd_dtoc = $(DTOC_ARGS) -c $(obj)/dts -C $(obj)/include/generated \
 	--stamp $@ all
 
 quiet_cmd_plat = PLAT    $@
-cmd_plat = $(CC) $(c_flags) -include $(platdata-drivers) -c $< \
-	-o $(filter-out $(PHONY),$@)
+cmd_plat = $(CC) -Wp,-MD,$(depfile) $(c_flags) -include $(platdata-drivers) \
+	-c $< -o $(filter-out $(PHONY),$@)
 
 $(obj)/dts/dt-%.o: $(obj)/dts/dt-%.c $(platdata-hdr) $(platdata-drivers) FORCE
-	$(call if_changed,plat)
+	$(call if_changed_dep,plat)
 
 # Find the drivers in the objects for this phase. Only update the file if the
 # list changes, so that dt-plat.c is not compiled each time
