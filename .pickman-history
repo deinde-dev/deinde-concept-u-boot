@@ -107756,3 +107756,44 @@ The branch is ready for pushing; it has not been pushed or merged anywhere.
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-1dac5d806ba8
+
+Commits:
+- 1dac5d806ba8 fastboot: fix the RK3328 buffer-address default
+- 508732ba45b8 board: anbernic: Fix the RG-DS Kconfig target guard
+- 7dd0d23b9c27 Clean up emails from non-existing domains
+- 211de43d0f95 Revert "Clean up emails from non-existing domains"
+- 57ed72fe6466 Merge tag 'u-boot-rockchip-2026.10-20260918' of https://git.u-boot-project.org/u-boot/custodians/u-boot-rockchip
+
+### Conversation log
+The working tree is in the middle of an interactive rebase on another branch (`cherry-20209a62bc85`). Let me check whether that's active before touching anything.
+
+No split-check changes for the first commit. Now the build:
+
+The revert cancels the previous commit exactly (no diff between HEAD~2 and HEAD). Now the merge commit:
+
+The merge is empty as expected, since its content is already in the first two picks. I'll commit it with `--allow-empty`, keeping the original message:
+
+All five picks are done and build. I'll remove the temporary worktree so the branch can be checked out from the main repo.
+
+All five commits are cherry-picked onto `cherry-1dac5d806ba8` (based on `ci/master`), and the sandbox build passes with no warnings or errors, both after each pick and at the end.
+
+**The repo wasn't clean when I started.** `/home/sglass/dev/u-boot` was in the middle of an interactive rebase of another branch, `cherry-20209a62bc85`. It looks like an earlier pickman job that stalled at 02:59, when its buildman step stopped partway through. I didn't abort it because it isn't my work. Instead I did this job in a temporary worktree (`/tmp/pickman-wt-1dac5d806ba8`) and removed it afterwards. That rebase is still sitting in the main checkout, so you'll need to finish or abort it before running anything else there.
+
+| New | Original | Subject | Notes |
+|---|---|---|---|
+| 4c14023cf56d | 1dac5d806ba8 | fastboot: fix the RK3328 buffer-address default | Same size as the original (1 file, ±1) |
+| 2c97b9f64ea1 | 508732ba45b8 | board: anbernic: Fix the RG-DS Kconfig target guard | Same size (1 file, ±1) |
+| aeeea21588b6 | 7dd0d23b9c27 | Clean up emails from non-existing domains | Same size (43 files, +42/−47), merged without conflicts |
+| b3fc7133bd72 | 211de43d0f95 | Revert "Clean up emails from non-existing domains" | Same size (43 files, +47/−42); together with the commit above it changes nothing overall |
+| 06c5e545391e | 57ed72fe6466 | Merge tag 'u-boot-rockchip-2026.10-20260918' | Empty, as expected: its two changes are the first two commits; kept with `--allow-empty` |
+
+- **Fix-ups:** none needed. `pickman split-check` found nothing to convert in any commit.
+- **Size checks:** every commit changes the same files and line counts as its original.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
