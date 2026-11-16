@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2013 Google, Inc
 
-obj-y	+= device.o fdtaddr.o lists.o root.o uclass.o util.o tag.o
+obj-y	+= device.o drv-name.o fdtaddr.o lists.o root.o uclass.o util.o tag.o
 obj-$(CONFIG_ACPIGEN) += acpi.o
 obj-$(CONFIG_DEVRES) += devres.o
 obj-$(CONFIG_DM_DEVICE_REMOVE)	+= device-remove.o
