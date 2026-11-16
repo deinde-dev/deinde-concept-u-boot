@@ -136,6 +136,14 @@ platdata-drivers := $(obj)/include/generated/dt-drivers.h
 
 # Files we need to generate
 u-boot-spl-platdata_c := $(patsubst %.o,%.c,$(u-boot-spl-platdata))
+
+# dtoc updates this each time it runs. It also writes $(platdata-stamp).d
+# which lists the source files it relied on
+platdata-stamp := $(obj)/dts/dtoc.stamp
+
+# Load the saved commands for these, so that if_changed can tell when they
+# are up to date
+targets += $(platdata-stamp) $(u-boot-spl-platdata)
 endif  # OF_PLATDATA
 
 # Linker Script
@@ -339,7 +347,8 @@ DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) --props-only \
 	-d $(obj)/$(XPL_BIN).dtb -p $(XPL_NAME)
 
 quiet_cmd_dtoc = DTOC    $@
-cmd_dtoc = $(DTOC_ARGS) -c $(obj)/dts -C $(obj)/include/generated all
+cmd_dtoc = $(DTOC_ARGS) -c $(obj)/dts -C $(obj)/include/generated \
+	--stamp $@ all
 
 quiet_cmd_plat = PLAT    $@
 cmd_plat = $(CC) $(c_flags) -include $(platdata-drivers) -c $< \
@@ -359,11 +368,23 @@ cmd_dt_drivers = $(NM) $(u-boot-spl-main) 2>/dev/null | \
 $(platdata-drivers): $(u-boot-spl-main)
 	$(call cmd,dt_drivers)
 
+ifdef CONFIG_OF_PLATDATA
+# The generated files depend on the drivers in the source tree as well as on
+# the devicetree, so run dtoc again if any of the source files it relied on
+# has changed. It only updates a file whose content is different, so a change
+# which does not affect the output does not rebuild the code which includes
+# the generated headers. The stamp file records that dtoc has run.
+#
 # Don't use dts_dir here, since it forces running this expensive rule every time
-$(platdata-hdr) $(u-boot-spl-platdata_c) &: $(obj)/$(XPL_BIN).dtb FORCE
+$(platdata-stamp): $(obj)/$(XPL_BIN).dtb FORCE
 	@[ -d $(obj)/dts ] || mkdir -p $(obj)/dts
 	@[ -d $(obj)/include/generated ] || mkdir -p $(obj)/include/generated
 	$(call if_changed,dtoc)
+
+$(platdata-hdr) $(u-boot-spl-platdata_c): $(platdata-stamp) ;
+
+-include $(platdata-stamp).d
+endif  # OF_PLATDATA
 
 ifneq ($(CONFIG_ARCH_EXYNOS)$(CONFIG_ARCH_S5PC1XX),)
 ifeq ($(CONFIG_EXYNOS5420),y)

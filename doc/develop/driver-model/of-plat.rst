@@ -740,6 +740,17 @@ spl/dts/dt-plat.c
    Contains the `U_BOOT_DRVINFO()` declarations that U-Boot uses to bind devices
    at start-up. See above for an example
 
+spl/dts/dtoc.stamp
+   Records when dtoc last ran. dtoc only writes one of the files above if its
+   content has changed, so that the code which includes the headers is built
+   again only when it needs to be
+
+spl/dts/dtoc.stamp.d
+   Lists the source files which dtoc relied on, so that the build runs it
+   again if one of them changes. These are the files which declare a driver or
+   a uclass driver, and each Makefile, since a new source file only matters
+   once a Makefile builds it
+
 The build itself generates one more:
 
 spl/include/generated/dt-drivers.h
