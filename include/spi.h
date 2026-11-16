@@ -11,6 +11,7 @@
 
 #include <linux/bitops.h>
 
+struct driver;
 struct spinand_info;
 
 /* SPI mode flags */
@@ -624,7 +625,7 @@ int spi_get_bus_and_cs(int busnum, int cs,
  * Given a bus number and chip select, this finds the corresponding bus
  * device and slave device.
  *
- * If no such slave exists, and drv_name is not NULL, then a new slave device
+ * If no such slave exists, and drv is not NULL, then a new slave device
  * is automatically bound on this chip select with requested speed and mode.
  *
  * Ths new slave device is probed ready for use with the speed and mode
@@ -634,14 +635,15 @@ int spi_get_bus_and_cs(int busnum, int cs,
  * @cs:		Chip select to look for
  * @speed:	SPI speed to use for this slave when not available in plat
  * @mode:	SPI mode to use for this slave when not available in plat
- * @drv_name:	Name of driver to attach to this chip select
+ * @drv:	Driver to attach to this chip select, e.g.
+ *		DM_DRIVER_GET(spi_generic_drv), or NULL for none
  * @dev_name:	Name of the new device thus created
  * @busp:	Returns bus device
  * @devp:	Return slave device
  * Return: 0 if found, -ve on error
  */
 int _spi_get_bus_and_cs(int busnum, int cs, int speed, int mode,
-			const char *drv_name, const char *dev_name,
+			const struct driver *drv, const char *dev_name,
 			struct udevice **busp, struct spi_slave **devp);
 
 /**

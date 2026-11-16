@@ -140,8 +140,8 @@ static int zl30733_probe_print(void)
 
 		ret = _spi_get_bus_and_cs(d->bus, d->cs, d->hz,
 					  ZL30733_SPI_MODE,
-					  "spi_generic_drv", d->devname,
-					  &bus, &slave);
+					  DM_DRIVER_GET(spi_generic_drv),
+					  d->devname, &bus, &slave);
 		if (ret) {
 			printf("DPLL: %s spi%d:%d not reachable (%d)\n",
 			       d->label, d->bus, d->cs, ret);

@@ -477,7 +477,7 @@ err:
 }
 
 int _spi_get_bus_and_cs(int busnum, int cs, int speed, int mode,
-			const char *drv_name, const char *dev_name,
+			const struct driver *drv, const char *dev_name,
 			struct udevice **busp, struct spi_slave **devp)
 {
 	struct udevice *bus, *dev;
@@ -503,10 +503,11 @@ int _spi_get_bus_and_cs(int busnum, int cs, int speed, int mode,
 	 * that we don't need a device tree node or platform data for the
 	 * SPI flash chip - we will bind to the correct driver.
 	 */
-	if (ret == -ENODEV && drv_name) {
+	if (ret == -ENODEV && drv) {
 		dev_dbg(bus, "%s: Binding new device '%s', busnum=%d, cs=%d, driver=%s\n",
-			__func__, dev_name, busnum, cs, drv_name);
-		ret = device_bind_driver(bus, drv_name, dev_name, &dev);
+			__func__, dev_name, busnum, cs, drv->name);
+		ret = device_bind(bus, drv, dev_name, NULL, ofnode_null(),
+				  &dev);
 		if (ret) {
 			dev_dbg(bus, "%s: Unable to bind driver (ret=%d)\n",
 				__func__, ret);
