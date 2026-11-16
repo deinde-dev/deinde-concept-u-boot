@@ -31,8 +31,8 @@ int nvmxip_probe(struct udevice *udev)
 	devnum = uclass_id_count(UCLASS_NVMXIP);
 	snprintf(bdev_name, NVMXIP_BLKDEV_NAME_SZ, "blk#%d", devnum);
 
-	ret = blk_create_devicef(udev, NVMXIP_BLKDRV_NAME, bdev_name, UCLASS_NVMXIP,
-				 devnum, DEFAULT_LBA_SZ,
+	ret = blk_create_devicef(udev, DM_DRIVER_GET(nvmxip_blk), bdev_name,
+				 UCLASS_NVMXIP, devnum, DEFAULT_LBA_SZ,
 				 DEFAULT_LBA_COUNT, &bdev);
 	if (ret) {
 		log_err("[%s]: failure during creation of the block device %s, error %d\n",

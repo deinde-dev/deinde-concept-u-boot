@@ -17,7 +17,7 @@ int ubi_bind(struct udevice *dev, struct udevice **bdevp)
 	struct udevice *bdev;
 	int ret;
 
-	ret = blk_create_devicef(dev, "ubi_blk", "blk", UCLASS_MTD,
+	ret = blk_create_devicef(dev, DM_DRIVER_GET(ubi_blk), "blk", UCLASS_MTD,
 				 -1, 512, 0, &bdev);
 	if (ret) {
 		pr_err("Cannot create block device");

@@ -217,7 +217,8 @@ static int usb_stor_probe_device(struct usb_device *udev)
 		char str[10];
 
 		snprintf(str, sizeof(str), "lun%d", lun);
-		ret = blk_create_devicef(udev->dev, "usb_storage_blk", str,
+		ret = blk_create_devicef(udev->dev,
+					 DM_DRIVER_GET(usb_storage_blk), str,
 					 UCLASS_USB, usb_max_devs,
 					 DEFAULT_BLKSZ, 0, &dev);
 		if (ret) {

@@ -333,8 +333,9 @@ static int blkmap_dev_bind(struct udevice *dev)
 	struct blk_desc *bd;
 	int err;
 
-	err = blk_create_devicef(dev, "blkmap_blk", "blk", UCLASS_BLKMAP,
-				 dev_seq(dev), DEFAULT_BLKSZ, 0, &bm->blk);
+	err = blk_create_devicef(dev, DM_DRIVER_GET(blkmap_blk), "blk",
+				 UCLASS_BLKMAP, dev_seq(dev), DEFAULT_BLKSZ, 0,
+				 &bm->blk);
 	if (err)
 		return log_msg_ret("blk", err);
 

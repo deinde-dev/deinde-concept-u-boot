@@ -1035,8 +1035,9 @@ static int ide_probe(struct udevice *udev)
 		 */
 		if (!pdesc.blksz)
 			continue;
-		ret = blk_create_devicef(udev, "ide_blk", name, UCLASS_IDE, i,
-					 pdesc.blksz, pdesc.lba, &blk);
+		ret = blk_create_devicef(udev, DM_DRIVER_GET(ide_blk), name,
+					 UCLASS_IDE, i, pdesc.blksz, pdesc.lba,
+					 &blk);
 		if (ret)
 			return ret;
 

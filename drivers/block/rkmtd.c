@@ -801,8 +801,8 @@ static int rkmtd_bind(struct udevice *dev)
 	struct udevice *bdev;
 	int ret;
 
-	ret = blk_create_devicef(dev, "rkmtd_blk", "blk", UCLASS_RKMTD,
-				 -1, 512, LBA, &bdev);
+	ret = blk_create_devicef(dev, DM_DRIVER_GET(rkmtd_blk), "blk",
+				 UCLASS_RKMTD, -1, 512, LBA, &bdev);
 	if (ret) {
 		return log_msg_ret("blk", ret);
 	}

@@ -1065,8 +1065,8 @@ static int sata_mv_probe(struct udevice *dev)
 		       CONFIG_SYS_SATA_MAX_DEVICE);
 
 	for (i = 0; i < nr_ports; i++) {
-		ret = blk_create_devicef(dev, "sata_mv_blk", "blk",
-					 UCLASS_AHCI, -1, DEFAULT_BLKSZ,
+		ret = blk_create_devicef(dev, DM_DRIVER_GET(sata_mv_driver),
+					 "blk", UCLASS_AHCI, -1, DEFAULT_BLKSZ,
 					 0, &blk);
 		if (ret) {
 			debug("Can't create device\n");
