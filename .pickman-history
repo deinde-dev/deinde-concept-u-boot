@@ -107680,3 +107680,40 @@ split-check changed nothing on the other 15 commits, and nothing was added to `s
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-0384dd3d2ec3
+
+Commits:
+- 0384dd3d2ec3 ddr: fsl: Fix SPD read when legacy I2C is used
+- b9cefbcab172 powerpc: mpc85xx: Move alignment padding into __u_boot_list section
+- dbe089661477 board: cssi: Move alignment padding into __u_boot_list section
+- f8eb3469e1a1 Merge patch series "fsl, powerpc: Fix SPD read and appended DTB alignment"
+
+### Conversation log
+The merge is empty, as expected, since its three commits are already applied. I'm committing it empty to keep the merge message.
+
+All 4 commits are cherry-picked onto branch `cherry-0384dd3d2ec3` (based on ci/master) and the sandbox build passes. The branch is ready to push.
+
+**Problem with the main checkout:** `/home/sglass/dev/u-boot` was not clean. It is paused partway through an interactive rebase of `cherry-20209a62bc85` (at 63aae0bf996c, with 28 commands left), probably because one of its build steps failed. I ran the branch checkout before noticing, so I switched it back to 63aae0bf996c and deleted the branch I had just made. The rebase state is unchanged. The reflog shows two earlier runs (`cherry-8caa41dc6790` and `cherry-18070d9cb5e8`) hit the same thing and backed out, so that rebase needs your attention.
+
+To avoid touching it, I did the cherry-picks in a temporary worktree and removed the worktree afterwards. The branch is still in the main repo.
+
+```
+fb16129b8d83 Merge patch series "fsl, powerpc: Fix SPD read and appended DTB alignment"
+e017ed0a5bad board: cssi: Move alignment padding into __u_boot_list section
+99faa594f027 powerpc: mpc85xx: Move alignment padding into __u_boot_list section
+82fd2de19097 ddr: fsl: Fix SPD read when legacy I2C is used
+18e114a4c86c Merge branch 'cherry-355d2c0412a4' into 'master'   (ci/master)
+```
+
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passed after each pick and at the end, with no warnings or errors.
+- **Deltas:** each commit matches its original exactly:
+  - `drivers/ddr/fsl/main.c`: 1+/1-
+  - `arch/powerpc/cpu/mpc85xx/u-boot.lds`: 1+/1-
+  - `board/cssi/{cmpc885,mcr3000}/u-boot.lds`: 2+/2-
+- **Merge commit:** empty, because its changes are the three commits above. I kept it with `--allow-empty` to preserve the merge message.
+- **Fix-ups:** none. `pickman split-check` changed nothing on any commit and there were no conflicts.
+
+---
+
