@@ -969,7 +969,7 @@ static struct ram_ops rk3368_dmc_ops = {
 	.get_info = rk3368_dmc_get_info,
 };
 
-static const struct udevice_id rk3368_dmc_ids[] = {
+static __maybe_unused const struct udevice_id rk3368_dmc_ids[] = {
 	{ .compatible = "rockchip,rk3368-dmc" },
 	{ }
 };
@@ -977,7 +977,7 @@ static const struct udevice_id rk3368_dmc_ids[] = {
 U_BOOT_DRIVER(rockchip_rk3368_dmc) = {
 	.name = "rockchip_rk3368_dmc",
 	.id = UCLASS_RAM,
-	.of_match = rk3368_dmc_ids,
+	.of_match = of_match_ptr(rk3368_dmc_ids),
 	.ops = &rk3368_dmc_ops,
 	.of_to_plat = rk3368_dmc_of_to_plat,
 	.probe = rk3368_dmc_probe,

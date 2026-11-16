@@ -875,7 +875,7 @@ static struct ram_ops rk3066_dmc_ops = {
 	.get_info = rk3066_dmc_get_info,
 };
 
-static const struct udevice_id rk3066_dmc_ids[] = {
+static __maybe_unused const struct udevice_id rk3066_dmc_ids[] = {
 	{ .compatible = "rockchip,rk3066-dmc" },
 	{ }
 };
@@ -885,7 +885,7 @@ U_BOOT_DRIVER(rockchip_rk3066_dmc) = {
 	.id		= UCLASS_RAM,
 	.ops		= &rk3066_dmc_ops,
 	.probe		= rk3066_dmc_probe,
-	.of_match	= rk3066_dmc_ids,
+	.of_match	= of_match_ptr(rk3066_dmc_ids),
 	.of_to_plat	= rk3066_dmc_of_to_plat,
 	.priv_auto	= sizeof(struct rk3066_dmc_dram_info),
 #if IS_ENABLED(CONFIG_TPL_BUILD)
