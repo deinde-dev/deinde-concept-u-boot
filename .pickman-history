@@ -108126,3 +108126,43 @@ The main checkout was in the middle of a rebase on another branch (`cherry-20209
 
 ---
 
+## 2026-11-16: us/main
+
+Branch: cherry-2f736e8e3f4b
+
+Commits:
+- 2f736e8e3f4b tools: build mkeficapsule for CONFIG_EFI_HAVE_CAPSULE_SUPPORT=y
+- 304b59ef087a bootmeth: efi_mgr: Do not discard the EFI boot manager error
+- 40c15b970966 test: boot: Check that efi_mgr boot failures are reported
+- b63f7bae9137 efi: imply FS_FAT for the loader and selftests
+- 65e7ba0214b8 efi_loader: fix use after free in http
+- e910e747575f efi_loader: bootmgr: preserve a passed devicetree
+- 0c1ab658cd62 Merge tag 'efi-2027-01-rc1-2' of https://git.u-boot-project.org/u-boot/custodians/u-boot-efi
+
+### Conversation log
+The merge only contains the six commits already picked, so I'll resolve its conflicts to the current tree and keep it as an empty commit.
+
+All 7 commits are on `cherry-2f736e8e3f4b` (based on `ci/master`), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+| Commit | New hash | Result |
+|---|---|---|
+| 2f736e8e3f4b tools: build mkeficapsule… | 66bd5d13610f | clean |
+| 304b59ef087a bootmeth: efi_mgr: Do not discard… | 4ed1f85bc49d | conflict, fixed up |
+| 40c15b970966 test: boot: Check that efi_mgr… | 165bcf4d50b3 | conflict, fixed up |
+| b63f7bae9137 efi: imply FS_FAT… | cd44f391abc6 | clean |
+| 65e7ba0214b8 efi_loader: fix use after free in http | 7b3857892005 | clean |
+| e910e747575f efi_loader: bootmgr: preserve a passed devicetree | e73b5a117f52 | clean |
+| 0c1ab658cd62 Merge tag 'efi-2027-01-rc1-2' | 42be59b163d2 | empty commit |
+
+**Fix-ups** (each has a `[pickman: ...]` note at the end of its commit message):
+
+- **304b59ef087a**: this tree's `efi_mgr_boot()` already returns `-EIO` on failure (from 0c0915e5cd7a) and has the slow-bus hunt and retry. I kept that and applied only the upstream mapping of `EFI_NOT_FOUND` to `-ENOENT`. The `log_msg_ret()` tag changes from "run" to "mgr" to match upstream.
+- **40c15b970966**: I kept this tree's `bootflow_system_name()` test and `efi_log.h` include, and added the new test after it. In `test_ut.py` the new entry is added to this tree's restart list. The new `bootflow_efi_mgr_err` test passes in sandbox.
+- **0c1ab658cd62**: the merge conflicted in the same three files. It contains only the six commits above, so I resolved it to the current tree and kept it as an empty commit.
+
+**Deltas**: the four clean picks match the originals exactly, and the third pick's delta is within tolerance. The second pick is 2 insertions / 1 deletion against 4 / 1 upstream, because the other lines are already in this tree.
+
+`split-check` changed nothing and reported nothing unconverted on any commit.
+
+---
+
