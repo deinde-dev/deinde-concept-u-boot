@@ -6726,6 +6726,62 @@ def _restart_poll(dbs):
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
+def _left_in_progress():
+    """Find a git operation which is left part way through
+
+    Returns:
+        str: The operation, e.g. 'a rebase', or None if the tree is on a
+            branch with nothing in progress
+    """
+    if _rebase_in_progress():
+        return 'a rebase'
+    for ref, git_args in IN_PROGRESS_OPS.items():
+        res = command.run_one('git', 'rev-parse', '--verify', '--quiet', ref,
+                              capture=True, raise_on_error=False)
+        if not res.return_code:
+            return f'a {git_args[0]}'
+    res = command.run_one('git', 'symbolic-ref', '--quiet', 'HEAD',
+                          capture=True, raise_on_error=False)
+    if res.return_code:
+        return 'a detached HEAD'
+    return None
+
+
+def _poll_step(args, dbs):
+    """Run one round of the poll, surviving a command which fails
+
+    A command can fail for reasons outside pickman, such as the server
+    refusing an SSH connection for a fetch. Ending the poll then leaves it
+    down until someone notices, so report the failure and let the next round
+    try again. Any other exception is a bug, so it still stops the poll with
+    its traceback.
+
+    The next round can only start afresh if the tree is still on a branch
+    with nothing in progress, which is what a refused fetch or push leaves.
+    A failure part way through a rebase, say, still stops the poll, so that
+    someone can look at the tree.
+
+    Args:
+        args (Namespace): Parsed arguments, as for do_step()
+        dbs (Database): Database instance
+
+    Returns:
+        int: 0 on success, 1 on failure
+    """
+    try:
+        return do_step(args, dbs)
+    except command.CommandExc as exc:
+        tout.error(f'Round failed: {exc}')
+        stderr = getattr(exc.result, 'stderr', None)
+        if stderr:
+            tout.error(stderr.strip())
+        state = _left_in_progress()
+        if state:
+            tout.error(f'stopping: {state} left in progress')
+            raise
+        return 1
+
+
 def do_poll(args, dbs):
     """Run step repeatedly until stopped
 
@@ -6735,6 +6791,10 @@ def do_poll(args, dbs):
     Between rounds, the poll stops or restarts if 'stop' or 'restart' asks it
     to. A SIGTERM asks it to stop in the same way, so the round in progress
     is not cut short.
+
+    A round in which a command fails, such as a fetch, is reported and the
+    next round tries again, so a network problem does not end the poll. If
+    the failure leaves a git operation in progress, the poll still stops.
 
     Args:
         args (Namespace): Parsed arguments with 'source', 'interval', 'remote',
@@ -6760,7 +6820,7 @@ def do_poll(args, dbs):
     old_handler = signal.signal(signal.SIGTERM, on_term)
     try:
         while True:
-            ret = do_step(args, dbs)
+            ret = _poll_step(args, dbs)
             if ret != 0:
                 tout.warning(f'step returned {ret}')
             # A failure in the setup rather than in the work will happen
