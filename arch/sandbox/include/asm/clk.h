@@ -7,7 +7,6 @@
 #define __SANDBOX_CLK_H
 
 #include <clk.h>
-#include <dt-structs.h>
 #include <linux/clk-provider.h>
 
 struct udevice;
@@ -60,14 +59,6 @@ struct sandbox_clk_test {
 	struct clk clks[SANDBOX_CLK_TEST_NON_DEVM_COUNT];
 	struct clk *clkps[SANDBOX_CLK_TEST_ID_COUNT];
 	struct clk_bulk bulk;
-};
-
-/* Platform data for the sandbox fixed-rate clock driver */
-struct sandbox_clk_fixed_rate_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_sandbox_fixed_clock dtplat;
-#endif
-	struct clk_fixed_rate fixed;
 };
 
 /**

@@ -41,10 +41,9 @@ This is only available in SPL/TPL and should be tested with:
 
     #if IS_ENABLED(CONFIG_OF_PLATDATA)
 
-A tool called 'dtoc' converts a devicetree file into a set of
-struct declarations, one for each compatible node, and a set of
-`U_BOOT_DRVINFO()` declarations along with the actual platform data for each
-device.
+A tool called 'dtoc' converts a devicetree file into a `U_BOOT_DRVINFO()`
+declaration for each node, along with a struct holding the properties which
+the node's driver reads.
 
 dtoc is maintained as a separate project, at https://github.com/deinde-dev/dtoc,
 and is installed as the dtoc package::
@@ -81,127 +80,65 @@ As an example, consider this MMC node:
             bootph-all;
     };
 
-
-Some of these properties are dropped by U-Boot under control of the
-CONFIG_OF_SPL_REMOVE_PROPS option. The rest are processed. This will produce
-the following C struct declaration:
-
-.. code-block:: c
-
-    struct dtd_rockchip_rk3288_dw_mshc {
-            fdt32_t         bus_width;
-            bool            cap_mmc_highspeed;
-            bool            cap_sd_highspeed;
-            fdt32_t         card_detect_delay;
-            fdt32_t         clock_freq_min_max[2];
-            struct phandle_1_arg clocks[4];
-            bool            disable_wp;
-            fdt32_t         fifo_depth;
-            fdt32_t         interrupts[3];
-            fdt32_t         num_slots;
-            fdt32_t         reg[2];
-            fdt32_t         vmmc_supply;
-    };
-
-and the following device declarations:
+dtoc finds the driver for the node from its compatible strings, trying each
+in turn against the `of_match` table of every driver in the source tree, as
+driver model does at run time with a devicetree. It then scans the driver for
+the `dev_prop_...()` helpers which it uses to read its properties, described
+below, and generates a struct with a member for each of those properties.
+The rest of the node is left out. It also generates a device declaration:
 
 .. code-block:: c
-
-    /* Node /clock-controller@ff760000 index 0 */
-    ...
 
     /* Node /dwmmc@ff0c0000 index 2 */
-    static struct dtd_rockchip_rk3288_dw_mshc dtv_dwmmc_at_ff0c0000 = {
-            .fifo_depth             = 0x100,
-            .cap_sd_highspeed       = true,
-            .interrupts             = {0x0, 0x20, 0x4},
-            .clock_freq_min_max     = {0x61a80, 0x8f0d180},
-            .vmmc_supply            = 0xb,
-            .num_slots              = 0x1,
-            .clocks                 = {{0, {456}},
-                                       {0, {68}},
-                                       {0, {114}},
-                                       {0, {118}}},
-            .cap_mmc_highspeed      = true,
-            .disable_wp             = true,
-            .bus_width              = 0x4,
-            .reg                    = {0xff0c0000, 0x4000},
-            .card_detect_delay      = 0xc8,
-    };
-
     U_BOOT_DRVINFO(dwmmc_at_ff0c0000) = {
-            .name           = "rockchip_rk3288_dw_mshc",
-            .plat       = &dtv_dwmmc_at_ff0c0000,
-            .plat_size  = sizeof(dtv_dwmmc_at_ff0c0000),
+            DM_DRVINFO_DRIVER(rockchip_rk3288_dw_mshc),
+            .plat           = &dtv_dwmmc_at_ff0c0000,
             .parent_idx     = -1,
     };
 
-The device is then instantiated at run-time and the platform data can be
-accessed using:
+The device is bound at run time from this record. `DM_DRVINFO_DRIVER()` names
+the driver, as given to `U_BOOT_DRIVER()`, and sets the record's `drv` member
+to point to it, so the driver need not be looked up by name. 'plat' points to
+the generated data, which the driver reads in place. See
+`What dtoc generates`_ for an example of the struct and its data.
 
-.. code-block:: c
+A devicetree for SPL or TPL often has nodes whose driver is not built in that
+phase, such as a pin controller which is there only because its children are
+needed. The build lists the drivers which each phase has, in `dt-drivers.h`,
+and `DM_DRVINFO_DRIVER()` gives NULL for a driver which is not in the list.
+Such a record binds no device.
 
-    struct udevice *dev;
-    struct dtd_rockchip_rk3288_dw_mshc *plat = dev_get_plat(dev);
-
-This avoids the code overhead of converting the devicetree data to
-platform data in the driver. Note that the `of_to_plat()` method is still
-called with of-platdata, so it must not try to read the devicetree. See below
-for ways to structure the driver.
-
-Note that for the platform data to be matched with a driver, the 'name'
-property of the `U_BOOT_DRVINFO()` declaration has to match a driver declared
-via `U_BOOT_DRIVER()`. This effectively means that a `U_BOOT_DRIVER()` with a
-'name' corresponding to the devicetree 'compatible' string (after converting
-it to a valid name for C) is needed, so a dedicated driver is required for
-each 'compatible' string.
-
-In order to make this a bit more flexible, the `DM_DRIVER_ALIAS()` macro can be
-used to declare an alias for a driver name, typically a 'compatible' string.
-This macro produces no code, but is used by the dtoc tool. It must be located in the
-same file as its associated driver, ideally just after it.
+A node whose driver reads no properties has a record with no data. The record
+is still needed so that the device is bound, and so that the indexes which
+other nodes use to refer to it stay the same.
 
 The parent_idx is the index of the parent `driver_info` structure within its
 linker list (instantiated by the `U_BOOT_DRVINFO()` macro). This is used to
 support `dev_get_parent()`.
 
-During the build process dtoc parses both `U_BOOT_DRIVER()` and
-`DM_DRIVER_ALIAS()` to build a list of valid driver names and driver aliases.
-If the 'compatible' string used for a device does not match a valid driver
-name, it will be checked against the list of driver aliases in order to get the
-right driver name to use. If in this step there is no match found a warning is
-issued to avoid run-time failures.
+Note that the `of_to_plat()` method is still called with of-platdata, so it
+must not try to read the devicetree, which is not there: the devicetree access
+code is not compiled in. A board can therefore only use of-platdata if all the
+drivers it needs in that phase support it.
 
-Where a node has multiple compatible strings, dtoc generates a `#define` to
-make them equivalent, e.g.:
+.. note::
 
-.. code-block:: c
-
-    #define dtd_rockchip_rk3299_dw_mshc dtd_rockchip_rk3288_dw_mshc
-
-All of this applies to drivers which read the generated struct themselves, as
-the Rockchip MMC driver did before it moved to the dev_prop helpers. For a
-driver which uses the helpers, dtoc instead generates one struct for
-the driver, holding just the properties it reads. See
-`Reading properties with the dev_prop helpers`_ below.
+   dtoc used to generate a struct for each node holding all of its properties,
+   named after the node's first compatible string, which driver model copied
+   into the start of the driver's plat data. A driver then needed a
+   `dtplat` member at the start of its plat struct, separate code to read it
+   and a `DM_DRIVER_ALIAS()` for each further compatible string. All of that
+   has been removed. dtoc still supports it for other trees, but U-Boot runs
+   dtoc with `--props-only`.
 
 
 Converting of-platdata to a useful form
 ---------------------------------------
 
-Of course it would be possible to use the of-platdata directly in your driver
-whenever configuration information is required. However this means that the
-driver will not be able to support devicetree, since the of-platdata
-structure is not available when devicetree is used. It would make no sense
-to use this structure if devicetree were available, since the structure has
-all the limitations mentioned in caveats below.
-
-Therefore it is recommended that the of-platdata structure should be used
-only to fill in the driver's own plat struct, which the rest of the driver
-then uses. With the dev_prop helpers this happens in the `of_to_plat()`
-method, which is called with of-platdata as well as with a devicetree, so the
-same code handles both. Drivers which read the generated struct by hand
-generally do it in their `probe()` method instead.
+The generated data should be used only to fill in the driver's own plat
+struct, which the rest of the driver then uses. With the dev_prop helpers this
+happens in the `of_to_plat()` method, which is called with of-platdata as well
+as with a devicetree, so the same code handles both.
 
 
 How to structure your driver
@@ -245,7 +182,7 @@ that they match.
 
 dtoc scans the driver for these helpers and generates `struct dtd_drv_<driver>`
 holding just the properties they read, whichever compatible string each node
-uses, so `DM_DRIVER_ALIAS()` is not needed. For a property which may be absent,
+uses. For a property which may be absent,
 the struct has a flag in its `has` member saying whether the node has it, so
 the default is used otherwise. The data is not copied into the driver's
 plat struct, which therefore needs no of-platdata member; it is read in place
@@ -399,7 +336,7 @@ and this for the UART in `dt-plat.c`:
             },
     };
     U_BOOT_DRVINFO(serial_at_ff690000) = {
-            .name           = "ns16550_serial",
+            DM_DRVINFO_DRIVER(ns16550_serial),
             .plat           = &dtv_serial_at_ff690000,
             .parent_idx     = -1,
     };
@@ -450,24 +387,17 @@ With a devicetree
 
 With of-platdata
     dtoc generates a `U_BOOT_DRVINFO()` record whose `plat` points to the
-    generated data, with `plat_size` left as 0. When `device_bind_by_name()`
-    binds the device, it sets `dtplat_` to the record's `plat`. For the only
-    node of a driver, `plat` is NULL.
+    generated data. When `device_bind_by_name()` binds the device, it sets
+    `dtplat_` to the record's `plat`. For the only node of a driver, and for a
+    driver which reads no properties, `plat` is NULL.
 
-    If the driver has `plat_auto`, which is larger than the `plat_size` of 0, a
-    zeroed plat struct of that size is allocated, as with a devicetree, and
-    `of_to_plat()` fills it in.
+    If the driver has `plat_auto`, a zeroed plat struct of that size is
+    allocated, as with a devicetree, and `of_to_plat()` fills it in. Otherwise
+    the device has no plat data.
 
-    If the driver has no `plat_auto`, the device's plat data is the generated
-    data itself, so `dev_get_plat()` returns it.
-
-.. warning::
-
-   For a driver with no `plat_auto`, `dev_get_plat()` returns the generated
-   data with of-platdata, which is not the driver's own data. A driver which
-   uses the dev_prop helpers must therefore not call `dev_get_plat()` unless it
-   has `plat_auto`. Put anything the driver stores in its `plat_auto` or
-   `priv_auto` struct, and never write to the generated data.
+The generated data is never the device's plat data, so `dev_get_plat()` returns
+only what the driver itself stores. Put anything the driver stores in its
+`plat_auto` or `priv_auto` struct, and never write to the generated data.
 
 Always use `DTPLAT()` to get the generated data, rather than
 `dev_get_dtplat()`, which returns NULL for the only node of a driver.
@@ -501,14 +431,10 @@ uses of-platdata to check.
 
 Some limitations follow from the generated data:
 
-- A driver with no `plat_auto` must not call `dev_get_plat()`, since the result
-  is the generated data. See `How the data reaches the driver`_.
-
 - Only the property types above are supported. A driver which needs another,
-  such as a string or a phandle to something other than a clock, can add a
-  helper to `dm/prop.h`, with matching support in dtoc. The per-driver struct
-  holds only the properties read with the helpers, so a driver cannot read
-  other properties from it by hand.
+  such as a byte array, can add a helper to `dm/prop.h`, with matching support
+  in dtoc. The per-driver struct holds only the properties read with the
+  helpers, so a driver cannot read other properties from it directly.
 
 - With of-platdata, `dev_prop_addr()` and `dev_prop_regmap()` use the
   addresses as they are in the devicetree, without translation through the
@@ -528,7 +454,8 @@ U-Boot needs is in `tools/dtoc/requirements.txt`.
 Converting an existing driver
 '''''''''''''''''''''''''''''
 
-To convert a driver which reads the generated struct by hand:
+To convert a driver which reads the devicetree only when OF_REAL is enabled, so
+that it works with of-platdata too:
 
 #. Add `DTPLAT()` at the start of `of_to_plat()` and change each read of the
    devicetree there, whether with `dev_read_...()`, `ofnode_...()` or
@@ -544,14 +471,9 @@ To convert a driver which reads the generated struct by hand:
    `rk3288-veyron-u-boot.dtsi` now sets 'spi-max-frequency' to 20MHz, since
    SPL cannot read the flash reliably at 50MHz.
 
-#. Drop the code which reads the generated struct, typically in `probe()`, the
-   `dtplat` member of the plat struct and the `#include <dt-structs.h>`.
-
 #. Use `of_match_ptr()` and `of_to_plat_ptr()` in the driver declaration and
    make `plat_auto` unconditional, as above, marking the `udevice_id` table
    `__maybe_unused`.
-
-#. Drop any `DM_DRIVER_ALIAS()` lines which are only there for dtoc.
 
 #. Build a board which uses the driver with of-platdata, check the struct in
    `spl/include/generated/dt-structs-gen.h` and compare the SPL size before and
@@ -566,107 +488,6 @@ devicetree (sandbox) and with both forms of of-platdata (sandbox_noinst and
 sandbox_spl). When adding a helper, add a property which uses it to the
 dev-prop-test node in `arch/sandbox/dts/sandbox.dtsi` and
 `arch/sandbox/dts/test.dts`, read it in the driver and check it in the test.
-
-Converting the plat struct by hand
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Drivers can also read the generated struct directly, as most existing drivers
-do. Your driver should convert the plat struct in its `probe()` method. The
-existing devicetree decoding logic should be kept in the
-`of_to_plat()` method and wrapped with `#if`.
-
-For example:
-
-.. code-block:: c
-
-    #include <dt-structs.h>
-
-    struct mmc_plat {
-    #if IS_ENABLED(CONFIG_OF_PLATDATA)
-            /* Put this first since driver model will copy the data here */
-            struct dtd_mmc dtplat;
-    #endif
-            /*
-             * Other fields can go here, to be filled in by decoding from
-             * the devicetree (or the C structures when of-platdata is used).
-             */
-            int fifo_depth;
-    };
-
-    static int mmc_of_to_plat(struct udevice *dev)
-    {
-        if (IS_ENABLED(CONFIG_OF_REAL)) {
-            /* Decode the devicetree data */
-            struct mmc_plat *plat = dev_get_plat(dev);
-            const void *blob = gd->fdt_blob;
-            int node = dev_of_offset(dev);
-
-            plat->fifo_depth = fdtdec_get_int(blob, node, "fifo-depth", 0);
-        }
-
-        return 0;
-    }
-
-    static int mmc_probe(struct udevice *dev)
-    {
-            struct mmc_plat *plat = dev_get_plat(dev);
-
-    #if IS_ENABLED(CONFIG_OF_PLATDATA)
-            /* Decode the of-platdata from the C structures */
-            struct dtd_mmc *dtplat = &plat->dtplat;
-
-            plat->fifo_depth = dtplat->fifo_depth;
-    #endif
-            /* Set up the device from the plat data */
-            writel(plat->fifo_depth, ...)
-    }
-
-    static const struct udevice_id mmc_ids[] = {
-            { .compatible = "vendor,mmc" },
-            { }
-    };
-
-    U_BOOT_DRIVER(mmc_drv) = {
-            .name           = "mmc_drv",
-            .id             = UCLASS_MMC,
-            .of_match       = mmc_ids,
-            .of_to_plat = mmc_of_to_plat,
-            .probe          = mmc_probe,
-            .priv_auto = sizeof(struct mmc_priv),
-            .plat_auto = sizeof(struct mmc_plat),
-    };
-
-    DM_DRIVER_ALIAS(mmc_drv, vendor_mmc) /* matches compatible string */
-
-Note that `struct mmc_plat` is defined in the C file, not in a header. This
-is to avoid needing to include dt-structs.h in a header file. The idea is to
-keep the use of each of-platdata struct to the smallest possible code area.
-There is just one driver C file for each struct, that can convert from the
-of-platdata struct to the standard one used by the driver.
-
-In the case where SPL_OF_PLATDATA is enabled, `plat_auto` is still used to
-allocate space for the platform data whenever it is larger than the
-`plat_size` given by dtoc, i.e. when the driver's plat struct has fields
-besides the of-platdata struct. This is different from the normal behaviour,
-where plat data provided by a `U_BOOT_DRVINFO()` is used as it is.
-
-The of-platdata struct contents is copied from the C structure data to the
-start of the newly allocated area. In the case where devicetree is used,
-the platform data is allocated, and starts zeroed. In this case the
-`of_to_plat()` method should still set up the platform data (and the
-of-platdata struct will not be present).
-
-SPL must use either of-platdata or devicetree. Drivers cannot use both at
-the same time, but they must support devicetree. Supporting of-platdata is
-optional.
-
-The devicetree becomes inaccessible when CONFIG_SPL_OF_PLATDATA is enabled,
-since the devicetree access code is not compiled in. A corollary is that
-a board can only move to using of-platdata if all the drivers it uses support
-it. There would be little point in having some drivers require the device
-tree data, since then libfdt would still be needed for those drivers and
-there would be no code-size benefit.
-
 
 Indexes
 -------
@@ -776,8 +597,8 @@ driver can be accessed at build-time without any overhead. The second one
 (.name = "xx") is used at runtime when something wants to print out the driver
 name.
 
-The dtoc tool expects to be able to find a driver for each compatible string in
-the devicetree. For example, if the devicetree has::
+The dtoc tool expects to be able to find a driver for each node in the
+devicetree. For example, if the devicetree has::
 
    grf: grf@20008000 {
       compatible = "rockchip,rk3188-grf", "syscon";
@@ -785,8 +606,9 @@ the devicetree. For example, if the devicetree has::
       bootph-pre-ram;
    };
 
-then dtoc looks at the first compatible string ("rockchip,rk3188-grf"),
-converts that to a C identifier (rockchip_rk3188_grf) and then looks for that.
+then dtoc looks for a driver with "rockchip,rk3188-grf" in its `of_match`
+table, then for one with "syscon". Each entry in the table must be on a single
+line, with no comma before the closing brace, for dtoc to see it.
 
 Missing .compatible or Missing .id
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -799,11 +621,6 @@ warn about these. For example::
 
 Without a compatible string a driver cannot be used by dtoc, even if the
 compatible string is not actually needed at runtime.
-
-If the problem is simply that there are multiple compatible strings, the
-DM_DRIVER_ALIAS() macro can be used to tell dtoc about this and avoid a problem.
-This is not needed for a driver which uses the dev_prop helpers, since dtoc
-finds it from any of the compatible strings in its `of_match` table.
 
 Checks are also made to confirm that the referenced driver has a .compatible
 member and a .id member. The first provides the array of compatible strings and
@@ -884,29 +701,16 @@ caveats include:
    - Device tree does not describe data types. But the C code must define a
      type for each property. These are guessed using heuristics which
      are wrong in several fairly common cases. For example an 8-byte value
-     is considered to be a 2-item integer array, and is byte-swapped. A
-     boolean value that is not present means 'false', but cannot be
-     included in the structures since there is generally no mention of it
-     in the devicetree file. The dev_prop helpers avoid this for booleans,
-     since the struct has a member for each one the driver reads.
+     is considered to be a 2-item integer array, and is byte-swapped. The
+     dev_prop helpers avoid much of this, since each helper says what type it
+     expects.
 
    - Naming of nodes and properties is automatic. This means that they follow
      the naming in the devicetree, which may result in C identifiers that
      look a bit strange.
 
-   - It is not possible to find a value given a property name. Code must use
-     the associated C member variable directly in the code. This makes
-     the code less robust in the face of devicetree changes. To avoid having
-     a second struct with similar members and names you need to explicitly
-     declare it as an alias with `DM_DRIVER_ALIAS()`. The dev_prop helpers
-     avoid both problems, since the driver gives each property name and dtoc
-     generates one struct for the driver.
-
-   - The platform data is provided to drivers as a C structure. The driver
-     must use the same structure to access the data. Since a driver
-     normally also supports devicetree it must use `#ifdef` to separate
-     out this code, since the structures are only available in SPL. The
-     dev_prop helpers avoid this too.
+   - A driver can only read the kinds of property for which there is a
+     dev_prop helper.
 
 
 Internals
@@ -935,6 +739,13 @@ spl/include/generated/dt-prop.h
 spl/dts/dt-plat.c
    Contains the `U_BOOT_DRVINFO()` declarations that U-Boot uses to bind devices
    at start-up. See above for an example
+
+The build itself generates one more:
+
+spl/include/generated/dt-drivers.h
+   Contains a `DM_HAS_DRIVER_<driver>` for each driver in the objects built
+   for the phase. It is included only when compiling dt-plat.c, which is why
+   that file is compiled after everything else
 
 The dt-structs.h file includes the generated file
 `(include/generated/dt-structs.h`) if CONFIG_SPL_OF_PLATDATA is enabled.
@@ -1010,20 +821,22 @@ Some other changes are made with of-platdata:
    looked up a `struct driver_info` pointer and returned the `struct udevice`
    that was created from it. It was only available for use with of-platdata.
    This has been removed in favour of `device_get_by_ofplat_idx()` which uses
-   `idx`, the index of the `struct driver_info` in the linker_list. Similarly, the `struct phandle_0_arg` (etc.) structs have been
-   updated to use this index instead of a pointer to `struct driver_info`.
+   `idx`, the index of the `struct driver_info` in the linker_list. Similarly,
+   the `struct phandle_0_arg` (etc.) structs have been updated to use this
+   index instead of a pointer to `struct driver_info`.
 
 `DM_DRVINFO_GET`
    This has been removed since we now use indexes to obtain a driver from
    `struct phandle_0_arg` and the like.
 
-Multiple-pass binding
+Order of binding
    The idx value relies on alphabetical order, so that dtoc and U-Boot's
-   linker_lists agree on it. Devices are bound in order of idx, having no
-   regard to parent/child relationships. For this reason, device binding
-   happens in multiple passes, with parents being bound before their children.
-   This is important so that children can find their parents in the bind()
-   method if needed.
+   linker_lists agree on it. Devices are bound in order of idx. dtoc names
+   each record after the full path of its node, e.g. `i2c_at_0_rtc_at_43`,
+   so that the name of a parent is a prefix of the names of its children and
+   comes before them. Devices are therefore bound in a single pass, with each
+   parent bound before its children, so that a child can find its parent in
+   its bind() method if needed.
 
 The dm_populate_phandle_data() function that was previous needed has now been
 removed, since dtoc can address the drivers directly from dt-plat.c and does
@@ -1042,8 +855,8 @@ Future work
 -----------
 - Consider programmatically reading binding files instead of devicetree
   contents
-- Add dev_prop helpers for more property types, such as strings and phandles
-  to other devices, and convert more drivers to use them
+- Add dev_prop helpers for more property types, such as byte arrays and
+  lists of strings
 
 
 .. Simon Glass <sjg@chromium.org>

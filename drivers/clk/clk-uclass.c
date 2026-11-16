@@ -52,12 +52,6 @@ int clk_get_by_ofplat_idx(struct udevice *dev, uint idx, int arg,
 
 	return 0;
 }
-
-int clk_get_by_phandle(struct udevice *dev, const struct phandle_1_arg *cells,
-		       struct clk *clk)
-{
-	return clk_get_by_ofplat_idx(dev, cells->idx, cells->arg[0], clk);
-}
 #endif
 
 #if IS_ENABLED(CONFIG_OF_REAL)

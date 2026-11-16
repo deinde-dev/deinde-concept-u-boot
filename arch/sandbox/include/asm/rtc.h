@@ -9,7 +9,6 @@
 #ifndef __asm_rtc_h
 #define __asm_rtc_h
 
-#include <dt-structs.h>
 
 /* Register numbers in the sandbox RTC */
 enum {
@@ -40,9 +39,6 @@ enum {
  * @reg:		Register values
  */
 struct sandbox_i2c_rtc_plat_data {
-#if IS_ENABLED(CONFIG_OF_PLATDATA) && IS_ENABLED(CONFIG_RTC_SANDBOX)
-	struct dtd_sandbox_i2c_rtc_emul dtplat;
-#endif
 	long base_time;
 	long offset;
 	bool use_system_time;

@@ -7,12 +7,7 @@
 #ifndef __asm_serial_h
 #define __asm_serial_h
 
-#include <dt-structs.h>
-
 struct sandbox_serial_plat {
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct dtd_sandbox_serial dtplat;
-#endif
 	int colour;	/* Text colour to use for output, -1 for none */
 };
 

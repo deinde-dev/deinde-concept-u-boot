@@ -32,9 +32,8 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static const struct driver_info root_info = {
-	.name		= "root_driver",
-};
+/* This is defined after the driver, since it refers to it */
+static const struct driver_info root_info;
 
 struct udevice *dm_root(void)
 {
@@ -410,6 +409,10 @@ U_BOOT_DRIVER(root_driver) = {
 	.name	= "root_driver",
 	.id	= UCLASS_ROOT,
 	ACPI_OPS_PTR(&root_acpi_ops)
+};
+
+static const struct driver_info root_info = {
+	DM_DRVINFO_REF(root_driver),
 };
 
 /* This is the root uclass */

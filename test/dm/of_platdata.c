@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0+
 
-#include <clk.h>
 #include <dm.h>
-#include <dt-structs.h>
-#include <irq.h>
 #include <dm/test.h>
 #include <test/test.h>
 #include <test/ut.h>
-#include <asm-generic/gpio.h>
 #include <asm/global_data.h>
 
 /* Test that we can find a device using of-platdata */
@@ -21,77 +17,6 @@ static int dm_test_of_plat_base(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_of_plat_base, UTF_SCAN_PDATA);
-
-/* Test that we can read properties from a device */
-static int dm_test_of_plat_props(struct unit_test_state *uts)
-{
-	struct dtd_sandbox_spl_test *plat;
-	struct udevice *dev;
-	int i;
-
-	ut_assertok(uclass_get_device_by_name(UCLASS_MISC, "sandbox_spl_test",
-					      &dev));
-
-	plat = dev_get_plat(dev);
-	ut_assert(plat->boolval);
-	ut_asserteq(1, plat->intval);
-	ut_asserteq(3, ARRAY_SIZE(plat->intarray));
-	ut_asserteq(2, plat->intarray[0]);
-	ut_asserteq(3, plat->intarray[1]);
-	ut_asserteq(4, plat->intarray[2]);
-	ut_asserteq(5, plat->byteval);
-	ut_asserteq(1, ARRAY_SIZE(plat->maybe_empty_int));
-	ut_asserteq(0, plat->maybe_empty_int[0]);
-	ut_asserteq(3, ARRAY_SIZE(plat->bytearray));
-	ut_asserteq(6, plat->bytearray[0]);
-	ut_asserteq(0, plat->bytearray[1]);
-	ut_asserteq(0, plat->bytearray[2]);
-	ut_asserteq(9, ARRAY_SIZE(plat->longbytearray));
-	for (i = 0; i < ARRAY_SIZE(plat->longbytearray); i++)
-		ut_asserteq(9 + i, plat->longbytearray[i]);
-	ut_asserteq_str("message", plat->stringval);
-	ut_asserteq(3, ARRAY_SIZE(plat->stringarray));
-	ut_asserteq_str("multi-word", plat->stringarray[0]);
-	ut_asserteq_str("message", plat->stringarray[1]);
-	ut_asserteq_str("", plat->stringarray[2]);
-
-	ut_assertok(uclass_next_device_err(&dev));
-	plat = dev_get_plat(dev);
-	ut_assert(!plat->boolval);
-	ut_asserteq(3, plat->intval);
-	ut_asserteq(5, plat->intarray[0]);
-	ut_asserteq(0, plat->intarray[1]);
-	ut_asserteq(0, plat->intarray[2]);
-	ut_asserteq(8, plat->byteval);
-	ut_asserteq(3, ARRAY_SIZE(plat->bytearray));
-	ut_asserteq(1, plat->bytearray[0]);
-	ut_asserteq(0x23, plat->bytearray[1]);
-	ut_asserteq(0x34, plat->bytearray[2]);
-	for (i = 0; i < ARRAY_SIZE(plat->longbytearray); i++)
-		ut_asserteq(i < 4 ? 9 + i : 0, plat->longbytearray[i]);
-	ut_asserteq_str("message2", plat->stringval);
-	ut_asserteq_str("another", plat->stringarray[0]);
-	ut_asserteq_str("multi-word", plat->stringarray[1]);
-	ut_asserteq_str("message", plat->stringarray[2]);
-
-	ut_assertok(uclass_next_device_err(&dev));
-	plat = dev_get_plat(dev);
-	ut_assert(!plat->boolval);
-	ut_asserteq_str("one", plat->stringarray[0]);
-	ut_asserteq_str("", plat->stringarray[1]);
-	ut_asserteq_str("", plat->stringarray[2]);
-	ut_asserteq(1, plat->maybe_empty_int[0]);
-
-	ut_assertok(uclass_next_device_err(&dev));
-	plat = dev_get_plat(dev);
-	ut_assert(!plat->boolval);
-	ut_asserteq_str("spl", plat->stringarray[0]);
-
-	ut_asserteq(-ENODEV, uclass_next_device_err(&dev));
-
-	return 0;
-}
-DM_TEST(dm_test_of_plat_props, UTF_SCAN_PDATA);
 
 /*
  * find_driver_info - recursively find the driver_info for a device
@@ -175,39 +100,6 @@ static int dm_test_of_plat_dev(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_of_plat_dev, UTF_SCAN_PDATA);
 
-/* Test handling of phandles that point to other devices */
-static int dm_test_of_plat_phandle(struct unit_test_state *uts)
-{
-	struct dtd_sandbox_clk_test *plat;
-	struct udevice *dev, *clk;
-
-	ut_assertok(uclass_first_device_err(UCLASS_MISC, &dev));
-	ut_asserteq_str("sandbox_clk_test", dev->name);
-	plat = dev_get_plat(dev);
-
-	ut_assertok(device_get_by_ofplat_idx(plat->clocks[0].idx, &clk));
-	ut_asserteq_str("sandbox_fixed_clock", clk->name);
-
-	ut_assertok(device_get_by_ofplat_idx(plat->clocks[1].idx, &clk));
-	ut_asserteq_str("sandbox_clk", clk->name);
-	ut_asserteq(1, plat->clocks[1].arg[0]);
-
-	ut_assertok(device_get_by_ofplat_idx(plat->clocks[2].idx, &clk));
-	ut_asserteq_str("sandbox_clk", clk->name);
-	ut_asserteq(0, plat->clocks[2].arg[0]);
-
-	ut_assertok(device_get_by_ofplat_idx(plat->clocks[3].idx, &clk));
-	ut_asserteq_str("sandbox_clk", clk->name);
-	ut_asserteq(3, plat->clocks[3].arg[0]);
-
-	ut_assertok(device_get_by_ofplat_idx(plat->clocks[4].idx, &clk));
-	ut_asserteq_str("sandbox_clk", clk->name);
-	ut_asserteq(2, plat->clocks[4].arg[0]);
-
-	return 0;
-}
-DM_TEST(dm_test_of_plat_phandle, UTF_SCAN_PDATA);
-
 #if IS_ENABLED(CONFIG_OF_PLATDATA_PARENT)
 /* Test that device parents are correctly set up */
 static int dm_test_of_plat_parent(struct unit_test_state *uts)
@@ -223,58 +115,3 @@ static int dm_test_of_plat_parent(struct unit_test_state *uts)
 DM_TEST(dm_test_of_plat_parent, UTF_SCAN_PDATA);
 #endif
 
-/* Test clocks with of-platdata */
-static int dm_test_of_plat_clk(struct unit_test_state *uts)
-{
-	struct dtd_sandbox_clk_test *plat;
-	struct udevice *dev;
-	struct clk clk;
-
-	ut_assertok(uclass_first_device_err(UCLASS_MISC, &dev));
-	ut_asserteq_str("sandbox_clk_test", dev->name);
-	plat = dev_get_plat(dev);
-
-	ut_assertok(clk_get_by_phandle(dev, &plat->clocks[0], &clk));
-	ut_asserteq_str("sandbox_fixed_clock", clk.dev->name);
-
-	return 0;
-}
-DM_TEST(dm_test_of_plat_clk, UTF_SCAN_PDATA);
-
-/* Test irqs with of-platdata */
-static int dm_test_of_plat_irq(struct unit_test_state *uts)
-{
-	struct dtd_sandbox_irq_test *plat;
-	struct udevice *dev;
-	struct irq irq;
-
-	ut_assertok(uclass_get_device_by_name(UCLASS_MISC, "sandbox_irq_test",
-					      &dev));
-	plat = dev_get_plat(dev);
-
-	ut_assertok(irq_get_by_phandle(dev, &plat->interrupts_extended[0],
-				       &irq));
-	ut_asserteq_str("sandbox_irq", irq.dev->name);
-
-	return 0;
-}
-DM_TEST(dm_test_of_plat_irq, UTF_SCAN_PDATA);
-
-/* Test GPIOs with of-platdata */
-static int dm_test_of_plat_gpio(struct unit_test_state *uts)
-{
-	struct dtd_sandbox_gpio_test *plat;
-	struct udevice *dev;
-	struct gpio_desc desc;
-
-	ut_assertok(uclass_get_device_by_name(UCLASS_MISC, "sandbox_gpio_test",
-					      &dev));
-	plat = dev_get_plat(dev);
-
-	ut_assertok(gpio_request_by_phandle(dev, &plat->test_gpios[0], &desc,
-					    GPIOD_IS_OUT));
-	ut_asserteq_str("sandbox_gpio", desc.dev->name);
-
-	return 0;
-}
-DM_TEST(dm_test_of_plat_gpio, UTF_SCAN_PDATA);

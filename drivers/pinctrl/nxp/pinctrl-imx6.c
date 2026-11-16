@@ -46,5 +46,3 @@ U_BOOT_DRIVER(fsl_imx6q_iomuxc) = {
 	.ops = &imx6_pinctrl_ops,
 	.flags = DM_FLAG_PRE_RELOC,
 };
-
-DM_DRIVER_ALIAS(fsl_imx6q_iomuxc, fsl_imx6dl_iomuxc)

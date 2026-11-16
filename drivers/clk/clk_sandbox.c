@@ -9,6 +9,7 @@
 #include <malloc.h>
 #include <asm/clk.h>
 #include <dm/device-internal.h>
+#include <dm/prop.h>
 #include <linux/clk-provider.h>
 
 static int sandbox_clk_of_to_plat(struct udevice *dev)
@@ -183,19 +184,14 @@ int sandbox_clk_query_requested(struct udevice *dev, int id)
 	return priv->requested[id];
 }
 
-int clk_fixed_rate_of_to_plat(struct udevice *dev)
+static int sandbox_clk_fixed_rate_of_to_plat(struct udevice *dev)
 {
-	struct clk_fixed_rate *cplat;
+	struct clk_fixed_rate *plat = to_clk_fixed_rate(dev);
+	DTPLAT(sandbox_fixed_clock, dt, dev);
 
-#if IS_ENABLED(CONFIG_OF_PLATDATA)
-	struct sandbox_clk_fixed_rate_plat *plat = dev_get_plat(dev);
-
-	cplat = &plat->fixed;
-	cplat->fixed_rate = plat->dtplat.clock_frequency;
-#else
-	cplat = to_clk_fixed_rate(dev);
-#endif
-	clk_fixed_rate_ofdata_to_plat_(dev, cplat);
+	plat->fixed_rate = dev_prop_u32_default(dev, dt, clock_frequency,
+						"clock-frequency", 0);
+	clk_fixed_rate_ofdata_to_plat_(dev, plat);
 
 	return 0;
 }
@@ -209,8 +205,8 @@ U_BOOT_DRIVER(sandbox_fixed_clock) = {
 	.name = "sandbox_fixed_clock",
 	.id = UCLASS_CLK,
 	.of_match = sandbox_clk_fixed_rate_match,
-	.of_to_plat = clk_fixed_rate_of_to_plat,
-	.plat_auto = sizeof(struct sandbox_clk_fixed_rate_plat),
+	.of_to_plat = sandbox_clk_fixed_rate_of_to_plat,
+	.plat_auto = sizeof(struct clk_fixed_rate),
 	.ops = &clk_fixed_rate_ops,
 	.flags = DM_FLAG_PRE_RELOC,
 };

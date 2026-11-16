@@ -117,13 +117,6 @@ int irq_get_by_ofplat_idx(struct udevice *dev, uint idx, const int *arg,
 
 	return 0;
 }
-
-int irq_get_by_phandle(struct udevice *dev, const struct phandle_2_arg *cells,
-		       struct irq *irq)
-{
-	return irq_get_by_ofplat_idx(dev, cells->idx, cells->arg,
-				     ARRAY_SIZE(cells->arg), irq);
-}
 #else
 static int irq_of_xlate_default(struct irq *irq,
 				struct ofnode_phandle_args *args)

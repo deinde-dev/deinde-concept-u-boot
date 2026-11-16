@@ -264,6 +264,4 @@ U_BOOT_DRIVER(jedec_spi_nor) = {
 	.flags		= DM_FLAG_OS_PREPARE,
 };
 
-DM_DRIVER_ALIAS(jedec_spi_nor, spansion_m25p16)
-
 #endif /* CONFIG_DM_SPI_FLASH */

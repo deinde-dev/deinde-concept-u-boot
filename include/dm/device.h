@@ -45,9 +45,6 @@ struct driver_info;
 /* Device name is allocated and should be freed on unbind() */
 #define DM_FLAG_NAME_ALLOCED		(1 << 7)
 
-/* Device has platform data provided by of-platdata */
-#define DM_FLAG_OF_PLATDATA		(1 << 8)
-
 /*
  * Call driver remove function to stop currently active DMA transfers or
  * give DMA buffers back to the HW / controller. This may be needed for
@@ -431,17 +428,6 @@ struct driver {
  */
 #define DM_DRIVER_REF(_name)					\
 	ll_entry_ref(struct driver, _name, driver)
-
-/**
- * DM_DRIVER_ALIAS() - Declare a macro to state an alias for a driver name
- *
- * This macro will produce no code but its information will be parsed by tools
- * like dtoc
- *
- * @__name:	name of driver
- * @__alias:	alias for the driver name
- */
-#define DM_DRIVER_ALIAS(__name, __alias)
 
 /**
  * DM_PHASE() - Declare a macro to indicate which phase of U-Boot this driver is for.

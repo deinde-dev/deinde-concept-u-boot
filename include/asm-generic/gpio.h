@@ -709,11 +709,6 @@ int gpio_request_by_ofplat_idx(struct udevice *dev, uint idx, const int *arg,
 			       int arg_count, struct gpio_desc *desc,
 			       int flags);
 
-struct phandle_2_arg;
-int gpio_request_by_phandle(struct udevice *dev,
-			    const struct phandle_2_arg *cells,
-			    struct gpio_desc *desc, int flags);
-
 /**
  * gpio_get_list_count() - Returns the number of GPIOs in a list
  *

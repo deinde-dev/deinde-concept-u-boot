@@ -199,7 +199,3 @@ U_BOOT_DRIVER(rockchip_rk3288_dw_mshc) = {
 	.priv_auto	= sizeof(struct rockchip_dwmmc_priv),
 	.plat_auto	= sizeof(struct rockchip_mmc_plat),
 };
-
-DM_DRIVER_ALIAS(rockchip_rk3288_dw_mshc, rockchip_rk2928_dw_mshc)
-DM_DRIVER_ALIAS(rockchip_rk3288_dw_mshc, rockchip_rk3328_dw_mshc)
-DM_DRIVER_ALIAS(rockchip_rk3288_dw_mshc, rockchip_rk3368_dw_mshc)
