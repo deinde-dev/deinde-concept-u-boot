@@ -2166,6 +2166,7 @@ config CMD_BOOTP
 config CMD_DHCP6
 	bool "dhcp6"
 	depends on IPV6
+	select GETOPT
 	help
 	  Boot image via network using DHCPv6/TFTP protocol using IPv6.
 

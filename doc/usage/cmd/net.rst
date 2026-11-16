@@ -103,6 +103,7 @@ See also
 --------
 
 * :doc:`dhcp<dhcp>` for obtaining the network settings over the current device
+* :doc:`dhcp6<dhcp6>` for obtaining an IPv6 address over the current device
 * :doc:`ping<ping>` for checking that the current device reaches a host
 * :doc:`tftpboot<tftpboot>` for loading a file over the current device
 * :doc:`mii<mii>` for the state of the PHY attached to a device
