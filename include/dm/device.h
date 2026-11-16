@@ -426,6 +426,24 @@ driver_get_of_match(const struct driver *drv)
 }
 
 /**
+ * driver_unbind() - Call the unbind() method of a driver, if it has one
+ *
+ * @drv: Driver to use
+ * @dev: Device to unbind
+ * Return: 0 if OK, or there is no method, or devices cannot be unbound; -ve
+ *	on error
+ */
+static inline int driver_unbind(const struct driver *drv, struct udevice *dev)
+{
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
+	if (drv->unbind)
+		return drv->unbind(dev);
+#endif
+
+	return 0;
+}
+
+/**
  * DM_DRIVER_GET() - Get a pointer to a given driver
  *
  * This is useful in code for referencing a driver at build time.

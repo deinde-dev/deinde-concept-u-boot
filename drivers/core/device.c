@@ -171,11 +171,9 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 fail_uclass_post_bind:
 	/* There is no child unbind() method, so no clean-up required */
 fail_child_post_bind:
-	if (IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)) {
-		if (drv->unbind && drv->unbind(dev)) {
-			dm_warn("unbind() method failed on dev '%s' on error path\n",
-				dev->name);
-		}
+	if (driver_unbind(drv, dev)) {
+		dm_warn("unbind() method failed on dev '%s' on error path\n",
+			dev->name);
 	}
 
 fail_bind:

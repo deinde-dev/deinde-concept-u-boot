@@ -109,6 +109,23 @@ struct uclass_driver {
 	uint32_t flags;
 };
 
+/**
+ * uclass_driver_destroy() - Call the destroy() method of a uclass driver
+ *
+ * This does nothing if there is no method, or devices cannot be removed
+ *
+ * @uc_drv: Uclass driver to use
+ * @uc: uclass to destroy
+ */
+static inline void uclass_driver_destroy(const struct uclass_driver *uc_drv,
+					 struct uclass *uc)
+{
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
+	if (uc_drv->destroy)
+		uc_drv->destroy(uc);
+#endif
+}
+
 /* Declare a new uclass_driver */
 #define UCLASS_DRIVER(__name)						\
 	ll_entry_declare(struct uclass_driver, __name, uclass_driver)
