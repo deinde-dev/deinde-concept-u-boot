@@ -866,7 +866,7 @@ U_BOOT_DRIVER(i2c_designware) = {
 	.of_to_plat = designware_i2c_of_to_plat,
 	.probe	= designware_i2c_probe,
 	.priv_auto	= sizeof(struct dw_i2c),
-	.remove = designware_i2c_remove,
+	.remove = dm_remove_ptr(designware_i2c_remove),
 	.flags	= DM_FLAG_OS_PREPARE,
 	.ops	= &designware_i2c_ops,
 };

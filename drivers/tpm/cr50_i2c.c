@@ -914,7 +914,7 @@ U_BOOT_DRIVER(google_cr50) = {
 	.ops    = &cr50_i2c_ops,
 	.of_to_plat	= cr50_i2c_of_to_plat,
 	.probe	= cr50_i2c_probe,
-	.remove	= cr50_i2c_cleanup,
+	.remove	= dm_remove_ptr(cr50_i2c_cleanup),
 	.priv_auto	= sizeof(struct cr50_priv),
 	ACPI_OPS_PTR(&cr50_acpi_ops)
 	.flags		= DM_FLAG_OS_PREPARE,

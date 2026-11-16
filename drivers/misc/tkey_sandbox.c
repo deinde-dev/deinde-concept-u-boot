@@ -164,7 +164,7 @@ U_BOOT_DRIVER(tkey_sandbox) = {
 	.id		= UCLASS_TKEY,
 	.of_match	= tkey_sandbox_ids,
 	.probe		= tkey_sandbox_probe,
-	.remove		= tkey_sandbox_remove,
+	.remove		= dm_remove_ptr(tkey_sandbox_remove),
 	.ops		= &tkey_sandbox_ops,
 	.priv_auto	= sizeof(struct tkey_sandbox_priv),
 };

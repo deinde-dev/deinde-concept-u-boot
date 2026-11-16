@@ -193,7 +193,7 @@ U_BOOT_DRIVER(musb_sc5xx) = {
 	.id		= UCLASS_USB,
 	.of_match	= sc5xx_musb_ids,
 	.probe		= musb_usb_probe,
-	.remove		= musb_usb_remove,
+	.remove		= dm_remove_ptr(musb_usb_remove),
 #ifdef CONFIG_USB_MUSB_HOST
 	.ops		= &musb_usb_ops,
 #endif

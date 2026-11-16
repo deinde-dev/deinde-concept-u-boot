@@ -471,7 +471,7 @@ U_BOOT_DRIVER(sandbox_fs) = {
 	.id	= UCLASS_FS,
 	.of_match = sandbox_fs_ids,
 	.ops	= &sandbox_fs_ops,
-	.remove	= sandbox_fs_remove,
+	.remove	= dm_remove_ptr(sandbox_fs_remove),
 	.priv_auto	= sizeof(struct sandbox_fs_priv),
 	.flags	= DM_FLAG_ACTIVE_DMA,
 };

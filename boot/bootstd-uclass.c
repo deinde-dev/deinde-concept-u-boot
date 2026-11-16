@@ -284,7 +284,7 @@ U_BOOT_DRIVER(bootstd_drv) = {
 	.name		= "bootstd_drv",
 	.of_to_plat	= bootstd_of_to_plat,
 	.probe		= bootstd_probe,
-	.remove		= bootstd_remove,
+	.remove		= dm_remove_ptr(bootstd_remove),
 	.of_match	= bootstd_ids,
 	.priv_auto	= sizeof(struct bootstd_priv),
 };

@@ -919,6 +919,7 @@ UCLASS_DRIVER(video) = {
 	.priv_auto	= sizeof(struct video_uc_priv),
 	.per_device_auto	= sizeof(struct video_priv),
 	.per_device_plat_auto	= sizeof(struct video_uc_plat),
-	IS_ENABLED(CONFIG_CYCLIC, (.pre_remove = video_pre_remove, ))
-	IS_ENABLED(CONFIG_CYCLIC, (.destroy = video_destroy, ))
+	IS_ENABLED(CONFIG_CYCLIC,
+		   (.pre_remove = dm_remove_ptr(video_pre_remove), ))
+	IS_ENABLED(CONFIG_CYCLIC, (.destroy = dm_remove_ptr(video_destroy), ))
 };

@@ -532,7 +532,7 @@ U_BOOT_DRIVER(clk_gen3) = {
 	.priv_auto	= sizeof(struct gen3_clk_priv),
 	.ops		= &gen3_clk_ops,
 	.probe		= gen3_clk_probe,
-	.remove		= gen3_clk_remove,
+	.remove		= dm_remove_ptr(gen3_clk_remove),
 	.flags          = DM_FLAG_OS_PREPARE | DM_FLAG_VITAL,
 };
 

@@ -795,6 +795,7 @@ U_BOOT_DRIVER(sata_imx) = {
 	.of_match	= sata_imx_ids,
 	.ops		= &sata_imx_ops,
 	.probe		= sata_imx_probe,
-	.remove		= sata_imx_remove,  /* reset bus to stop it */
+	/* reset bus to stop it */
+	.remove		= dm_remove_ptr(sata_imx_remove),
 };
 #endif /* AHCI */

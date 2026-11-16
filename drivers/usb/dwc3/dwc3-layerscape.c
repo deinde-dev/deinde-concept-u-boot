@@ -132,7 +132,7 @@ U_BOOT_DRIVER(dwc3_layerscape_peripheral) = {
 	.of_to_plat = dwc3_layerscape_of_to_plat,
 	.ops	= &dwc3_layerscape_gadget_ops,
 	.probe = dwc3_layerscape_peripheral_probe,
-	.remove = dwc3_layerscape_peripheral_remove,
+	.remove = dm_remove_ptr(dwc3_layerscape_peripheral_remove),
 	.priv_auto	= sizeof(struct dwc3_layerscape_priv),
 	.plat_auto	= sizeof(struct dwc3_layerscape_plat),
 };
@@ -173,7 +173,7 @@ U_BOOT_DRIVER(dwc3_layerscape_host) = {
 	.id	= UCLASS_USB,
 	.of_to_plat = dwc3_layerscape_of_to_plat,
 	.probe = dwc3_layerscape_host_probe,
-	.remove = dwc3_layerscape_host_remove,
+	.remove = dm_remove_ptr(dwc3_layerscape_host_remove),
 	.priv_auto	= sizeof(struct dwc3_layerscape_host_priv),
 	.plat_auto	= sizeof(struct dwc3_layerscape_plat),
 	.ops = &xhci_usb_ops,

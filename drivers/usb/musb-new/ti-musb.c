@@ -226,7 +226,7 @@ U_BOOT_DRIVER(ti_musb_host) = {
 	.of_to_plat = ti_musb_host_of_to_plat,
 #endif
 	.probe = ti_musb_host_probe,
-	.remove = ti_musb_host_remove,
+	.remove = dm_remove_ptr(ti_musb_host_remove),
 	.ops	= &musb_usb_ops,
 	.plat_auto	= sizeof(struct ti_musb_plat),
 	.priv_auto	= sizeof(struct musb_host_data),
@@ -316,7 +316,7 @@ U_BOOT_DRIVER(ti_musb_peripheral) = {
 #endif
 	.ops	= &ti_musb_gadget_ops,
 	.probe = ti_musb_peripheral_probe,
-	.remove = ti_musb_peripheral_remove,
+	.remove = dm_remove_ptr(ti_musb_peripheral_remove),
 	.plat_auto	= sizeof(struct ti_musb_plat),
 	.priv_auto	= sizeof(struct ti_musb_peripheral),
 	.flags = DM_FLAG_PRE_RELOC,

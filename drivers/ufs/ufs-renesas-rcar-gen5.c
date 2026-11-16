@@ -268,6 +268,6 @@ U_BOOT_DRIVER(ufs_renesas_gen5) = {
 	.id		= UCLASS_UFS,
 	.of_match	= ufs_renesas_pltfm_ids,
 	.probe		= ufs_renesas_pltfm_probe,
-	.remove		= ufs_renesas_pltfm_remove,
+	.remove		= dm_remove_ptr(ufs_renesas_pltfm_remove),
 	.priv_auto	= sizeof(struct ufs_renesas_priv),
 };

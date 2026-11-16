@@ -399,7 +399,7 @@ U_BOOT_DRIVER(apple_pcie) = {
 	.id = UCLASS_PCI,
 	.of_match = apple_pcie_of_match,
 	.probe = apple_pcie_probe,
-	.remove = apple_pcie_remove,
+	.remove = dm_remove_ptr(apple_pcie_remove),
 	.priv_auto = sizeof(struct apple_pcie_priv),
 	.ops = &apple_pcie_ops,
 };

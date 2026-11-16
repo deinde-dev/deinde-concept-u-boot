@@ -703,7 +703,7 @@ U_BOOT_DRIVER(usb_kbd) = {
 	.id	= UCLASS_KEYBOARD,
 	.of_match = usb_kbd_ids,
 	.probe = usb_kbd_probe,
-	.remove = usb_kbd_remove,
+	.remove = dm_remove_ptr(usb_kbd_remove),
 };
 
 static const struct usb_device_id kbd_id_table[] = {

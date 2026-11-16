@@ -141,7 +141,7 @@ U_BOOT_DRIVER(i2c_arbitrator) = {
 	.id = UCLASS_I2C_MUX,
 	.of_match = i2c_arbitrator_ids,
 	.probe = i2c_arbitrator_probe,
-	.remove = i2c_arbitrator_remove,
+	.remove = dm_remove_ptr(i2c_arbitrator_remove),
 	.ops = &i2c_arbitrator_ops,
 	.priv_auto	= sizeof(struct i2c_arbitrator_priv),
 };

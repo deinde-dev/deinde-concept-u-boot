@@ -491,6 +491,6 @@ U_BOOT_DRIVER(sandbox_nvme) = {
 	.id	= UCLASS_NVME,
 	.of_match = sandbox_nvme_ids,
 	.probe	= sandbox_nvme_probe,
-	.remove	= sandbox_nvme_remove,
+	.remove	= dm_remove_ptr(sandbox_nvme_remove),
 	.priv_auto = sizeof(struct sbn_priv),
 };

@@ -1150,7 +1150,7 @@ U_BOOT_DRIVER(rswitch_port) = {
 	.id		= UCLASS_ETH,
 	.of_to_plat	= rswitch_ofdata_to_platdata,
 	.probe		= rswitch_port_probe,
-	.remove		= rswitch_port_remove,
+	.remove		= dm_remove_ptr(rswitch_port_remove),
 	.ops		= &rswitch_port_ops,
 	.priv_auto	= sizeof(struct rswitch_port_priv),
 	.plat_auto	= sizeof(struct eth_pdata),
@@ -1264,6 +1264,6 @@ U_BOOT_DRIVER(rswitch) = {
 	.of_match	= rswitch_ids,
 	.bind		= rswitch_bind,
 	.probe		= rswitch_probe,
-	.remove		= rswitch_remove,
+	.remove		= dm_remove_ptr(rswitch_remove),
 	.plat_auto	= sizeof(struct rswitch_priv),
 };

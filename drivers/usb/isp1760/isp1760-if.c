@@ -118,7 +118,7 @@ U_BOOT_DRIVER(isp1760) = {
 	.of_to_plat	= isp1760_of_to_plat,
 	.ops		= &isp1760_usb_ops,
 	.probe		= isp1760_plat_probe,
-	.remove		= isp1760_plat_remove,
+	.remove		= dm_remove_ptr(isp1760_plat_remove),
 	.plat_auto	= sizeof(struct isp1760_device),
 	.priv_auto	= sizeof(struct isp1760_host_data),
 };

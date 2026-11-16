@@ -320,7 +320,7 @@ U_BOOT_DRIVER(usb_onboard_hub) = {
 	.id	= UCLASS_USB_HUB,
 	.bind   = usb_onboard_hub_bind,
 	.probe = usb_onboard_hub_probe,
-	.remove = usb_onboard_hub_remove,
+	.remove = dm_remove_ptr(usb_onboard_hub_remove),
 	.of_match = usb_onboard_hub_ids,
 	.priv_auto = sizeof(struct onboard_hub),
 };

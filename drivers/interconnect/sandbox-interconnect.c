@@ -297,7 +297,7 @@ U_BOOT_DRIVER(sandbox_interconnect) = {
 	.id = UCLASS_INTERCONNECT,
 	.of_match = sandbox_interconnect_ids,
 	.bind = sandbox_interconnect_bind,
-	.unbind = sandbox_interconnect_unbind,
+	.unbind = dm_remove_ptr(sandbox_interconnect_unbind),
 	.plat_auto = sizeof(struct sandbox_interconnect_provider),
 	.ops = &sandbox_interconnect_ops,
 };

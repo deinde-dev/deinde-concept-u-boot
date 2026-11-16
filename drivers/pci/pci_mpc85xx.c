@@ -198,7 +198,7 @@ U_BOOT_DRIVER(mpc85xx_pci) = {
 	.of_match		= mpc85xx_pci_ids,
 	.ops			= &mpc85xx_pci_ops,
 	.probe			= mpc85xx_pci_dm_probe,
-	.remove			= mpc85xx_pci_dm_remove,
+	.remove			= dm_remove_ptr(mpc85xx_pci_dm_remove),
 	.of_to_plat	= mpc85xx_pci_of_to_plat,
 	.priv_auto	= sizeof(struct mpc85xx_pci_priv),
 };

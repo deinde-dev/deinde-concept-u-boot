@@ -178,7 +178,7 @@ U_BOOT_DRIVER(iproc_rng200_rng) = {
 	.of_match = iproc_rng200_rng_match,
 	.ops = &iproc_rng200_ops,
 	.probe = iproc_rng200_probe,
-	.remove = iproc_rng200_remove,
+	.remove = dm_remove_ptr(iproc_rng200_remove),
 	.priv_auto = sizeof(struct iproc_rng200_plat),
 	.of_to_plat = iproc_rng200_of_to_plat,
 };

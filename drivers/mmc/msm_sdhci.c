@@ -353,7 +353,7 @@ U_BOOT_DRIVER(msm_sdc_drv) = {
 	.ops		= &sdhci_ops,
 	.bind		= msm_sdc_bind,
 	.probe		= msm_sdc_probe,
-	.remove		= msm_sdc_remove,
+	.remove		= dm_remove_ptr(msm_sdc_remove),
 	.priv_auto	= sizeof(struct msm_sdhc),
 	.plat_auto	= sizeof(struct msm_sdhc_plat),
 };

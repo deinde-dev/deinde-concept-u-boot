@@ -152,6 +152,6 @@ U_BOOT_DRIVER(socfpga_reset) = {
 	.probe = socfpga_reset_probe,
 	.priv_auto	= sizeof(struct socfpga_reset_data),
 	.ops = &socfpga_reset_ops,
-	.remove = socfpga_reset_remove,
+	.remove = dm_remove_ptr(socfpga_reset_remove),
 	.flags	= DM_FLAG_OS_PREPARE,
 };

@@ -238,5 +238,5 @@ U_BOOT_DRIVER(clk_r8a7792) = {
 	.priv_auto	= sizeof(struct gen2_clk_priv),
 	.ops		= &gen2_clk_ops,
 	.probe		= gen2_clk_probe,
-	.remove		= gen2_clk_remove,
+	.remove		= dm_remove_ptr(gen2_clk_remove),
 };

@@ -285,7 +285,7 @@ U_BOOT_DRIVER(exynos_trng) = {
 	.of_match	= exynos_trng_match,
 	.of_to_plat	= exynos_trng_of_to_plat,
 	.probe		= exynos_trng_probe,
-	.remove		= exynos_trng_remove,
+	.remove		= dm_remove_ptr(exynos_trng_remove),
 	.ops		= &exynos_trng_ops,
 	.priv_auto	= sizeof(struct exynos_trng_priv),
 };

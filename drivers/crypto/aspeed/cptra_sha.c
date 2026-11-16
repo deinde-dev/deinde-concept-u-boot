@@ -252,7 +252,7 @@ U_BOOT_DRIVER(aspeed_cptra_sha) = {
 	.of_match = cptra_sha_ids,
 	.ops = &cptra_sha_ops,
 	.probe = cptra_sha_probe,
-	.remove	= cptra_sha_remove,
+	.remove	= dm_remove_ptr(cptra_sha_remove),
 	.priv_auto = sizeof(struct cptra_sha),
 	.flags = DM_FLAG_PRE_RELOC,
 };

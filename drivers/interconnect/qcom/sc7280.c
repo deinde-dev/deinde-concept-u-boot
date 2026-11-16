@@ -1897,7 +1897,7 @@ U_BOOT_DRIVER(qnoc_sc7280) = {
 	.of_match = qnoc_of_match,
 	.probe = qcom_icc_rpmh_probe,
 	.bind = qcom_icc_rpmh_bind,
-	.unbind = qcom_icc_rpmh_unbind,
+	.unbind = dm_remove_ptr(qcom_icc_rpmh_unbind),
 	.ops = &qcom_icc_rpmh_ops,
 	.plat_auto = sizeof(struct qcom_icc_provider),
 };

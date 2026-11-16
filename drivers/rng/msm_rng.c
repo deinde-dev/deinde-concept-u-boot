@@ -157,6 +157,6 @@ U_BOOT_DRIVER(msm_rng) = {
 	.of_match = msm_rng_match,
 	.ops = &msm_rng_ops,
 	.probe = msm_rng_probe,
-	.remove = msm_rng_remove,
+	.remove = dm_remove_ptr(msm_rng_remove),
 	.priv_auto	= sizeof(struct msm_rng_priv),
 };

@@ -1013,5 +1013,5 @@ UCLASS_DRIVER(bootdev) = {
 	.name		= "bootdev",
 	.flags		= DM_UC_FLAG_SEQ_ALIAS,
 	.per_device_plat_auto	= sizeof(struct bootdev_uc_plat),
-	.pre_unbind	= bootdev_pre_unbind,
+	.pre_unbind	= dm_remove_ptr(bootdev_pre_unbind),
 };

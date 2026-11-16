@@ -1435,7 +1435,7 @@ U_BOOT_DRIVER(atmel_usba_udc) = {
 	.of_match = usba_udc_ids,
 	.ops = &usba_udc_gadget_ops,
 	.probe = usba_udc_probe,
-	.remove = usba_udc_remove,
+	.remove = dm_remove_ptr(usba_udc_remove),
 	.priv_auto = sizeof(struct usba_priv_data),
 };
 #endif /* !IS_ENABLED(CONFIG_DM_USB_GADGET) */

@@ -222,6 +222,6 @@ U_BOOT_DRIVER(sandbox_scsi) = {
 	.of_match	= sanbox_scsi_ids,
 	.of_to_plat	= sandbox_scsi_of_to_plat,
 	.probe		= sandbox_scsi_probe,
-	.remove		= sandbox_scsi_remove,
+	.remove		= dm_remove_ptr(sandbox_scsi_remove),
 	.priv_auto	= sizeof(struct sandbox_scsi_priv),
 };

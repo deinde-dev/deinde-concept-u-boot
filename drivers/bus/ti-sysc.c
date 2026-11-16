@@ -156,8 +156,8 @@ U_BOOT_DRIVER(ti_sysc) = {
 	.id = UCLASS_SIMPLE_BUS,
 	.of_match = ti_sysc_ids,
 	.probe = ti_sysc_probe,
-	.remove = ti_sysc_remove,
+	.remove = dm_remove_ptr(ti_sysc_remove),
 	.child_pre_probe = ti_sysc_child_pre_probe,
-	.child_post_remove = ti_sysc_child_post_remove,
+	.child_post_remove = dm_remove_ptr(ti_sysc_child_post_remove),
 	.priv_auto = sizeof(struct ti_sysc_priv)
 };

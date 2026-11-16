@@ -192,7 +192,7 @@ U_BOOT_DRIVER(meson_gxbb_usb2_phy) = {
 	.id = UCLASS_PHY,
 	.of_match = meson_gxbb_usb2_phy_ids,
 	.probe = meson_gxbb_usb2_phy_probe,
-	.remove = meson_gxbb_usb2_phy_remove,
+	.remove = dm_remove_ptr(meson_gxbb_usb2_phy_remove),
 	.ops = &meson_gxbb_usb2_phy_ops,
 	.priv_auto	= sizeof(struct phy_meson_gxbb_usb2_priv),
 };

@@ -1203,7 +1203,7 @@ U_BOOT_DRIVER(mt7620_eth) = {
 	.of_to_plat = mt7620_eth_of_to_plat,
 	.plat_auto = sizeof(struct eth_pdata),
 	.probe = mt7620_eth_probe,
-	.remove = mt7620_eth_remove,
+	.remove = dm_remove_ptr(mt7620_eth_remove),
 	.ops = &mt7620_eth_ops,
 	.priv_auto = sizeof(struct mt7620_eth_priv),
 };

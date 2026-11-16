@@ -94,5 +94,5 @@ U_BOOT_DRIVER(vfs_rootfs_dir) = {
 	.name	= "vfs_rootfs_dir",
 	.id	= UCLASS_DIR,
 	.ops	= &vfs_rootfs_dir_ops,
-	.remove	= vfs_rootfs_dir_remove,
+	.remove	= dm_remove_ptr(vfs_rootfs_dir_remove),
 };

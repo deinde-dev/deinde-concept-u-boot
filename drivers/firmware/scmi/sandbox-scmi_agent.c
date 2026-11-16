@@ -1354,6 +1354,6 @@ U_BOOT_DRIVER(sandbox_scmi_agent) = {
 	.plat_auto	= sizeof(struct sandbox_channel),
 	.of_to_plat	= sandbox_scmi_of_to_plat,
 	.probe = sandbox_scmi_test_probe,
-	.remove = sandbox_scmi_test_remove,
+	.remove = dm_remove_ptr(sandbox_scmi_test_remove),
 	.ops = &sandbox_scmi_test_ops,
 };

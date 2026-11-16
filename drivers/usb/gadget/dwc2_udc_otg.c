@@ -1212,7 +1212,7 @@ U_BOOT_DRIVER(dwc2_udc_otg) = {
 	.of_to_plat = dwc2_udc_otg_of_to_plat,
 	.bind = dwc2_udc_otg_bind,
 	.probe = dwc2_udc_otg_probe,
-	.remove = dwc2_udc_otg_remove,
+	.remove = dm_remove_ptr(dwc2_udc_otg_remove),
 	.plat_auto	= sizeof(struct dwc2_plat_otg_data),
 	.priv_auto	= sizeof(struct dwc2_priv_data),
 };

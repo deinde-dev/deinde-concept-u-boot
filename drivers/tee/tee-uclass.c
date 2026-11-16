@@ -210,7 +210,7 @@ UCLASS_DRIVER(tee) = {
 	.name = "tee",
 	.per_device_auto	= sizeof(struct tee_uclass_priv),
 	.pre_probe = tee_pre_probe,
-	.pre_remove = tee_pre_remove,
+	.pre_remove = dm_remove_ptr(tee_pre_remove),
 };
 
 void tee_optee_ta_uuid_from_octets(struct tee_optee_ta_uuid *d,

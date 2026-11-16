@@ -277,7 +277,7 @@ U_BOOT_DRIVER(nxp_imx8_pcie_phy) = {
 	.id = UCLASS_PHY,
 	.of_match = imx8_pcie_phy_of_match,
 	.probe = imx8_pcie_phy_probe,
-	.remove = imx8_pcie_phy_remove,
+	.remove = dm_remove_ptr(imx8_pcie_phy_remove),
 	.ops = &imx8_pcie_phy_ops,
 	.priv_auto	= sizeof(struct imx8_pcie_phy),
 };

@@ -248,7 +248,7 @@ U_BOOT_DRIVER(ftpm_tee) = {
 	.of_match = ftpm_tee_ids,
 	.ops    = &ftpm_tee_ops,
 	.probe	= ftpm_tee_probe,
-	.remove	= ftpm_tee_remove,
+	.remove	= dm_remove_ptr(ftpm_tee_remove),
 	.flags	= DM_FLAG_OS_PREPARE,
 	.priv_auto	= sizeof(struct ftpm_tee_private),
 };

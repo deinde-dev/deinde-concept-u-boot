@@ -976,6 +976,6 @@ U_BOOT_DRIVER(fsl_ahci) = {
 	.ops = &sata_fsl_ahci_ops,
 	.of_to_plat = fsl_ata_of_to_plat,
 	.probe	= fsl_ata_probe,
-	.remove = fsl_ata_remove,
+	.remove = dm_remove_ptr(fsl_ata_remove),
 	.priv_auto	= sizeof(struct fsl_ata_priv),
 };

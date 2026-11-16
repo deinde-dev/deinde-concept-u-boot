@@ -326,6 +326,6 @@ U_BOOT_DRIVER(pci_layerscape_ep) = {
 	.of_match = ls_pcie_ep_ids,
 	.ops = &ls_pcie_ep_ops,
 	.probe = ls_pcie_ep_probe,
-	.remove = ls_pcie_ep_remove,
+	.remove = dm_remove_ptr(ls_pcie_ep_remove),
 	.priv_auto	= sizeof(struct ls_pcie_ep),
 };

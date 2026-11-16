@@ -491,5 +491,5 @@ U_BOOT_DRIVER(synquacer_spi) = {
 	.priv_auto	= sizeof(struct synquacer_spi_priv),
 	.probe		= synquacer_spi_probe,
 	.flags		= DM_FLAG_OS_PREPARE,
-	.remove		= synquacer_spi_remove,
+	.remove		= dm_remove_ptr(synquacer_spi_remove),
 };

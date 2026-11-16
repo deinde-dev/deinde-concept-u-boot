@@ -244,6 +244,6 @@ U_BOOT_DRIVER(aspeed_pwm) = {
 	.of_match = aspeed_pwm_ids,
 	.ops = &aspeed_pwm_ops,
 	.probe = aspeed_pwm_probe,
-	.remove = aspeed_pwm_remove,
+	.remove = dm_remove_ptr(aspeed_pwm_remove),
 	.priv_auto = sizeof(struct aspeed_pwm_priv),
 };

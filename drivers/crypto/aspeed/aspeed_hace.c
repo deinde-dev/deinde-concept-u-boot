@@ -374,7 +374,7 @@ U_BOOT_DRIVER(aspeed_hace) = {
 	.of_match = aspeed_hace_ids,
 	.ops = &aspeed_hace_ops,
 	.probe = aspeed_hace_probe,
-	.remove	= aspeed_hace_remove,
+	.remove	= dm_remove_ptr(aspeed_hace_remove),
 	.priv_auto = sizeof(struct aspeed_hace),
 	.flags = DM_FLAG_PRE_RELOC,
 };

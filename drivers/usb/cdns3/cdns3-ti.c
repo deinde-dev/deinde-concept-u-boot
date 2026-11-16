@@ -188,7 +188,7 @@ U_BOOT_DRIVER(cdns_ti) = {
 	.of_match = cdns_ti_of_match,
 	.bind = cdns3_bind,
 	.probe = cdns_ti_probe,
-	.remove = cdns_ti_remove,
+	.remove = dm_remove_ptr(cdns_ti_remove),
 	.plat_auto	= sizeof(struct cdns_ti),
 	.flags = DM_FLAG_OS_PREPARE,
 };

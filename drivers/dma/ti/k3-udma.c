@@ -2872,7 +2872,7 @@ U_BOOT_DRIVER(ti_udma) = {
 	.of_match = udma_ids,
 	.ops	= &udma_ops,
 	.probe	= udma_probe,
-	.remove = udma_remove,
+	.remove = dm_remove_ptr(udma_remove),
 	.priv_auto	= sizeof(struct udma_dev),
 	.flags  = DM_FLAG_OS_PREPARE,
 };

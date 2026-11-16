@@ -823,7 +823,7 @@ UCLASS_DRIVER(serial) = {
 	.name		= "serial",
 	.flags		= DM_UC_FLAG_SEQ_ALIAS,
 	.post_probe	= serial_post_probe,
-	.pre_remove	= serial_pre_remove,
+	.pre_remove	= dm_remove_ptr(serial_pre_remove),
 	.per_device_auto	= sizeof(struct serial_dev_priv),
 	.priv_auto	= sizeof(struct serial_priv),
 };

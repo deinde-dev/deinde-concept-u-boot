@@ -429,7 +429,7 @@ U_BOOT_DRIVER(k3_sec_proxy) = {
 	.id = UCLASS_MAILBOX,
 	.of_match = k3_sec_proxy_ids,
 	.probe = k3_sec_proxy_probe,
-	.remove = k3_sec_proxy_remove,
+	.remove = dm_remove_ptr(k3_sec_proxy_remove),
 	.priv_auto	= sizeof(struct k3_sec_proxy_mbox),
 	.ops = &k3_sec_proxy_mbox_ops,
 };

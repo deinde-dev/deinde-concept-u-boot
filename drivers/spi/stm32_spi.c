@@ -698,5 +698,5 @@ U_BOOT_DRIVER(stm32_spi) = {
 	.plat_auto		= sizeof(struct stm32_spi_plat),
 	.priv_auto		= sizeof(struct stm32_spi_priv),
 	.probe			= stm32_spi_probe,
-	.remove			= stm32_spi_remove,
+	.remove			= dm_remove_ptr(stm32_spi_remove),
 };

@@ -176,7 +176,7 @@ U_BOOT_DRIVER(cdns_starfive) = {
 	.of_match = cdns_starfive_of_match,
 	.bind = cdns3_bind,
 	.probe = cdns_starfive_probe,
-	.remove = cdns_starfive_remove,
+	.remove = dm_remove_ptr(cdns_starfive_remove),
 	.plat_auto	= sizeof(struct cdns_starfive),
 	.flags = DM_FLAG_OS_PREPARE,
 };

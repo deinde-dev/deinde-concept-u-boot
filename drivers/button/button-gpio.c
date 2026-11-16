@@ -129,5 +129,5 @@ U_BOOT_DRIVER(button_gpio) = {
 	.priv_auto	= sizeof(struct button_gpio_priv),
 	.bind		= button_gpio_bind,
 	.probe		= button_gpio_probe,
-	.remove		= button_gpio_remove,
+	.remove		= dm_remove_ptr(button_gpio_remove),
 };

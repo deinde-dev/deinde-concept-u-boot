@@ -502,6 +502,6 @@ U_BOOT_DRIVER(k3_dsp) = {
 	.id = UCLASS_REMOTEPROC,
 	.ops = &k3_dsp_ops,
 	.probe = k3_dsp_probe,
-	.remove = k3_dsp_remove,
+	.remove = dm_remove_ptr(k3_dsp_remove),
 	.priv_auto	= sizeof(struct k3_dsp_privdata),
 };

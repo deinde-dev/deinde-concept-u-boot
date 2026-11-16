@@ -520,6 +520,6 @@ U_BOOT_DRIVER(cadence_spi) = {
 	.plat_auto	= sizeof(struct cadence_spi_plat),
 	.priv_auto	= sizeof(struct cadence_spi_priv),
 	.probe = cadence_spi_probe,
-	.remove = cadence_spi_remove,
+	.remove = dm_remove_ptr(cadence_spi_remove),
 	.flags = DM_FLAG_OS_PREPARE,
 };

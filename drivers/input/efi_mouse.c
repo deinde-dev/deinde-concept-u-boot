@@ -452,6 +452,6 @@ U_BOOT_DRIVER(efi_mouse) = {
 	.of_match = efi_mouse_ids,
 	.ops	= &efi_mouse_ops,
 	.probe = efi_mouse_probe,
-	.remove = efi_mouse_remove,
+	.remove = dm_remove_ptr(efi_mouse_remove),
 	.priv_auto	= sizeof(struct efi_mouse_priv),
 };

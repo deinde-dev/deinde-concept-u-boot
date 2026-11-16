@@ -312,6 +312,6 @@ UCLASS_DRIVER(mdio) = {
 	.name = "mdio",
 	.post_bind  = dm_mdio_post_bind,
 	.post_probe = dm_mdio_post_probe,
-	.pre_remove = dm_mdio_pre_remove,
+	.pre_remove = dm_remove_ptr(dm_mdio_pre_remove),
 	.per_device_auto	= sizeof(struct mdio_perdev_priv),
 };

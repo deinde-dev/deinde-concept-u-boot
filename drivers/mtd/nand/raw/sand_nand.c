@@ -667,7 +667,7 @@ U_BOOT_DRIVER(sand_nand) = {
 	.id             = UCLASS_MTD,
 	.of_match       = sand_nand_ids,
 	.probe          = sand_nand_probe,
-	.remove		= sand_nand_remove,
+	.remove		= dm_remove_ptr(sand_nand_remove),
 	.priv_auto	= sizeof(struct sand_nand_priv),
 };
 

@@ -377,7 +377,7 @@ U_BOOT_DRIVER(intel_apl_hostbridge) = {
 	.of_match	= of_match_ptr(apl_hostbridge_ids),
 	.of_to_plat = apl_hostbridge_of_to_plat,
 	.probe		= apl_hostbridge_probe,
-	.remove		= apl_hostbridge_remove,
+	.remove		= dm_remove_ptr(apl_hostbridge_remove),
 	.plat_auto	= sizeof(struct apl_hostbridge_plat),
 	ACPI_OPS_PTR(&apl_hostbridge_acpi_ops)
 	.flags		= DM_FLAG_OS_PREPARE,

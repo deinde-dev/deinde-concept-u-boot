@@ -378,7 +378,7 @@ U_BOOT_DRIVER(clk_ti_divider) = {
 	.of_match = clk_ti_divider_of_match,
 	.of_to_plat = clk_ti_divider_of_to_plat,
 	.probe = clk_ti_divider_probe,
-	.remove = clk_ti_divider_remove,
+	.remove = dm_remove_ptr(clk_ti_divider_remove),
 	.priv_auto = sizeof(struct clk_ti_divider_priv),
 	.ops = &clk_ti_divider_ops,
 };

@@ -680,6 +680,6 @@ U_BOOT_DRIVER(f_ospi) = {
 	.of_to_plat = f_ospi_of_to_plat,
 	.ops        = &f_ospi_ops,
 	.probe      = f_ospi_probe,
-	.remove     = f_ospi_remove,
+	.remove     = dm_remove_ptr(f_ospi_remove),
 	.priv_auto  = sizeof(struct f_ospi),
 };

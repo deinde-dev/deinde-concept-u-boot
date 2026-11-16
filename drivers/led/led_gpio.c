@@ -92,7 +92,7 @@ U_BOOT_DRIVER(led_gpio) = {
 	.ops	= &gpio_led_ops,
 	.priv_auto	= sizeof(struct led_gpio_priv),
 	.probe	= led_gpio_probe,
-	.remove	= led_gpio_remove,
+	.remove	= dm_remove_ptr(led_gpio_remove),
 };
 
 static const struct udevice_id led_gpio_ids[] = {

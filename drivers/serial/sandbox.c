@@ -274,7 +274,7 @@ U_BOOT_DRIVER(sandbox_serial) = {
 	.plat_auto	= sizeof(struct sandbox_serial_plat),
 	.priv_auto	= sizeof(struct sandbox_serial_priv),
 	.probe = sandbox_serial_probe,
-	.remove = sandbox_serial_remove,
+	.remove = dm_remove_ptr(sandbox_serial_remove),
 	.ops	= &sandbox_serial_ops,
 	.flags = DM_FLAG_PRE_RELOC,
 };

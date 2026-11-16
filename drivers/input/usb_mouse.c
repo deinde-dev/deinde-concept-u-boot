@@ -323,7 +323,7 @@ U_BOOT_DRIVER(usb_mouse) = {
 	.of_match = usb_mouse_ids,
 	.ops	= &usb_mouse_ops,
 	.probe = usb_mouse_probe,
-	.remove = usb_mouse_remove,
+	.remove = dm_remove_ptr(usb_mouse_remove),
 	.priv_auto	= sizeof(struct usb_mouse_priv),
 };
 

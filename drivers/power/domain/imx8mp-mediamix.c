@@ -206,7 +206,7 @@ U_BOOT_DRIVER(imx8mp_mediamix) = {
 	.of_match	= imx8mp_mediamix_ids,
 	.bind		= imx8mp_mediamix_bind,
 	.probe		= imx8mp_mediamix_probe,
-	.remove		= imx8mp_mediamix_remove,
+	.remove		= dm_remove_ptr(imx8mp_mediamix_remove),
 	.priv_auto	= sizeof(struct imx8mp_mediamix_priv),
 	.ops		= &imx8mp_mediamix_ops,
 };

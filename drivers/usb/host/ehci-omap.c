@@ -390,7 +390,7 @@ U_BOOT_DRIVER(usb_omap_ehci) = {
 	.of_to_plat = ehci_usb_of_to_plat,
 	.plat_auto	= sizeof(struct usb_plat),
 	.priv_auto	= sizeof(struct ehci_omap_priv_data),
-	.remove = ehci_deregister,
+	.remove = dm_remove_ptr(ehci_deregister),
 	.ops	= &ehci_usb_ops,
 	.flags	= DM_FLAG_ALLOC_PRIV_DMA,
 };

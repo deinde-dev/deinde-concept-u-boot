@@ -172,6 +172,6 @@ U_BOOT_DRIVER(cdns_pcie) = {
 	.of_match = cadence_pci_ep_of_match,
 	.ops = &cdns_pci_ep_ops,
 	.probe = cdns_pci_ep_probe,
-	.remove = cdns_pci_ep_remove,
+	.remove = dm_remove_ptr(cdns_pci_ep_remove),
 	.priv_auto	= sizeof(struct cdns_pcie),
 };

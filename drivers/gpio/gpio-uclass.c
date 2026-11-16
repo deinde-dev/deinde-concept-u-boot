@@ -1589,6 +1589,6 @@ UCLASS_DRIVER(gpio) = {
 	.flags		= DM_UC_FLAG_SEQ_ALIAS,
 	.post_probe	= gpio_post_probe,
 	.post_bind	= gpio_post_bind,
-	.pre_remove	= gpio_pre_remove,
+	.pre_remove	= dm_remove_ptr(gpio_pre_remove),
 	.per_device_auto	= sizeof(struct gpio_dev_priv),
 };

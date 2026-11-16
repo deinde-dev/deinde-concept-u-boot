@@ -307,7 +307,7 @@ U_BOOT_DRIVER(apple_nvme) = {
 	.of_match = apple_nvme_ids,
 	.priv_auto = sizeof(struct apple_nvme_priv),
 	.probe = apple_nvme_probe,
-	.remove = apple_nvme_remove,
+	.remove = dm_remove_ptr(apple_nvme_remove),
 	.ops = &apple_nvme_ops,
 	.flags = DM_FLAG_OS_PREPARE,
 };

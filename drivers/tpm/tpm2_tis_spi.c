@@ -279,6 +279,6 @@ U_BOOT_DRIVER(tpm_tis_spi) = {
 	.of_match = tpm_tis_spi_ids,
 	.ops    = &tpm_tis_spi_ops,
 	.probe	= tpm_tis_spi_probe,
-	.remove	= tpm_tis_spi_remove,
+	.remove	= dm_remove_ptr(tpm_tis_spi_remove),
 	.priv_auto	= sizeof(struct tpm_chip),
 };

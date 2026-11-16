@@ -1270,7 +1270,7 @@ U_BOOT_DRIVER(pci_iproc) = {
 	.of_match = pci_iproc_ids,
 	.ops = &iproc_pcie_ops,
 	.probe = iproc_pcie_probe,
-	.remove = iproc_pcie_remove,
+	.remove = dm_remove_ptr(iproc_pcie_remove),
 	.priv_auto	= sizeof(struct iproc_pcie),
 	.flags = DM_FLAG_OS_PREPARE,
 };

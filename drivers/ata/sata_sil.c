@@ -814,7 +814,7 @@ U_BOOT_DRIVER(sil_ahci_pci) = {
 	.of_match = sil_pci_ids,
 	.ops = &sata_sil_ops,
 	.probe = sil_pci_probe,
-	.remove = sil_pci_remove,
+	.remove = dm_remove_ptr(sil_pci_remove),
 	.priv_auto	= sizeof(struct sil_sata_priv),
 };
 

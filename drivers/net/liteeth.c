@@ -208,7 +208,7 @@ U_BOOT_DRIVER(liteeth) = {
 	.of_match = liteeth_ids,
 	.of_to_plat = liteeth_of_to_plat,
 	.plat_auto = sizeof(struct eth_pdata),
-	.remove = liteeth_remove,
+	.remove = dm_remove_ptr(liteeth_remove),
 	.ops = &liteeth_ops,
 	.priv_auto = sizeof(struct liteeth),
 };

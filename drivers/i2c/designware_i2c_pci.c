@@ -186,7 +186,7 @@ U_BOOT_DRIVER(i2c_designware_pci) = {
 	.of_to_plat	= designware_i2c_pci_of_to_plat,
 	.probe	= designware_i2c_pci_probe,
 	.priv_auto	= sizeof(struct dw_i2c),
-	.remove = designware_i2c_remove,
+	.remove = dm_remove_ptr(designware_i2c_remove),
 	.flags = DM_FLAG_OS_PREPARE,
 	.ops	= &designware_i2c_ops,
 	ACPI_OPS_PTR(&dw_i2c_acpi_ops)

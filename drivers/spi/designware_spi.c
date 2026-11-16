@@ -810,5 +810,5 @@ U_BOOT_DRIVER(dw_spi) = {
 	.plat_auto	= sizeof(struct dw_spi_plat),
 	.priv_auto	= sizeof(struct dw_spi_priv),
 	.probe = dw_spi_probe,
-	.remove = dw_spi_remove,
+	.remove = dm_remove_ptr(dw_spi_remove),
 };

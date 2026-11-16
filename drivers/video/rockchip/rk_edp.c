@@ -1164,6 +1164,6 @@ U_BOOT_DRIVER(dp_rockchip) = {
 	.ops	= &dp_rockchip_ops,
 	.of_to_plat	= rk_edp_of_to_plat,
 	.probe	= rk_edp_probe,
-	.remove	= rk_edp_remove,
+	.remove	= dm_remove_ptr(rk_edp_remove),
 	.priv_auto	= sizeof(struct rk_edp_priv),
 };

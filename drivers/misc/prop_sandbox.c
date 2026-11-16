@@ -114,7 +114,7 @@ U_BOOT_DRIVER(sandbox_dev_prop_test) = {
 	.of_match = of_match_ptr(sandbox_dev_prop_ids),
 	.bind	= sandbox_dev_prop_bind,
 	.of_to_plat = sandbox_dev_prop_of_to_plat,
-	.remove	= sandbox_dev_prop_remove,
+	.remove	= dm_remove_ptr(sandbox_dev_prop_remove),
 	.plat_auto = sizeof(struct sandbox_dev_prop_plat),
 	.flags	= DM_FLAG_PRE_RELOC,
 	DM_HEADER(<asm/test.h>)
@@ -156,7 +156,7 @@ U_BOOT_DRIVER(sandbox_dev_prop_single) = {
 	.id	= UCLASS_MISC,
 	.of_match = of_match_ptr(sandbox_dev_prop_single_ids),
 	.of_to_plat = sandbox_dev_prop_single_of_to_plat,
-	.remove	= sandbox_dev_prop_remove,
+	.remove	= dm_remove_ptr(sandbox_dev_prop_remove),
 	.plat_auto = sizeof(struct sandbox_dev_prop_plat),
 	.flags	= DM_FLAG_PRE_RELOC,
 };

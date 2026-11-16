@@ -157,7 +157,7 @@ U_BOOT_DRIVER(virtio_blk_emul) = {
 	.id	= UCLASS_VIRTIO_EMUL,
 	.of_match = virtio_blk_emul_ids,
 	.probe	= virtio_blk_emul_probe,
-	.remove	= virtio_blk_emul_remove,
+	.remove	= dm_remove_ptr(virtio_blk_emul_remove),
 	.ops	= &blk_emul_ops,
 	.priv_auto	= sizeof(struct virtio_blk_emul_priv),
 };
