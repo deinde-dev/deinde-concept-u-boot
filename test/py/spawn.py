@@ -22,12 +22,10 @@ Within the console_*py files, self.p is used to refer to the Spawn() object,
 perhaps short for 'process'.
 """
 
-import io
 import os
 import pty
 import signal
 import select
-import sys
 import termios
 import time
 import traceback
@@ -76,30 +74,22 @@ class Spawn:
             finally:
                 os._exit(255)
 
-        old = None
         try:
-            isatty = False
-            try:
-                isatty = os.isatty(sys.stdout.fileno())
-
-            # with --capture=tee-sys we cannot call fileno()
-            except io.UnsupportedOperation:
-                pass
-            if isatty:
-                new = termios.tcgetattr(self.fd)
-                old = new
-                new[3] = new[3] & ~(termios.ICANON | termios.ISIG)
-                new[3] = new[3] & ~termios.ECHO
-                new[6][termios.VMIN] = 0
-                new[6][termios.VTIME] = 0
-                termios.tcsetattr(self.fd, termios.TCSANOW, new)
+            # Stop the terminal from echoing what is sent to the sub-process.
+            # The sub-process may do this itself, but not straight away, so a
+            # command sent before then is echoed by the terminal and then
+            # again by U-Boot
+            new = termios.tcgetattr(self.fd)
+            new[3] = new[3] & ~(termios.ICANON | termios.ISIG)
+            new[3] = new[3] & ~termios.ECHO
+            new[6][termios.VMIN] = 0
+            new[6][termios.VTIME] = 0
+            termios.tcsetattr(self.fd, termios.TCSANOW, new)
 
             self.poll = select.poll()
             self.poll.register(self.fd, select.POLLIN | select.POLLPRI | select.POLLERR |
                                select.POLLHUP | select.POLLNVAL)
         except:
-            if old:
-                termios.tcsetattr(self.fd, termios.TCSANOW, old)
             self.close()
             raise
 
