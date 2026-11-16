@@ -17,13 +17,6 @@
 
 #define NLS_MAX_CHARSET_SIZE	6
 
-/* UTF-16 byte order */
-enum utf16_endian {
-	UTF16_HOST_ENDIAN,
-	UTF16_LITTLE_ENDIAN,
-	UTF16_BIG_ENDIAN,
-};
-
 struct nls_table {
 	const char *charset;
 	int (*uni2char)(wchar_t uni, unsigned char *out, int boundlen);
