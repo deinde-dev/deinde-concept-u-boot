@@ -107877,3 +107877,49 @@ Every other commit matches its original exactly.
 
 ---
 
+## 2026-11-16: us/main
+
+Branch: cherry-22569847f049
+
+Commits:
+- 22569847f049 ufs: qcom: add ufs host regulator support
+- 01c4857ccc5d ufs: decode string descriptors as UTF-16 big-endian
+- 768aa39691e0 ufs: surface sense data from ufs_scsi_exec()
+- b3cd7ddbbdd5 ufs: add RPMB transport over SCSI SECURITY PROTOCOL
+- 87094d8062bd ufs: derive the per-region RPMB CID and size for OP-TEE
+- 20334a6bfdc4 optee: rename rpmb.c to rpmb_emmc.c
+- 3b39df3bc540 optee: implement the RPMB subsystem interface for UFS
+- 594b342138f2 Merge tag 'u-boot-ufs-next-20261019' of https://git.u-boot-project.org/u-boot/custodians/neil.armstrong/u-boot-ufs
+
+### Conversation log
+Resolving a conflict in include/scsi.h on the fourth pick (the RPMB transport commit); the first three are in, with one fix-up on the UTF-16 commit.
+
+Simple conflict: both sides add defines at the same spot, so keep both.
+
+The merge's content is already in via the individual picks, so the conflicts are just my earlier resolutions; I'll keep the current tree and commit it empty.
+
+All 8 commits are on `cherry-22569847f049` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready to push; nothing was merged elsewhere.
+
+## Fix-ups
+
+- **`ufs: decode string descriptors as UTF-16 big-endian`** (1d94a3c8dbc5): this picked cleanly but broke the build. This tree already has `enum utf16_endian` in `include/linux/nls.h` and a `utf16s_to_utf8s()` wrapper in `lib/charset.c` that calls `utf16_to_utf8()` with the old three-argument form. I made three changes:
+  - dropped the duplicate enum from `linux/nls.h`, which includes `charset.h` anyway;
+  - removed the now-redundant forward declaration in `charset.h`;
+  - passed `UTF16_HOST_ENDIAN` in the wrapper, since it has already byte-swapped its buffer.
+- **`ufs: add RPMB transport over SCSI SECURITY PROTOCOL`** (1bf57b5afbc1): there was a conflict in `include/scsi.h`, where this tree adds `SCSI_REPORT_LUNS` at the same spot as the new `SCSI_SECURITY_PROTOCOL_IN/OUT` defines. I kept both.
+- **Merge tag `u-boot-ufs-next-20261019`** (13bc6551925b): the merge pick conflicted in `charset.h` and `scsi.h` because of the two resolutions above. I kept the current tree and committed it empty, since its content is already in the seven picks.
+
+Each of these carries a `[pickman: ...]` note at the end of its commit message.
+
+## Deltas
+
+No concerning deltas: every regular commit matched the original's file and line counts when picked. The only difference from the upstream merge overall is the extra `include/linux/nls.h` change and the few lines in `charset.h` and `charset.c` from the first fix-up.
+
+## Split-check
+
+`split-check` ran after every pick and changed nothing; none of the commits add `CONFIG_IS_ENABLED()` or the phase Makefile variables.
+
+Only sandbox was built, so the Qualcomm UFS regulator code and the OP-TEE RPMB code were compiled only as far as sandbox enables them.
+
+---
+
