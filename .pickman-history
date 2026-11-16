@@ -107797,3 +107797,83 @@ The branch is ready to push and hasn't been merged anywhere.
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-036a1201cf55
+
+Commits:
+- 036a1201cf55 board: logicpd: Remove OMAP3 SOM support
+- 08addf800f49 board: logicpd: Remove i.MX6 SOM support
+- adaa1c5c2caa board: logicpd: Remove AM3517 EVM support
+- 774283055ac6 board: davinci: Remove DA850 EVM support
+- 3f31d496ecaa board: beacon: Remove Beacon EmbeddedWorks RZ/G2 Dev Kit support
+- 2255792e61e5 board: beacon: Remove i.MX8MM Beacon EmbeddedWorks Devkit support
+- 0627c1f74330 board: beacon: Remove i.MX8MN Beacon EmbeddedWorks Devkit support
+- c92d8c3c431e board: beacon: Remove i.MX8MP Beacon EmbeddedWorks Devkit support
+- 1c0d520f7fa2 Gitlab CI: Temporarily limit thread count on world builds
+- a6ab6a66146e MAINTAINERS: Fix Lukasz email
+- 5508406582f6 Prepare v2026.10
+
+### Conversation log
+The main checkout is in the middle of an interactive rebase on another branch, so I'll leave that alone. Let me check whether anything is actively running there.
+
+The main checkout has a paused interactive rebase (branch cherry-20209a62bc85), which looks like another task's work. Rather than disturb it, I'll do this cherry-pick in a separate worktree.
+
+Now check the "maybe already applied" commit first.
+
+The suggested match (9b5979e91f14) is a pickman bookkeeping commit with no relation to the release changes, so 5508406582f6 is not applied yet and needs cherry-picking. Now the series:
+
+Modify/delete conflicts on defconfigs that the commit removes — resolving by deleting them. Let me check whether anything else conflicts.
+
+split-check made no changes. I'll add a note about the conflict resolution, then build.
+
+Build OK. Next commit:
+
+Target-only rename touched the header; the board is being removed, so deletion is correct.
+
+Shorten that note to fit 72 columns, then continue with DA850.
+
+Some DA850 references remain; let me check whether upstream has the same ones after this commit.
+
+Same as upstream. Now the beacon commits.
+
+Beacon removal complete. Now the last three commits.
+
+The target splits world builds into several jobs. Let me look at its structure.
+
+Simple: the target never picked "Prepare v2026.10-rc5", so take the release's end state for both hunks.
+
+Mistake: `--theirs` took the whole upstream Makefile and release_cycle.rst, not just the conflicting hunks (delta 938/334 vs 832/16). Redoing this one properly.
+
+Now matches the original exactly.
+
+Now check that the note lines fit in 72 columns, and do the final verification.
+
+One note is 75 columns; reword it with a non-interactive rebase.
+
+The tree is unchanged by the reword and all 11 commits are present. Final build and delta summary:
+
+All 11 commits are in and the build passes. I'll remove the temporary worktree; the branch stays in the repo.
+
+All 11 commits are cherry-picked onto `cherry-036a1201cf55` (based on ci/master, tip 4b9786ca4a85). The sandbox build passes with no warnings after each commit and at the end. The branch is ready to push and has not been merged anywhere.
+
+**Two deviations from the instructions:**
+- **Worktree instead of the main checkout.** The main checkout is paused mid-way through an interactive rebase of another pickman branch (cherry-20209a62bc85, stopped after d45d90c5c41a). So I did the work in a temporary worktree, which I've since removed, and left that rebase untouched.
+- **Build output in `/tmp/pickman-wt`.** I used this instead of `/tmp/pickman` so I wouldn't overwrite the paused rebase's build output.
+
+**"Maybe already applied" check:** 9b5979e91f14 is a pickman bookkeeping commit ("Record cherry-pick of 7 commits"), not the release commit. ci/master was still at `-rc4`, so I cherry-picked 5508406582f6.
+
+**Fix-ups** (each commit has a one-line note at the end of its message):
+- **Eight board-removal commits:** modify/delete conflicts, because ci/master had changed files that these commits delete. I resolved them by deleting the files, and the file and line counts match the originals exactly. The DA850 references that remain (in the omapl138_lcdk board, mach-types and the SPL lds) are the same ones upstream keeps.
+- **1c0d520f7fa2 (Gitlab CI thread limit):** upstream has one world-build job, but ci/master splits it into four (32-bit ARM, 64-bit ARM, PowerPC, other), using plain `buildman`. I added the cgroup `cpu.max` check and `${T}` to all four jobs, and checked that the YAML still parses.
+- **5508406582f6 (Prepare v2026.10):** conflicts in `Makefile` and `release_cycle.rst`, because ci/master never picked the -rc5 prep commit. I took the release side of the conflicting hunks only.
+- **split-check** made no changes to any commit.
+
+**Concerning deltas:**
+- **CI commit:** 16 insertions and 4 deletions against the original's 4 and 1. This is expected, since the same change is applied to four jobs.
+- **Release commit:** my first resolution used `git checkout --theirs`, which replaced both files wholesale with the upstream versions (938/334 lines). I dropped that commit and redid it so it now matches the original's 832/16.
+
+Every other commit matches its original exactly.
+
+---
+
