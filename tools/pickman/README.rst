@@ -255,9 +255,17 @@ Pickman detects this situation automatically in two ways.
 **Pre-Cherry-Pick Detection**
 
 Before starting cherry-picks, pickman checks for potentially already-applied
-commits by searching for matching commit subjects in the target branch::
+commits in the target branch. It looks first for a commit picked from the
+upstream one, which says so in its ``(cherry picked from commit ...)`` line,
+then for a commit with the same subject::
 
-    git log --oneline ci/master --grep="<subject>" -1
+    git log --format="%h %s" --fixed-strings ci/master --grep="<subject>"
+
+The subject must match exactly, since a search of the commit messages also
+finds longer subjects, e.g. ``Prepare v2026.10`` finds ``Prepare
+v2026.10-rc4``, as well as pickman's commits recording the cherry-picks, which
+list the subjects in their bodies. Taking either as a match would let the
+agent skip a commit which never arrived.
 
 Commits that match are marked as "maybe already applied" and passed to the
 Claude agent with the hash of the potentially matching commit. The agent then:

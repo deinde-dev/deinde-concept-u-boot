@@ -6518,100 +6518,86 @@ This is a normal commit without cherry-pick info.
         self.assertEqual(kwargs.get('raise_on_error'), False)
 
 
-class TestCheckAlreadyApplied(unittest.TestCase):
-    """Tests for the check_already_applied function."""
+class TestFindApplied(unittest.TestCase):
+    """Tests for finding commits which may already be applied"""
 
     def setUp(self):
-        """Set up test data."""
-        self.commits = [
-            control.CommitInfo('abc123def456', 'abc123d', 'Add new feature',
-                               'Author <email>'),
-            control.CommitInfo('def456abc123', 'def456a', 'Fix bug',
-                               'Author <email>')
-        ]
-        self.quoted_commit = [
-            control.CommitInfo('abc123def456', 'abc123d',
-                               'Add "quoted" feature', 'Author <email>')
-        ]
-        self.single_commit = [
-            control.CommitInfo('abc123def456', 'abc123d', 'Add new feature',
-                               'Author <email>')
-        ]
+        """Set up a repo whose master has some commits picked from upstream"""
+        self.test_dir = tempfile.mkdtemp()
+        self.orig_dir = os.getcwd()
+        _git_init(self.test_dir)
+        os.chdir(self.test_dir)
+        self.count = 0
+        self._commit('Prepare v2026.10-rc4')
+        self._commit('pickman: Record cherry-pick of 1 commit from us/main',
+                     '- 5508406582f Prepare v2026.10')
+        self.plus = self._commit('dm: Fix a+b (c) [d]')
+        self._commit('Use abc')
+        _git(self.test_dir, 'update-ref', 'refs/remotes/ci/master', 'HEAD')
 
-    @mock.patch('pickman.control.run_git')
-    @mock.patch('pickman.control.tout')
-    def test_check_already_applied_none_applied(self, mock_tout, mock_run_git):
-        """Test check_already_applied when no commits are already applied."""
-        # Mock git log returning empty (no matches)
-        mock_run_git.return_value = ''
+    def tearDown(self):
+        """Remove the repo"""
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
 
-        new_commits, applied = control.check_already_applied(self.commits)
+    def _commit(self, subject, body=''):
+        """Commit a change, returning its short hash"""
+        self.count += 1
+        tools.write_file(os.path.join(self.test_dir, 'a.c'), str(self.count),
+                         binary=False)
+        _git(self.test_dir, 'add', '-A')
+        _git(self.test_dir, 'commit', '-q', '-m', subject + (
+            f'\n\n{body}' if body else ''))
+        return _git(self.test_dir, 'rev-parse', '--short', 'HEAD')
 
-        self.assertEqual(len(new_commits), 2)
-        self.assertEqual(len(applied), 0)
-        self.assertEqual(new_commits, self.commits)
-        mock_tout.info.assert_not_called()
+    @staticmethod
+    def _upstream(subject, chash='5508406582f0123456789abcdef0123456789abc'):
+        """Make an upstream commit to look for"""
+        return control.CommitInfo(chash, chash[:11], subject, 'Author')
 
-    @mock.patch('pickman.control.run_git')
-    @mock.patch('pickman.control.tout')
-    def test_check_already_applied_some_applied(self, mock_tout, mock_run_git):
-        """Test check_already_applied when some commits are already applied."""
-        # First commit returns a match, second doesn't
-        mock_run_git.side_effect = ['xyz789 Add new feature', '']
+    def test_prefix(self):
+        """Test that a longer subject on the branch is not a match"""
+        self.assertIsNone(control.find_applied(
+            self._upstream('Prepare v2026.10')))
 
-        new_commits, applied = control.check_already_applied(self.commits)
+    def test_record(self):
+        """Test that a commit listing the subject in its body is not a match"""
+        self.assertIsNone(control.find_applied(
+            self._upstream('Record cherry-pick')))
+        self.assertIsNone(control.find_applied(
+            self._upstream('5508406582f Prepare v2026.10')))
 
-        self.assertEqual(len(new_commits), 1)
-        self.assertEqual(len(applied), 1)
-        self.assertEqual(new_commits[0].hash, 'def456abc123')
-        self.assertEqual(applied[0].hash, 'abc123def456')
-        mock_tout.info.assert_called_once()
+    def test_special(self):
+        """Test a subject with characters which are special in a regex"""
+        self.assertEqual(self.plus, control.find_applied(
+            self._upstream('dm: Fix a+b (c) [d]')))
+        self.assertIsNone(control.find_applied(self._upstream('Use a.c')))
 
-    @mock.patch('pickman.control.run_git')
-    @mock.patch('pickman.control.tout')
-    def test_check_already_applied_all_applied(self, mock_tout, mock_run_git):
-        """Test check_already_applied when all commits are already applied."""
-        # Both commits return matches
-        mock_run_git.side_effect = ['xyz789 Add new feature', 'uvw123 Fix bug']
+    def test_trailer(self):
+        """Test that a cherry-pick line is preferred to the subject"""
+        upstream = self._upstream('Use abc')
+        picked = self._commit('Use abc, reworded',
+                              f'(cherry picked from commit {upstream.hash})')
+        self._commit('Use abc')
+        _git(self.test_dir, 'update-ref', 'refs/remotes/ci/master', 'HEAD')
+        self.assertEqual(picked, control.find_applied(upstream))
 
-        new_commits, applied = control.check_already_applied(self.commits)
+    def test_build_applied_map(self):
+        """Test mapping the commits which may be applied"""
+        prepare = self._upstream('Prepare v2026.10')
+        plus = self._upstream('dm: Fix a+b (c) [d]', 'abc')
+        tout.init(tout.INFO)
+        with terminal.capture() as (out, _):
+            self.assertEqual({'abc': self.plus},
+                             control.build_applied_map([prepare, plus]))
+        self.assertIn(f'abc may already be applied as {self.plus}: dm: Fix',
+                      out.getvalue())
+        self.assertIn('Found 1 potentially already applied', out.getvalue())
 
-        self.assertEqual(len(new_commits), 0)
-        self.assertEqual(len(applied), 2)
-        self.assertEqual(applied, self.commits)
-        self.assertEqual(mock_tout.info.call_count, 2)
-
-    @mock.patch('pickman.control.run_git')
-    @mock.patch('pickman.control.tout')
-    def test_check_already_applied_with_quotes_in_subject(
-            self, unused_mock_tout, mock_run_git):
-        """Test check_already_applied handles quotes in commit subjects."""
-        mock_run_git.return_value = ''
-
-        new_commits, applied = control.check_already_applied(self.quoted_commit)
-
-        # Verify git was called with escaped quotes
-        mock_run_git.assert_called_once_with([
-            'log', '--oneline', 'ci/master',
-            '--grep=Add \\"quoted\\" feature', '-1'
-        ])
-        self.assertEqual(len(new_commits), 1)
-        self.assertEqual(len(applied), 0)
-
-    @mock.patch('pickman.control.run_git')
-    @mock.patch('pickman.control.tout')
-    def test_check_already_applied_git_error(self, unused_mock_tout,
-                                             mock_run_git):
-        """Test check_already_applied handles git errors gracefully."""
-        # Mock git command raising an exception
-        mock_run_git.side_effect = Exception('Git error')
-
-        new_commits, applied = control.check_already_applied(self.single_commit)
-
-        # Should treat as not applied when git fails
-        self.assertEqual(len(new_commits), 1)
-        self.assertEqual(len(applied), 0)
-        self.assertEqual(new_commits, self.single_commit)
+        # A failed search is taken as nothing found
+        with mock.patch.object(control, 'run_git',
+                               side_effect=command.CommandExc('bad', None)):
+            self.assertEqual({}, control.build_applied_map([plus]))
 
 
 class TestGetCommitsForPick(unittest.TestCase):

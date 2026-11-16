@@ -584,67 +584,66 @@ def get_branch_commits():
     return current_branch, commits
 
 
-def check_already_applied(commits, target_branch='ci/master'):
-    """Check which commits are already applied to the target branch
+def find_applied(commit, target_branch='ci/master'):
+    """Find a commit on the target branch which may already apply a commit
+
+    A commit picked with 'git cherry-pick -x' says which commit it comes
+    from, so look for that first. Failing that, look for a commit with the
+    same subject, which may be the same change applied some other way, so is
+    only a hint for the agent to check.
+
+    The subject must match exactly. A search for it in the commit messages
+    finds longer subjects too, e.g. 'Prepare v2026.10' finds 'Prepare
+    v2026.10-rc4', as well as pickman's commits recording the cherry-picks,
+    which list the subjects in their bodies. The search is for a fixed
+    string, since a subject can hold characters such as '+' or '(' which
+    mean something else in a regular expression.
 
     Args:
-        commits (list): List of CommitInfo tuples to check
-        target_branch (str): Branch to check against (default: ci/master)
+        commit (CommitInfo): Commit to look for
+        target_branch (str): Branch to look in
 
     Returns:
-        tuple: (new_commits, applied) where:
-            new_commits: list of CommitInfo for commits not yet applied
-            applied: list of CommitInfo for commits already applied
+        str: Short hash of the commit found, or None if there is none
     """
-    new_commits = []
-    applied = []
-
-    for commit in commits:
-        # Check if a commit with the same subject exists in target branch
-        try:
-            # Use git log with --grep to search for the subject
-            # Escape any special characters in the subject for grep
-            escaped_subject = commit.subject.replace('"', '\\"')
-            result = run_git(['log', '--oneline', target_branch,
-                             f'--grep={escaped_subject}', '-1'])
-            if result.strip():
-                # Found a commit with the same subject
-                applied.append(commit)
-                tout.info(f'Skipping {commit.chash} (already applied): '
-                         f'{commit.subject}')
-            else:
-                new_commits.append(commit)
-        except Exception:  # pylint: disable=broad-except
-            # If grep fails, assume the commit is not applied
-            new_commits.append(commit)
-
-    return new_commits, applied
+    picked = run_git(['log', '--format=%h', '--fixed-strings', '-1',
+                      f'--grep=(cherry picked from commit {commit.hash}',
+                      target_branch])
+    if picked:
+        return picked.split()[0]
+    found = run_git(['log', '--format=%h %s', '--fixed-strings',
+                     f'--grep={commit.subject}', target_branch])
+    for line in found.splitlines():
+        chash, _, subject = line.partition(' ')
+        if subject == commit.subject:
+            return chash
+    return None
 
 
-def build_applied_map(commits):
-    """Build a mapping of commit hashes to their applied counterparts
-
-    Checks which commits have already been applied to the target branch
-    and returns a dict mapping original hashes to the applied hashes.
+def build_applied_map(commits, target_branch='ci/master'):
+    """Find the commits which may already be applied to the target branch
 
     Args:
-        commits (list): List of CommitInfo tuples to check
+        commits (list of CommitInfo): Commits to check
+        target_branch (str): Branch to look in
 
     Returns:
-        dict: Mapping of original commit hash to applied commit hash
+        dict: Maps the hash of each commit which may be applied to the short
+            hash of the commit on the target branch which may apply it
     """
-    _, applied = check_already_applied(commits)
-
     applied_map = {}
-    if applied:
-        for c in applied:
-            escaped_subject = c.subject.replace('"', '\\"')
-            result = run_git(['log', '--oneline', 'ci/master',
-                             f'--grep={escaped_subject}', '-1'])
-            if result.strip():
-                applied_hash = result.split()[0]
-                applied_map[c.hash] = applied_hash
-        tout.info(f'Found {len(applied)} potentially already applied'
+    for commit in commits:
+        try:
+            applied = find_applied(commit, target_branch)
+        except Exception:  # pylint: disable=broad-except
+            # If the search fails, take the commit as not applied
+            continue
+        if applied:
+            tout.info(f'{commit.chash} may already be applied as {applied}: '
+                      f'{commit.subject}')
+            applied_map[commit.hash] = applied
+    if applied_map:
+        tout.info(f'Found {len(applied_map)} potentially already applied'
                   ' commit(s)')
     return applied_map
 
