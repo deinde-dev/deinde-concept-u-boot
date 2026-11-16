@@ -178,7 +178,7 @@ UCLASS_DRIVER(syscon) = {
 	.pre_probe = syscon_pre_probe,
 };
 
-static const struct udevice_id generic_syscon_ids[] = {
+static __maybe_unused const struct udevice_id generic_syscon_ids[] = {
 	{ .compatible = "syscon" },
 	{ }
 };
@@ -189,7 +189,7 @@ U_BOOT_DRIVER(generic_syscon) = {
 #if IS_ENABLED(CONFIG_OF_REAL)
 	.bind           = dm_scan_fdt_dev,
 #endif
-	.of_match = generic_syscon_ids,
+	.of_match = of_match_ptr(generic_syscon_ids),
 };
 
 /*
