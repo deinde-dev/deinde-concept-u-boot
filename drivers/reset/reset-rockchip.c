@@ -121,8 +121,8 @@ int rockchip_reset_bind_lut(struct udevice *pdev,
 	struct rockchip_reset_priv *priv;
 	int ret;
 
-	ret = device_bind_driver_to_node(pdev, "rockchip_reset", "reset",
-					 dev_ofnode(pdev), &rst_dev);
+	ret = device_bind(pdev, DM_DRIVER_GET(rockchip_reset), "reset", NULL,
+			  dev_ofnode(pdev), &rst_dev);
 	if (ret) {
 		debug("Warning: No rockchip reset driver: ret=%d\n", ret);
 		return ret;
