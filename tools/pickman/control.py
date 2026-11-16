@@ -5954,6 +5954,14 @@ def _report_run_passed(remote, merge_req, run, dbs):
 # test/py/console_base.py
 LAB_MARKERS = ('Lab failure: ', 'Lab timeout: ')
 
+# What labgrid prints when someone else holds the board's place, in which case
+# test/py never gets as far as the console
+PLACE_MARKERS = ('is not acquired by your user', 'is not acquired on this '
+                 'computer', 'is acquired by a different user')
+
+# Start of labgrid's error line
+LABGRID_PREFIX = 'labgrid-client: '
+
 # Start of each line of a job log: GitLab's timestamp and stream
 RE_LOG_PREFIX = re.compile(r'^\d{4}-\d\d-\d\dT[\d:.]+Z \S+ ?')
 
@@ -5962,22 +5970,27 @@ RE_COLOUR = re.compile(r'\x1b\[[\d;]*[mK]')
 
 
 def lab_failure(log_tail):
-    """Find why test/py gave up on a lab board, from a job's log
+    """Find why a job could not use its lab board, from the job's log
+
+    This covers test/py giving up on the board, and labgrid refusing the
+    board because someone else holds its place
 
     Args:
         log_tail (str): The end of the job's log
 
     Returns:
         tuple: (reason, error), where reason is test/py's 'Lab failure: ...'
-            line and error is the line before it, which normally gives the
-            error behind it, or '' if there is none; or None if the job
-            does not fail in this way
+            line or labgrid's error line, and error is the line before it,
+            which normally gives the error behind it, or '' if there is
+            none; or None if the job does not fail in either way
     """
     lines = [RE_COLOUR.sub('', RE_LOG_PREFIX.sub('', line)).strip()
              for line in (log_tail or '').splitlines()]
     for i, line in enumerate(lines):
         pos = min((line.find(marker) for marker in LAB_MARKERS
                    if marker in line), default=-1)
+        if pos == -1 and any(marker in line for marker in PLACE_MARKERS):
+            pos = max(line.find(LABGRID_PREFIX), 0)
         if pos != -1:
             error = next((prev for prev in reversed(lines[:i]) if prev), '')
             return line[pos:], error
@@ -6000,9 +6013,9 @@ def _lab_note(lab):
         lines.append(f'- [{name}]({job.web_url}): {reason}')
         if error:
             lines.append(f'  - {error}')
-    return ('\n\nNot attempted, since test/py gave up on the lab board; '
-            'please check the board, or the log if U-Boot may not reach its '
-            'prompt:\n' + '\n'.join(lines))
+    return ('\n\nNot attempted, since test/py gave up on the lab board or '
+            'could not get it; please check the board, or the log if U-Boot '
+            'may not reach its prompt:\n' + '\n'.join(lines))
 
 
 def _select_failed_jobs(remote, merge_req, dbs, attempt):

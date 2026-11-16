@@ -464,12 +464,15 @@ for failed pipelines. For each failed pipeline:
 
 1. Pickman fetches the failed job logs from GitLab
 2. Pickman leaves out jobs where test/py gives up on the lab board ('Lab
-   failure' or 'Lab timeout' in the log), and jobs which also fail in the
-   newest pipelines of at least two other MRs from the last two days, e.g.
-   because a lab board is broken, since the series cannot be the cause. It
-   lists them on the MR, with the reason test/py gives for each lab failure,
-   so that someone can look into the lab. It does not retry them. If no other
-   failures remain, it stops there
+   failure' or 'Lab timeout' in the log), jobs which cannot get the board
+   since someone else holds its labgrid place, and jobs which also fail in
+   the newest pipelines of at least two other MRs from the last two days,
+   e.g. because a lab board is broken, since the series cannot be the
+   cause. It lists them on the MR, with the reason test/py or labgrid gives
+   for each lab failure, so that someone can look into the lab. It does not
+   retry them. If no other failures remain, it stops there. A job which
+   reaches GitLab's time limit is not counted as a lab failure, since the
+   series may make the board hang
 3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
 4. The fix is pushed to the MR branch, triggering a new pipeline
@@ -801,7 +804,7 @@ time the target moves. Until its pipeline passes, such an MR is rebased only
 while the agent is addressing comments.
 
 A pipeline which fails only in jobs which the pipeline fix leaves alone, since
-they also fail in other MRs or test/py gave up on the lab board, counts as
+they also fail in other MRs or the lab board was not usable, counts as
 passing here, since the series is not to blame. pickman waits for the pipeline
 fix to look at a failed pipeline before rebasing, so that it knows which kind
 of failure it is.
