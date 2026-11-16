@@ -107923,3 +107923,54 @@ Only sandbox was built, so the Qualcomm UFS regulator code and the OP-TEE RPMB c
 
 ---
 
+## 2026-10-31: us/main
+
+Branch: cherry-21b087049df1
+
+Commits:
+- 21b087049df1 phy: Add Axiado eMMC PHY driver
+- f79df8488647 mmc: Add Axiado SDHCI driver
+- bf622c66e6dc arm: dts: ax3005: Add SDHCI, eMMC PHY and clock node
+- f77229cb1ca1 configs: ax3005_scm3005: Enable eMMC support
+- 5a92645e1f90 Merge patch series "Add eMMC support for Axiado SCM3005 board"
+
+### Conversation log
+The repository wasn't clean: an interactive rebase on another branch was in progress, and my checkout moved HEAD away from it. I'll put HEAD back where the rebase left it before doing anything else.
+
+None of these are in ci/master yet. Now the first cherry-pick:
+
+The delta matches and split-check changed nothing. Building:
+
+The failure comes from a stale /tmp/pickman build directory left by another worktree (/tmp/wt-cherry-6b4b1c8dc464-v8). I'll rebuild with mrproper:
+
+Build passes. Next commit:
+
+Now the merge commit:
+
+The merge is empty, as expected. I'll commit it with the original message:
+
+All 5 commits are in. Sandbox doesn't compile these drivers, so I'll also try building the board they're for:
+
+I cherry-picked all 5 commits onto ci/master in branch cherry-21b087049df1 without conflicts or fix-ups. The sandbox build passes.
+
+**I interrupted another rebase, then put it back.** `git status` showed an interactive rebase in progress on cherry-20209a62bc85, with 28 commands still to run. It was paused at an edit. I ran the checkout before noticing, which moved HEAD off that rebase. I put HEAD back at 1691d9122b10, so the rebase is exactly as it was and nothing was lost. I then did all the cherry-picks in a separate worktree, `/tmp/wt-cherry-21b087049df1`, so the main tree wasn't touched again. The branch is a normal ref in the repo, so it's ready to push from either place.
+
+**Commits** (`git log --oneline -n 7` confirms all 5):
+```
+6cd8f1a55014 Merge patch series "Add eMMC support for Axiado SCM3005 board"
+1502c772f2c0 configs: ax3005_scm3005: Enable eMMC support
+fc7fb34b7f43 arm: dts: ax3005: Add SDHCI, eMMC PHY and clock node
+11585417cb2f mmc: Add Axiado SDHCI driver
+28df0621bd09 phy: Add Axiado eMMC PHY driver
+```
+
+- **Deltas:** every commit matches its original exactly in files and line counts. The merge commit is empty, as expected, and keeps the original message.
+- **split-check:** changed nothing in any commit, so no amendments or notes were needed.
+- **Builds:**
+  - **Sandbox:** passed after every pick and at the end, with no warnings. Sandbox doesn't compile the new drivers, though.
+  - **ax3005_scm3005:** I also built this board. It builds cleanly and both `axiado_sdhci.o` and `phy-axiado-emmc.o` are compiled.
+
+**Stale build directory:** the first sandbox build failed because `/tmp/pickman` held build output from another worktree (`/tmp/wt-cherry-6b4b1c8dc464-v8`) and the linker looked for a file there. Rebuilding with `-m` (mrproper) fixed it. That paused rebase also builds into `/tmp/pickman`. My build now leaves `/tmp/pickman` pointing at my worktree, so when the rebase resumes it may hit the same error if it doesn't clean first.
+
+---
+
