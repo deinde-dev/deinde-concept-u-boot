@@ -665,7 +665,24 @@ On successful cherry-pick, an entry is appended to ``.pickman-history`` with:
 - The agent's conversation log
 
 This file is committed automatically and included in the MR description when
-using ``-p``.
+using ``-p``. The entry is committed on the cherry-pick branch, which pickman
+checks out first in case the agent leaves HEAD elsewhere. If it cannot check
+the branch out cleanly, it stops with an error rather than commit the entry
+anywhere else.
+
+The commits only count as applied once they are in a merge request, so that
+a set which never gets that far is not lost for good. Each is then linked to
+the merge request in the database, so that it can be found if the merge
+request is closed without merging. Without ``-p`` the commits stay 'pending'
+and the source does not move on; once the branch is in a merge request, use
+``commit-source`` to move on.
+
+If the push or the merge request fails, the commits are recorded as
+'unpushed' and the source moves on, since running the agent again each time
+would not help. The failure is logged as an error, every ``step`` and ``poll``
+round says how many commits are unpushed, and they are listed with the parked
+conflicts (see `Parked Conflicts`_), for ``parked --retry --push`` to try
+again.
 
 Ad-hoc Cherry-picking
 ~~~~~~~~~~~~~~~~~~~~~
@@ -912,7 +929,9 @@ To list the commits which were tried, hit a conflict and moved past::
 
 The exit code is 1 while anything is parked, so this can be used as a check.
 Each parked commit is a change which is simply missing from the downstream
-branch, with no merge request and no CI failure to show for it.
+branch, with no merge request and no CI failure to show for it. Commits which
+were picked but never reached a merge request ('unpushed') are listed too,
+since they are just as missing.
 
 A conflict is often only true of the tree as it stood at the time.  Once the
 change it clashed with has itself been picked, the commit applies cleanly, so
@@ -921,10 +940,22 @@ it is worth trying again::
     ./tools/pickman/pickman parked us/main --retry
 
 This tries each parked commit against the current branch and puts the ones
-which now apply on a branch of their own, ready to push with ``-p``.  Those
-which still conflict stay parked.  Merges are left alone, since a merge
-carries no change of its own.  Use ``-n`` to see what would apply without
-keeping anything.
+which now apply on a branch of their own, ready to push with ``-p``.  They are
+only recorded as applied once that branch is in a merge request, so without
+``-p`` they stay parked.  Those which still conflict stay parked.  Merges are
+left alone, since a merge carries no change of its own.  Use ``-n`` to see what
+would apply without keeping anything.
+
+The retry is a plain cherry-pick, with no agent, so it does not redo the work
+the agent did on a conflict.  An unpushed commit which needed that work
+conflicts again, and is then parked as a conflict, which says what it is.
+
+To have the retry take commits which pickman wrongly recorded as applied,
+e.g. ones which never reached a merge request, set them to 'unpushed' by hand
+first, with the poll stopped and a backup of the database::
+
+    sqlite3 .pickman.db "UPDATE pcommit SET status = 'unpushed' \
+        WHERE status = 'applied' AND chash LIKE 'b092bf67377e%'"
 
 When a set of commits is applied, pickman checks whether any of them touch a
 file which a parked commit also touches, and says so on the console and in the
@@ -1181,7 +1212,9 @@ Tables
     - ``mergereq_id``: Foreign key to mergereq table (optional)
     - ``subject``: Commit subject line
     - ``author``: Commit author
-    - ``status``: One of 'pending', 'applied', 'skipped', 'conflict'
+    - ``status``: One of 'pending', 'applied' (in a merge request),
+      'skipped', 'conflict' or 'unpushed' (picked, but the push or the merge
+      request failed)
     - ``cherry_hash``: Hash of the cherry-picked commit (if applied)
 
 **mergereq**

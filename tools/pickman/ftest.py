@@ -60,6 +60,9 @@ def tearDownModule():  # pylint: disable=invalid-name
 
 # Test URL constants
 TEST_OAUTH_URL = 'https://oauth2:test-token@gitlab.com/group/project.git'
+
+# Merge request made by a test, number 5
+MR_URL = 'https://gitlab.com/group/project/-/merge_requests/5'
 TEST_HTTPS_URL = 'https://gitlab.com/group/project.git'
 TEST_SSH_URL = 'git@gitlab.com:group/project.git'
 TEST_MR_URL = 'https://gitlab.com/group/project/-/merge_requests/42'
@@ -3636,8 +3639,9 @@ class TestExecuteApply(unittest.TestCase):
         database.Database.instances.clear()
 
     def test_execute_apply_success(self):
-        """Test execute_apply with successful cherry-pick."""
-        with terminal.capture():
+        """Test execute_apply with successful cherry-pick, not pushed"""
+        tout.init(tout.INFO)
+        with terminal.capture() as (stdout, _):
             dbs = database.Database(self.db_path)
             dbs.start()
             dbs.source_set('us/next', 'abc123')
@@ -3654,16 +3658,22 @@ class TestExecuteApply(unittest.TestCase):
                 with mock.patch.object(control, 'run_git',
                                        return_value='abc123'):
                     ret, success, conv_log = control.execute_apply(
-                        dbs, 'us/next', commits, 'cherry-branch', args)
+                        dbs, 'us/next', commits, 'cherry-branch', args,
+                        'bbb222')
 
             self.assertEqual(ret, 0)
             self.assertTrue(success)
             self.assertEqual(conv_log, 'conversation log')
 
-            # Check commit was added to database
+            # The commit is not applied until it is in a merge request, so
+            # it stays pending and the source stays where it is
             commit_rec = dbs.commit_get('aaa111')
             self.assertIsNotNone(commit_rec)
-            self.assertEqual(commit_rec[6], 'applied')  # status field
+            self.assertEqual(commit_rec[6], 'pending')  # status field
+            self.assertEqual('abc123', dbs.source_get('us/next'))
+            self.assertIn("stays where it is. Once the branch is in a merge "
+                          "request, use 'pickman commit-source us/next "
+                          "aaa111a' to move on", stdout.getvalue())
             dbs.close()
 
     def _start_db(self):
@@ -3804,7 +3814,7 @@ class TestExecuteApply(unittest.TestCase):
                  mock.patch.object(control, 'run_git',
                                    return_value='cherry-s'), \
                  mock.patch.object(control, 'push_mr',
-                                   return_value=True) as mock_push:
+                                   return_value=MR_URL) as mock_push:
                 ret, success, _ = control.execute_apply(
                     dbs, 'us/next', commits, 'cherry-s', args, 'bbb888')
 
@@ -3864,12 +3874,43 @@ class TestExecuteApply(unittest.TestCase):
                 with mock.patch.object(control, 'run_git',
                                        return_value='abc123'):
                     with mock.patch.object(gitlab, 'push_and_create_mr',
-                                           return_value='https://mr/url'):
+                                           return_value=MR_URL):
                         ret, success, _ = control.execute_apply(
-                            dbs, 'us/next', commits, 'cherry-branch', args)
+                            dbs, 'us/next', commits, 'cherry-branch', args,
+                            'bbb222')
 
             self.assertEqual(ret, 0)
             self.assertTrue(success)
+
+            # The commit is applied, linked to its merge request
+            rec = dbs.commit_get('ccc333')
+            self.assertEqual('applied', rec[6])
+            mreq = dbs.mergereq_get(5)
+            self.assertEqual(mreq[0], rec[3])
+            self.assertEqual((dbs.source_get_id('us/next'), 'cherry-branch',
+                              5, 'open', MR_URL), mreq[1:6])
+            self.assertEqual('bbb222', dbs.source_get('us/next'))
+            dbs.close()
+
+    def test_record_mr_existing(self):
+        """Test linking commits to a merge request which is already known"""
+        with terminal.capture():
+            dbs = self._start_db()
+            sid = dbs.source_get_id('us/next')
+            for chash in ('a1', 'b2'):
+                dbs.commit_add(chash, sid, chash, 'Author')
+            control.record_mr(dbs, 'us/next', 'cherry-x', MR_URL, ['a1'])
+            control.record_mr(dbs, 'us/next', 'cherry-x', MR_URL, ['b2'])
+            mreq = dbs.mergereq_get(5)
+            self.assertEqual(mreq[0], dbs.commit_get('a1')[3])
+            self.assertEqual(mreq[0], dbs.commit_get('b2')[3])
+            self.assertEqual(1, len(dbs.mergereq_get_by_source(sid)))
+
+            # A URL with no merge-request number cannot be linked
+            dbs.commit_add('c3', sid, 'c3', 'Author')
+            control.record_mr(dbs, 'us/next', 'cherry-x', 'https://odd', ['c3'])
+            self.assertEqual(('applied', None),
+                             (dbs.commit_get('c3')[6], dbs.commit_get('c3')[3]))
             dbs.close()
 
     def test_execute_apply_push_fails(self):
@@ -3893,11 +3934,27 @@ class TestExecuteApply(unittest.TestCase):
                                        return_value='abc123'):
                     with mock.patch.object(gitlab, 'push_and_create_mr',
                                            return_value=None):
-                        ret, success, _ = control.execute_apply(
-                            dbs, 'us/next', commits, 'cherry-branch', args)
+                        with terminal.capture() as (_, stderr):
+                            ret, success, _ = control.execute_apply(
+                                dbs, 'us/next', commits, 'cherry-branch',
+                                args, 'bbb222')
 
             self.assertEqual(ret, 1)
             self.assertTrue(success)  # cherry-pick succeeded, MR failed
+
+            # The commit is parked rather than lost, and the source moves
+            # on, so that the agent does not run again each round
+            rec = dbs.commit_get('ddd444')
+            self.assertEqual(('unpushed', None), (rec[6], rec[3]))
+            self.assertEqual('bbb222', dbs.source_get('us/next'))
+            self.assertEqual(
+                [(rec[0], 'ddd444', 'Test commit')],
+                control.status_parked(dbs, dbs.source_get_id('us/next')))
+            self.assertIn("cherry-branch: cannot push it or create its merge "
+                          "request (see the error above), so its 1 commit(s) "
+                          "are recorded as 'unpushed'; use 'pickman parked "
+                          "us/next --retry' to try them again",
+                          stderr.getvalue())
             dbs.close()
 
     def test_execute_apply_agent_aborted(self):
@@ -9421,6 +9478,24 @@ class TestStatus(unittest.TestCase):
                 ret = control.do_step(args, dbs)
         self.assertEqual(ret, 0)
         self.assertIn('2 parked conflict(s) for us/master', stderr.getvalue())
+        self.assertNotIn('not in a merge request', stderr.getvalue())
+
+    def test_step_reports_unpushed(self):
+        """Test that each round says when commits are picked but unpushed"""
+        self._add_conflicts([('a' * 40, 'A fix')])
+        dbs = self._open_db()
+        dbs.commit_add('b' * 40, dbs.source_get_id('us/master'), 'Lost',
+                       'Me', status='unpushed')
+        dbs.commit()
+        args = argparse.Namespace(cmd='step', source='us/master')
+        with mock.patch.object(control, '_do_step', return_value=0):
+            with terminal.capture() as (_, stderr):
+                control.do_step(args, dbs)
+        self.assertIn('2 parked conflict(s) for us/master', stderr.getvalue())
+        self.assertIn('1 commit(s) for us/master are picked but not in a '
+                      'merge request, since a push failed - run '
+                      "'pickman parked us/master --retry --push' to try "
+                      'them again', stderr.getvalue())
 
 
 class TestParked(unittest.TestCase):
@@ -9531,13 +9606,79 @@ class TestParked(unittest.TestCase):
         self.assertEqual(ret, 1)  # one still conflicts
         self.assertIn('1 now apply cleanly, 1 still conflict', out)
         self.assertIn('applies: #1 Now applies', out)
-        self.assertIn('Created branch parked-retry', out)
+        self.assertIn('Created branch parked-retry; the commits stay parked '
+                      "until it is in a merge request, e.g. with '--push'",
+                      out)
 
-        # The one which applied is no longer parked; the other still is
+        # Nothing is applied until it is in a merge request
+        dbs = self._open()
+        self.assertEqual(dbs.commit_get('a' * 40)[6], 'conflict')
+        self.assertEqual(dbs.commit_get('b' * 40)[6], 'conflict')
+
+    def _open(self):
+        """Open the test database, ready for use"""
         database.Database.instances.clear()
         dbs = database.Database(self.db_path)
         dbs.start()
         self.addCleanup(dbs.close)
+        return dbs
+
+    def test_retry_push(self):
+        """Test that a retry pushed to a merge request is applied"""
+        self._add([('a' * 40, 'Now applies'), ('b' * 40, 'Still broken')])
+        self._mock_git({'a' * 40})
+        with mock.patch.object(gitlab, 'push_and_create_mr',
+                               return_value=MR_URL) as push:
+            with terminal.capture():
+                ret = control.do_pickman(self._args(retry=True, push=True))
+        self.assertEqual(ret, 1)  # one still conflicts
+        self.assertEqual('parked-retry', push.call_args[0][1])
+
+        dbs = self._open()
+        rec = dbs.commit_get('a' * 40)
+        self.assertEqual('applied', rec[6])
+        self.assertEqual(dbs.mergereq_get(5)[0], rec[3])
+        self.assertEqual(dbs.commit_get('b' * 40)[6], 'conflict')
+
+    def test_retry_push_fails(self):
+        """Test that a retry which cannot be pushed stays parked"""
+        self._add([('a' * 40, 'Now applies')])
+        self._mock_git({'a' * 40})
+        with mock.patch.object(gitlab, 'push_and_create_mr',
+                               return_value=None):
+            with terminal.capture() as (_, stderr):
+                ret = control.do_pickman(self._args(retry=True, push=True))
+        self.assertEqual(ret, 1)
+        self.assertIn('Cannot push parked-retry or create its merge request '
+                      '(see the error above), so the commits stay parked',
+                      stderr.getvalue())
+        self.assertEqual(self._open().commit_get('a' * 40)[6], 'conflict')
+
+    def test_retry_unpushed(self):
+        """Test retrying commits which were picked but never pushed
+
+        The retry has no agent, so one which needed the agent's work on a
+        conflict conflicts again, and is then parked as a conflict.
+        """
+        database.Database.instances.clear()
+        dbs = database.Database(self.db_path)
+        dbs.start()
+        sid = dbs.source_get_id('us/master')
+        dbs.commit_add('a' * 40, sid, 'Applies', 'Me', status='unpushed')
+        dbs.commit_add('b' * 40, sid, 'Needed the agent', 'Me',
+                       status='unpushed')
+        dbs.commit()
+        dbs.close()
+        database.Database.instances.clear()
+
+        self._mock_git({'a' * 40})
+        with mock.patch.object(gitlab, 'push_and_create_mr',
+                               return_value=MR_URL):
+            with terminal.capture() as (stdout, _):
+                ret = control.do_pickman(self._args(retry=True, push=True))
+        self.assertEqual(ret, 1)
+        self.assertIn('2 parked conflict(s) for us/master', stdout.getvalue())
+        dbs = self._open()
         self.assertEqual(dbs.commit_get('a' * 40)[6], 'applied')
         self.assertEqual(dbs.commit_get('b' * 40)[6], 'conflict')
 
@@ -11391,6 +11532,53 @@ class HistoryRepo(unittest.TestCase):
     def _history(self):
         """Read the history file in the work tree"""
         return tools.read_file(control.HISTORY_FILE, binary=False)
+
+
+class TestWriteHistory(HistoryRepo):
+    """Tests for committing the history entry for a cherry-pick"""
+
+    def _write(self, branch='cherry'):
+        """Write the history entry for the test commits
+
+        Returns:
+            tuple: (bool from write_history(), stderr output)
+        """
+        commits = [control.CommitInfo('a' * 40, 'a' * 12, 'A fix', 'Me')]
+        with terminal.capture() as (_, stderr):
+            ok = control.write_history('us/main', commits, branch, 'Done')
+        return ok, stderr.getvalue()
+
+    def test_on_branch(self):
+        """Test that the entry is committed on the cherry-pick branch"""
+        self.assertTrue(self._write()[0])
+        self.assertEqual('pickman: Record cherry-pick of 1 commits from '
+                         'us/main', self._log('cherry')[0])
+
+    def test_detached(self):
+        """Test that a detached HEAD does not take the entry"""
+        _git(self.repo, 'checkout', '-q', '--detach', 'master')
+        self.assertTrue(self._write()[0])
+        self.assertEqual('cherry', _git(self.repo, 'rev-parse',
+                                        '--abbrev-ref', 'HEAD'))
+        self.assertIn('pickman: Record cherry-pick', self._log('cherry')[0])
+        self.assertEqual('Record other', self._log('master')[0])
+
+    def test_no_branch(self):
+        """Test that the entry is not committed if the branch is missing"""
+        _git(self.repo, 'checkout', '-q', '--detach', 'master')
+        ok, err = self._write('missing')
+        self.assertFalse(ok)
+        self.assertIn('Cannot check out missing cleanly, so its '
+                      '.pickman-history entry is not committed', err)
+        self.assertEqual('Record other', self._log()[0])
+
+    def test_dirty(self):
+        """Test that the entry is not committed with other changes"""
+        tools.write_file('a.c', 'stray\n', binary=False)
+        ok, err = self._write()
+        self.assertFalse(ok)
+        self.assertIn('Cannot check out cherry cleanly', err)
+        self.assertEqual('Record cherry', self._log()[0])
 
 
 class TestHistoryConflict(HistoryRepo):
