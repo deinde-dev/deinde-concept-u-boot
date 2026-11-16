@@ -14,7 +14,6 @@ obj-$(CONFIG_FWU_MULTI_BANK_UPDATE) += fwu_updates/
 obj-$(CONFIG_LZMA) += lzma/
 obj-$(CONFIG_BZIP2) += bzip2/
 obj-$(CONFIG_FIT) += libfdt/
-obj-$(CONFIG_OF_LIVE) += of_live.o
 obj-$(CONFIG_CMD_DHRYSTONE) += dhry/
 obj-$(CONFIG_ARCH_AT91) += at91/
 obj-$(CONFIG_OPTEE_LIB) += optee/
@@ -61,6 +60,7 @@ obj-$(CONFIG_PMBUS) += pmbus.o
 endif
 
 obj-$(CONFIG_IMAGE_SPARSE) += image-sparse.o
+obj-$(CONFIG_OF_LIVE) += of_live.o
 obj-$(CONFIG_TPM) += tpm-common.o
 ifeq ($(CONFIG_TPM),y)
 obj-$(CONFIG_TPM) += tpm_api.o

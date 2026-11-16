@@ -107974,3 +107974,155 @@ fc7fb34b7f43 arm: dts: ax3005: Add SDHCI, eMMC PHY and clock node
 
 ---
 
+## 2026-10-30: us/main
+
+Branch: cherry-4d7ef92a7746
+
+Commits:
+- 4d7ef92a7746 config.mk: support vendor generic includes
+- b092bf67377e tools: qcom: introduce mkmbn library
+- 1c7d41332964 tools: qcom: add mkmbn.py
+- 3dc0363e6cfe doc: board/qualcomm: update docs for new u-boot.mbn target
+- de8320514943 mach-snapdragon: add kconfig infra for building MBN files
+- e1d874e2b353 configs: qcom: use mkmbn and stop building ELF files
+- a3947bcf9e5d Revert "dm: SMEM (Shared memory) uclass"
+- a881d3c2e14b smem: drop drivers/smem
+- 6821bd9ec530 Revert "test: smem: add basic smem test"
+- 36252c0dfd1d Revert "drivers: smem: sandbox"
+- b5e13f6ce6e7 mach-snapdragon: fix reserved memory carveout
+- b2faaad70e10 soc: qcom: import smem from Linux 6.11-rc2
+- 17b30b404142 soc: qcom: smem: adjust headers for U-Boot
+- b429ef216098 soc: qcom: smem: adjust for U-Boot
+- 5a36587b0730 soc: qcom: smem: get serial number from socinfo
+- cb61d619b265 soc: qcom: smem: stub functions
+- cacaec025074 soc: qcom: smem: add build infra
+- 0b57dc1c9bf6 mach-snapdragon: move memory parsing to its own file
+- ed40a06be832 mach-snapdragon: support parsing memory map from SMEM
+- 7c957182640d mach-snapdragon: fetch serial# from SMEM
+- 27573237b9ba configs: add qcom_sm8650_defconfig and debug fragment
+- 22fbc9cd07d7 Makefile: add SPL_REMAKE_ELF_LDSCRIPT feature
+- 55eb5c8c908c of_live: support in SPL
+- 38e74ca73429 drivers: allow clk_stub and spmi in SPL
+- bf9340ea0588 mach-snapdragon: boot0.h: split out msm8916_boot0.h
+- 533ec26e9116 qualcomm: add u-boot-spl-elf-sdm845.lds
+- 35178bbc74cc mach-snapdragon: Kconfig: fix duplicate SYS_MALLOC_LEN
+- c88264b08317 mach-snapdragon: Kconfig: changes / additions to support SPL
+- 24ad31eb029e mach-snapdragon: boot0.h: add sdm845_spl_boot0.h
+- 78e52b751940 mach-snapdragon: move board_usb_init to dragonboard410c.c
+- 050621b08992 mach-snapdragon: add board_spl.c and split out common code
+- 13fcd99609ce qualcomm: add defconfig, env and docs for SPL on sdm845
+- 71b38310d275 dts: add u-boot specific sdm845 .dtsi and a .dtsi for shift-axolotl
+- 4d7792435709 configs: qcom_defconfig: Limit MMC transfer size to prevent controller timeout
+- 175819691fe8 i2c: geni: reset controller on NACK to recover from invalid bus state
+- 65e976a38215 clk: qcom: Add driver for SC7180 GCC
+- a3e90288644e pinctrl: qcom: add SC7180 pinctrl driver
+- f9c8d7c132f6 qcom_defconfig: Enable SC7180 GCC
+- a3be6eaab7bf phy: qcom-qmp-ufs: Add SC7180 support
+- 3962e3247c6e configs: Add qcom_qcs6490_rubikpi3_defconfig
+- ed752fc538ab doc: board: qualcomm: Document RUBIK Pi 3
+- 914dd2f5d18a CI: add Qualcomm requirements.txt for world build
+- 0e57103b740e Merge branch 'qcom-next' of https://git.u-boot-project.org/u-boot/custodians/u-boot-snapdragon into next
+
+### Conversation log
+The main checkout is in the middle of another interactive rebase (branch cherry-20209a62bc85). I'll leave that alone and do this work in a separate worktree.
+
+Now check the "maybe already applied" commits against ci/master.
+
+Several have differences; let me inspect them.
+
+The smem series in ci/master looks like an earlier revision. Let me compare the resulting file contents to see whether ci/master already matches the final version.
+
+ci/master carries an earlier revision of the smem series. Let me check the dram/board commits too, and where the ci/master-only changes came from.
+
+The target uses CONFIG_PPL_TEXT_BASE; I'll keep that and replace REMAKE_ELF with QCOM_GENERATE_MBN.
+
+Now build-test sandbox (using a separate output dir so I don't clash with the paused rebase, which also builds into /tmp/pickman).
+
+Build OK. Now confirm the four smem revert/drop commits are fully reflected in ci/master.
+
+Rename detection mapped the deleted msm_smem.c onto drivers/soc/qcom/smem.c. I'll restore that file to its ci/master version.
+
+Now b5e13f6ce6e7 (reserved memory carveout fix):
+
+Exactly as expected. Committing with the original message and a note.
+
+Now 5a36587b0730: the only difference from v1 is a bounds-check fix, so apply just that.
+
+v2's dram.c already uses gd->dram[], so it can be taken verbatim. Now I'll build the 0b57dc1c9bf6 equivalent.
+
+Now ed40a06be832. First its Kconfig hunk:
+
+dragonboard410c fails to link: qcom-priv.h defines a non-static stub for qcom_configure_capsule_updates() and v2's dram.c now includes it too. Let me see how upstream deals with this.
+
+The old note line didn't get removed, so I'll fix the message.
+
+The smem series is now at v2. Next I'll cherry-pick the remaining commits in a loop, stopping at the first conflict, with split-check and a sandbox build after each one.
+
+Since SPL_OF_LIVE now exists, OF_LIVE gets SYMBOL_HAS_SPL, so its conf_nospl entry is ignored. That makes the entry stale, so I'll drop it. Now resolving the conflicts:
+
+Let me also double-check 22fbc9cd07d7 (Makefile SPL change), since it went in without conflict:
+
+That's fine: the top-level Makefile already refers to CONFIG_SPL_TEXT_BASE there. Continuing:
+
+Resolving: keep HEAD's plain CONFIG_ form, add the spmi line, and drop CLK_STUB from conf_nospl now that SPL_CLK_STUB exists.
+
+Status: through 78e52b751940; now resolving the board.c conflict in 050621b08992 (board_spl.c split).
+
+The code removed from board.c matches upstream's removal line for line, so mem_map.c is right as is. Continuing:
+
+split-check wants to add SYSRESET_PSCI to conf_nospl, which would affect every board's SPL. Let me check whether any SPL build currently gets sysreset_psci.
+
+CONFIG_SPL_BUILD behaves the same here, so the Makefile is fine. Continuing with the rest:
+
+Upstream targets the "build all platforms in a single job" job. Let me see what world-build jobs ci/master has.
+
+Qualcomm boards are 64-bit, so I'll move the addition to "build all 64bit ARM platforms" instead.
+
+Now the merge commit:
+
+Now a final sanity check: compare every file the series touches against upstream's qcom-next tip.
+
+Most of these are just ci/master's long-standing divergence (CI files, Makefile, sandbox). Let me check the smaller qcom-related ones.
+
+Those are all pre-existing ci/master differences. Final log, the sandbox build, and builds of the qcom boards, including the new SPL and sm8650 defconfigs:
+
+35 new commits; the other 8 are already in ci/master. Final builds:
+
+The sdm845 SPL build gives one linker warning (RWX LOAD segment). Let me check whether upstream gives the same warning.
+
+Upstream gives the same warning, so it is not caused by this branch. Now I'll remove my worktree so the branch isn't left checked out anywhere.
+
+Branch `cherry-4d7ef92a7746` is ready to push. Sandbox builds with no warnings or errors. It has 35 new commits on top of ci/master. The other 8 of the 43 were already in ci/master.
+
+The main checkout was in the middle of a rebase on another branch (`cherry-20209a62bc85`), so I left it alone. I did this work in a temporary worktree, which I've now removed. I built into `/tmp/pickman-4d7ef` rather than `/tmp/pickman`, because that rebase's build steps also use `/tmp/pickman`.
+
+**Builds:** sandbox, qcom, qcom_dragonboard410c, qcm6490, qcom_sm8650, qcom_qcs6490_rubikpi3 and qcom_ipq9574_mmc all build cleanly. qcom_sdm845_spl gives one linker warning ("LOAD segment with RWX permissions"); upstream qcom-next gives the same warning.
+
+**Skipped, already applied:** a3947bcf9e5d, 6821bd9ec530, 36252c0dfd1d, b2faaad70e10, 17b30b404142, cacaec025074 (same content), 7c957182640d (only a comment differs) and cb61d619b265 (ci/master's stubs are better: static inline, plus a `qcom_socinfo_init()` stub).
+
+**The smem series needed hand work.** ci/master has the v1 (Nov 2024) of the smem series, but us/main has the reworked v2 (May 2026), so several of the "maybe already applied" commits really differ. I brought ci/master up to v2 and kept ci/master's own later changes, such as `SMEM_HOST_COUNT` 25:
+- **b429ef216098:** only the v1→v2 changes (static SMEM storage and MMU mapping).
+- **5a36587b0730:** only the `serial_num` bounds-check fix.
+- **0b57dc1c9bf6:** v2's `dram.c`, and the duplicate memory parser removed from `board.c`. ci/master was running its own copy there.
+- **ed40a06be832:**
+  - v2's `dram.c`, `qcom-priv.h` and `rampart.h`, plus its `board.c` changes.
+  - A leftover `select SMEM` (the symbol no longer exists) replaced with `select QCOM_SMEM`.
+  - The capsule-update stub made `static inline`, so dragonboard410c links. Upstream only does this later, in 050621b08992.
+- **a881d3c2e14b:** only the MAINTAINERS line was still missing.
+
+**Other fix-ups** (each has a one-line note in its commit message):
+- **e1d874e2b353:** kept `CONFIG_PPL_TEXT_BASE` in three defconfigs.
+- **55eb5c8c908c:** converted to `IS_ENABLED()`, and removed OF_LIVE from `scripts/conf_nospl` because SPL_OF_LIVE now exists.
+- **38e74ca73429:** resolved `drivers/Makefile` using `CONFIG_SPMI`, and removed CLK_STUB from `conf_nospl` for the same reason. split-check undid the `$(PHASE_)` change in `drivers/spmi/Makefile`.
+- **050621b08992:** kept ci/master's early return for an internal FDT, and split-check converted the macros.
+- **914dd2f5d18a:**
+  - Upstream's CI job doesn't exist in ci/master's `.gitlab-ci.yml`, so I added the Qualcomm requirements line to the 64-bit ARM world-build job.
+  - In `.azure-pipelines.yml` I left out the stray `setuptools` line that upstream adds.
+- **0e57103b740e (merge):** an empty commit. All 42 qcom-next commits were already picked.
+
+**Decision for you:** in 050621b08992, split-check wanted to add SYSRESET_PSCI to `scripts/conf_nospl`. I didn't, because about 10 imx8 boards use it in SPL (it selects SPL_ARM_PSCI_FW when SPL_SYSRESET is set), and `board.c` is no longer built in SPL anyway. Please confirm you agree.
+
+**Deltas:** every commit's file and line counts are close to the original. The exceptions are the smem commits above, where I applied only the v1→v2 difference on purpose.
+
+---
+

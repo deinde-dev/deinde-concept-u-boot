@@ -12,42 +12,13 @@
 #include <sort.h>
 #include <soc/qcom/smem.h>
 
-#define SMEM_USABLE_RAM_PARTITION_TABLE 402
-#define RAM_PART_NAME_LENGTH            16
-#define RAM_NUM_PART_ENTRIES            32
-#define CATEGORY_SDRAM 0x0E
-#define TYPE_SYSMEM 0x01
+#include "qcom-priv.h"
+#include "rampart.h"
 
 static struct {
 	phys_addr_t start;
 	phys_size_t size;
 } prevbl_ddr_banks[CONFIG_NR_DRAM_BANKS] __section(".data") = { 0 };
-
-struct smem_ram_ptable_hdr {
-	u32 magic[2];
-	u32 version;
-	u32 reserved;
-	u32 len;
-} __packed;
-
-struct smem_ram_ptn {
-	char name[RAM_PART_NAME_LENGTH];
-	u64 start;
-	u64 size;
-	u32 attr;
-	u32 category;
-	u32 domain;
-	u32 type;
-	u32 num_partitions;
-	u32 reserved[3];
-	u32 reserved2[2]; /* The struct grew by 8 bytes at some point */
-} __packed;
-
-struct smem_ram_ptable {
-	struct smem_ram_ptable_hdr hdr;
-	u32 reserved;     /* Added for 8 bytes alignment of header */
-	struct smem_ram_ptn parts[RAM_NUM_PART_ENTRIES];
-} __packed;
 
 int dram_init(void)
 {
@@ -95,13 +66,24 @@ int dram_init_banksize(void)
 	return 0;
 }
 
+#define entry_field(v, e, field) (v == 0 ? ((struct ram_partition_entry_v0 *)(e))->field : \
+				 (v == 1 ? ((struct ram_partition_entry_v1 *)(e))->field : \
+				  ((struct ram_partition_entry_v3 *)(e))->field))
+#define entry_start(v, e) entry_field(v, e, start_address)
+#define entry_length(v, e) entry_field(v, e, length)
+#define entry_category(v, e) entry_field(v, e, partition_category)
+#define entry_domain(v, e) entry_field(v, e, partition_domain)
+#define entry_type(v, e) entry_field(v, e, partition_type)
+
 /* Parse memory map from SMEM, return the number of entries */
 static int qcom_parse_memory_smem(phys_addr_t *ram_end)
 {
 	size_t size;
 	int i, j = 0, ret;
-	struct smem_ram_ptable *ram_ptable;
-	struct smem_ram_ptn *p;
+	struct usable_ram_partition_table_header *header;
+	u32 ver;
+	void *entry;
+	u32 entry_size; // Size of each RAM partition entry (version dependent)
 
 	ret = qcom_smem_init();
 	if (ret) {
@@ -109,43 +91,89 @@ static int qcom_parse_memory_smem(phys_addr_t *ram_end)
 		return ret;
 	}
 
-	ram_ptable = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_USABLE_RAM_PARTITION_TABLE, &size);
-	if (!ram_ptable) {
+	header = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_USABLE_RAM_PARTITION_TABLE, &size);
+	if (!header) {
 		debug("Failed to find SMEM partition.\n");
 		return -ENODEV;
 	}
 
+	ver = header->version;
+	debug("SMEM RAM partition table version %u. %u entries\n", ver, header->num_partitions);
+
+	switch (ver) {
+	case 0:
+		entry_size = sizeof(struct ram_partition_entry_v0);
+		entry = ((struct usable_ram_partition_table_v0 *)header)->entries;
+		break;
+	case 1:
+		entry_size = sizeof(struct ram_partition_entry_v1);
+		entry = ((struct usable_ram_partition_table_v1 *)header)->entries;
+		break;
+	default:
+		pr_warn("Unknown SMEM ram partition table version!\n");
+	case 2:
+	case 3:
+		entry_size = sizeof(struct ram_partition_entry_v3);
+		entry = ((struct usable_ram_partition_table_v3 *)header)->entries;
+		break;
+	}
+
+	debug("SMEM RAM partition entry size: %u bytes\n", entry_size);
+
 	/* Check validy of RAM */
-	for (i = 0; i < RAM_NUM_PART_ENTRIES && j < CONFIG_NR_DRAM_BANKS; i++) {
-		p = &ram_ptable->parts[i];
-		if (p->category != CATEGORY_SDRAM || p->type != TYPE_SYSMEM)
+	for (i = 0; i < header->num_partitions && j < CONFIG_NR_DRAM_BANKS; i++, entry += entry_size) {
+		debug("Entry %d: [%#010llx - %#010llx]\n", i, entry_start(ver, entry),
+		      (u64)entry_start(ver, entry) + entry_length(ver, entry));
+		debug("          cat: %#04x type: %#04x domain: %#04x\n", entry_category(ver, entry),
+		      entry_type(ver, entry), entry_domain(ver, entry));
+
+
+		if (entry_category(ver, entry) != RAM_PARTITION_SDRAM ||
+		    entry_type(ver, entry) != RAM_PARTITION_SYS_MEMORY)
 			continue;
-		if (!p->size && !p->start)
+		if (!entry_length(ver, entry) && !entry_start(ver, entry))
 			break;
 
-		prevbl_ddr_banks[j].start = p->start;
-		prevbl_ddr_banks[j].size = p->size;
+		prevbl_ddr_banks[j].start = entry_start(ver, entry);
+		prevbl_ddr_banks[j].size = entry_length(ver, entry);
 		*ram_end = max(*ram_end, prevbl_ddr_banks[j].start + prevbl_ddr_banks[j].size);
 		j++;
 	}
 
 	if (j == CONFIG_NR_DRAM_BANKS)
-		log_err("SMEM: More than CONFIG_NR_DRAM_BANKS (%u) entries!", CONFIG_NR_DRAM_BANKS);
+		pr_err("SMEM: More than CONFIG_NR_DRAM_BANKS (%u) entries!", CONFIG_NR_DRAM_BANKS);
 
 	return j;
 }
 
-static void qcom_parse_memory_dt(const fdt64_t *memory, int banks, phys_addr_t *ram_end)
+static void qcom_parse_memory_dt(const fdt64_t *fdt, int *banks, phys_addr_t *ram_end)
 {
+	int offset;
+	const fdt64_t *memory;
+	int memsize;
 	int i, j;
 
-	if (banks > CONFIG_NR_DRAM_BANKS)
+	*ram_end = 0;
+
+	offset = fdt_path_offset(fdt, "/memory");
+	if (offset < 0)
+		return;
+
+	memory = fdt_getprop(fdt, offset, "reg", &memsize);
+	if (!memory)
+		return;
+
+	*banks = min(memsize / (2 * sizeof(u64)), (ulong)CONFIG_NR_DRAM_BANKS);
+
+	if (memsize / sizeof(u64) > CONFIG_NR_DRAM_BANKS * 2)
+		log_err("Provided more than the max of %d memory banks\n", CONFIG_NR_DRAM_BANKS);
+
+	if (*banks > CONFIG_NR_DRAM_BANKS)
 		log_err("Provided more memory banks than we can handle\n");
 
-	for (i = 0, j = 0; i < banks * 2; i += 2, j++) {
+	for (i = 0, j = 0; i < *banks * 2; i += 2, j++) {
 		prevbl_ddr_banks[j].start = get_unaligned_be64(&memory[i]);
 		prevbl_ddr_banks[j].size = get_unaligned_be64(&memory[i + 1]);
-		/* SM8650 boards sometimes have empty regions! */
 		if (!prevbl_ddr_banks[j].size) {
 			j--;
 			continue;
@@ -154,45 +182,41 @@ static void qcom_parse_memory_dt(const fdt64_t *memory, int banks, phys_addr_t *
 	}
 }
 
-/*
- * Parse the memory layout from FDT or SMEM:
+/**
+ * The generic memory parsing code in U-Boot lacks a few things that we
+ * need on Qualcomm:
  *
- * If using an internal FDT (where the memory map must have
- * been written by hand) then we prefer using the layout from
- * there. This allows overriding SMEM.
+ * 1. It sets gd->ram_size and gd->ram_base to represent a single memory block
+ * 2. setup_dest_addr() later relocates U-Boot to ram_base + ram_size, the end
+ *    of that first memory block.
  *
- * If using an external FDT (coming from ABL), we prefer SMEM
- * since it is likely to be more accurate / simple, especially
- * on newer platforms.
+ * This results in all memory beyond U-Boot being unusable in Linux when booting
+ * with EFI.
  *
- * If SMEM parsing fails, we always try to fall back to FDT.
+ * Since the ranges in the memory node may be out of order, the only way for us
+ * to correctly determine the relocation address for U-Boot is to parse all
+ * memory regions and find the highest valid address.
  *
+ * We can't use fdtdec_setup_memory_banksize() since it stores the result in
+ * gd->bd, which is not yet allocated.
+ *
+ * @fdt: FDT blob to parse /memory node from
+ * @fdt_is_internal: is the FDT one embedded into U-Boot or was it provided by a prior
+ *		     bootloader stage? This determined if we should try to rely on SMEM
+ *		     (internal FDT) or error. We currently assume that if we are passed
+ *		     an external FDT then it already has the memory map populated.
+ *
+ * Return: 0 on success or -ENODATA if /memory node is missing or incomplete
  */
-void qcom_parse_memory(bool fdt_is_internal)
+int qcom_parse_memory(const void *fdt, bool fdt_is_internal)
 {
-	ofnode node;
-	const fdt64_t *memory;
-	int memsize;
 	phys_addr_t ram_end = 0;
 	int banks;
 
-	node = ofnode_path("/memory");
-	if (!ofnode_valid(node)) {
-		log_err("No memory node found in device tree!\n");
-		return;
-	}
-	memory = ofnode_read_prop(node, "reg", &memsize);
-	if (!memory) {
-		log_err("No memory configuration was provided by the previous bootloader!\n");
-		return;
-	}
+	qcom_memmap_source = fdt_is_internal ? QCOM_MEMMAP_SOURCE_INTERNAL_FDT
+					     : QCOM_MEMMAP_SOURCE_EXTERNAL_FDT;
 
-	banks = min(memsize / (2 * sizeof(u64)), (ulong)CONFIG_NR_DRAM_BANKS);
-
-	if (memsize / sizeof(u64) > CONFIG_NR_DRAM_BANKS * 2)
-		log_err("Provided more than the max of %d memory banks\n", CONFIG_NR_DRAM_BANKS);
-
-	qcom_parse_memory_dt(memory, banks, &ram_end);
+	qcom_parse_memory_dt(fdt, &banks, &ram_end);
 
 	/*
 	 * If using an internal FDT but the memory node is empty
@@ -202,6 +226,7 @@ void qcom_parse_memory(bool fdt_is_internal)
 		banks = qcom_parse_memory_smem(&ram_end);
 		if (banks < 0)
 			panic("Couldn't find a valid memory map!\n");
+		qcom_memmap_source = QCOM_MEMMAP_SOURCE_SMEM;
 	}
 
 	/* Sort our RAM banks -_- */
@@ -209,6 +234,6 @@ void qcom_parse_memory(bool fdt_is_internal)
 
 	gd->ram_base = prevbl_ddr_banks[0].start;
 	gd->ram_size = ram_end - gd->ram_base;
-	debug("%d banks, ram_base = %#011lx, ram_size = %#011llx, ram_end = %#011llx\n",
-	      banks, gd->ram_base, gd->ram_size, ram_end);
+
+	return 0;
 }
