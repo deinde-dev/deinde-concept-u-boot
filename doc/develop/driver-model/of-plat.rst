@@ -300,6 +300,18 @@ dev_prop_clk_id()
     ID of a clock in the 'clocks' property, by index, for a platform with no
     clock driver in the current phase
 
+dev_prop_gpio()
+    GPIO from a GPIO-list property, by index
+
+dev_prop_irq()
+    Interrupt from the 'interrupts-extended' property, by index
+
+dev_prop_dev()
+    Device which a phandle with no arguments refers to
+
+dev_prop_string()
+    String, or NULL if absent
+
 Declaring the driver
 ''''''''''''''''''''
 

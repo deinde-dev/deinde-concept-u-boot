@@ -2158,6 +2158,10 @@
 		dev-prop-array = <1 2 3>;
 		dev-prop-rw = <5 6 7 0>;
 		clocks = <&clk_sandbox 2>;
+		dev-prop-gpios = <&gpio_b 5 0 0 0 0>;
+		interrupts-extended = <&irq 4 0>;
+		dev-prop-partner = <&gpio_b>;
+		dev-prop-string = "hello";
 		dev-prop-unused = <99>;
 	};
 

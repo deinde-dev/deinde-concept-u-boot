@@ -97,23 +97,32 @@ int irq_get_interrupt_parent(const struct udevice *dev,
 }
 
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
-int irq_get_by_phandle(struct udevice *dev, const struct phandle_2_arg *cells,
-		       struct irq *irq)
+int irq_get_by_ofplat_idx(struct udevice *dev, uint idx, const int *arg,
+			  int arg_count, struct irq *irq)
 {
 	int ret;
 
-	ret = device_get_by_ofplat_idx(cells->idx, &irq->dev);
+	ret = device_get_by_ofplat_idx(idx, &irq->dev);
 	if (ret)
 		return ret;
-	irq->id = cells->arg[0];
+	if (!arg_count)
+		return -EINVAL;
+	irq->id = arg[0];
 
 	/*
 	 * Note: we could call irq_of_xlate_default() here to do this properly.
 	 * For now, this is good enough for existing cases.
 	 */
-	irq->flags = cells->arg[1];
+	irq->flags = arg_count > 1 ? arg[1] : 0;
 
 	return 0;
+}
+
+int irq_get_by_phandle(struct udevice *dev, const struct phandle_2_arg *cells,
+		       struct irq *irq)
+{
+	return irq_get_by_ofplat_idx(dev, cells->idx, cells->arg,
+				     ARRAY_SIZE(cells->arg), irq);
 }
 #else
 static int irq_of_xlate_default(struct irq *irq,

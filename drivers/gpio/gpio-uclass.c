@@ -1354,23 +1354,31 @@ int gpio_get_list_count(struct udevice *dev, const char *list_name)
 #endif /* OF_PLATDATA */
 
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
+int gpio_request_by_ofplat_idx(struct udevice *dev, uint idx, const int *arg,
+			       int arg_count, struct gpio_desc *desc,
+			       int flags)
+{
+	struct ofnode_phandle_args args;
+	struct udevice *gpio_dev;
+	int ret, i;
+
+	ret = device_get_by_ofplat_idx(idx, &gpio_dev);
+	if (ret)
+		return ret;
+	args.args_count = arg_count;
+	for (i = 0; i < arg_count; i++)
+		args.args[i] = arg[i];
+
+	return gpio_request_tail(ret, NULL, &args, NULL, 0, desc, flags,
+				 false, gpio_dev);
+}
+
 int gpio_request_by_phandle(struct udevice *dev,
 			    const struct phandle_2_arg *cells,
 			    struct gpio_desc *desc, int flags)
 {
-	struct ofnode_phandle_args args;
-	struct udevice *gpio_dev;
-	const int index = 0;
-	int ret;
-
-	ret = device_get_by_ofplat_idx(cells->idx, &gpio_dev);
-	if (ret)
-		return ret;
-	args.args[0] = cells->arg[0];
-	args.args[1] = cells->arg[1];
-
-	return gpio_request_tail(ret, NULL, &args, NULL, index, desc, flags,
-				 index > 0, gpio_dev);
+	return gpio_request_by_ofplat_idx(dev, cells->idx, cells->arg,
+					  ARRAY_SIZE(cells->arg), desc, flags);
 }
 #endif
 

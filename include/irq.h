@@ -214,6 +214,22 @@ int irq_read_and_clear(struct irq *irq);
 int irq_get_interrupt_parent(const struct udevice *dev,
 			     struct udevice **interrupt_parent);
 
+/**
+ * irq_get_by_ofplat_idx() - Get an irq from its device index (of-platdata)
+ *
+ * With of-platdata, dtoc turns each phandle in 'interrupts-extended' into the
+ * index of the interrupt controller, followed by the arguments.
+ *
+ * @dev: Device containing the phandle
+ * @idx: Index of the interrupt controller in dt-plat.c
+ * @arg: Arguments from the interrupt specifier
+ * @arg_count: Number of arguments
+ * @irq: A pointer to a irq struct to initialise
+ * Return: 0 if OK, or a negative error code
+ */
+int irq_get_by_ofplat_idx(struct udevice *dev, uint idx, const int *arg,
+			  int arg_count, struct irq *irq);
+
 struct phandle_2_arg;
 /**
  * irq_get_by_phandle() - Get an irq by its phandle information (of-platadata)

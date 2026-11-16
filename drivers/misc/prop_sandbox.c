@@ -6,7 +6,9 @@
  */
 
 #include <dm.h>
+#include <irq.h>
 #include <regmap.h>
+#include <asm/gpio.h>
 #include <asm/test.h>
 #include <dm/prop.h>
 
@@ -51,6 +53,21 @@ static int sandbox_dev_prop_of_to_plat(struct udevice *dev)
 				     "dev-prop-present", &plat->u32_val);
 	plat->clk_id_ret = dev_prop_clk_id(dev, dt, clocks, "clocks", 0,
 					   &plat->clk_id);
+
+	/* sandbox_vpl has no GPIO support in SPL, TPL and VPL */
+	if (IS_ENABLED(CONFIG_DM_GPIO))
+		plat->gpio_ret = dev_prop_gpio(dev, dt, dev_prop_gpios,
+					       "dev-prop-gpios", 0,
+					       &plat->gpio, GPIOD_IS_IN);
+	else
+		plat->gpio_ret = -ENOSYS;
+	plat->irq_ret = dev_prop_irq(dev, dt, interrupts_extended,
+				     "interrupts-extended", 0, &plat->irq);
+	plat->partner_ret = dev_prop_dev(dev, dt, dev_prop_partner,
+					 "dev-prop-partner", UCLASS_GPIO,
+					 &plat->partner);
+	plat->str = dev_prop_string(dev, dt, dev_prop_string,
+				    "dev-prop-string");
 
 	/* sandbox_vpl has no regmap support in TPL and VPL */
 	if (!IS_ENABLED(CONFIG_REGMAP))
