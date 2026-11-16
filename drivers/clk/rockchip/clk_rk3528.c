@@ -1710,23 +1710,14 @@ static int rk3528_clk_ofdata_to_platdata(struct udevice *dev)
 
 static int rk3528_clk_bind(struct udevice *dev)
 {
-	struct udevice *sys_child;
-	struct sysreset_reg *priv;
 	int ret;
 
 	/* The reset driver does not have a device node, so bind it here */
-	ret = device_bind_driver(dev, "rockchip_sysreset", "sysreset",
-				 &sys_child);
-	if (ret) {
+	ret = rockchip_sysreset_bind(dev,
+				     offsetof(struct rk3528_cru, glb_srst_fst),
+				     offsetof(struct rk3528_cru, glb_srst_snd));
+	if (ret)
 		debug("Warning: No sysreset driver: ret=%d\n", ret);
-	} else {
-		priv = malloc(sizeof(struct sysreset_reg));
-		priv->glb_srst_fst_value = offsetof(struct rk3528_cru,
-						    glb_srst_fst);
-		priv->glb_srst_snd_value = offsetof(struct rk3528_cru,
-						    glb_srst_snd);
-		dev_set_priv(sys_child, priv);
-	}
 
 #if IS_ENABLED(CONFIG_RESET_ROCKCHIP)
 	ret = offsetof(struct rk3528_cru, softrst_con[0]);
