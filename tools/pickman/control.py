@@ -7,7 +7,7 @@
 """Control module for pickman - handles the main logic."""
 
 from collections import namedtuple
-from datetime import date
+from datetime import date, datetime
 import fnmatch
 import json
 import os
@@ -50,6 +50,13 @@ POLL_REQUESTS = ('stop', 'restart')
 
 # Seconds between checks for a request while 'poll' sleeps
 REQUEST_CHECK = 5
+
+# Status of a commit which is picked, but whose branch cannot be pushed or
+# put in a merge request
+UNPUSHED = 'unpushed'
+
+# Statuses of the commits which are missing from the tree, so are parked
+PARKED = ('conflict', UNPUSHED)
 
 # Branch names to compare
 BRANCH_MASTER = 'ci/master'
@@ -2763,7 +2770,7 @@ def status_backlog(last_commit, source):
     return merges, commits
 
 
-def status_parked(dbs, source_id):
+def status_parked(dbs, source_id, statuses=PARKED):
     """Get the commits parked as conflicts for a source, oldest first
 
     A parked conflict is a commit which pickman tried to cherry-pick, hit a
@@ -2773,15 +2780,20 @@ def status_parked(dbs, source_id):
     commit id stands in for age, since there is no timestamp: a lower id was
     added earlier.
 
+    A commit which is picked but whose branch cannot be pushed, or put in a
+    merge request, is just as missing, so is parked too.
+
     Args:
         dbs (Database): Database instance
         source_id (int): Source branch id
+        statuses (tuple of str): Statuses to include
 
     Return:
         list of tuple: (id, chash, subject) for each parked commit, oldest
             (lowest id) first
     """
-    recs = dbs.commit_get_by_source(source_id, 'conflict')
+    recs = [rec for status in statuses
+            for rec in dbs.commit_get_by_source(source_id, status)]
     return sorted((rec[0], rec[1], rec[4]) for rec in recs)
 
 
@@ -2857,6 +2869,11 @@ def parked_retry(dbs, parked, branch, dry_run=False):
     cleanly.  Retrying costs nothing and lands work which would otherwise sit
     missing for good.
 
+    The retry is a plain cherry-pick, with no agent. So an unpushed commit
+    which needed the agent to resolve a conflict conflicts again, and is then
+    parked as a conflict, which says what it is. The commits which apply are
+    only recorded as applied once they are in a merge request, by the caller.
+
     Merges are left alone, since a merge carries no change of its own.
 
     Args:
@@ -2898,14 +2915,12 @@ def parked_retry(dbs, parked, branch, dry_run=False):
             _abort_in_progress()
             still.append(rec)
 
+    if not dry_run:
+        set_status(dbs, [rec[1] for rec in still], 'conflict')
     if dry_run or not applied:
         gitutil.checkout_branch(branch)
         gitutil.delete_branch(name)
         return applied, still, None
-
-    for rec in applied:
-        dbs.commit_set_status(rec[1], 'applied')
-    dbs.commit()
     return applied, still, name
 
 
@@ -2977,10 +2992,16 @@ def do_parked(args, dbs):
             desc = ('These commits were parked as conflicts and apply '
                     'cleanly now that the tree has moved on.\n\n' +
                     '\n'.join(f'- {rec[1][:11]} {rec[2]}' for rec in applied))
-            if not push_mr(args, name, title, desc):
+            mr_url = push_mr(args, name, title, desc)
+            if not mr_url:
+                tout.error(f'Cannot push {name} or create its merge '
+                           'request (see the error above), so the commits '
+                           'stay parked')
                 return 1
+            record_mr(dbs, source, name, mr_url, [rec[1] for rec in applied])
         else:
-            tout.info(f'Created branch {name}')
+            tout.info(f'Created branch {name}; the commits stay parked until '
+                      "it is in a merge request, e.g. with '--push'")
 
     return 1 if still else 0
 
@@ -3805,12 +3826,31 @@ def get_history(fname, source, commits, branch_name, conv_log):
 def write_history(source, commits, branch_name, conv_log):
     """Write an entry to the pickman history file and commit it
 
+    The entry belongs on the cherry-pick branch, but the agent may leave HEAD
+    elsewhere, e.g. detached at someone else's work. So check out the branch
+    first, and stop rather than commit anywhere else.
+
     Args:
         source (str): Source branch name
         commits (list): list of CommitInfo tuples
         branch_name (str): Name of the cherry-pick branch
         conv_log (str): The agent's conversation output
+
+    Returns:
+        bool: True if the entry is committed, False if the branch cannot be
+            checked out cleanly
     """
+    try:
+        if run_git(['rev-parse', '--abbrev-ref', 'HEAD']) != branch_name:
+            run_git(['checkout', branch_name])
+        dirty = run_git(['status', '--porcelain', '--untracked-files=no'])
+    except command.CommandExc:
+        dirty = True
+    if dirty:
+        tout.error(f'Cannot check out {branch_name} cleanly, so its '
+                   f'{HISTORY_FILE} entry is not committed')
+        return False
+
     _, commit_msg = get_history(HISTORY_FILE, source, commits, branch_name,
                                 conv_log)
 
@@ -3819,6 +3859,7 @@ def write_history(source, commits, branch_name, conv_log):
     run_git(['commit', '-m', commit_msg])
 
     tout.info(f'Updated {HISTORY_FILE}')
+    return True
 
 
 def push_mr(args, branch_name, title, description):
@@ -3831,12 +3872,72 @@ def push_mr(args, branch_name, title, description):
         description (str): MR description
 
     Returns:
-        bool: True on success, False on failure
+        str: URL of the merge request, or None on failure
     """
-    mr_url = gitlab_api.push_and_create_mr(
+    return gitlab_api.push_and_create_mr(
         args.remote, branch_name, args.target, title, description
     )
-    return bool(mr_url)
+
+
+def set_status(dbs, hashes, status):
+    """Set the status of some commits
+
+    Args:
+        dbs (Database): Database instance
+        hashes (list of str): Hashes of the upstream commits
+        status (str): New status
+    """
+    for chash in hashes:
+        dbs.commit_set_status(chash, status)
+    dbs.commit()
+
+
+def record_mr(dbs, source, branch_name, mr_url, hashes):
+    """Record that some commits are applied, in a merge request
+
+    A commit only counts as applied once it is in a merge request, so that
+    one which never gets there is not lost. Each is linked to the merge
+    request, so that it can be found if that is closed without merging.
+
+    Args:
+        dbs (Database): Database instance
+        source (str): Source branch name
+        branch_name (str): Branch holding the commits
+        mr_url (str): URL of the merge request
+        hashes (list of str): Hashes of the upstream commits
+    """
+    match = gitlab_api.RE_MR_IID.search(mr_url)
+    mr_iid = int(match.group(1)) if match else None
+    rec = dbs.mergereq_get(mr_iid) if mr_iid else None
+    if mr_iid and not rec:
+        dbs.mergereq_add(dbs.source_get_id(source), branch_name, mr_iid,
+                         'open', mr_url,
+                         datetime.now().isoformat(timespec='seconds'))
+        rec = dbs.mergereq_get(mr_iid)
+    set_status(dbs, hashes, 'applied')
+    if rec:
+        for chash in hashes:
+            dbs.commit_set_mergereq(chash, rec[0])
+        dbs.commit()
+
+
+def record_unpushed(dbs, source, branch_name, hashes):
+    """Record that some commits are picked but not in a merge request
+
+    The push or the merge request fails, so the commits are listed with the
+    parked conflicts, for 'pickman parked --retry' to take again.
+
+    Args:
+        dbs (Database): Database instance
+        source (str): Source branch name
+        branch_name (str): Branch holding the commits
+        hashes (list of str): Hashes of the upstream commits
+    """
+    set_status(dbs, hashes, UNPUSHED)
+    tout.error(f'{branch_name}: cannot push it or create its merge request '
+               f'(see the error above), so its {len(hashes)} commit(s) are '
+               f"recorded as '{UNPUSHED}'; use 'pickman parked {source} "
+               "--retry' to try them again")
 
 
 def _is_merge_in_progress():
@@ -4334,6 +4435,42 @@ def handle_already_applied(dbs, source, commits, branch_name, conv_log, args,
     return 0
 
 
+# pylint: disable-next=too-many-arguments
+def _apply_description(source, commits, branch_name, shared, port, conv_log):
+    """Build the description of the merge request for a set of commits
+
+    Args:
+        source (str): Source branch name
+        commits (list): List of CommitInfo namedtuples
+        branch_name (str): Branch name for cherry-picks
+        shared (dict): Files also touched by parked conflicts, from
+            parked_overlap()
+        port (extern.PortResult): Result of porting changes to separate
+            projects
+        conv_log (str): The agent's conversation output
+
+    Returns:
+        str: Description
+    """
+    summary = format_history(source, commits, branch_name)
+    note = parked_overlap_note(shared)
+    ext_note = ''
+    if port.urls:
+        ext_note = 'Changes to separate projects:\n'
+        for url in port.urls:
+            needs = port.waiting.get(url)
+            ext_note += f'- {url}'
+            if needs:
+                names = ' and '.join(needs)
+                ext_note += (f' (draft: needs a release of {names} '
+                             'with these changes)')
+            ext_note += '\n'
+        ext_note += '\n'
+    note += split_note(BRANCH_MASTER, branch_name)
+    return (f'{summary}\n\n{ext_note}{note}\n'
+            f'### Conversation log\n{conv_log}')
+
+
 def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # pylint: disable=too-many-locals,too-many-branches
     """Execute the apply operation: run agent, update database, push MR
 
@@ -4447,43 +4584,34 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
         _abort_in_progress()
         success = False
 
-    # Update commit status based on result
-    status = 'applied' if success else 'conflict'
-    for commit in commits:
-        dbs.commit_set_status(commit.hash, status)
-    dbs.commit()
-
     ret = 0 if success else 1
+    if not success:
+        set_status(dbs, [c.hash for c in commits], 'conflict')
 
     if success:
         # Push and create MR if requested
         if args.push:
             title = f'[pickman] {commits[-1].subject}'
-            summary = format_history(source, commits, branch_name)
-            note = parked_overlap_note(shared)
-            ext_note = ''
-            if port.urls:
-                ext_note = 'Changes to separate projects:\n'
-                for url in port.urls:
-                    needs = port.waiting.get(url)
-                    ext_note += f'- {url}'
-                    if needs:
-                        names = ' and '.join(needs)
-                        ext_note += (f' (draft: needs a release of {names} '
-                                     'with these changes)')
-                    ext_note += '\n'
-                ext_note += '\n'
-            note += split_note(BRANCH_MASTER, branch_name)
-            description = (f'{summary}\n\n{ext_note}{note}\n'
-                           f'### Conversation log\n{conv_log}')
-            if not push_mr(args, branch_name, title, description):
+            description = _apply_description(source, commits, branch_name,
+                                             shared, port, conv_log)
+            mr_url = push_mr(args, branch_name, title, description)
+            hashes = [c.hash for c in commits]
+            if mr_url:
+                record_mr(dbs, source, branch_name, mr_url, hashes)
+            else:
+                record_unpushed(dbs, source, branch_name, hashes)
                 ret = 1
         else:
-            tout.info(f"Use 'pickman commit-source {source} "
-                      f"{commits[-1].chash}' to update the database")
+            tout.info(f'{branch_name} is not pushed, so its commits stay '
+                      f'pending and {source} stays where it is. Once the '
+                      f"branch is in a merge request, use 'pickman "
+                      f"commit-source {source} {commits[-1].chash}' to move "
+                      'on')
 
-    # Update database with the last processed commit if successful
-    if success and advance_to is not None:
+    # Move on once the set is in a merge request, or recorded as unpushed so
+    # that it is not lost. Running the agent again each time a push fails
+    # would not help
+    if success and args.push and advance_to is not None:
         dbs.source_set(source, advance_to)
         dbs.commit()
 
@@ -4517,8 +4645,8 @@ def do_apply(args, dbs, info=None):
                                            info.advance_to)
 
     # Write history file if successful
-    if success:
-        write_history(source, commits, branch_name, conv_log)
+    if success and not write_history(source, commits, branch_name, conv_log):
+        ret = 1
 
     # Return to original branch
     current_branch = run_git(['rev-parse', '--abbrev-ref', 'HEAD'])
@@ -6273,6 +6401,12 @@ def do_step(args, dbs):
         warn = parked_warning(args.source, status_parked(dbs, source_id))
         if warn:
             tout.warning(warn)
+        unpushed = status_parked(dbs, source_id, (UNPUSHED,))
+        if unpushed:
+            tout.error(f'{len(unpushed)} commit(s) for {args.source} are '
+                       'picked but not in a merge request, since a push '
+                       f"failed - run 'pickman parked {args.source} --retry "
+                       "--push' to try them again")
     return ret
 
 
