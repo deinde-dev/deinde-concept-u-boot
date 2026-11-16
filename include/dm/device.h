@@ -302,13 +302,6 @@ struct udevice_id {
 #endif /* IS_ENABLED(CONFIG_OF_REAL) */
 
 /*
- * With of-platdata and no devicetree, each device is declared by dtoc, so
- * nothing reads the driver's match table and it only wastes space
- */
-#define DM_OF_MATCH_UNUSED	\
-	(IS_ENABLED(CONFIG_OF_PLATDATA) && !IS_ENABLED(CONFIG_OF_REAL))
-
-/*
  * of_to_plat_ptr() - Use an of_to_plat() method only with OF_CONTROL
  *
  * Unlike of_match_ptr(), this keeps the method with of-platdata, where
@@ -377,7 +370,6 @@ struct udevice_id {
  */
 struct driver {
 	char *name;
-	enum uclass_id id;
 #if DM_OF_MATCH_UNUSED
 	const struct of_match_needs_of_match_ptr *of_match;
 #else
@@ -400,12 +392,21 @@ struct driver {
 #else
 	struct dm_absent child_post_remove;
 #endif
+	const void *ops;	/* driver-specific operations */
+	uint32_t flags;
+#if DM_OF_MATCH_UNUSED
+	u16 priv_auto;
+	u16 plat_auto;
+	u16 per_child_auto;
+	u16 per_child_plat_auto;
+	u16 id;
+#else
 	int priv_auto;
 	int plat_auto;
 	int per_child_auto;
 	int per_child_plat_auto;
-	const void *ops;	/* driver-specific operations */
-	uint32_t flags;
+	enum uclass_id id;
+#endif
 #if IS_ENABLED(CONFIG_ACPIGEN)
 	const struct acpi_ops *acpi_ops;
 #endif

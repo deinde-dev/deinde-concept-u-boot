@@ -91,7 +91,6 @@ struct udevice;
  */
 struct uclass_driver {
 	const char *name;
-	enum uclass_id id;
 	int (*post_bind)(struct udevice *dev);
 	int (*pre_probe)(struct udevice *dev);
 	int (*post_probe)(struct udevice *dev);
@@ -108,12 +107,22 @@ struct uclass_driver {
 	int (*child_pre_probe)(struct udevice *dev);
 	int (*child_post_probe)(struct udevice *dev);
 	int (*init)(struct uclass *class);
+	uint32_t flags;
+#if DM_OF_MATCH_UNUSED
+	u16 priv_auto;
+	u16 per_device_auto;
+	u16 per_device_plat_auto;
+	u16 per_child_auto;
+	u16 per_child_plat_auto;
+	u16 id;
+#else
 	int priv_auto;
 	int per_device_auto;
 	int per_device_plat_auto;
 	int per_child_auto;
 	int per_child_plat_auto;
-	uint32_t flags;
+	enum uclass_id id;
+#endif
 };
 
 /**

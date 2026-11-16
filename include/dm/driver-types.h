@@ -29,6 +29,13 @@ struct dm_absent {
 	__builtin_choose_expr(1, (struct dm_absent){ }, (_val))
 
 /*
+ * With of-platdata and no devicetree, each device is declared by dtoc, so
+ * nothing reads the driver's match table and it only wastes space
+ */
+#define DM_OF_MATCH_UNUSED	\
+	(IS_ENABLED(CONFIG_OF_PLATDATA) && !IS_ENABLED(CONFIG_OF_REAL))
+
+/*
  * dm_remove_ptr() - Use a method only if devices can be removed
  *
  * Without DM_DEVICE_REMOVE nothing calls the methods which remove or unbind a
