@@ -337,7 +337,10 @@ struct udevice_id {
  * @name: Device name
  * @id: Identifies the uclass we belong to
  * @of_match: List of compatible strings to match, and any identifying data
- * for each.
+ * for each. Set this with of_match_ptr() in any driver which is used with
+ * of-platdata, so that the list is left out of the image when nothing reads
+ * it. In that case the member has a different type, so that the build fails
+ * for a driver which sets it directly.
  * @bind: Called to bind a device to its driver
  * @probe: Called to probe a device, i.e. activate it
  * @remove: Called to remove a device, i.e. de-activate it
@@ -372,7 +375,11 @@ struct udevice_id {
 struct driver {
 	char *name;
 	enum uclass_id id;
+#if DM_OF_MATCH_UNUSED
+	const struct of_match_needs_of_match_ptr *of_match;
+#else
 	const struct udevice_id *of_match;
+#endif
 	int (*bind)(struct udevice *dev);
 	int (*probe)(struct udevice *dev);
 	int (*remove)(struct udevice *dev);
