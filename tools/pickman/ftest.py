@@ -8067,11 +8067,12 @@ class TestFailedJobSelection(PipelineFailures):
             fix.assert_not_called()
             self.assertTrue(dbs.pfix_has(1, 100))
             dbs.close()
-    def _lab_job(self, name='samus', job_id=7):
+    def _lab_job(self, name='samus', job_id=7, log_tail=None):
         """Build a FailedJob for a board which test/py gives up on"""
         return gitlab.FailedJob(
             id=job_id, name=name, stage='test',
-            web_url=f'https://gitlab.com/job/{job_id}', log_tail=LAB_LOG)
+            web_url=f'https://gitlab.com/job/{job_id}',
+            log_tail=log_tail or LAB_LOG)
 
     def test_lab_failures_reported(self):
         """Test that lab failures are reported, not rebased or fixed"""
@@ -8105,6 +8106,35 @@ class TestFailedJobSelection(PipelineFailures):
 
             # Recorded, so reported only once, but not an attempt
             self.assertTrue(dbs.pfix_has(1, 100))
+            self.assertEqual(0, dbs.pfix_count(1))
+            dbs.close()
+
+    def test_place_failure_reported(self):
+        """Test that a board held by someone else is not fixed"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            job = self._lab_job('samus_tpl', 785073, PLACE_LOG)
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=[job]), \
+                 mock.patch.object(agent, 'fix_pipeline') as fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply:
+                result = control.process_pipeline_failures(
+                    'ci', [self._make_mr()], dbs, 'master', 3)
+
+            self.assertEqual(result, 0)
+            fix.assert_not_called()
+            msg = reply.call_args[0][2]
+            self.assertIn('test/py gave up on the lab board or could not get '
+                          'it', msg)
+            self.assertIn(
+                '- [samus_tpl](https://gitlab.com/job/785073): '
+                'labgrid-client: Error: place samus is not acquired by your '
+                'user', msg)
+            self.assertIn("  - INTERNALERROR> ValueError: Error 1 running "
+                          "['u-boot-test-getrole'", msg)
             self.assertEqual(0, dbs.pfix_count(1))
             dbs.close()
 
@@ -8154,6 +8184,20 @@ Marking connection bad - no other tests will run !
 2026-11-08T15:38:09.200000Z 01O \x1b[32;1m$ u-boot-test-release\x1b[0;m
 '''
 
+# Part of the log of a job whose board's place someone else holds, from job
+# 785073, where test/py stops before it reaches the console
+PLACE_LOG = """2026-11-16T13:15:08.669185Z 01E INTERNALERROR> ValueError: \
+Error 1 running ['u-boot-test-getrole', 'samus_tpl', '--configure']:
+2026-11-16T13:15:08.669185Z 01E INTERNALERROR> labgrid-client: Error: place \
+samus is not acquired by your user, acquired by labgrid. To work \
+simultaneously, labgrid can execute labgrid-client -p samus allow \
+ellesmere/gitlab-runner
+2026-11-16T13:15:08.778231Z 01O \x1b[32;1m$ U_BOOT_BOARD_IDENTITY="${ROLE}" \
+u-boot-test-release || true\x1b[0;m
+2026-11-16T13:15:09.219115Z 01E labgrid-client: Error: place samus is \
+acquired by a different user (kea/labgrid), use --kick if you are sure
+"""
+
 
 class TestLabFailure(unittest.TestCase):
     """Tests for lab_failure()"""
@@ -8171,6 +8215,20 @@ class TestLabFailure(unittest.TestCase):
         self.assertEqual(
             ("Lab timeout: Timeout executing 'ut dm'", ''),
             control.lab_failure("E   Lab timeout: Timeout executing 'ut dm'"))
+
+    def test_place(self):
+        """Test a board whose place someone else holds"""
+        self.assertEqual(
+            ('labgrid-client: Error: place samus is not acquired by your '
+             'user, acquired by labgrid. To work simultaneously, labgrid can '
+             'execute labgrid-client -p samus allow ellesmere/gitlab-runner',
+             "INTERNALERROR> ValueError: Error 1 running "
+             "['u-boot-test-getrole', 'samus_tpl', '--configure']:"),
+            control.lab_failure(PLACE_LOG))
+
+        # Without labgrid's prefix, the whole line is the reason
+        line = 'place xu3 is not acquired on this computer'
+        self.assertEqual((line, ''), control.lab_failure(line))
 
     def test_not_lab(self):
         """Test a job which fails for some other reason"""
