@@ -111,8 +111,9 @@ def test_saveenv(ubman):
     uuid_str = uuid.uuid4().hex.lower()
     set_env(ubman, 'uuid_var', uuid_str)
 
-    # Set env for random string including special characters
-    sc = "!#%&()*+,-./:;<=>?@[\\]^_`{|}~"
+    # Set env for random string including special characters. Leave out the
+    # backslash, since at the end of the string it escapes the closing quote
+    sc = "!#%&()*+,-./:;<=>?@[]^_`{|}~"
     rand_str = ''.join(
         random.choices(' ' + string.ascii_letters + sc + string.digits, k=300)
     )
