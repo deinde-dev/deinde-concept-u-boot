@@ -108390,3 +108390,45 @@ No commit differs significantly from its original. The differences are a few lin
 
 ---
 
+### Pipeline fix: 2026-11-17 (attempt 1)
+
+Branch: cherry-40df38dd8309
+
+Failed jobs:
+- sandbox64_lwip test.py (test.py)
+- build all 32bit ARM platforms (world_build)
+
+### Conversation log
+The lwIP DHCP handoff failure reproduces on the rebased branch under pytest (though not when run directly), so it looks timing-dependent; I'm reading the test to find why one ARP reply goes missing.
+
+My piped-stdin repro attempt hung (sandbox waiting on input), so I'm killing it and instrumenting the test under pytest instead.
+
+The fix holds (30/30 passes at the responsible commit, where it previously failed about every other run). Amending the commit and finishing the rebase now.
+
+The full 32-bit ARM build is running in the background; I'll pick up when it finishes.
+
+The ARM failures reproduce identically on plain ci/master, so they come from the base, not this branch. Creating the fix branch now.
+
+One of the two failures is fixed on `cherry-40df38dd8309-fix1` (not pushed); the other comes from ci/master and I left it alone.
+
+## sandbox64_lwip test.py — fixed
+
+- **Failure:** `dm_test_lwip_dhcp_handoff` fails at `test/dm/lwip_dhcp.c:254`, expecting 30 ARP replies and getting 29. It still happens on the rebased branch, intermittently (about every other run under pytest, never when run directly with `-c`).
+- **Responsible commit:** "net: lwip: honor DHCP timing controls and request header fields" (was 375d7ae41fcc, now e792d9cd28dc).
+- **Root cause:** that commit sets the initial DHCP retransmit period to 250 ms, which lwIP rounds to a single 500 ms fine-timer tick. If the tick fires on the first poll, lwIP sends DISCOVER a second time before anything is received. The test's fake server then queues two OFFERs, so the 32-packet receive burst holds one fewer ARP request.
+- **Fix:** test-only, 8 lines in `test/dm/lwip_dhcp.c`, amended into that commit with a `[pickman]` note. In burst mode the fake server now answers only the first DISCOVER.
+- **Verification:** the test passed 30 out of 30 pytest runs at the amended commit. I did not re-run it at the final branch tip after the rebase completed, nor the full test.py suite.
+
+## build all 32bit ARM platforms — from the base, no change
+
+The job log supplied is truncated and shows no error, so I ran the CI command locally (`buildman -PEWM arm -x aarch64`). Of 748 boards, 9 fail, all am62x R5 boards:
+
+- `am62x_evm_r5`, `am62x_evm_r5_ethboot`, `am62x_lpsk_r5`, `am62x_beagleplay_r5`, `am6254atl_evm_r5`
+- `phycore_am62x_r5`, `phycore_am62x_r5_ethboot`, `phycore_am62x_r5_usbdfu`, `verdin-am62_r5`
+
+The errors are `ld: invalid length for memory region .sram` and `binman: ... ti-secure-rom: Cannot find node for phandle N`. I built four of these targets (`am62x_evm_r5`, `phycore_am62x_r5`, `verdin-am62_r5`, `am62x_beagleplay_r5`) on unmodified ci/master and they fail with the same errors. The branch's only TI change is a two-line edit to `drivers/net/ti/cpsw.c`. This job will keep failing until ci/master is fixed.
+
+`gxp`, `sandbox` and `sandbox64_lwip` build cleanly with buildman. I skipped the literal board list in step 5b, since it is just the job names split on spaces.
+
+---
+
