@@ -5962,6 +5962,17 @@ PLACE_MARKERS = ('is not acquired by your user', 'is not acquired on this '
 # Start of labgrid's error line
 LABGRID_PREFIX = 'labgrid-client: '
 
+# What a lab job prints when the code under test is at fault: labgrid's build
+# of U-Boot fails, make stops, the build leaves no U-Boot to write to the
+# board, or U-Boot stops before its prompt. test/py still gives up on the
+# board, since it only sees the console vanish
+CODE_MARKERS = ('build failed:', ': *** [', 'Local file ',
+                'Please RESET the board')
+
+# What a lab job prints when the lab's disk is full, which can break the
+# build too
+DISK_FULL = 'No space left on device'
+
 # Start of each line of a job log: GitLab's timestamp and stream
 RE_LOG_PREFIX = re.compile(r'^\d{4}-\d\d-\d\dT[\d:.]+Z \S+ ?')
 
@@ -5973,7 +5984,9 @@ def lab_failure(log_tail):
     """Find why a job could not use its lab board, from the job's log
 
     This covers test/py giving up on the board, and labgrid refusing the
-    board because someone else holds its place
+    board because someone else holds its place. A job whose build of U-Boot
+    fails, or whose U-Boot stops before its prompt, is not a lab failure,
+    even if test/py gives up on the board, unless the lab's disk is full
 
     Args:
         log_tail (str): The end of the job's log
@@ -5982,10 +5995,14 @@ def lab_failure(log_tail):
         tuple: (reason, error), where reason is test/py's 'Lab failure: ...'
             line or labgrid's error line, and error is the line before it,
             which normally gives the error behind it, or '' if there is
-            none; or None if the job does not fail in either way
+            none; or None if the job does not fail in either way, or the
+            code under test is at fault
     """
     lines = [RE_COLOUR.sub('', RE_LOG_PREFIX.sub('', line)).strip()
              for line in (log_tail or '').splitlines()]
+    if (not any(DISK_FULL in line for line in lines) and
+            any(marker in line for line in lines for marker in CODE_MARKERS)):
+        return None
     for i, line in enumerate(lines):
         pos = min((line.find(marker) for marker in LAB_MARKERS
                    if marker in line), default=-1)

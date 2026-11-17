@@ -8138,6 +8138,32 @@ class TestFailedJobSelection(PipelineFailures):
             self.assertEqual(0, dbs.pfix_count(1))
             dbs.close()
 
+    def test_code_failure_fixed(self):
+        """Test that a broken build in a lab job is sent for a fix"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            job = self._lab_job('coral', 789508,
+                                CODE_LINES['build'] + LAB_LOG)
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=[job]), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={}), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No luck')) as fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply, \
+                 mock.patch.object(control, '_abort_in_progress'):
+                control.process_pipeline_failures(
+                    'ci', [self._make_mr()], dbs, 'master', 3)
+
+            jobs = fix.call_args[0][2]
+            self.assertEqual(['coral'], [job.name for job in jobs])
+            self.assertNotIn('test/py gave up', reply.call_args[0][2])
+            self.assertEqual(1, dbs.pfix_count(1))
+            dbs.close()
+
     def test_lab_failures_left_out(self):
         """Test that lab failures are left out of a fix attempt"""
         with terminal.capture():
@@ -8198,6 +8224,35 @@ u-boot-test-release || true\x1b[0;m
 acquired by a different user (kea/labgrid), use --kick if you are sure
 """
 
+# Lines which show that the code under test, not the lab, makes test/py give
+# up on the board, from jobs in pipeline 11878
+CODE_LINES = {
+    'build': """2026-11-16T21:20:42.572350Z 01O     raise \
+ValueError(f'build failed: {fail}')
+2026-11-16T21:20:42.572351Z 01O ValueError: build failed: \x1b[1;31m+\
+\x1b[1;33mImage 'rom' has faked external blobs and is non-functional: \
+descriptor.bin fsp_m.bin fsp_s.bin vbt.bin\x1b[0m\r
+""",
+    'make': """2026-11-16T21:22:48.599535Z 01O \x1b[1;31m+make[2]: *** \
+[dts/Makefile:60: arch-dtbs] Error 2\x1b[0m\r
+2026-11-16T21:22:48.599536Z 01O \x1b[1;31m+make: *** [Makefile:185: \
+sub-make] Error 2\x1b[0m\r
+""",
+    'no-binary': """2026-11-16T21:21:49.535015Z 01O FileNotFoundError: \
+Local file /home/sglass/dev/gitlab-runner/builds/8/1/u-boot not found
+""",
+    'boot': """2026-11-16T21:23:43.822978Z 01O initcall_run_r(): event \
+12/(unknown) failed
+2026-11-16T21:23:43.822978Z 01O ### ERROR ### Please RESET the board ###
+""",
+}
+
+# A full disk in the lab, from job 786756, which is still a lab failure
+DISK_FULL_LOG = """2026-11-16T16:53:40.432203Z 01O OSError: [Errno 28] No \
+space left on device
+2026-11-16T16:53:40.432204Z 01O During handling of the above exception, \
+another exception occurred:
+"""
 
 class TestLabFailure(unittest.TestCase):
     """Tests for lab_failure()"""
@@ -8235,6 +8290,20 @@ class TestLabFailure(unittest.TestCase):
         self.assertIsNone(control.lab_failure('FAILED test_ut.py - assert'))
         self.assertIsNone(control.lab_failure(''))
         self.assertIsNone(control.lab_failure(None))
+
+    def test_code(self):
+        """Test a job where the code under test makes test/py give up"""
+        for name, line in CODE_LINES.items():
+            with self.subTest(name):
+                self.assertIsNone(control.lab_failure(line + LAB_LOG))
+
+    def test_code_disk_full(self):
+        """Test that a full disk in the lab is still a lab failure"""
+        log = CODE_LINES['make'] + DISK_FULL_LOG + LAB_LOG
+        reason, _ = control.lab_failure(log)
+        self.assertEqual(
+            'Lab failure: Marking connection bad - no other tests will run',
+            reason)
 
 class TestStepFixRetries(unittest.TestCase):
     """Tests for --fix-retries argument parsing."""
