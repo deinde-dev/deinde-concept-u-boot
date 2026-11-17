@@ -667,7 +667,7 @@ config SPL_BOOTSTD
 config VPL_BOOTSTD
 	bool "Standard boot support in VPL"
 	depends on VPL && VPL_DM && VPL_OF_CONTROL && VPL_BLK
-	default y
+	default y if VPL
 	help
 	  This enables standard boot in SPL. This is needed so that VBE
 	  (Verified Boot for Embedded) can be used, since it depends on standard
@@ -930,7 +930,7 @@ config VPL_BOOTMETH_VBE
 
 config TPL_BOOTMETH_VBE
 	bool "Bootdev support for Verified Boot for Embedded (TPL)"
-	depends on TPL
+	depends on TPL && BOOTMETH_VBE
 	default y
 	help
 	  Enables support for VBE boot. This is a standard boot method which
