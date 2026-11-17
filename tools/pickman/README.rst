@@ -546,6 +546,12 @@ becomes the MR's head pipeline. Since it runs nothing, pickman looks past it to
 the newest pipeline which did run, so that a failure from before the push is
 still fixed, and a rebase waiting for that fix does not wait for ever.
 
+Once a new MR is created, pickman checks that it has a pipeline with jobs,
+and triggers one only if every MR pipeline for its head commit is skipped and
+empty. GitLab can process the branch push after the MR exists, which puts a
+skipped pipeline on top of the one which runs, so looking only at the newest
+would start a second full pipeline, sharing the lab's boards with the first.
+
 **Pipelines which are not needed**
 
 A full pipeline runs about 140 jobs and takes one to two hours. When a review
