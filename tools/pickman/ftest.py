@@ -5093,6 +5093,9 @@ class TestApplySubtreeUpdate(unittest.TestCase):
             args = argparse.Namespace(push=True, remote='ci',
                                       target='master')
 
+            subject = ("Subtree merge tag 'v6.15-dts' of dts repo [1] into "
+                       'dts/upstream')
+
             def run_git_handler(git_args):
                 if 'rev-parse' in git_args:
                     return 'first_parent\nsquash_hash'
@@ -5102,6 +5105,8 @@ class TestApplySubtreeUpdate(unittest.TestCase):
                     return ''
                 if '--format=%s|%an' in git_args:
                     return 'Commit subject|Author'
+                if '--format=%s' in git_args:
+                    return subject
                 return ''
 
             mr_info = {}
@@ -5131,8 +5136,15 @@ class TestApplySubtreeUpdate(unittest.TestCase):
             self.assertEqual(mr_info['remote'], 'ci')
             self.assertEqual(mr_info['branch'], 'cherry-merge_hash')
             self.assertEqual(mr_info['target'], 'master')
-            self.assertEqual(mr_info['title'],
-                             'Subtree update: dts -> v6.15-dts')
+            self.assertEqual(mr_info['title'], f'[pickman] {subject}')
+
+            # get_pickman_mrs() must take the MR as one of pickman's, and
+            # mr_subtree() must see what it updates
+            self.assertIn('[pickman]', mr_info['title'])
+            self.assertEqual(('dts', 'v6.15-dts'), control.mr_subtree(
+                gitlab.PickmanMr(iid=1, title=mr_info['title'], web_url='',
+                                 source_branch=mr_info['branch'],
+                                 description='')))
             dbs.close()
 
     def test_apply_push_defaults_to_true(self):

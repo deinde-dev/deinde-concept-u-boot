@@ -4333,7 +4333,10 @@ def apply_subtree_update(dbs, source, name, tag, merge_hash, remote,  # pylint: 
         return 1
 
     if push:
-        title = f'Subtree update: {name} -> {tag}'
+        # Title the MR after the merge, like a cherry-pick MR, so that it is
+        # taken as one of pickman's and mr_subtree() can tell what it updates
+        subject = run_git(['log', '-1', '--format=%s', merge_hash])
+        title = f'[pickman] {subject}'
         mr_url = gitlab_api.push_and_create_mr(
             remote, branch_name, target, title)
         if not mr_url:

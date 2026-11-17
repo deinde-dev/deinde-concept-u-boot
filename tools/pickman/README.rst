@@ -145,6 +145,10 @@ Path                               Name
 ``lib/lwip/lwip``                  ``lwip``
 =================================  ===========
 
+The MR is titled '[pickman]' followed by the subject of the merge, like the
+MRs for cherry-picks, so pickman looks after it in the same way: it handles
+review comments, rebases it and tries to fix pipeline failures.
+
 A subtree update cannot be rebased either: rebasing drops the merge and replays
 the squash commit, whose files are at the top level of the subtree's repo, onto
 the top level of U-Boot. So when an MR for a subtree update needs rebasing,
