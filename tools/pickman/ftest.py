@@ -5147,6 +5147,40 @@ class TestApplySubtreeUpdate(unittest.TestCase):
                                  description='')))
             dbs.close()
 
+    def test_apply_links_mr(self):
+        """Test apply_subtree_update links the commits to the MR"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            dbs.source_set('us/next', 'base')
+            dbs.commit()
+
+            def run_git_handler(git_args):
+                if 'rev-parse' in git_args:
+                    return 'first_parent\nsquash_hash'
+                if '--format=%s|%an' in git_args:
+                    return 'Commit subject|Author'
+                return ''
+
+            with mock.patch.object(control, 'run_git',
+                                   side_effect=run_git_handler), \
+                 mock.patch.object(control, '_subtree_run_update',
+                                   return_value=control.SUBTREE_OK), \
+                 mock.patch.object(control.gitlab_api, 'push_and_create_mr',
+                                   return_value=MR_URL):
+                ret = control.apply_subtree_update(
+                    dbs, 'us/next', 'dts', 'v6.15-dts', 'merge_hash', 'ci',
+                    'master')
+
+            self.assertEqual(ret, 0)
+            rec = dbs.mergereq_get(5)
+            self.assertEqual(('cherry-merge_hash', 'open', MR_URL),
+                             (rec[2], rec[4], rec[5]))
+            for chash in ['squash_hash', 'merge_hash']:
+                commit = dbs.commit_get(chash)
+                self.assertEqual((rec[0], 'applied'), (commit[3], commit[6]))
+            dbs.close()
+
     def test_apply_push_defaults_to_true(self):
         """Test apply_subtree_update creates MR when push not specified."""
         with terminal.capture():
