@@ -17,6 +17,8 @@ endif
 obj-$(CONFIG_CONSOLE_ROTATION) += console_core.o
 # Allow floating-point in console_truetype.c which uses stb_truetype.h
 CFLAGS_REMOVE_console_truetype.o := -mgeneral-regs-only
+# Do not fuse a multiply and an add, so that every host renders the same pixels
+CFLAGS_console_truetype.o += -ffp-contract=off
 obj-$(CONFIG_CONSOLE_TRUETYPE) += console_truetype.o fonts/
 obj-$(CONFIG_DISPLAY) += display-uclass.o
 obj-$(CONFIG_VIDEO_MIPI_DSI) += dsi-host-uclass.o
