@@ -1580,6 +1580,49 @@ static int k1_clk_probe(struct udevice *dev)
 	return k1_clk_retry_register();
 }
 
+/*
+ * The K1 clock providers are split across separate syscon devices (PLL,
+ * MPMU, APMU, APBC) whose clocks parent across device boundaries. The CCF
+ * resolves a parent by name at registration time and binds an orphan if the
+ * parent is not registered yet, so a controller must not register its clocks
+ * before the controllers owning its parents have probed. Force the parent
+ * controller to probe by its driver, so that this works whichever controller
+ * is requested first
+ */
+static int k1_clk_force_probe(const struct driver *drv)
+{
+	struct udevice *dev;
+
+	return uclass_get_device_by_driver(UCLASS_CLK, drv, &dev);
+}
+
+static int k1_mpmu_clk_probe(struct udevice *dev)
+{
+	int ret;
+
+	/* MPMU clocks parent off the PLL controller */
+	ret = k1_clk_force_probe(DM_DRIVER_GET(k1_pll_clk));
+	if (ret)
+		return ret;
+
+	return k1_clk_probe(dev);
+}
+
+static int k1_apmu_clk_probe(struct udevice *dev)
+{
+	int ret;
+
+	/* APMU clocks parent off the PLL and MPMU controllers */
+	ret = k1_clk_force_probe(DM_DRIVER_GET(k1_pll_clk));
+	if (ret)
+		return ret;
+	ret = k1_clk_force_probe(DM_DRIVER_GET(k1_mpmu_clk));
+	if (ret)
+		return ret;
+
+	return k1_clk_probe(dev);
+}
+
 static int k1_apbc_clk_probe(struct udevice *dev)
 {
 	struct regmap *base_regmap, *lock_regmap = NULL;
@@ -1747,7 +1790,7 @@ U_BOOT_DRIVER(k1_mpmu_clk) = {
 	.id		= UCLASS_CLK,
 	.of_match	= k1_mpmu_clk_match,
 	.bind		= k1_mpmu_clk_bind,
-	.probe		= k1_clk_probe,
+	.probe		= k1_mpmu_clk_probe,
 	.ops		= &k1_mpmu_clk_ops,
 	.flags		= DM_FLAG_PRE_RELOC,
 };
@@ -1783,7 +1826,7 @@ U_BOOT_DRIVER(k1_apmu_clk) = {
 	.id		= UCLASS_CLK,
 	.of_match	= k1_apmu_clk_match,
 	.bind		= k1_apmu_clk_bind,
-	.probe		= k1_clk_probe,
+	.probe		= k1_apmu_clk_probe,
 	.ops		= &k1_apmu_clk_ops,
 	.flags		= DM_FLAG_PRE_RELOC,
 };
