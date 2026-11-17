@@ -786,6 +786,13 @@ def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
     and would do so on every look.  For the same reason a pipeline is
     triggered at most once.
 
+    The merge request can have several pipelines for its head commit: when
+    the ci.skip push of the branch is processed after the merge request is
+    created, a skipped pipeline lands on top of the one which runs.  So all
+    of them are looked at, and a pipeline is triggered only if each one is
+    skipped and empty.  Otherwise two full pipelines run at once, sharing
+    the lab's boards.
+
     Args:
         remote (str): Remote name
         mr_iid (int): Merge request IID
@@ -815,14 +822,17 @@ def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
         for attempt in range(tries):
             pipelines = [pipe for pipe in
                          merge_req.pipelines.list(get_all=False)
-                         if is_mr_pipeline(pipe)]
+                         if is_mr_pipeline(pipe) and
+                         pipe.sha == merge_req.sha]
             if pipelines:
                 seen = True
                 newest = pipelines[0].id
-                status, has_jobs = pipeline_state(project, newest)
-                if has_jobs:
+                states = [pipeline_state(project, pipe.id)
+                          for pipe in pipelines]
+                if any(has_jobs for _, has_jobs in states):
                     return True
-                if status == 'skipped' and not triggered:
+                if (all(status == 'skipped' for status, _ in states) and
+                        not triggered):
                     tout.warning(
                         f'MR !{mr_iid}: pipeline {newest} was skipped with '
                         'no jobs, so nothing would run - triggering another')

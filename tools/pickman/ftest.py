@@ -10163,9 +10163,9 @@ class TestEnsureMrPipeline(unittest.TestCase):
             pipeline.jobs.list.return_value = [mock.Mock()] * jobs
             return pipeline
 
-        merge_req = mock.Mock()
+        merge_req = mock.Mock(sha='abc')
         merge_req.pipelines.list.return_value = [
-            mock.Mock(id=7, ref='refs/merge-requests/42/head')]
+            mock.Mock(id=7, ref='refs/merge-requests/42/head', sha='abc')]
         project = mock.Mock()
         project.pipelines.get.side_effect = get_pipeline
         project.mergerequests.get.return_value = merge_req
@@ -10237,8 +10237,9 @@ class TestEnsureMrPipeline(unittest.TestCase):
         request's own.  It has no jobs, but that is no reason to trigger
         another pipeline when one is on its way.
         """
-        push = mock.Mock(id=6, ref='cherry-abc')
-        mr_pipe = mock.Mock(id=7, ref='refs/merge-requests/42/head')
+        push = mock.Mock(id=6, ref='cherry-abc', sha='abc')
+        mr_pipe = mock.Mock(id=7, ref='refs/merge-requests/42/head',
+                            sha='abc')
         project, merge_req = self._project([('running', 100)])
         merge_req.pipelines.list.side_effect = [[push], [mr_pipe, push]]
         ret, err = self._run(project)
@@ -10246,6 +10247,35 @@ class TestEnsureMrPipeline(unittest.TestCase):
         merge_req.pipelines.create.assert_not_called()
         project.pipelines.get.assert_called_once_with(7)
         self.assertNotIn('no jobs', err)
+
+    def test_older_pipeline_has_jobs(self):
+        """Test that a skipped pipeline over one which runs is left alone
+
+        When the ci.skip push of the branch is processed after the merge
+        request exists, a skipped pipeline lands on top of the one which
+        runs, as for !1666. Triggering another then runs two full pipelines
+        at once.
+        """
+        project, merge_req = self._project([('skipped', 0), ('running', 143)])
+        merge_req.pipelines.list.return_value = [
+            mock.Mock(id=8, ref='refs/merge-requests/42/head', sha='abc'),
+            mock.Mock(id=7, ref='refs/merge-requests/42/head', sha='abc')]
+        ret, err = self._run(project)
+        self.assertTrue(ret)
+        merge_req.pipelines.create.assert_not_called()
+        self.assertNotIn('no jobs', err)
+
+    def test_old_head_ignored(self):
+        """Test that a pipeline for an earlier head does not count"""
+        project, merge_req = self._project([('skipped', 0), ('created', 0),
+                                            ('pending', 100)])
+        merge_req.pipelines.list.return_value = [
+            mock.Mock(id=8, ref='refs/merge-requests/42/head', sha='abc'),
+            mock.Mock(id=5, ref='refs/merge-requests/42/head', sha='old')]
+        ret, _ = self._run(project)
+        self.assertTrue(ret)
+        merge_req.pipelines.create.assert_called_once()
+        self.assertNotIn(mock.call(5), project.pipelines.get.call_args_list)
 
     def test_no_mr_pipeline_triggers_one(self):
         """Test that an MR which never gets a pipeline is given one"""
