@@ -472,7 +472,9 @@ for failed pipelines. For each failed pipeline:
    for each lab failure, so that someone can look into the lab. It does not
    retry them. If no other failures remain, it stops there. A job which
    reaches GitLab's time limit is not counted as a lab failure, since the
-   series may make the board hang
+   series may make the board hang. Nor is a job whose build of U-Boot fails
+   or whose U-Boot stops before its prompt (e.g. 'build failed:' or 'Please
+   RESET the board' in the log), unless the lab's disk is full
 3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
 4. The fix is pushed to the MR branch, triggering a new pipeline
