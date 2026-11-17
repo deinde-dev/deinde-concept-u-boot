@@ -178,7 +178,7 @@ U_BOOT_DRIVER(aspeed_cptra_ecdsa) = {
 	.of_match = cptra_ecdsa_ids,
 	.ops = &cptra_ecdsa_ops,
 	.probe = cptra_ecdsa_probe,
-	.remove = cptra_ecdsa_remove,
+	.remove = dm_remove_ptr(cptra_ecdsa_remove),
 	.priv_auto = sizeof(struct cptra_ecdsa),
 	.flags = DM_FLAG_PRE_RELOC,
 };

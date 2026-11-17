@@ -662,5 +662,5 @@ U_BOOT_DRIVER(stm32_tamp_nvram) = {
 	.ops = &stm32_tamp_nvram_ops,
 	.of_to_plat = of_match_ptr(stm32_tamp_nvram_of_to_plat),
 	.probe = stm32_tamp_nvram_probe,
-	.remove = stm32_tamp_nvram_remove,
+	.remove = dm_remove_ptr(stm32_tamp_nvram_remove),
 };

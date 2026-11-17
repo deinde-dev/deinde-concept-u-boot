@@ -171,5 +171,5 @@ U_BOOT_DRIVER(gpio_delay) = {
 	.ops = &gpio_delay_ops,
 	.priv_auto = sizeof(struct gpio_delay_priv),
 	.probe = gpio_delay_probe,
-	.remove = gpio_delay_remove,
+	.remove = dm_remove_ptr(gpio_delay_remove),
 };

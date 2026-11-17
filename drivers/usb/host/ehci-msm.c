@@ -122,7 +122,7 @@ U_BOOT_DRIVER(ehci_msm) = {
 	.id	= UCLASS_USB,
 	.of_to_plat = ehci_usb_of_to_plat,
 	.probe = ehci_usb_probe,
-	.remove = ehci_usb_remove,
+	.remove = dm_remove_ptr(ehci_usb_remove),
 	.ops	= &ehci_usb_ops,
 	.priv_auto	= sizeof(struct msm_ehci_priv),
 	.plat_auto	= sizeof(struct usb_plat),
@@ -185,6 +185,6 @@ U_BOOT_DRIVER(qcom_ci_hdrc) = {
 	.of_match	= qcom_ci_hdrc_ids,
 	.bind		= qcom_ci_hdrc_bind,
 	.probe		= qcom_ci_hdrc_probe,
-	.remove		= qcom_ci_hdrc_remove,
+	.remove		= dm_remove_ptr(qcom_ci_hdrc_remove),
 	.priv_auto	= sizeof(struct qcom_ci_hdrc_priv),
 };

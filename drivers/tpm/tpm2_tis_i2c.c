@@ -165,6 +165,6 @@ U_BOOT_DRIVER(tpm_tis_i2c) = {
 	.of_match = tpm_tis_i2c_ids,
 	.ops = &tpm_tis_i2c_ops,
 	.probe = tpm_tis_i2c_probe,
-	.remove = tpm_tis_i2c_remove,
+	.remove = dm_remove_ptr(tpm_tis_i2c_remove),
 	.priv_auto = sizeof(struct tpm_chip),
 };

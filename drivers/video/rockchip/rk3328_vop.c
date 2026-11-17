@@ -77,7 +77,7 @@ U_BOOT_DRIVER(rk3328_vop) = {
 	.ops	= &rk3328_vop_ops,
 	.bind	= rk_vop_bind,
 	.probe	= rk3328_vop_probe,
-	.remove = rk3328_vop_remove,
+	.remove = dm_remove_ptr(rk3328_vop_remove),
 	.priv_auto	= sizeof(struct rk_vop_priv),
 	.flags	= DM_FLAG_PRE_RELOC | DM_FLAG_OS_PREPARE,
 };

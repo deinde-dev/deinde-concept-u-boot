@@ -63,5 +63,5 @@ U_BOOT_DRIVER(tegra_car_bpmp) = {
 	.of_match	= tegra_car_bpmp_ids,
 	.bind		= tegra_car_bpmp_bind,
 	.probe		= tegra_car_bpmp_probe,
-	.remove		= tegra_car_bpmp_remove,
+	.remove		= dm_remove_ptr(tegra_car_bpmp_remove),
 };

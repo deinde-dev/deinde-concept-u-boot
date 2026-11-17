@@ -256,7 +256,7 @@ U_BOOT_DRIVER(tegra186_bpmp) = {
 	.of_match	= tegra186_bpmp_ids,
 	.bind		= tegra186_bpmp_bind,
 	.probe		= tegra186_bpmp_probe,
-	.remove		= tegra186_bpmp_remove,
+	.remove		= dm_remove_ptr(tegra186_bpmp_remove),
 	.ops		= &tegra186_bpmp_ops,
 	.priv_auto	= sizeof(struct tegra186_bpmp),
 };

@@ -110,6 +110,6 @@ U_BOOT_DRIVER(snps_dw_apb_timer) = {
 	.probe		= dw_apb_timer_probe,
 	.of_match	= of_match_ptr(dw_apb_timer_ids),
 	.of_to_plat	= dw_apb_timer_of_to_plat,
-	.remove		= dw_apb_timer_remove,
+	.remove		= dm_remove_ptr(dw_apb_timer_remove),
 	.priv_auto	= sizeof(struct dw_apb_timer_priv),
 };

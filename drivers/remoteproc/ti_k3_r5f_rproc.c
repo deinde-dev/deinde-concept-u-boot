@@ -929,7 +929,7 @@ U_BOOT_DRIVER(k3_r5f_rproc) = {
 	.id = UCLASS_REMOTEPROC,
 	.ops = &k3_r5f_rproc_ops,
 	.probe = k3_r5f_probe,
-	.remove = k3_r5f_remove,
+	.remove = dm_remove_ptr(k3_r5f_remove),
 	.priv_auto	= sizeof(struct k3_r5f_core),
 };
 

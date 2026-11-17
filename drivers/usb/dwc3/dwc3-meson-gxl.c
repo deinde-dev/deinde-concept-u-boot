@@ -435,9 +435,9 @@ U_BOOT_DRIVER(dwc3_meson_gxl) = {
 	.id	= UCLASS_SIMPLE_BUS,
 	.of_match = dwc3_meson_gxl_ids,
 	.probe = dwc3_meson_gxl_probe,
-	.remove = dwc3_meson_gxl_remove,
+	.remove = dm_remove_ptr(dwc3_meson_gxl_remove),
 	.child_pre_probe = dwc3_meson_gxl_child_pre_probe,
-	.child_post_remove = dwc3_meson_gxl_child_post_remove,
+	.child_post_remove = dm_remove_ptr(dwc3_meson_gxl_child_post_remove),
 	.plat_auto	= sizeof(struct dwc3_meson_gxl),
 
 };

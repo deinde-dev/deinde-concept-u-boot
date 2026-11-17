@@ -291,7 +291,7 @@ U_BOOT_DRIVER(omap2430_musb) = {
 	.of_match = omap2430_musb_ids,
 	.of_to_plat = omap2430_musb_of_to_plat,
 	.probe = omap2430_musb_probe,
-	.remove = omap2430_musb_remove,
+	.remove = dm_remove_ptr(omap2430_musb_remove),
 #ifdef CONFIG_USB_MUSB_HOST
 	.ops = &musb_usb_ops,
 #endif

@@ -602,7 +602,7 @@ U_BOOT_DRIVER(cpsw_mdio) = {
 	.id = UCLASS_MDIO,
 	.of_match = cpsw_mdio_ids,
 	.probe = cpsw_mdio_probe,
-	.remove = cpsw_mdio_remove,
+	.remove = dm_remove_ptr(cpsw_mdio_remove),
 	.ops = &cpsw_mdio_ops,
 	.priv_auto = sizeof(struct cpsw_mdio),
 };

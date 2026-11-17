@@ -1314,6 +1314,6 @@ U_BOOT_DRIVER(vidconsole_truetype) = {
 	.ops	= &console_truetype_ops,
 	.bind	= console_truetype_bind,
 	.probe	= console_truetype_probe,
-	.remove	= console_truetype_remove,
+	.remove	= dm_remove_ptr(console_truetype_remove),
 	.priv_auto	= sizeof(struct console_tt_priv),
 };

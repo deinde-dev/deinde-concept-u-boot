@@ -140,7 +140,7 @@ Put this code at the bottom of your existing driver file:
 		.ops	= &exynos_spi_ops,
 		.of_to_plat = exynos_spi_of_to_plat,
 		.probe	= exynos_spi_probe,
-		.remove	= exynos_spi_remove,
+		.remove	= dm_remove_ptr(exynos_spi_remove),
 	};
 
 

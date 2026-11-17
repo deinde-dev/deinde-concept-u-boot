@@ -533,7 +533,7 @@ UCLASS_DRIVER(scmi_agent) = {
 	.id		= UCLASS_SCMI_AGENT,
 	.name		= "scmi_agent",
 	.post_bind	= scmi_bind_protocols,
-	.pre_remove	= scmi_remove,
+	.pre_remove	= dm_remove_ptr(scmi_remove),
 	.per_device_plat_auto = sizeof(struct scmi_agent_priv),
 	.per_child_auto	= sizeof(struct scmi_agent_proto_priv),
 };

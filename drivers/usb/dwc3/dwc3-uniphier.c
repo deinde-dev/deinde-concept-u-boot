@@ -149,6 +149,6 @@ U_BOOT_DRIVER(dwc3_uniphier_wrapper) = {
 	.of_match = uniphier_dwc3_match,
 	.bind = dwc3_glue_bind,
 	.probe = dwc3_glue_probe,
-	.remove = dwc3_glue_remove,
+	.remove = dm_remove_ptr(dwc3_glue_remove),
 	.plat_auto = sizeof(struct dwc3_glue_data),
 };

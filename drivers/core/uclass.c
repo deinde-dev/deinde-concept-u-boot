@@ -132,8 +132,7 @@ int uclass_destroy(struct uclass *uc)
 	}
 
 	uc_drv = uc->uc_drv;
-	if (uc_drv->destroy)
-		uc_drv->destroy(uc);
+	uclass_driver_destroy(uc_drv, uc);
 	list_del(&uc->sibling_node);
 	if (uc_drv->priv_auto)
 		free(uclass_get_priv(uc));

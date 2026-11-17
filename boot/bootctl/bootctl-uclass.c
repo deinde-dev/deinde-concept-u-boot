@@ -55,7 +55,7 @@ static int bootctl_ui_pre_remove(struct udevice *dev)
 UCLASS_DRIVER(bootctrl_ui) = {
 	.id		= UCLASS_BOOTCTL_UI,
 	.name		= "bootctrl_ui",
-	.pre_remove	= bootctl_ui_pre_remove,
+	.pre_remove	= dm_remove_ptr(bootctl_ui_pre_remove),
 	.per_device_plat_auto	= sizeof(struct bootctl_uc_plat),
 	.per_device_auto	= sizeof(struct bc_ui_priv),
 };

@@ -600,5 +600,5 @@ U_BOOT_DRIVER(sandbox_tee) = {
 	.ops = &sandbox_tee_ops,
 	.priv_auto	= sizeof(struct sandbox_tee_state),
 	.probe = sandbox_tee_probe,
-	.remove = sandbox_tee_remove,
+	.remove = dm_remove_ptr(sandbox_tee_remove),
 };

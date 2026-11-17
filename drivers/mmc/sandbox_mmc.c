@@ -257,10 +257,10 @@ U_BOOT_DRIVER(mmc_sandbox) = {
 	.of_match	= sandbox_mmc_ids,
 	.ops		= &sandbox_mmc_ops,
 	.bind		= sandbox_mmc_bind,
-	.unbind		= sandbox_mmc_unbind,
+	.unbind		= dm_remove_ptr(sandbox_mmc_unbind),
 	.of_to_plat	= sandbox_mmc_of_to_plat,
 	.probe		= sandbox_mmc_probe,
-	.remove		= sandbox_mmc_remove,
+	.remove		= dm_remove_ptr(sandbox_mmc_remove),
 	.priv_auto = sizeof(struct sandbox_mmc_priv),
 	.plat_auto = sizeof(struct sandbox_mmc_plat),
 };

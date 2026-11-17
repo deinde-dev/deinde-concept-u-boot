@@ -176,7 +176,7 @@ U_BOOT_DRIVER(ux500_musb) = {
 #endif
 	.of_match	= ux500_musb_ids,
 	.probe		= ux500_musb_probe,
-	.remove		= ux500_musb_remove,
+	.remove		= dm_remove_ptr(ux500_musb_remove),
 	.plat_auto	= sizeof(struct usb_plat),
 	.priv_auto	= sizeof(struct ux500_glue),
 };

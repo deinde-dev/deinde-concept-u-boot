@@ -85,7 +85,7 @@ struct extension_ops {
 		.name = #_name, \
 		.id = UCLASS_EXTENSION, \
 		.probe = extension_probe, \
-		.remove = extension_remove, \
+		.remove = dm_remove_ptr(extension_remove), \
 		.ops = &(struct extension_ops) { \
 		       .scan = _scan_func, \
 		       }, \

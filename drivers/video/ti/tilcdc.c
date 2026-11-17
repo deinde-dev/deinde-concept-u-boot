@@ -449,6 +449,6 @@ U_BOOT_DRIVER(tilcdc) = {
 	.bind = tilcdc_bind,
 	.of_to_plat = tilcdc_of_to_plat,
 	.probe = tilcdc_probe,
-	.remove = tilcdc_remove,
+	.remove = dm_remove_ptr(tilcdc_remove),
 	.priv_auto = sizeof(struct tilcdc_priv)
 };

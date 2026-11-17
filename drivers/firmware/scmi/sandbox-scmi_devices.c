@@ -161,7 +161,7 @@ U_BOOT_DRIVER(sandbox_scmi_devices) = {
 	.id = UCLASS_MISC,
 	.of_match = sandbox_scmi_devices_ids,
 	.priv_auto = sizeof(struct sandbox_scmi_device_priv),
-	.remove = sandbox_scmi_devices_remove,
+	.remove = dm_remove_ptr(sandbox_scmi_devices_remove),
 	.probe = sandbox_scmi_devices_probe,
 	.flags = DM_FLAG_DEFAULT_PD_CTRL_OFF,
 };

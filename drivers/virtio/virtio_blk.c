@@ -296,7 +296,7 @@ U_BOOT_DRIVER(virtio_blk) = {
 	.ops	= &virtio_blk_ops,
 	.bind	= virtio_blk_bind,
 	.probe	= virtio_blk_probe,
-	.remove	= virtio_remove,
+	.remove	= dm_remove_ptr(virtio_remove),
 	.priv_auto	= sizeof(struct virtio_blk_priv),
 	.flags	= DM_FLAG_ACTIVE_DMA,
 };

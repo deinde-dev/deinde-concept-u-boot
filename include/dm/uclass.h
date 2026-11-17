@@ -9,6 +9,7 @@
 #ifndef _DM_UCLASS_H
 #define _DM_UCLASS_H
 
+#include <dm/driver-types.h>
 #include <dm/ofnode.h>
 #include <dm/uclass-id.h>
 #include <linker_lists.h>
@@ -59,7 +60,9 @@ struct udevice;
  * @name: Name of uclass driver
  * @id: ID number of this uclass
  * @post_bind: Called after a new device is bound to this uclass
- * @pre_unbind: Called before a device is unbound from this uclass
+ * @pre_unbind: Called before a device is unbound from this uclass. Set this,
+ * @pre_remove and @destroy with dm_remove_ptr(), since they are left out
+ * without DM_DEVICE_REMOVE
  * @pre_probe: Called before a new device is probed
  * @post_probe: Called after a new device is probed
  * @pre_remove: Called before a device is removed
@@ -88,24 +91,56 @@ struct udevice;
  */
 struct uclass_driver {
 	const char *name;
-	enum uclass_id id;
 	int (*post_bind)(struct udevice *dev);
-	int (*pre_unbind)(struct udevice *dev);
 	int (*pre_probe)(struct udevice *dev);
 	int (*post_probe)(struct udevice *dev);
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
+	int (*pre_unbind)(struct udevice *dev);
 	int (*pre_remove)(struct udevice *dev);
+	int (*destroy)(struct uclass *class);
+#else
+	struct dm_absent pre_unbind;
+	struct dm_absent pre_remove;
+	struct dm_absent destroy;
+#endif
 	int (*child_post_bind)(struct udevice *dev);
 	int (*child_pre_probe)(struct udevice *dev);
 	int (*child_post_probe)(struct udevice *dev);
 	int (*init)(struct uclass *class);
-	int (*destroy)(struct uclass *class);
+	uint32_t flags;
+#if DM_OF_MATCH_UNUSED
+	u16 priv_auto;
+	u16 per_device_auto;
+	u16 per_device_plat_auto;
+	u16 per_child_auto;
+	u16 per_child_plat_auto;
+	u16 id;
+#else
 	int priv_auto;
 	int per_device_auto;
 	int per_device_plat_auto;
 	int per_child_auto;
 	int per_child_plat_auto;
-	uint32_t flags;
+	enum uclass_id id;
+#endif
 };
+
+/**
+ * uclass_driver_destroy() - Call the destroy() method of a uclass driver
+ *
+ * This does nothing if there is no method, or devices cannot be removed
+ *
+ * @uc_drv: Uclass driver to use
+ * @uc: uclass to destroy
+ */
+static inline void uclass_driver_destroy(const struct uclass_driver *uc_drv,
+					 struct uclass *uc)
+{
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
+	if (uc_drv->destroy)
+		uc_drv->destroy(uc);
+#endif
+}
 
 /* Declare a new uclass_driver */
 #define UCLASS_DRIVER(__name)						\

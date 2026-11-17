@@ -287,6 +287,6 @@ U_BOOT_DRIVER(rcar_gen3_phy) = {
 	.of_match	= rcar_gen3_phy_of_match,
 	.ops		= &rcar_gen3_phy_phy_ops,
 	.probe		= rcar_gen3_phy_probe,
-	.remove		= rcar_gen3_phy_remove,
+	.remove		= dm_remove_ptr(rcar_gen3_phy_remove),
 	.priv_auto	= sizeof(struct rcar_gen3_phy),
 };

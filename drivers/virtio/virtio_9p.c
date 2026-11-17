@@ -114,7 +114,7 @@ U_BOOT_DRIVER(virtio_9p) = {
 	.ops        = &virtio_9p_ops,
 	.bind       = virtio_9p_bind,
 	.probe      = virtio_9p_probe,
-	.remove     = virtio_9p_remove,
+	.remove     = dm_remove_ptr(virtio_9p_remove),
 	.priv_auto  = sizeof(struct virtio_9p_priv),
 	.flags      = DM_FLAG_ACTIVE_DMA,
 };

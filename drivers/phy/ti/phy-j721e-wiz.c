@@ -1368,7 +1368,7 @@ U_BOOT_DRIVER(phy_j721e_wiz) = {
 	.of_match	= j721e_wiz_ids,
 	.bind		= j721e_wiz_bind,
 	.probe		= j721e_wiz_probe,
-	.remove		= j721e_wiz_remove,
+	.remove		= dm_remove_ptr(j721e_wiz_remove),
 	.priv_auto	= sizeof(struct wiz),
 	.flags		= DM_FLAG_LEAVE_PD_ON,
 };

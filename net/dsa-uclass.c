@@ -339,7 +339,7 @@ U_BOOT_DRIVER(dsa_port) = {
 	.id	= UCLASS_ETH,
 	.ops	= &dsa_port_ops,
 	.probe	= dsa_port_probe,
-	.remove	= dsa_port_remove,
+	.remove	= dm_remove_ptr(dsa_port_remove),
 	.of_to_plat = dsa_port_of_to_pdata,
 	.plat_auto = sizeof(struct eth_pdata),
 };

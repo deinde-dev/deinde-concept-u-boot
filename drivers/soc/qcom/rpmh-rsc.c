@@ -609,7 +609,7 @@ U_BOOT_DRIVER(qcom_rpmh_rsc) = {
 	.id		= UCLASS_MISC,
 	.priv_auto	= sizeof(struct rsc_drv),
 	.probe		= rpmh_rsc_probe,
-	.remove		= rpmh_rsc_remove,
+	.remove		= dm_remove_ptr(rpmh_rsc_remove),
 	.of_match	= qcom_rpmh_ids,
 	/* rpmh is under CLUSTER_PD which we don't support, so skip trying to enable PDs */
 	.flags		= DM_FLAG_DEFAULT_PD_CTRL_OFF | DM_FLAG_OS_PREPARE,

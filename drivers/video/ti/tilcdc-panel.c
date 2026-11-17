@@ -166,6 +166,6 @@ U_BOOT_DRIVER(tilcdc_panel) = {
 	.ops = &tilcdc_panel_ops,
 	.of_to_plat = tilcdc_panel_of_to_plat,
 	.probe = tilcdc_panel_probe,
-	.remove = tilcdc_panel_remove,
+	.remove = dm_remove_ptr(tilcdc_panel_remove),
 	.priv_auto = sizeof(struct tilcdc_panel_priv),
 };

@@ -366,6 +366,6 @@ U_BOOT_DRIVER(k3_m4) = {
 	.id = UCLASS_REMOTEPROC,
 	.ops = &k3_m4_ops,
 	.probe = k3_m4_probe,
-	.remove = k3_m4_remove,
+	.remove = dm_remove_ptr(k3_m4_remove),
 	.priv_auto = sizeof(struct k3_m4_privdata),
 };

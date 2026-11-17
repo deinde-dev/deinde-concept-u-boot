@@ -236,7 +236,7 @@ U_BOOT_DRIVER(mtu3_peripheral) = {
 	.id = UCLASS_USB_GADGET_GENERIC,
 	.ops = &mtu3_gadget_ops,
 	.probe = mtu3_gadget_probe,
-	.remove = mtu3_gadget_remove,
+	.remove = dm_remove_ptr(mtu3_gadget_remove),
 	.priv_auto	= sizeof(struct mtu3),
 };
 
@@ -373,7 +373,7 @@ U_BOOT_DRIVER(mtu3_host) = {
 	.name = "mtu3-host",
 	.id = UCLASS_USB,
 	.probe = mtu3_host_probe,
-	.remove = mtu3_host_remove,
+	.remove = dm_remove_ptr(mtu3_host_remove),
 	.priv_auto	= sizeof(struct mtu3_host),
 	.ops = &xhci_usb_ops,
 	.flags = DM_FLAG_ALLOC_PRIV_DMA,
@@ -471,6 +471,6 @@ U_BOOT_DRIVER(mtu3) = {
 	.of_match = mtu3_of_match,
 	.bind = mtu3_glue_bind,
 	.probe = mtu3_probe,
-	.remove = mtu3_remove,
+	.remove = dm_remove_ptr(mtu3_remove),
 	.priv_auto	= sizeof(struct ssusb_mtk),
 };

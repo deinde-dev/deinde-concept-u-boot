@@ -254,7 +254,7 @@ U_BOOT_DRIVER(imx8ulp_mu) = {
 	.of_match	= imx8ulp_mu_ids,
 	.probe		= imx8ulp_mu_probe,
 	.bind		= imx8ulp_mu_bind,
-	.remove		= imx8ulp_mu_remove,
+	.remove		= dm_remove_ptr(imx8ulp_mu_remove),
 	.ops		= &imx8ulp_mu_ops,
 	.priv_auto	= sizeof(struct imx8ulp_mu),
 };

@@ -374,7 +374,7 @@ U_BOOT_DRIVER(i8042_kbd) = {
 	.id	= UCLASS_KEYBOARD,
 	.of_match = i8042_kbd_ids,
 	.probe = i8042_kbd_probe,
-	.remove = i8042_kbd_remove,
+	.remove = dm_remove_ptr(i8042_kbd_remove),
 	.ops	= &i8042_kbd_ops,
 	.priv_auto	= sizeof(struct i8042_kbd_priv),
 };

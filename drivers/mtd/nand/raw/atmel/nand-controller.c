@@ -2228,7 +2228,7 @@ U_BOOT_DRIVER(atmel_nand_controller) = {
 	.id = UCLASS_MTD,
 	.of_match = atmel_nand_controller_of_ids,
 	.probe = atmel_nand_controller_probe,
-	.remove = atmel_nand_controller_remove,
+	.remove = dm_remove_ptr(atmel_nand_controller_remove),
 };
 
 void board_nand_init(void)

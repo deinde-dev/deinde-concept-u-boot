@@ -217,7 +217,7 @@ U_BOOT_DRIVER(dwc3_generic_peripheral) = {
 	.of_to_plat = dwc3_generic_of_to_plat,
 	.ops	= &dwc3_gadget_ops,
 	.probe = dwc3_generic_peripheral_probe,
-	.remove = dwc3_generic_peripheral_remove,
+	.remove = dm_remove_ptr(dwc3_generic_peripheral_remove),
 	.priv_auto	= sizeof(struct dwc3_generic_priv),
 	.plat_auto	= sizeof(struct dwc3_generic_plat),
 };
@@ -275,7 +275,7 @@ U_BOOT_DRIVER(dwc3_generic_host) = {
 	.id	= UCLASS_USB,
 	.of_to_plat = dwc3_generic_of_to_plat,
 	.probe = dwc3_generic_host_probe,
-	.remove = dwc3_generic_host_remove,
+	.remove = dm_remove_ptr(dwc3_generic_host_remove),
 	.priv_auto	= sizeof(struct dwc3_generic_host_priv),
 	.plat_auto	= sizeof(struct dwc3_generic_plat),
 	.ops = &xhci_usb_ops,
@@ -740,7 +740,7 @@ U_BOOT_DRIVER(dwc3_generic_wrapper) = {
 	.of_match = dwc3_glue_ids,
 	.bind = dwc3_glue_bind,
 	.probe = dwc3_glue_probe,
-	.remove = dwc3_glue_remove,
+	.remove = dm_remove_ptr(dwc3_glue_remove),
 	.plat_auto	= sizeof(struct dwc3_glue_data),
 
 };

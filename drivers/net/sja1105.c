@@ -3363,7 +3363,7 @@ U_BOOT_DRIVER(sja1105) = {
 	.id		= UCLASS_DSA,
 	.of_match	= sja1105_ids,
 	.probe		= sja1105_probe,
-	.remove		= sja1105_remove,
+	.remove		= dm_remove_ptr(sja1105_remove),
 	.ops		= &sja1105_dsa_ops,
 	.priv_auto	= sizeof(struct sja1105_private),
 };

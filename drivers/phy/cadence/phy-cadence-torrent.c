@@ -2674,7 +2674,7 @@ U_BOOT_DRIVER(torrent_phy_provider) = {
 	.of_match	= cdns_torrent_id_table,
 	.probe		= cdns_torrent_phy_probe,
 	.bind		= cdns_torrent_phy_bind,
-	.remove		= cdns_torrent_phy_remove,
+	.remove		= dm_remove_ptr(cdns_torrent_phy_remove),
 	.ops		= &cdns_torrent_phy_ops,
 	.priv_auto	= sizeof(struct cdns_torrent_phy),
 };

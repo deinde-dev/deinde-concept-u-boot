@@ -1032,7 +1032,7 @@ U_BOOT_DRIVER(intel_fast_spi) = {
 	.priv_auto	= sizeof(struct ich_spi_priv),
 	.child_pre_probe = ich_spi_child_pre_probe,
 	.probe	= ich_spi_probe,
-	.remove	= ich_spi_remove,
+	.remove	= dm_remove_ptr(ich_spi_remove),
 	.flags	= DM_FLAG_OS_PREPARE,
 };
 

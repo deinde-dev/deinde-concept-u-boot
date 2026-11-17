@@ -246,7 +246,7 @@ U_BOOT_DRIVER(clk_ti_mux) = {
 	.of_match = clk_ti_mux_of_match,
 	.of_to_plat = clk_ti_mux_of_to_plat,
 	.probe = clk_ti_mux_probe,
-	.remove = clk_ti_mux_remove,
+	.remove = dm_remove_ptr(clk_ti_mux_remove),
 	.priv_auto = sizeof(struct clk_ti_mux_priv),
 	.ops = &clk_ti_mux_ops,
 };

@@ -1002,7 +1002,7 @@ U_BOOT_DRIVER(tidss_drv) = {
 	.of_match = tidss_drv_ids,
 	.bind = tidss_drv_bind,
 	.probe = tidss_drv_probe,
-	.remove = tidss_drv_remove,
+	.remove = dm_remove_ptr(tidss_drv_remove),
 	.priv_auto = sizeof(struct tidss_drv_priv),
 #if IS_ENABLED(CONFIG_VIDEO_REMOVE)
 	.flags = DM_FLAG_OS_PREPARE,

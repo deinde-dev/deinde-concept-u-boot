@@ -68,6 +68,6 @@ U_BOOT_DRIVER(ti_j721e_ufs) = {
 	.id			= UCLASS_MISC,
 	.of_match		= ti_j721e_ufs_ids,
 	.probe			= ti_j721e_ufs_probe,
-	.remove			= ti_j721e_ufs_remove,
+	.remove			= dm_remove_ptr(ti_j721e_ufs_remove),
 	.flags			= DM_FLAG_OS_PREPARE,
 };

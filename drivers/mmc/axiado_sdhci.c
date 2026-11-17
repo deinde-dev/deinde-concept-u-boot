@@ -305,7 +305,7 @@ U_BOOT_DRIVER(axiado_sdhci_drv) = {
 	.ops = &sdhci_ops,
 	.bind = axiado_sdhci_bind,
 	.probe = axiado_sdhci_probe,
-	.remove = axiado_sdhci_remove,
+	.remove = dm_remove_ptr(axiado_sdhci_remove),
 	.priv_auto = sizeof(struct axiado_sdhci_priv),
 	.plat_auto = sizeof(struct axiado_sdhci_plat),
 };

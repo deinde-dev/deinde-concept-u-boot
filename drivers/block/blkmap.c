@@ -377,7 +377,7 @@ U_BOOT_DRIVER(blkmap_root) = {
 	.name		= "blkmap_dev",
 	.id		= UCLASS_BLKMAP,
 	.bind		= blkmap_dev_bind,
-	.unbind		= blkmap_dev_unbind,
+	.unbind		= dm_remove_ptr(blkmap_dev_unbind),
 	.plat_auto	= sizeof(struct blkmap),
 };
 

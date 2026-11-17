@@ -552,5 +552,5 @@ UCLASS_DRIVER(mmc) = {
 	.name		= "mmc",
 	.flags		= DM_UC_FLAG_SEQ_ALIAS,
 	.per_device_auto	= sizeof(struct mmc_uclass_priv),
-	.pre_remove	= mmc_remove,
+	.pre_remove	= dm_remove_ptr(mmc_remove),
 };

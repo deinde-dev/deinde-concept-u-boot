@@ -672,6 +672,6 @@ U_BOOT_DRIVER(pcie_dw_imx) = {
 	.ops		= &pcie_dw_imx_ops,
 	.of_to_plat	= pcie_dw_imx_of_to_plat,
 	.probe		= pcie_dw_imx_probe,
-	.remove		= pcie_dw_imx_remove,
+	.remove		= dm_remove_ptr(pcie_dw_imx_remove),
 	.priv_auto	= sizeof(struct pcie_dw_imx),
 };

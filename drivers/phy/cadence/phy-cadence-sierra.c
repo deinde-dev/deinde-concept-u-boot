@@ -1947,7 +1947,7 @@ U_BOOT_DRIVER(sierra_phy_provider) = {
 	.id		= UCLASS_MISC,
 	.of_match	= cdns_sierra_id_table,
 	.probe		= cdns_sierra_phy_probe,
-	.remove		= cdns_sierra_phy_remove,
+	.remove		= dm_remove_ptr(cdns_sierra_phy_remove),
 	.bind		= cdns_sierra_phy_bind,
 	.priv_auto	= sizeof(struct cdns_sierra_phy),
 };

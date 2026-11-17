@@ -188,6 +188,6 @@ U_BOOT_DRIVER(wdt_octeontx) = {
 	.ops = &octeontx_wdt_ops,
 	.priv_auto = sizeof(struct octeontx_wdt),
 	.probe = octeontx_wdt_probe,
-	.remove = octeontx_wdt_remove,
+	.remove = dm_remove_ptr(octeontx_wdt_remove),
 	.flags = DM_FLAG_OS_PREPARE,
 };

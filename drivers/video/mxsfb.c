@@ -397,6 +397,6 @@ U_BOOT_DRIVER(mxs_video) = {
 	.of_match = mxs_video_ids,
 	.bind	= mxs_video_bind,
 	.probe	= mxs_video_probe,
-	.remove = mxs_video_remove,
+	.remove = dm_remove_ptr(mxs_video_remove),
 	.flags	= DM_FLAG_PRE_RELOC | DM_FLAG_OS_PREPARE,
 };

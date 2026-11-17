@@ -522,6 +522,6 @@ U_BOOT_DRIVER(usbhs_udc_otg) = {
 	.ops		= &usbhs_udc_otg_ops,
 	.of_match	= usbhs_udc_otg_ids,
 	.probe		= usbhs_udc_otg_probe,
-	.remove		= usbhs_udc_otg_remove,
+	.remove		= dm_remove_ptr(usbhs_udc_otg_remove),
 	.priv_auto	= sizeof(struct usbhs_priv_otg_data),
 };

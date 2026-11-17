@@ -610,7 +610,7 @@ U_BOOT_DRIVER(arm_pl180_mmc) = {
 	.ops = &arm_pl180_dm_mmc_ops,
 	.probe = arm_pl180_mmc_probe,
 #if IS_ENABLED(CONFIG_DM_REGULATOR)
-	.remove = arm_pl180_mmc_remove,
+	.remove = dm_remove_ptr(arm_pl180_mmc_remove),
 #endif
 	.of_to_plat = arm_pl180_mmc_of_to_plat,
 	.bind = arm_pl180_mmc_bind,

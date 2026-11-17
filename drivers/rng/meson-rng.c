@@ -184,7 +184,7 @@ U_BOOT_DRIVER(meson_rng) = {
 	.of_match = meson_rng_match,
 	.ops = &meson_rng_ops,
 	.probe = meson_rng_probe,
-	.remove = meson_rng_remove,
+	.remove = dm_remove_ptr(meson_rng_remove),
 	.plat_auto	= sizeof(struct meson_rng_plat),
 	.of_to_plat = meson_rng_of_to_plat,
 };

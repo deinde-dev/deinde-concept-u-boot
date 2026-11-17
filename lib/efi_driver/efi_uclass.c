@@ -369,7 +369,7 @@ UCLASS_DRIVER(efi) = {
 	.name		= "efi",
 	.id		= UCLASS_EFI_LOADER,
 	.init		= efi_uc_init,
-	.destroy	= efi_uc_destroy,
+	.destroy	= dm_remove_ptr(efi_uc_destroy),
 };
 
 void efi_driver_uninit(void)

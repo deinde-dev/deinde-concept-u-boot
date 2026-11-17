@@ -49,7 +49,7 @@ U_BOOT_DRIVER(simple_pm_bus_drv) = {
 	.id	= UCLASS_SIMPLE_BUS,
 	.of_match = simple_pm_bus_ids,
 	.probe = simple_pm_bus_probe,
-	.remove = simple_pm_bus_remove,
+	.remove = dm_remove_ptr(simple_pm_bus_remove),
 	.priv_auto	= sizeof(struct clk_bulk),
 	.flags	= DM_FLAG_PRE_RELOC,
 };

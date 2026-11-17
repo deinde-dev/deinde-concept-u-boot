@@ -1054,6 +1054,6 @@ UCLASS_DRIVER(ffa) = {
 	.name			= "ffa",
 	.id			= UCLASS_FFA,
 	.pre_probe		= ffa_do_probe,
-	.pre_remove		= ffa_unmap_rxtx_buffers_hdlr,
+	.pre_remove		= dm_remove_ptr(ffa_unmap_rxtx_buffers_hdlr),
 	.per_device_auto	= sizeof(struct ffa_priv)
 };

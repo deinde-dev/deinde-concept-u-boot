@@ -265,7 +265,7 @@ UCLASS_DRIVER(power_domain) = {
 	.id		= UCLASS_POWER_DOMAIN,
 	.name		= "power_domain",
 	.post_probe	= power_domain_post_probe,
-	.pre_remove	= power_domain_pre_remove,
+	.pre_remove	= dm_remove_ptr(power_domain_pre_remove),
 	.per_device_auto = sizeof(struct power_domain_priv),
 	.per_device_plat_auto = sizeof(struct power_domain_plat),
 };

@@ -461,6 +461,6 @@ U_BOOT_DRIVER(ti_ehrpwm) = {
 	.ops = &ti_ehrpwm_ops,
 	.of_to_plat = ti_ehrpwm_of_to_plat,
 	.probe = ti_ehrpwm_probe,
-	.remove = ti_ehrpwm_remove,
+	.remove = dm_remove_ptr(ti_ehrpwm_remove),
 	.priv_auto = sizeof(struct ti_ehrpwm_priv),
 };

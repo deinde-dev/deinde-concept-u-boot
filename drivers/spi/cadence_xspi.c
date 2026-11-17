@@ -445,6 +445,6 @@ U_BOOT_DRIVER(cadence_xspi) = {
 	.of_match = cdns_xspi_of_match,
 	.ops = &cdns_xspi_ops,
 	.probe = cdns_xspi_probe,
-	.remove = cdns_xspi_remove,
+	.remove = dm_remove_ptr(cdns_xspi_remove),
 	.flags = DM_FLAG_OS_PREPARE,
 };

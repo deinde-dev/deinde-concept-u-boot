@@ -452,7 +452,7 @@ U_BOOT_DRIVER(simple_state) = {
 	.ops		= &ops,
 	.bind		= sstate_bind,
 	.probe		= sstate_probe,
-	.remove		= sstate_remove,
+	.remove		= dm_remove_ptr(sstate_remove),
 	.of_to_plat	= sstate_of_to_plat,
 	.priv_auto	= sizeof(struct sstate_priv),
 };

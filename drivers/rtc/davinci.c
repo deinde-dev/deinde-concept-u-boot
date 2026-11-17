@@ -438,6 +438,6 @@ U_BOOT_DRIVER(omap_rtc) = {
 	.ops = &omap_rtc_ops,
 	.of_to_plat = omap_rtc_of_to_plat,
 	.probe = omap_rtc_probe,
-	.remove = omap_rtc_remove,
+	.remove = dm_remove_ptr(omap_rtc_remove),
 	.priv_auto = sizeof(struct omap_rtc_priv),
 };

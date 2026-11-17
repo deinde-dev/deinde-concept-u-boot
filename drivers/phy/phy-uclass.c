@@ -568,6 +568,6 @@ UCLASS_DRIVER(phy) = {
 	.name		= "phy",
 	.post_bind	= phy_uclass_post_bind,
 	.pre_probe	= phy_uclass_pre_probe,
-	.pre_remove	= phy_uclass_pre_remove,
+	.pre_remove	= dm_remove_ptr(phy_uclass_pre_remove),
 	.per_device_auto = sizeof(struct list_head),
 };

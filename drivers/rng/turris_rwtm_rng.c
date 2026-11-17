@@ -118,6 +118,6 @@ U_BOOT_DRIVER(turris_rwtm_rng) = {
 	.of_match = turris_rwtm_rng_match,
 	.ops	= &turris_rwtm_rng_ops,
 	.probe	= turris_rwtm_rng_probe,
-	.remove = turris_rwtm_rng_remove,
+	.remove = dm_remove_ptr(turris_rwtm_rng_remove),
 	.priv_auto = sizeof(struct turris_rwtm_rng_priv),
 };

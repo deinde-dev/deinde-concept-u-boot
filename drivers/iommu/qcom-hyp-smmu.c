@@ -403,6 +403,6 @@ U_BOOT_DRIVER(qcom_smmu500) = {
 	.priv_auto = sizeof(struct qcom_smmu_priv),
 	.ops = &qcom_smmu_ops,
 	.probe = qcom_smmu_probe,
-	.remove = qcom_smmu_remove,
+	.remove = dm_remove_ptr(qcom_smmu_remove),
 	.flags = DM_FLAG_OS_PREPARE,
 };

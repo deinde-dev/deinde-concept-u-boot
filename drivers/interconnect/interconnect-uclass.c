@@ -534,8 +534,8 @@ U_BOOT_DRIVER(icc_node) = {
 	.id		= UCLASS_ICC_NODE,
 	.bind		= icc_node_bind,
 	.probe		= icc_node_probe,
-	.remove		= icc_node_remove,
-	.unbind		= icc_node_unbind,
+	.remove		= dm_remove_ptr(icc_node_remove),
+	.unbind		= dm_remove_ptr(icc_node_unbind),
 };
 
 UCLASS_DRIVER(icc_node) = {

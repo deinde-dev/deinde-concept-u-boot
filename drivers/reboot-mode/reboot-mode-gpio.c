@@ -116,7 +116,7 @@ U_BOOT_DRIVER(reboot_mode_gpio) = {
 	.name = "reboot-mode-gpio",
 	.id = UCLASS_REBOOT_MODE,
 	.probe = reboot_mode_probe,
-	.remove = reboot_mode_remove,
+	.remove = dm_remove_ptr(reboot_mode_remove),
 #if IS_ENABLED(CONFIG_OF_CONTROL)
 	.of_match = reboot_mode_ids,
 #endif

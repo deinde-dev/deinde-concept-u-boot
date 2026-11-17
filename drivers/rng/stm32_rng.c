@@ -400,7 +400,7 @@ U_BOOT_DRIVER(stm32_rng) = {
 	.of_match = stm32_rng_match,
 	.ops = &stm32_rng_ops,
 	.probe = stm32_rng_probe,
-	.remove = stm32_rng_remove,
+	.remove = dm_remove_ptr(stm32_rng_remove),
 	.plat_auto	= sizeof(struct stm32_rng_plat),
 	.of_to_plat = stm32_rng_of_to_plat,
 };

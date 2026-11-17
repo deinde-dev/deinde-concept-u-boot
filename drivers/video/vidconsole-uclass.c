@@ -1009,7 +1009,7 @@ UCLASS_DRIVER(vidconsole) = {
 	.name		= "vidconsole0",
 	.pre_probe	= vidconsole_pre_probe,
 	.post_probe	= vidconsole_post_probe,
-	.pre_remove	= vidconsole_pre_remove,
+	.pre_remove	= dm_remove_ptr(vidconsole_pre_remove),
 	.per_device_auto	= sizeof(struct vidconsole_priv),
 	.per_device_plat_auto	= sizeof(struct vidconsole_uc_plat),
 };

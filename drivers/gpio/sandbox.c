@@ -371,7 +371,7 @@ U_BOOT_DRIVER(sandbox_gpio) = {
 	.of_match = of_match_ptr(sandbox_gpio_ids),
 	.of_to_plat = sandbox_gpio_of_to_plat,
 	.probe	= gpio_sandbox_probe,
-	.remove	= gpio_sandbox_remove,
+	.remove	= dm_remove_ptr(gpio_sandbox_remove),
 	.ops	= &gpio_sandbox_ops,
 	ACPI_OPS_PTR(&gpio_sandbox_acpi_ops)
 };

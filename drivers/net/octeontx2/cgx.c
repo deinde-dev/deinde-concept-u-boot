@@ -284,7 +284,7 @@ U_BOOT_DRIVER(cgx) = {
 	.name	= "cgx",
 	.id	= UCLASS_MISC,
 	.probe	= cgx_probe,
-	.remove	= cgx_remove,
+	.remove	= dm_remove_ptr(cgx_remove),
 	.priv_auto	= sizeof(struct cgx),
 };
 

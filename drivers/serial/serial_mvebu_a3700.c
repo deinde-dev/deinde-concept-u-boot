@@ -309,7 +309,7 @@ U_BOOT_DRIVER(serial_mvebu) = {
 	.of_to_plat = mvebu_serial_of_to_plat,
 	.plat_auto	= sizeof(struct mvebu_plat),
 	.probe	= mvebu_serial_probe,
-	.remove	= mvebu_serial_remove,
+	.remove	= dm_remove_ptr(mvebu_serial_remove),
 	.flags	= DM_FLAG_OS_PREPARE,
 	.ops	= &mvebu_serial_ops,
 };

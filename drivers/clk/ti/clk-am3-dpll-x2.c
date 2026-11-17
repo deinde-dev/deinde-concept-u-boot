@@ -72,7 +72,7 @@ U_BOOT_DRIVER(clk_ti_am3_dpll_x2) = {
 	.id = UCLASS_CLK,
 	.of_match = clk_ti_am3_dpll_x2_of_match,
 	.probe = clk_ti_am3_dpll_x2_probe,
-	.remove = clk_ti_am3_dpll_x2_remove,
+	.remove = dm_remove_ptr(clk_ti_am3_dpll_x2_remove),
 	.priv_auto = sizeof(struct clk_ti_am3_dpll_x2_priv),
 	.ops = &clk_ti_am3_dpll_x2_ops,
 };

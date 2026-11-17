@@ -121,7 +121,7 @@ UCLASS_DRIVER(pci_emul) = {
 	.id		= UCLASS_PCI_EMUL,
 	.name		= "pci_emul",
 	.post_probe	= sandbox_pci_emul_post_probe,
-	.pre_remove	= sandbox_pci_emul_pre_remove,
+	.pre_remove	= dm_remove_ptr(sandbox_pci_emul_pre_remove),
 	.priv_auto	= sizeof(struct sandbox_pci_emul_priv),
 	.per_device_auto	= sizeof(struct pci_emul_uc_priv),
 };

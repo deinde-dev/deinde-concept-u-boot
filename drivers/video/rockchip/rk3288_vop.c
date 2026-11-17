@@ -103,6 +103,6 @@ U_BOOT_DRIVER(rockchip_rk3288_vop) = {
 	.ops	= &rk3288_vop_ops,
 	.bind	= rk_vop_bind,
 	.probe	= rk3288_vop_probe,
-        .remove = rk_vop_remove,
+	.remove = dm_remove_ptr(rk_vop_remove),
 	.priv_auto	= sizeof(struct rk_vop_priv),
 };

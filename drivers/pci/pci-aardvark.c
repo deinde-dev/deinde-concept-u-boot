@@ -1006,7 +1006,7 @@ U_BOOT_DRIVER(pcie_advk) = {
 	.ops			= &pcie_advk_ops,
 	.of_to_plat	= pcie_advk_of_to_plat,
 	.probe			= pcie_advk_probe,
-	.remove			= pcie_advk_remove,
+	.remove			= dm_remove_ptr(pcie_advk_remove),
 	.flags			= DM_FLAG_OS_PREPARE,
 	.priv_auto	= sizeof(struct pcie_advk),
 };

@@ -85,8 +85,8 @@ U_BOOT_DRIVER(test_drv) = {
 	.ops	= &test_ops,
 	.bind	= test_bind,
 	.probe	= test_probe,
-	.remove	= test_remove,
-	.unbind	= test_unbind,
+	.remove	= dm_remove_ptr(test_remove),
+	.unbind	= dm_remove_ptr(test_unbind),
 	.priv_auto	= sizeof(struct dm_test_priv),
 };
 
@@ -96,8 +96,8 @@ U_BOOT_DRIVER(test2_drv) = {
 	.ops	= &test_ops,
 	.bind	= test_bind,
 	.probe	= test_probe,
-	.remove	= test_remove,
-	.unbind	= test_unbind,
+	.remove	= dm_remove_ptr(test_remove),
+	.unbind	= dm_remove_ptr(test_unbind),
 	.priv_auto	= sizeof(struct dm_test_priv),
 };
 
@@ -153,8 +153,8 @@ U_BOOT_DRIVER(test_manual_drv) = {
 	.ops	= &test_manual_ops,
 	.bind	= test_manual_bind,
 	.probe	= test_manual_probe,
-	.remove	= test_manual_remove,
-	.unbind	= test_manual_unbind,
+	.remove	= dm_remove_ptr(test_manual_remove),
+	.unbind	= dm_remove_ptr(test_manual_unbind),
 };
 
 U_BOOT_DRIVER(test_pre_reloc_drv) = {
@@ -163,8 +163,8 @@ U_BOOT_DRIVER(test_pre_reloc_drv) = {
 	.ops	= &test_manual_ops,
 	.bind	= test_manual_bind,
 	.probe	= test_manual_probe,
-	.remove	= test_manual_remove,
-	.unbind	= test_manual_unbind,
+	.remove	= dm_remove_ptr(test_manual_remove),
+	.unbind	= dm_remove_ptr(test_manual_unbind),
 	.flags	= DM_FLAG_PRE_RELOC,
 };
 
@@ -174,8 +174,8 @@ U_BOOT_DRIVER(test_act_dma_drv) = {
 	.ops	= &test_manual_ops,
 	.bind	= test_manual_bind,
 	.probe	= test_manual_probe,
-	.remove	= test_manual_remove,
-	.unbind	= test_manual_unbind,
+	.remove	= dm_remove_ptr(test_manual_remove),
+	.unbind	= dm_remove_ptr(test_manual_unbind),
 	.flags	= DM_FLAG_ACTIVE_DMA,
 };
 
@@ -185,8 +185,8 @@ U_BOOT_DRIVER(test_vital_clk_drv) = {
 	.ops	= &test_manual_ops,
 	.bind	= test_manual_bind,
 	.probe	= test_manual_probe,
-	.remove	= test_manual_remove,
-	.unbind	= test_manual_unbind,
+	.remove	= dm_remove_ptr(test_manual_remove),
+	.unbind	= dm_remove_ptr(test_manual_unbind),
 	.flags	= DM_FLAG_VITAL,
 };
 
@@ -196,8 +196,8 @@ U_BOOT_DRIVER(test_act_dma_vital_clk_drv) = {
 	.ops	= &test_manual_ops,
 	.bind	= test_manual_bind,
 	.probe	= test_manual_probe,
-	.remove	= test_manual_remove,
-	.unbind	= test_manual_unbind,
+	.remove	= dm_remove_ptr(test_manual_remove),
+	.unbind	= dm_remove_ptr(test_manual_unbind),
 	.flags	= DM_FLAG_VITAL | DM_FLAG_ACTIVE_DMA,
 };
 

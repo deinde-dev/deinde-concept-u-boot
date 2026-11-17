@@ -10,6 +10,7 @@
 #ifndef _DM_DEVICE_H
 #define _DM_DEVICE_H
 
+#include <dm/driver-types.h>
 #include <dm/ofnode.h>
 #include <dm/tag.h>
 #include <dm/uclass-id.h>
@@ -301,13 +302,6 @@ struct udevice_id {
 #endif /* IS_ENABLED(CONFIG_OF_REAL) */
 
 /*
- * With of-platdata and no devicetree, each device is declared by dtoc, so
- * nothing reads the driver's match table and it only wastes space
- */
-#define DM_OF_MATCH_UNUSED	\
-	(IS_ENABLED(CONFIG_OF_PLATDATA) && !IS_ENABLED(CONFIG_OF_REAL))
-
-/*
  * of_to_plat_ptr() - Use an of_to_plat() method only with OF_CONTROL
  *
  * Unlike of_match_ptr(), this keeps the method with of-platdata, where
@@ -343,7 +337,9 @@ struct udevice_id {
  * for a driver which sets it directly.
  * @bind: Called to bind a device to its driver
  * @probe: Called to probe a device, i.e. activate it
- * @remove: Called to remove a device, i.e. de-activate it
+ * @remove: Called to remove a device, i.e. de-activate it. Set this, @unbind
+ * and @child_post_remove with dm_remove_ptr(), since they are left out
+ * without DM_DEVICE_REMOVE
  * @unbind: Called to unbind a device from its driver
  * @of_to_plat: Called before probe to decode device tree data
  * @child_post_bind: Called after a new child has been bound
@@ -374,7 +370,6 @@ struct udevice_id {
  */
 struct driver {
 	char *name;
-	enum uclass_id id;
 #if DM_OF_MATCH_UNUSED
 	const struct of_match_needs_of_match_ptr *of_match;
 #else
@@ -382,18 +377,36 @@ struct driver {
 #endif
 	int (*bind)(struct udevice *dev);
 	int (*probe)(struct udevice *dev);
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
 	int (*remove)(struct udevice *dev);
 	int (*unbind)(struct udevice *dev);
+#else
+	struct dm_absent remove;
+	struct dm_absent unbind;
+#endif
 	int (*of_to_plat)(struct udevice *dev);
 	int (*child_post_bind)(struct udevice *dev);
 	int (*child_pre_probe)(struct udevice *dev);
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
 	int (*child_post_remove)(struct udevice *dev);
+#else
+	struct dm_absent child_post_remove;
+#endif
+	const void *ops;	/* driver-specific operations */
+	uint32_t flags;
+#if DM_OF_MATCH_UNUSED
+	u16 priv_auto;
+	u16 plat_auto;
+	u16 per_child_auto;
+	u16 per_child_plat_auto;
+	u16 id;
+#else
 	int priv_auto;
 	int plat_auto;
 	int per_child_auto;
 	int per_child_plat_auto;
-	const void *ops;	/* driver-specific operations */
-	uint32_t flags;
+	enum uclass_id id;
+#endif
 #if IS_ENABLED(CONFIG_ACPIGEN)
 	const struct acpi_ops *acpi_ops;
 #endif
@@ -421,6 +434,24 @@ driver_get_of_match(const struct driver *drv)
 #else
 	return drv->of_match;
 #endif
+}
+
+/**
+ * driver_unbind() - Call the unbind() method of a driver, if it has one
+ *
+ * @drv: Driver to use
+ * @dev: Device to unbind
+ * Return: 0 if OK, or there is no method, or devices cannot be unbound; -ve
+ *	on error
+ */
+static inline int driver_unbind(const struct driver *drv, struct udevice *dev)
+{
+#if IS_ENABLED(CONFIG_DM_DEVICE_REMOVE)
+	if (drv->unbind)
+		return drv->unbind(dev);
+#endif
+
+	return 0;
 }
 
 /**

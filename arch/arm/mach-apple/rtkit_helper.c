@@ -141,6 +141,6 @@ U_BOOT_DRIVER(rtkit_helper) = {
 	.of_match = rtkit_helper_ids,
 	.priv_auto = sizeof(struct rtkit_helper_priv),
 	.probe = rtkit_helper_probe,
-	.remove = rtkit_helper_remove,
+	.remove = dm_remove_ptr(rtkit_helper_remove),
 	.flags = DM_FLAG_OS_PREPARE,
 };

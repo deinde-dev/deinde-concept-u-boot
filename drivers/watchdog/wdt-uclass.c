@@ -305,7 +305,7 @@ UCLASS_DRIVER(wdt) = {
 	.name			= "watchdog",
 	.flags			= DM_UC_FLAG_SEQ_ALIAS,
 	.pre_probe		= wdt_pre_probe,
-	.pre_remove		= wdt_pre_remove,
+	.pre_remove		= dm_remove_ptr(wdt_pre_remove),
 	.per_device_auto	= sizeof(struct wdt_priv),
 	.per_device_plat_auto	= sizeof(struct wdt_uc_plat),
 };

@@ -175,7 +175,7 @@ U_BOOT_DRIVER(sandbox_lcd_sdl) = {
 	.of_match = sandbox_sdl_ids,
 	.bind	= sandbox_sdl_bind,
 	.probe	= sandbox_sdl_probe,
-	.remove	= sandbox_sdl_remove,
+	.remove	= dm_remove_ptr(sandbox_sdl_remove),
 	.ops	= &sandbox_sdl_ops,
 	.plat_auto	= sizeof(struct sandbox_sdl_plat),
 };
