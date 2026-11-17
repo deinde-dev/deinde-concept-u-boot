@@ -74,6 +74,7 @@ EFI_LDS := ${SRCDIR}/../../../arch/x86/lib/elf_ia32_efi.lds
 EFI_TARGET := --output-target=efi-app-ia32
 else ifeq ($(HOST_ARCH),$(HOST_ARCH_AARCH64))
 EFI_LDS := ${SRCDIR}/../../../arch/arm/lib/elf_aarch64_efi.lds
+EFI_TARGET := --output-target=efi-app-aarch64
 OBJCOPYFLAGS += -j .text -j .secure_text -j .secure_data -j .rodata -j .data \
 		-j __u_boot_list -j .rela.dyn -j .got -j .got.plt \
 		-j .binman_sym_table -j .text_rest \
