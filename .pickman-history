@@ -108276,3 +108276,117 @@ The working tree had some untracked files at the start (`capsule_esl_file`, `cod
 
 ---
 
+## 2026-11-17: us/main
+
+Branch: cherry-40df38dd8309
+
+Commits:
+- 40df38dd8309 net: ti: cpsw: return -EAGAIN when no RX packet is ready
+- ac07b58ba47f net: fm: return -EAGAIN for empty receives
+- d6fae8406e8e net: higmacv300: return -EAGAIN for empty receives
+- 7927fd19290b net: mcffec: return -EAGAIN for empty receives
+- b530afa1cf32 net: mvgbe: return -EAGAIN for empty receives
+- 0b9a1026cbe2 net: tsec: return -EAGAIN for empty receives
+- 3fc35d33b5c2 net: xilinx_emaclite: return -EAGAIN for empty receives
+- 2f11f0a20f73 net: zynq_gem: return -EAGAIN for empty receives
+- a9631ec898a6 net: nfs: add bounds checks on memcpy into stack-allocated rpc_pkt
+- 2044f0c8ac16 net: tftp: verify the OACK packet is NUL terminated
+- d163d6021239 net: designware: Disable SGMII auto negotiation on NPCM845
+- 0d44fb722858 net: add HPE GXP UMAC ethernet driver
+- 64fe14b53cca net: mdio-pic64hpsc.c: add a driver for PIC64-HPSC/HX MDIO controller
+- f6b2d87fb22f net: macb: add 1000BASE-X autonegotiation support
+- e8aa87c578b9 net: mvneta: drop frames in case of RX buffer oversize
+- 1834ff73375c net: gmac_rockchip: Remove unnecessary clk_set_defaults() call
+- fa679f1ad4ab net: lwip: bound NFS filename parsing and release its copy
+- 2dc9e78a2f16 net: preserve the autoload value across dhcp_run
+- e84b77bd5ba0 net: lwip: finish DHCP before starting autoload
+- 1dee9a4539b7 mtd: rawnand: add Toshiba TC58NVG1S3H
+- 411065073ad5 mtd: spi-nor: Add Dosilicon DS25Q4BB support
+- beaa326ce901 video: console: report damage when showing the cursor
+- ac56bf9b0364 video: simplefb: only use stride after a successful read
+- e16958bc076d video: console: clear rows stride-aware in set_row
+- 50a15eee8b10 video: simplefb: fix rot prop handling
+- 32eb8bb43b33 video: console: Handle ESC[0K erase-to-end-of-line
+- a15e24e2d0e2 test: net: cover lwIP DHCP autoload handoff
+- 4e5dbe340667 net: lwip: add a hook before accepting DHCP acknowledgements
+- 32d1899e0109 net: lwip: carry DHCP boot options into the environment
+- b262b13b997c test: net: exercise lwIP DHCP boot option handling
+- a886fd80ff4f net: lwip: export DHCP DNS settings without a resolver
+- 699f75af2369 net: lwip: honor configured DHCP boot-server preferences
+- 2d03bf30d255 net: lwip: support PXE client and configuration options
+- d03b052c49f4 net: cache accepted DHCP acknowledgements for EFI PXE consumers
+- d63878c6fe73 net: lwip: honor DHCP timing controls and request header fields
+- 0e57accfb1f2 net: lwip: add a hook before parsing DHCP replies
+- 2d0a864e267a net: lwip: accept direct ProxyDHCP replies without a lease
+- d8c96bf90bbe net: lwip: retain boot metadata from the selected DHCP offer
+- 4d505f037adc net: lwip: retry DHCP acquisition using the network failure policy
+- 47d98f17b255 test: net: exercise lwIP ProxyDHCP ordering and validation
+- df77257e4e28 net: lwip: separate DHCP exchange from boot configuration
+- 4a61162e4985 net: lwip: support standalone BOOTP
+- fca508ac5084 test: net: exercise lwIP standalone BOOTP
+- acc808479730 Merge tag 'net-20261022' of https://git.u-boot-project.org/u-boot/custodians/u-boot-net
+
+### Conversation log
+Eleven commits are picked and building cleanly; the twelfth (HPE GXP UMAC driver) hit a conflict in MAINTAINERS, which I'm looking at now.
+
+Simple include conflict: keep both `<getopt.h>` and `<malloc.h>`.
+
+The target already reports cursor damage in `vidconsole_show_cursor()`, so this one becomes an empty commit.
+
+Simple both-sides-add conflict: keep the target's rx handler and add the new free-packet handler alongside it.
+
+Need the comment openers between the two blocks.
+
+30 of 44 done; the lwIP DHCP tests pass after each fix-up. Continuing with the remaining lwIP DHCP commits.
+
+Resolved the Kconfig/include conflicts for the PXE-options commit (33rd of 44); now finishing it and verifying.
+
+36 of 44 picked. The ProxyDHCP commit conflicts in `efi_net.c` again (this tree keeps that state in a struct); resolving it now.
+
+38 of 44 picked; the latest one just needs its new test calls adapted to the getopt `do_dhcp()` signature again.
+
+39 of 44 picked, all building with lwIP tests passing. Running the last five (ProxyDHCP tests, BOOTP split, standalone BOOTP, and the merge commit).
+
+Resolved the standalone BOOTP commit (42 of 44) by adapting it to the getopt command signature; verifying the Kconfig nesting and builds now.
+
+Now the merge commit.
+
+All 44 commits are on the branch and both final builds pass; just running the dhcp/tftp/bootp command tests as a last regression check.
+
+All 44 commits are on `cherry-40df38dd8309` (based on `ci/master`), and the final `buildman -L --board sandbox -w -o /tmp/pickman` passes with no warnings or errors. The branch is ready to push; nothing was merged or pushed.
+
+## Verification beyond the sandbox build
+Plain sandbox does not compile the lwIP code, so I also built `sandbox64_lwip` after each lwIP commit and at the end; it is clean too. Tests run on the final tree, all passing:
+- **`sandbox64_lwip`:** `ut dm lwip*` (7 tests, including the new DHCP, ProxyDHCP and BOOTP ones).
+- **`sandbox`:** `ut cmd dhcp*`, `tftpboot*`, `bootp*`, and `ut dm video*`, `eth*`, `net*`, `dhcp*`.
+
+## Fix-ups
+Each fixed-up commit carries a `[pickman…]` note at the end of its message.
+
+| Commit | Fix-up |
+|---|---|
+| `0d44fb722858` HPE GXP UMAC | `MAINTAINERS` conflict; only the two `gxp_umac` lines added, since this tree lacks the neighbouring `gxp_eeprom`/`sysinfo` entries |
+| `2dc9e78a2f16` preserve autoload | Include conflict in `net/net-common.c`; kept `<getopt.h>` alongside `<malloc.h>` |
+| `e84b77bd5ba0` finish DHCP before autoload | Adapted `do_dhcp()` and the new NFS autoload helper to this tree's getopt command signature |
+| `beaa326ce901` cursor damage | **Empty commit**: this tree already reports cursor damage in `vidconsole_show_cursor()` |
+| `32eb8bb43b33` ESC[0K | Build failed; cursor position and char size live in `ctx` here, not `priv` |
+| `a15e24e2d0e2` DHCP handoff test | `eth.h` conflict (kept this tree's `rx_handler` next to the new `free_pkt_handler`); test calls `do_dhcp()` through a getopt state |
+| `32d1899e0109`, `a886fd80ff4f`, `2d03bf30d255`, `4d505f037adc` | `cmd/Kconfig` conflicts; upstream's `NET_LEGACY` restructuring mapped onto this tree's `if CMD_BOOTP` block |
+| `d03b052c49f4`, `2d0a864e267a` | `efi_net.c` conflicts; rewritten against the `efis->net` state struct. I added `proxy_offer`/`have_proxy` to `struct efi_net_dhcp_entry` and free them in the existing teardown |
+| `4a61162e4985` standalone BOOTP | lwIP `do_bootp()`/`bootp_run()` use the getopt signature and `U_BOOT_CMD_NOOPTS`; kept `select GETOPT` |
+| `b262b13b997c`, `699f75af2369`, `d8c96bf90bbe`, `47d98f17b255`, `fca508ac5084`, plus the tests in rows above | Each lwIP test file gained a small static helper that builds a getopt state to call `do_dhcp()`/`do_bootp()` |
+| `acc808479730` merge | **Empty commit**: all 36 of its commits are already picked individually |
+
+`split-check` also converted `CONFIG_IS_ENABLED()` to `IS_ENABLED()` in seven of the lwIP commits. It added `CMD_SNTP` to `scripts/conf_nospl` in `32d1899e0109`.
+
+## Deltas
+No commit differs significantly from its original. The differences are a few lines each from the getopt helpers and Kconfig mapping, plus the two intentionally empty commits.
+
+## Things to check
+- The Kconfig, `efi_net.c` and getopt adaptations are more than mechanical conflict resolution; I continued rather than aborting because the intent was clear and the lwIP tests pass.
+- On `sandbox64_lwip`, `ut cmd dhcp*`, `tftpboot*` and `bootp*` report "not found", so only the new `ut dm lwip*` tests cover the lwIP command paths.
+- The EFI ProxyDHCP cache path and its teardown free are build-tested only; the `ut lib efi*` filter matched no tests on either build.
+- Upstream's lwIP `dhcp` now honours `autoload` even with no arguments; this arrives with `e84b77bd5ba0`.
+
+---
+
