@@ -52,6 +52,65 @@
 	};
 };
 
+/*
+ * Linux v7.3 adds a clock, a supply and an OPP table to each CPU node, for
+ * use by cpufreq. U-Boot does not change the CPU frequency. The clock makes
+ * the CPU driver set up the clock tree before relocation, and the larger
+ * devicetree takes longer to scan, so drop them
+ */
+/ {
+	/delete-node/ opp-table-cluster0;
+	/delete-node/ opp-table-cluster1;
+};
+
+&cpu_0 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
+&cpu_1 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
+&cpu_2 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
+&cpu_3 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
+&cpu_4 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
+&cpu_5 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
+&cpu_6 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
+&cpu_7 {
+	/delete-property/ clocks;
+	/delete-property/ cpu-supply;
+	/delete-property/ operating-points-v2;
+};
+
 &{/soc} {
 	bootph-all;
 };
