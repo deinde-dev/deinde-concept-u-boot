@@ -66,8 +66,12 @@ fn main() {
             println!("cargo:rustc-link-arg=-lSDL2");
         }
 
-        // Link with libbacktrace for backtrace support on sandbox
+        // Link with libbacktrace for backtrace support on sandbox. On
+        // aarch64 it calls the outline-atomics helpers, e.g.
+        // __aarch64_cas8_sync, which are only in libgcc.a and rustc does not
+        // link with that
         println!("cargo:rustc-link-arg=-lbacktrace");
+        println!("cargo:rustc-link-arg=-lgcc");
 
         // When libu-boot.a is built with AddressSanitizer or coverage, its
         // objects reference __asan_*/__gcov_* symbols that come from libasan
