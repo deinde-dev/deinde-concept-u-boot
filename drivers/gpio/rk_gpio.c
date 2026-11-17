@@ -222,7 +222,7 @@ static const struct dm_gpio_ops gpio_rockchip_ops = {
 	.get_function		= rockchip_gpio_get_function,
 };
 
-static const struct udevice_id rockchip_gpio_ids[] = {
+static __maybe_unused const struct udevice_id rockchip_gpio_ids[] = {
 	{ .compatible = "rockchip,gpio-bank" },
 	{ }
 };
@@ -230,7 +230,7 @@ static const struct udevice_id rockchip_gpio_ids[] = {
 U_BOOT_DRIVER(rockchip_gpio_bank) = {
 	.name	= "rockchip_gpio_bank",
 	.id	= UCLASS_GPIO,
-	.of_match = rockchip_gpio_ids,
+	.of_match = of_match_ptr(rockchip_gpio_ids),
 	.ops	= &gpio_rockchip_ops,
 	.priv_auto	= sizeof(struct rockchip_gpio_priv),
 	.probe	= rockchip_gpio_probe,
