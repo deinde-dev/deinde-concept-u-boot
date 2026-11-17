@@ -63,8 +63,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Read lines using U-Boot's os_fgets()
     let mut lines = 0;
-    let mut buffer = [0i8; 256]; // Use array instead of Vec to avoid heap
-                                  // allocation
+    // Use an array instead of a Vec to avoid heap allocation. The C 'char'
+    // type is signed on some architectures and unsigned on others
+    let mut buffer: [c_char; 256] = [0; 256];
     loop {
         let result = unsafe {
             os_fgets(buffer.as_mut_ptr(), buffer.len() as c_int, fd)
