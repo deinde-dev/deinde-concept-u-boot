@@ -1121,24 +1121,16 @@ static int rk3506_clk_probe(struct udevice *dev)
 
 static int rk3506_clk_bind(struct udevice *dev)
 {
-	struct udevice *sys_child;
-	struct sysreset_reg *priv;
 	int ret;
 
 	if (IS_ENABLED(CONFIG_XPL_BUILD))
 		rk3506_clk_init_xpl();
 
 	/* The reset driver does not have a device node, so bind it here */
-	ret = device_bind_driver(dev, "rockchip_sysreset", "sysreset",
-				 &sys_child);
-	if (ret) {
+	ret = rockchip_sysreset_bind(dev, RK3506_GLB_SRST_FST,
+				     RK3506_GLB_SRST_SND);
+	if (ret)
 		log_debug("Warning: No sysreset driver: ret=%d\n", ret);
-	} else {
-		priv = malloc(sizeof(struct sysreset_reg));
-		priv->glb_srst_fst_value = RK3506_GLB_SRST_FST;
-		priv->glb_srst_snd_value = RK3506_GLB_SRST_SND;
-		dev_set_priv(sys_child, priv);
-	}
 
 	if (!IS_ENABLED(CONFIG_RESET_ROCKCHIP))
 		return 0;

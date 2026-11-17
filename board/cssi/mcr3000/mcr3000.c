@@ -7,6 +7,7 @@
  * Board specific routines for the MCR3000 board
  */
 
+#include <dm.h>
 #include <env.h>
 #include <hwconfig.h>
 #include <init.h>
@@ -121,8 +122,9 @@ static int load_fpga(void)
 	if (ret)
 		return ret;
 
-	ret = _spi_get_bus_and_cs(0, 1, 10000000, 0, "spi_generic_drv",
-				  "generic_0:0", &master, &slave);
+	ret = _spi_get_bus_and_cs(0, 1, 10000000, 0,
+				  DM_DRIVER_GET(spi_generic_drv), "generic_0:0",
+				  &master, &slave);
 	if (ret)
 		return ret;
 

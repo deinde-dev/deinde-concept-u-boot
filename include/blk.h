@@ -24,6 +24,7 @@ typedef ulong lbaint_t;
 
 #define DEFAULT_BLKSZ		512
 
+struct driver;
 struct udevice;
 
 static inline bool blk_enabled(void)
@@ -399,7 +400,7 @@ int blk_next_device(struct udevice **devp);
  * blk_create_devicef() - Create a new named block device
  *
  * @parent:	Parent of the new device
- * @drv_name:	Driver name to use for the block device
+ * @drv:	Driver to use for the block device, e.g. DM_DRIVER_GET(mmc_blk)
  * @name:	Name for the device (parent name is prepended)
  * @uclass_id:	Interface type (enum uclass_id_t)
  * @devnum:	Device number, specific to the interface type, or -1 to
@@ -408,7 +409,7 @@ int blk_next_device(struct udevice **devp);
  * @lba:	Total number of blocks of the device
  * @devp:	the new device (which has not been probed)
  */
-int blk_create_devicef(struct udevice *parent, const char *drv_name,
+int blk_create_devicef(struct udevice *parent, const struct driver *drv,
 		       const char *name, int uclass_id, int devnum, int blksz,
 		       lbaint_t lba, struct udevice **devp);
 

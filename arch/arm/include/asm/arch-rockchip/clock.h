@@ -6,6 +6,7 @@
 #ifndef _ASM_ARCH_CLOCK_H
 #define _ASM_ARCH_CLOCK_H
 
+#include <linux/errno.h>
 #include <linux/types.h>
 
 struct udevice;
@@ -152,6 +153,28 @@ struct sysreset_reg {
 	unsigned int glb_srst_fst_value;
 	unsigned int glb_srst_snd_value;
 };
+
+/**
+ * rockchip_sysreset_bind() - Bind the sysreset driver as a child of the CRU
+ *
+ * The sysreset driver has no devicetree node, so the clock driver binds it
+ *
+ * @pdev:	CRU device, which becomes the parent of the sysreset device
+ * @fst_offset:	Offset within the CRU of the first global-reset register
+ * @snd_offset:	Offset within the CRU of the second global-reset register
+ * Return: 0 if OK, -ENOSYS if this phase has no sysreset support, other -ve on
+ *	error
+ */
+#if IS_ENABLED(CONFIG_SYSRESET)
+int rockchip_sysreset_bind(struct udevice *pdev, uint fst_offset,
+			   uint snd_offset);
+#else
+static inline int rockchip_sysreset_bind(struct udevice *pdev, uint fst_offset,
+					 uint snd_offset)
+{
+	return -ENOSYS;
+}
+#endif
 
 /**
  * clk_get_divisor() - Calculate the required clock divisior

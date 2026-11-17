@@ -18,6 +18,9 @@
  * This function returns a pointer to a driver given its name. This is used
  * for binding a driver given its name and plat.
  *
+ * This is not available with of-platdata and no devicetree, since a driver
+ * which nothing refers to is left out of the image. Use DM_DRIVER_GET()
+ *
  * @name: Name of driver to look up
  * Return: pointer to driver, or NULL if not found
  */
@@ -69,6 +72,9 @@ int lists_bind_fdt(struct udevice *parent, ofnode node, struct udevice **devp,
  *
  * This binds a new device to a driver.
  *
+ * This is not available with of-platdata and no devicetree: see
+ * lists_driver_lookup_name()
+ *
  * @parent:	Parent device
  * @drv_name:	Name of driver to attach to this parent
  * @dev_name:	Name of the new device thus created
@@ -83,6 +89,9 @@ int device_bind_driver(struct udevice *parent, const char *drv_name,
  *
  * This binds a new device to a driver for a given device tree node. This
  * should only be needed if the node lacks a compatible strings.
+ *
+ * This is not available with of-platdata and no devicetree: see
+ * lists_driver_lookup_name()
  *
  * @parent:	Parent device
  * @drv_name:	Name of driver to attach to this parent

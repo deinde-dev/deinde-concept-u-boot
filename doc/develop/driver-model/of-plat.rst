@@ -491,6 +491,28 @@ sandbox_spl). When adding a helper, add a property which uses it to the
 dev-prop-test node in `arch/sandbox/dts/sandbox.dtsi` and
 `arch/sandbox/dts/test.dts`, read it in the driver and check it in the test.
 
+Unused drivers
+--------------
+
+With of-platdata and no devicetree, each device record refers to its driver.
+Nothing can use a driver which is not referred to, so the linker leaves it out
+of the image, along with the code and data which only it uses. A phase often
+builds drivers for devices which its devicetree does not have, such as the
+fixed-clock drivers, so this saves a useful amount of space.
+
+This means that a driver cannot be looked up by name. The functions which do
+that, `lists_driver_lookup_name()`, `device_bind_driver()` and
+`device_bind_driver_to_node()`, are not built in this case. Code which binds
+a device itself must refer to the driver instead:
+
+.. code-block:: c
+
+    ret = device_bind(parent, DM_DRIVER_GET(mmc_blk), "blk", NULL,
+                      ofnode_null(), &dev);
+
+The linker script must use the `U_BOOT_LISTS` macro to collect the linker
+lists. A script which collects them itself keeps every driver.
+
 Indexes
 -------
 
@@ -718,6 +740,18 @@ The fix is to use `of_match_ptr()` and to mark the table `__maybe_unused`:
 
 Code which needs to read the table can use `driver_get_of_match()`, which
 returns NULL in this case.
+
+Driver bound by name
+~~~~~~~~~~~~~~~~~~~~
+
+Code which looks up a driver by name fails to link, since the function it
+calls is not built::
+
+   in function `rk3288_clk_bind':
+   undefined reference to `device_bind_driver'
+
+The fix is to refer to the driver with `DM_DRIVER_GET()` and pass it to
+`device_bind()`. See `Unused drivers`_.
 
 Caveats
 -------

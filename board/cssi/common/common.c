@@ -94,8 +94,9 @@ int read_eeprom(u8 *din, int len)
 	if (ret)
 		return ret;
 
-	ret = _spi_get_bus_and_cs(0, 0, 1000000, 0, "spi_generic_drv",
-				  "generic_0:0", &eeprom, &slave);
+	ret = _spi_get_bus_and_cs(0, 0, 1000000, 0,
+				  DM_DRIVER_GET(spi_generic_drv), "generic_0:0",
+				  &eeprom, &slave);
 	if (ret)
 		return ret;
 

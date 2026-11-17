@@ -178,8 +178,8 @@ static int mox_do_spi(u8 *in, u8 *out, size_t size)
 	int ret;
 
 	ret = _spi_get_bus_and_cs(0, 1, 1000000, SPI_CPHA | SPI_CPOL,
-				  "spi_generic_drv", "moxtet@1", &dev,
-				  &slave);
+				  DM_DRIVER_GET(spi_generic_drv), "moxtet@1",
+				  &dev, &slave);
 	if (ret)
 		goto fail;
 

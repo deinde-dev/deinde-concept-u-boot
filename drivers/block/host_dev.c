@@ -109,8 +109,9 @@ static int host_sb_bind(struct udevice *dev)
 	struct blk_desc *desc;
 	int ret;
 
-	ret = blk_create_devicef(dev, "sandbox_host_blk", "blk", UCLASS_HOST,
-				 dev_seq(dev), DEFAULT_BLKSZ, 0, &blk);
+	ret = blk_create_devicef(dev, DM_DRIVER_GET(sandbox_host_blk), "blk",
+				 UCLASS_HOST, dev_seq(dev), DEFAULT_BLKSZ, 0,
+				 &blk);
 	if (ret)
 		return log_msg_ret("blk", ret);
 

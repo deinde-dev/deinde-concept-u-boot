@@ -139,8 +139,8 @@ efi_bl_create_block_device(efi_handle_t handle, void *interface)
 	sprintf(name, "efiblk#%d", devnum);
 
 	/* Create driver model udevice for the EFI block io device */
-	if (blk_create_devicef(parent, "efi_blk", name, UCLASS_EFI_LOADER,
-			       devnum, io->media->block_size,
+	if (blk_create_devicef(parent, DM_DRIVER_GET(efi_blk), name,
+			       UCLASS_EFI_LOADER, devnum, io->media->block_size,
 			       (lbaint_t)io->media->last_block, &bdev)) {
 		ret = EFI_OUT_OF_RESOURCES;
 		goto err;

@@ -652,8 +652,8 @@ static int do_scsi_scan_one(struct udevice *dev, int id, int lun, bool verbose)
 	* block devices created
 	*/
 	snprintf(str, sizeof(str), "id%xlun%x", id, lun);
-	ret = blk_create_devicef(dev, "scsi_blk", str, UCLASS_SCSI, -1,
-				 bd.blksz, bd.lba, &bdev);
+	ret = blk_create_devicef(dev, DM_DRIVER_GET(scsi_blk), str, UCLASS_SCSI,
+				 -1, bd.blksz, bd.lba, &bdev);
 	if (ret) {
 		debug("Can't create device\n");
 		return ret;

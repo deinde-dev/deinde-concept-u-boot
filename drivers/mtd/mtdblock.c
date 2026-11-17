@@ -63,7 +63,7 @@ int mtd_bind(struct udevice *dev, struct mtd_info **mtd)
 	struct udevice *bdev;
 	int ret;
 
-	ret = blk_create_devicef(dev, "mtd_blk", "blk", UCLASS_MTD,
+	ret = blk_create_devicef(dev, DM_DRIVER_GET(mtd_blk), "blk", UCLASS_MTD,
 				 -1, 512, 0, &bdev);
 	if (ret) {
 		pr_err("Cannot create block device\n");

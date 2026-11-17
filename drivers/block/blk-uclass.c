@@ -678,7 +678,7 @@ static int blk_claim_devnum(enum uclass_id uclass_id, int devnum)
  * blk_create_device() - Create a new block device
  *
  * @parent:	Parent of the new device
- * @drv_name:	Driver name to use for the block device
+ * @drv:	Driver to use for the block device
  * @name:	Name for the device
  * @uclass_id:	Interface type (enum uclass_id_t)
  * @devnum:	Device number, specific to the interface type, or -1 to
@@ -687,9 +687,10 @@ static int blk_claim_devnum(enum uclass_id uclass_id, int devnum)
  * @lba:	Total number of blocks of the device
  * @devp:	the new device (which has not been probed)
  */
-static int blk_create_device(struct udevice *parent, const char *drv_name,
-			     const char *name, int uclass_id, int devnum,
-			     int blksz, lbaint_t lba, struct udevice **devp)
+static int blk_create_device(struct udevice *parent,
+			     const struct driver *drv, const char *name,
+			     int uclass_id, int devnum, int blksz, lbaint_t lba,
+			     struct udevice **devp)
 {
 	struct blk_desc *desc;
 	struct udevice *dev;
@@ -704,7 +705,7 @@ static int blk_create_device(struct udevice *parent, const char *drv_name,
 	}
 	if (devnum < 0)
 		return devnum;
-	ret = device_bind_driver(parent, drv_name, name, &dev);
+	ret = device_bind(parent, drv, name, NULL, ofnode_null(), &dev);
 	if (ret)
 		return ret;
 	desc = dev_get_uclass_plat(dev);
@@ -720,7 +721,7 @@ static int blk_create_device(struct udevice *parent, const char *drv_name,
 	return 0;
 }
 
-int blk_create_devicef(struct udevice *parent, const char *drv_name,
+int blk_create_devicef(struct udevice *parent, const struct driver *drv,
 		       const char *name, int uclass_id, int devnum, int blksz,
 		       lbaint_t lba, struct udevice **devp)
 {
@@ -732,8 +733,8 @@ int blk_create_devicef(struct udevice *parent, const char *drv_name,
 	if (!str)
 		return -ENOMEM;
 
-	ret = blk_create_device(parent, drv_name, str, uclass_id, devnum,
-				blksz, lba, devp);
+	ret = blk_create_device(parent, drv, str, uclass_id, devnum, blksz,
+				lba, devp);
 	if (ret) {
 		free(str);
 		return ret;
@@ -804,8 +805,8 @@ static int part_create_block_devices(struct udevice *blk_dev)
 		snprintf(devname, sizeof(devname), "%s:%x", blk_dev->name,
 			 part);
 
-		ret = device_bind_driver(blk_dev, "blk_partition",
-					 strdup(devname), &dev);
+		ret = device_bind(blk_dev, DM_DRIVER_GET(blk_partition),
+				  strdup(devname), NULL, ofnode_null(), &dev);
 		if (ret)
 			return ret;
 		device_set_name_alloced(dev);

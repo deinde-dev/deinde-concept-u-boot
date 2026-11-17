@@ -47,6 +47,7 @@ int spl_flash_get_sw_write_prot(struct udevice *dev)
 struct spi_flash *spi_flash_probe(unsigned int busnum, unsigned int cs,
 				  unsigned int max_hz, unsigned int spi_mode)
 {
+	const struct driver *drv = NULL;
 	struct spi_slave *slave;
 	struct udevice *bus;
 	char *str;
@@ -60,8 +61,12 @@ struct spi_flash *spi_flash_probe(unsigned int busnum, unsigned int cs,
 	str = strdup(name);
 #endif
 
-	if (_spi_get_bus_and_cs(busnum, cs, max_hz, spi_mode,
-				"jedec_spi_nor", str, &bus, &slave))
+	/* Without SPI_FLASH there is no driver to bind */
+	if (IS_ENABLED(CONFIG_SPI_FLASH))
+		drv = DM_DRIVER_GET(jedec_spi_nor);
+
+	if (_spi_get_bus_and_cs(busnum, cs, max_hz, spi_mode, drv, str, &bus,
+				&slave))
 		return NULL;
 
 	return dev_get_uclass_priv(slave->dev);

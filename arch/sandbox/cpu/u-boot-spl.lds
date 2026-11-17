@@ -10,7 +10,7 @@ SECTIONS
 
 	. = ALIGN(32);
 	__u_boot_list : {
-		KEEP(*(SORT(__u_boot_list*)));
+		U_BOOT_LISTS
 	}
 
 	_u_boot_sandbox_getopt : {

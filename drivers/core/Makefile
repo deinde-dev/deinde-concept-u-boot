@@ -3,6 +3,13 @@
 # Copyright (c) 2013 Google, Inc
 
 obj-y	+= device.o fdtaddr.o lists.o root.o uclass.o util.o tag.o
+
+# With of-platdata and no devicetree, a driver which nothing refers to is left
+# out of the image, so drivers cannot be looked up by name
+ifneq ($(CONFIG_OF_PLATDATA)-$(CONFIG_OF_REAL),y-)
+obj-y	+= drv-name.o
+endif
+
 obj-$(CONFIG_ACPIGEN) += acpi.o
 obj-$(CONFIG_DEVRES) += devres.o
 obj-$(CONFIG_DM_DEVICE_REMOVE)	+= device-remove.o

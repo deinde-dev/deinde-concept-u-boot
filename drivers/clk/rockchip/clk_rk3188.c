@@ -559,25 +559,16 @@ static int rk3188_clk_bind(struct udevice *dev)
 {
 	DTPLAT(rockchip_rk3188_cru, dt, dev);
 	int ret;
-	struct udevice *sys_child;
-	struct sysreset_reg *priv;
 
 	/* With of-platdata, nothing else sets the driver data */
 	dev->driver_data = dev_prop_driver_data(dev, dt);
 
 	/* The reset driver does not have a device node, so bind it here */
-	ret = device_bind_driver(dev, "rockchip_sysreset", "sysreset",
-				 &sys_child);
-	if (ret) {
+	ret = rockchip_sysreset_bind(dev,
+			offsetof(struct rk3188_cru, cru_glb_srst_fst_value),
+			offsetof(struct rk3188_cru, cru_glb_srst_snd_value));
+	if (ret)
 		debug("Warning: No sysreset driver: ret=%d\n", ret);
-	} else {
-		priv = malloc(sizeof(struct sysreset_reg));
-		priv->glb_srst_fst_value = offsetof(struct rk3188_cru,
-						    cru_glb_srst_fst_value);
-		priv->glb_srst_snd_value = offsetof(struct rk3188_cru,
-						    cru_glb_srst_snd_value);
-		dev_set_priv(sys_child, priv);
-	}
 
 #if IS_ENABLED(CONFIG_RESET_ROCKCHIP)
 	ret = offsetof(struct rk3188_cru, cru_softrst_con[0]);
