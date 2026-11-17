@@ -2150,7 +2150,7 @@ u-boot-keep-syms-lto_c := $(patsubst %.o,%.c,$(u-boot-keep-syms-lto))
 
 quiet_cmd_keep_syms_lto = KSL     $@
       cmd_keep_syms_lto = \
-	$(srctree)/scripts/gen_ll_addressable_symbols.sh $(NM) $^ > $@
+	$(srctree)/scripts/gen_ll_addressable_symbols.sh $(NM) --defined-only $^ > $@
 
 quiet_cmd_keep_syms_lto_cc = KSLCC   $@
       cmd_keep_syms_lto_cc = \
@@ -2174,7 +2174,7 @@ ifeq ($(LTO_ENABLE),y)
 quiet_cmd_u-boot__ ?= LTO     $@
 define u-boot-link
 		touch $(u-boot-main) ;						\
-		$(CC) -nostdlib -nostartfiles					\
+		$(CC) -nostdlib -nostartfiles -static				\
 		$(LTO_FINAL_LDFLAGS) $(c_flags)					\
 		$(KBUILD_LDFLAGS:%=-Wl,%) $(LDFLAGS_u-boot:%=-Wl,%) -o $@	\
 		-T u-boot.lds $(u-boot-init) $(1)				\
