@@ -194,7 +194,7 @@ static int rockchip_gpio_probe(struct udevice *dev)
 	ret = ofnode_parse_phandle_with_args(dev_ofnode(dev),
 					     "gpio-ranges", NULL, 3,
 					     0, &args);
-	if (!ret || ret != -ENOENT) {
+	if (!ret) {
 		uc_priv->gpio_count = args.args[2];
 		priv->bank = args.args[1] / ROCKCHIP_GPIOS_PER_BANK;
 	} else {
