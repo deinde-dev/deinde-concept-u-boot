@@ -4345,6 +4345,10 @@ def apply_subtree_update(dbs, source, name, tag, merge_hash, remote,  # pylint: 
 
     _subtree_record(dbs, source, squash_hash, merge_hash)
 
+    # Link the commits to the MR, as for a cherry-pick
+    if push:
+        record_mr(dbs, source, branch_name, mr_url, [squash_hash, merge_hash])
+
     return 0
 
 
