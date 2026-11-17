@@ -5209,32 +5209,24 @@ class TestApplySubtreeUpdate(unittest.TestCase):
             self.assertEqual(dbs.source_get('us/next'), 'base')
             dbs.close()
 
-    def test_apply_checkout_fallback(self):
-        """Test apply_subtree_update falls back to -b when checkout fails."""
+    def test_apply_from_remote(self):
+        """Test apply_subtree_update starts from the fetched remote target
+
+        The local target branch may be months old, so it must not be used
+        """
         with terminal.capture():
             dbs = database.Database(self.db_path)
             dbs.start()
             dbs.source_set('us/next', 'base')
             dbs.commit()
 
-            args = argparse.Namespace(push=False, remote='ci',
-                                      target='master')
-
-            checkout_calls = []
+            calls = []
 
             def run_git_handler(git_args):
                 if 'rev-parse' in git_args:
                     return 'first_parent\nsquash_hash'
-                if 'branch' in git_args and '--list' in git_args:
-                    return ''
-                if 'checkout' in git_args:
-                    checkout_calls.append(list(git_args))
-                    # Fail bare checkout of target, succeed on
-                    # fallback and branch creation
-                    if git_args == ['checkout', 'master']:
-                        raise command.CommandExc(
-                            'ambiguous checkout', None)
-                    return ''
+                if git_args[0] in ('fetch', 'checkout'):
+                    calls.append(list(git_args))
                 if 'log' in git_args:
                     return 'subject|author'
                 return ''
@@ -5245,18 +5237,13 @@ class TestApplySubtreeUpdate(unittest.TestCase):
                                        return_value=0):
                     ret = control.apply_subtree_update(
                         dbs, 'us/next', 'dts', 'v6.15-dts',
-                        'merge_hash', 'ci', 'master',
-                        push=args.push)
+                        'merge_hash', 'ci', 'master', push=False)
 
             self.assertEqual(ret, 0)
-            # Should have tried bare checkout, then fallback, then
-            # branch creation
-            self.assertEqual(len(checkout_calls), 3)
-            self.assertEqual(checkout_calls[0], ['checkout', 'master'])
-            self.assertEqual(checkout_calls[1],
-                             ['checkout', '-b', 'master', 'ci/master'])
-            self.assertEqual(checkout_calls[2],
-                             ['checkout', '-b', 'cherry-merge_hash'])
+            self.assertEqual(
+                [['fetch', 'ci'],
+                 ['checkout', '-B', 'cherry-merge_hash', 'ci/master']],
+                calls)
             dbs.close()
 
     def test_apply_no_second_parent(self):

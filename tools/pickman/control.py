@@ -4293,8 +4293,8 @@ def apply_subtree_update(dbs, source, name, tag, merge_hash, remote,  # pylint: 
     """Apply a subtree update on a branch and create a merge request
 
     Runs tools/update-subtree.sh to pull the subtree update on a new
-    branch (cherry-<hash>), then optionally pushes and creates a merge
-    request to the target branch.
+    branch (cherry-<hash>) from the remote's target, then optionally pushes
+    and creates a merge request to the target branch.
 
     Args:
         dbs (Database): Database instance
@@ -4320,23 +4320,14 @@ def apply_subtree_update(dbs, source, name, tag, merge_hash, remote,  # pylint: 
 
     branch_name = f'cherry-{merge_hash[:11]}'
 
-    # Create a new branch from the target for this subtree update
+    # Start the branch afresh from the remote's target, since nothing keeps
+    # the local target branch up to date
     try:
-        run_git(['checkout', target])
+        run_git(['fetch', remote])
+        run_git(['checkout', '-B', branch_name, f'{remote}/{target}'])
     except command.CommandExc:
-        # Bare name may be ambiguous when multiple remotes have it
-        try:
-            run_git(['checkout', '-b', target,
-                     f'{remote}/{target}'])
-        except command.CommandExc:
-            tout.error(f'Could not checkout {target}')
-            return 1
-
-    # Delete the branch if it already exists, then create it
-    if run_git(['branch', '--list', branch_name]).strip():
-        tout.info(f'Deleting existing branch {branch_name}')
-        run_git(['branch', '-D', branch_name])
-    run_git(['checkout', '-b', branch_name])
+        tout.error(f'Could not create {branch_name} from {remote}/{target}')
+        return 1
 
     if not _subtree_pull(name, tag):
         return 1

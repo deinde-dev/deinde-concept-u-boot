@@ -128,9 +128,10 @@ matching the merge subject against the pattern
 ``Subtree merge tag '<tag>' of ... into <path>``. When a subtree merge is found,
 pickman:
 
-1. Checks out the target branch (e.g. ``ci/master``)
+1. Fetches the remote and starts a new branch from its target (e.g.
+   ``ci/master``), not from the local target branch, which may be out of date
 2. Runs ``./tools/update-subtree.sh pull <name> <tag>`` to apply the update
-3. Pushes the target branch (if ``--push`` is active)
+3. Pushes the branch and creates an MR (if ``--push`` is active)
 4. Records both the squash and merge commits as 'applied' in the database
 5. Advances the source position past the merge and continues with the next batch
 
