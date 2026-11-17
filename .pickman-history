@@ -108235,3 +108235,44 @@ The branch is ready for pushing and has not been merged anywhere.
 
 ---
 
+## 2026-11-17: us/main
+
+Branch: cherry-5ab784245a44
+
+Commits:
+- 5ab784245a44 Makefile: Skip undefined symbols in keep-syms-lto.c
+- 343472c493b0 Makefile: Pass -static to the LTO link
+- cd035e1ecb26 mmc: Add missing MMC_HS400_ES_SUPPORT to mmc_set_card_speed
+- 90ae09080030 cmd: mmc: Print also eMMC health info if available
+- 1e4dff94f1e4 mmc: core: Apply power-off-delay-us outside regulator support
+- 7a4c42516e7b mmc: sdhci: do not time out a command that has completed
+- 06f988df538e Merge tag 'mmc-for-2027-01-rc1' of https://git.u-boot-project.org/u-boot/custodians/u-boot-mmc
+
+### Conversation log
+Six of the seven commits are picked and building cleanly (one conflict resolved in `drivers/mmc/mmc.c`); now checking for leftover per-phase config macros and then picking the merge commit.
+
+All 7 commits are cherry-picked onto `cherry-5ab784245a44` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+| Commit | New hash | Result |
+|---|---|---|
+| 5ab784245a44 Makefile: Skip undefined symbols in keep-syms-lto.c | 7b37f4569ed0 | clean |
+| 343472c493b0 Makefile: Pass -static to the LTO link | fcf0afe844d1 | clean |
+| cd035e1ecb26 mmc: Add missing MMC_HS400_ES_SUPPORT to mmc_set_card_speed | 858b5e2f72f2 | conflict resolved |
+| 90ae09080030 cmd: mmc: Print also eMMC health info if available | d2f0c17b7ed1 | clean |
+| 1e4dff94f1e4 mmc: core: Apply power-off-delay-us outside regulator support | 51d9242bd0b5 | clean |
+| 7a4c42516e7b mmc: sdhci: do not time out a command that has completed | 240386c97888 | clean |
+| 06f988df538e Merge tag 'mmc-for-2027-01-rc1' | cd8b275af039 | conflict resolved, empty commit |
+
+**Fix-ups**
+- **cd035e1ecb26:** the `#if` in `drivers/mmc/mmc.c` conflicted because this tree uses `IS_ENABLED(CONFIG_x)` there. I resolved it by adding the new `MMC_HS400_ES_SUPPORT` line in that form and added a note to the commit message.
+- **06f988df538e (merge):** it hit the same conflict in `drivers/mmc/mmc.c`. I kept the already-picked version, so the commit is empty as expected, and added a note to its message.
+
+**Checks**
+- **Deltas:** every commit matches its original in files and line counts; nothing concerning.
+- **split-check:** it reported nothing and changed nothing on any commit, and no per-phase macros remain in the added lines.
+- **Builds:** sandbox built cleanly after each of the first six picks. The first build after the merge pick failed only because I ran it before resolving the conflict; it passed once resolved.
+
+The working tree had some untracked files at the start (`capsule_esl_file`, `codman.db`, two `.dtbo.S` files); I left them alone.
+
+---
+
