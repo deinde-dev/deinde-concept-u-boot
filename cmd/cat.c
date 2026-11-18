@@ -46,6 +46,7 @@ static int do_cat(struct cmd_tbl *cmdtp, int flag, int argc,
 		nread = file_read(fil, buf, chunk);
 		if (nread < 0) {
 			printf("Read failed: %ldE\n", nread);
+			file_close(fil);
 			return CMD_RET_FAILURE;
 		}
 		if (!nread)
@@ -55,6 +56,7 @@ static int do_cat(struct cmd_tbl *cmdtp, int flag, int argc,
 		puts(buf);
 		remaining -= nread;
 	}
+	file_close(fil);
 
 	return CMD_RET_SUCCESS;
 }

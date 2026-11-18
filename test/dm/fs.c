@@ -752,6 +752,49 @@ static int dm_test_vfs_mkdir(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_mkdir, UTF_SCAN_FDT);
 
+/* Test that a file is released when closed */
+static int dm_test_vfs_file_close(struct unit_test_state *uts)
+{
+	struct udevice *fil;
+	char buf[5];
+
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+	ut_asserteq(0, uclass_id_count(UCLASS_FILE));
+
+	/* Commands close the files which they open */
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.close_test 4", 0));
+	ut_assert_nextline("4 bytes written");
+	ut_assertok(run_command("load 2000 /host/.close_test", 0));
+	ut_assert_nextline("4 bytes read");
+	ut_assertok(run_command("cat /host/.close_test", 0));
+	ut_assert_nextline("test");
+	ut_assertok(run_command("fs cp /host/.close_test /host/.close_test2",
+				0));
+	ut_assert_nextline("4 bytes copied");
+	ut_assert_console_end();
+	ut_asserteq(0, uclass_id_count(UCLASS_FILE));
+
+	/* A file which is opened stays until it is closed */
+	ut_assertok(vfs_open_file("/host/.close_test", DIR_O_RDONLY, &fil));
+	ut_asserteq(1, uclass_id_count(UCLASS_FILE));
+	ut_asserteq(4, file_read(fil, buf, 4));
+	ut_asserteq_mem("test", buf, 4);
+	ut_assertok(file_close(fil));
+	ut_asserteq(0, uclass_id_count(UCLASS_FILE));
+
+	ut_assertok(run_command("rm /host/.close_test", 0));
+	ut_assertok(run_command("rm /host/.close_test2", 0));
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_file_close, UTF_SCAN_FDT);
+
 /* Test the rmdir command via VFS */
 static int dm_test_vfs_rmdir(struct unit_test_state *uts)
 {

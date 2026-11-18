@@ -271,6 +271,7 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	ret = vfs_open_file(argv[2], DIR_O_WRONLY, &dst);
 	if (ret) {
 		printf("Dest '%s' failed: %dE\n", argv[2], ret);
+		file_close(src);
 		return CMD_RET_FAILURE;
 	}
 
@@ -285,7 +286,8 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		nread = file_read_at(src, buf, pos, chunk);
 		if (nread < 0) {
 			printf("Read failed: %ldE\n", nread);
-			return CMD_RET_FAILURE;
+			ret = CMD_RET_FAILURE;
+			goto done;
 		}
 		if (!nread)
 			break;
@@ -293,7 +295,8 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		nwritten = file_write_at(dst, buf, pos, nread);
 		if (nwritten < 0) {
 			printf("Write failed: %ldE\n", nwritten);
-			return CMD_RET_FAILURE;
+			ret = CMD_RET_FAILURE;
+			goto done;
 		}
 
 		pos += nread;
@@ -302,8 +305,13 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	printf("%ld bytes copied\n", total);
+	ret = CMD_RET_SUCCESS;
 
-	return CMD_RET_SUCCESS;
+done:
+	file_close(src);
+	file_close(dst);
+
+	return ret;
 }
 
 static int do_rm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
@@ -746,6 +754,7 @@ static int do_vfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	buf = map_sysmem(addr, bytes);
 	len_read = file_read_at(fil, buf, pos, bytes);
 	unmap_sysmem(buf);
+	file_close(fil);
 
 	if (len_read < 0) {
 		printf("Read failed: %ldE\n", len_read);
@@ -829,9 +838,10 @@ static int do_save(struct cmd_tbl *cmdtp, int flag, int argc,
 	buf = map_sysmem(addr, bytes);
 	written = file_write_at(fil, buf, pos, bytes);
 	unmap_sysmem(buf);
+	file_close(fil);
 
 	if (written < 0) {
-		printf("Error: %dE\n", ret);
+		printf("Error: %ldE\n", written);
 		return CMD_RET_FAILURE;
 	}
 
