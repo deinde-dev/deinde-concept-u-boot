@@ -108677,3 +108677,45 @@ The working tree had a few untracked files before I started (`codman.db`, `capsu
 
 ---
 
+### Pipeline fix: 2026-11-18 (attempt 1)
+
+Branch: cherry-6b80ba004aca
+
+Failed jobs:
+- build all platforms 6/6 (world_build)
+- rockpro64 (sjg-lab)
+
+### Conversation log
+Waiting for the i.MX board build to finish before diagnosing further.
+
+Neither failure comes from the 18 cherry-picks in this MR. I fixed the build failure with a new commit on top; the rockpro64 failure is transient and needs no change.
+
+## build all platforms 6/6
+
+- **Failing board:** `mt8366_genio_360_evk`. The supplied log tail didn't name it, so I pulled the full job log.
+- **Error:** mkimage reports `Error: Load Address must be set` when creating `u-boot-mtk.bin`.
+- **Root cause:** the defconfig sets `CONFIG_TEXT_BASE`, but this tree uses `CONFIG_PPL_TEXT_BASE`, which is what the Makefile passes to mkimage, so the load address is empty.
+- **Responsible commit:** e65811d1b22c ("board: mediatek: add Genio 360 EVK defconfig"). It is already in ci/master (the MR's base, 1805658c910b), so master itself is broken and there is nothing on this branch to amend.
+- **Fix:** new commit f18af06dadb4 "configs: mt8366_genio_360_evk: Use PPL_TEXT_BASE", a one-line rename in `configs/mt8366_genio_360_evk_defconfig`, matching `mt8365_evk`.
+
+Since the breakage is on master, the same fix is needed there, or other MRs will fail the same job.
+
+## rockpro64 (sjg-lab)
+
+`test_sleep` measured 3.42s against a 3.25s limit for a 3s sleep on the lab board. That is a timing blip; the other 44 tests passed, so a retry should clear it.
+
+## Verification
+
+- `mt8366_genio_360_evk` reproduced the failure locally before the fix and builds after it.
+- The 25 i.MX boards in shard 6/6 build without errors, as do the 128 other i.MX boards that finished before a wider build hit its time limit.
+- `um build sandbox` passes.
+- I did not run the full 259-board shard: the suggested `buildman -o /tmp/pickman 6,all,platforms,rockpro64,sandbox` is not a valid board selection, and the stable buildman lacks `--shard`.
+
+## Left alone
+
+Three other files still use `CONFIG_TEXT_BASE`: `qcom_sdm845_spl_defconfig`, `qcom_sm8650_defconfig` and `amd_versal_premium_2.config`. They did not fail in this job, so I did not touch them, but they may have the same latent problem.
+
+The result is on local branch `cherry-6b80ba004aca-fix1`, not pushed.
+
+---
+
