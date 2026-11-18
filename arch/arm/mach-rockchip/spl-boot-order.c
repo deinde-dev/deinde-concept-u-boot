@@ -118,68 +118,120 @@ __weak const char *board_spl_was_booted_from(void)
 	return NULL;
 }
 
+/*
+ * With of-platdata there is no devicetree to read, but dtoc provides the
+ * entries of the u-boot,spl-boot-order property, each with the index of the
+ * driver_info record for its node, which gives the device
+ */
+static const struct dt_boot_order boot_order[] = {
+	DT_CHOSEN_SPL_BOOT_ORDER
+};
+
 /**
- * boot_order_plat() - work out the boot order with of-platdata
- * @spl_boot_list:	list to add the boot devices to
- *
- * There is no devicetree to read, but dtoc provides the entries of the
- * u-boot,spl-boot-order property, each with the index of the driver_info
- * record for its node, which gives the device.
+ * boot_order_entry() - look up an entry in the boot order with of-platdata
+ * @seq:	entry to look up, which must be valid
+ * @pathp:	returns the devicetree path of the entry, NULL if not known
  *
  * For 'same-as-spl' only the path of the device is known, so this is looked
  * up in the other entries. This means that it only works if the device which
  * SPL was loaded from is in the boot order as well.
  *
+ * Returns
+ *   -ENODEV, if the entry has no device, or it is not one SPL can boot from
+ *   a positive integer (from the BOOT_DEVICE_... family) on success.
+ */
+static int boot_order_entry(int seq, const char **pathp)
+{
+	struct driver_rt *rt = gd_dm_driver_rt();
+	int rec = boot_order[seq].idx;
+	const char *path = boot_order[seq].path;
+	struct udevice *dev;
+	int boot_device;
+	int i;
+
+	if (!path) {
+		path = board_spl_was_booted_from();
+
+		for (i = 0; path && i < ARRAY_SIZE(boot_order); i++) {
+			if (boot_order[i].path &&
+			    !strcmp(path, boot_order[i].path))
+				rec = boot_order[i].idx;
+		}
+	}
+	*pathp = path;
+	if (rec < 0 || !rt[rec].dev)
+		return -ENODEV;
+	dev = rt[rec].dev;
+
+	switch (device_get_uclass_id(dev)) {
+	case UCLASS_MMC:
+		boot_device = mmc_to_boot_device(dev);
+		break;
+	case UCLASS_SPI_FLASH:
+		boot_device = BOOT_DEVICE_SPI;
+		break;
+	case UCLASS_UFS:
+		boot_device = BOOT_DEVICE_UFS;
+		break;
+	default:
+		boot_device = -1;
+		break;
+	}
+
+	return boot_device < 0 ? -ENODEV : boot_device;
+}
+
+/**
+ * boot_order_plat() - work out the boot order with of-platdata
+ * @spl_boot_list:	list to add the boot devices to
+ *
  * Returns the number of boot devices added to the list
  */
 static int boot_order_plat(u32 *spl_boot_list)
 {
-	static const struct dt_boot_order order[] = {
-		DT_CHOSEN_SPL_BOOT_ORDER
-	};
-	struct driver_rt *rt = gd_dm_driver_rt();
+	const char *path;
 	int count = 0;
-	int i, j;
+	int i;
 
-	for (i = 0; i < ARRAY_SIZE(order); i++) {
-		int rec = order[i].idx;
-		struct udevice *dev;
-		int boot_device;
+	for (i = 0; i < ARRAY_SIZE(boot_order); i++) {
+		int boot_device = boot_order_entry(i, &path);
 
-		if (!order[i].path) {
-			const char *path = board_spl_was_booted_from();
-
-			for (j = 0; path && j < ARRAY_SIZE(order); j++) {
-				if (order[j].path &&
-				    !strcmp(path, order[j].path))
-					rec = order[j].idx;
-			}
-		}
-		if (rec < 0 || !rt[rec].dev)
-			continue;
-		dev = rt[rec].dev;
-
-		switch (device_get_uclass_id(dev)) {
-		case UCLASS_MMC:
-			boot_device = mmc_to_boot_device(dev);
-			break;
-		case UCLASS_SPI_FLASH:
-			boot_device = BOOT_DEVICE_SPI;
-			break;
-		case UCLASS_UFS:
-			boot_device = BOOT_DEVICE_UFS;
-			break;
-		default:
-			boot_device = -1;
-			break;
-		}
-		if (boot_device < 0)
-			continue;
-
-		spl_boot_list[count++] = boot_device;
+		if (boot_device >= 0)
+			spl_boot_list[count++] = boot_device;
 	}
 
 	return count;
+}
+
+/**
+ * boot_path_plat() - find the devicetree path of a boot device
+ * @boot_device:	boot device to look up (BOOT_DEVICE_...)
+ * @buf:		buffer to hold the path
+ * @buflen:		size of @buf
+ *
+ * With of-platdata the devices have no nodes, so use the paths which dtoc
+ * provides for the entries in the boot order
+ *
+ * Returns
+ *   -ENODEV, if no entry in the boot order uses @boot_device
+ *   -ENOSPC, if the path does not fit in @buf
+ *   0 on success
+ */
+static int boot_path_plat(u32 boot_device, char *buf, size_t buflen)
+{
+	const char *path;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(boot_order); i++) {
+		if (boot_order_entry(i, &path) != boot_device)
+			continue;
+		if (strlcpy(buf, path, buflen) >= buflen)
+			return -ENOSPC;
+
+		return 0;
+	}
+
+	return -ENODEV;
 }
 
 void board_boot_order(u32 *spl_boot_list)
@@ -263,13 +315,17 @@ void board_boot_order(u32 *spl_boot_list)
 }
 
 #if IS_ENABLED(CONFIG_OF_LIBFDT)
-int spl_decode_boot_device(u32 boot_device, char *buf, size_t buflen)
+static int spl_decode_boot_device(u32 boot_device, char *buf,
+				  size_t buflen)
 {
 	struct udevice *dev;
 #if IS_ENABLED(CONFIG_BLK)
 	int dev_num;
 #endif
 	int ret;
+
+	if (IS_ENABLED(CONFIG_OF_PLATDATA))
+		return boot_path_plat(boot_device, buf, buflen);
 
 	if (boot_device == BOOT_DEVICE_SPI) {
 		/* Revert spl_node_to_boot_device() logic to find appropriate SPI flash device */
