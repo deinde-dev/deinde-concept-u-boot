@@ -1268,8 +1268,9 @@ qemu-x86_64:
   variables:
     ROLE: qemu-x86_64
     TEST_PY_TEST_SPEC: "and not sleep"
-  # Shares the 'qemu-x86_64' labgrid place with the -win job below, so
-  # serialise them
+  # Shares the 'qemu-x86_64' labgrid place with the Windows 10 jobs below, so
+  # serialise them. The Windows 11 jobs use the 'qemu-x86_64-2' place, so they
+  # can run at the same time as these
   resource_group: qemu-x86_64-place
   <<: *sjg_lab_dfn
 
@@ -1308,7 +1309,7 @@ qemu-x86_64-win11-installed:
   variables:
     ROLE: qemu-x86_64-win11-installed
     TEST_PY_TEST_SPEC: "and test_distro_windows11_installed"
-  resource_group: qemu-x86_64-place
+  resource_group: qemu-x86_64-2-place
   <<: *sjg_lab_dfn
 
 # Boots the installed Windows 11 with secure boot on: the variable flash holds
@@ -1318,7 +1319,7 @@ qemu-x86_64-win11-sb:
   variables:
     ROLE: qemu-x86_64-win11-sb
     TEST_PY_TEST_SPEC: "and test_distro_windows11_secure"
-  resource_group: qemu-x86_64-place
+  resource_group: qemu-x86_64-2-place
   <<: *sjg_lab_dfn
 
 # Installs Windows 11 from its ISO with U-Boot as the firmware, with a TPM,
@@ -1329,7 +1330,7 @@ qemu-x86_64-win11-install:
     ROLE: qemu-x86_64-win11-install
     TEST_PY_TEST_SPEC: "and test_distro_windows11_install and not installed"
   timeout: 1h
-  resource_group: qemu-x86_64-place
+  resource_group: qemu-x86_64-2-place
   <<: *sjg_lab_slow_dfn
 
 # Boots an installed Windows 11 Arm64 (NVMe disk, snapshot mode, with a TPM)
