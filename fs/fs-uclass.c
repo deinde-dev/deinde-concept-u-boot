@@ -176,6 +176,16 @@ int fs_do_mkdir(struct udevice *dev, const char *path)
 	return ops->mkdir(dev, path);
 }
 
+int fs_do_rmdir(struct udevice *dev, const char *path)
+{
+	struct fs_ops *ops = fs_get_ops(dev);
+
+	if (!ops->rmdir)
+		return log_msg_ret("fsr", -ENOSYS);
+
+	return ops->rmdir(dev, path);
+}
+
 int fs_unmount(struct udevice *dev)
 {
 	struct fs_ops *ops = fs_get_ops(dev);

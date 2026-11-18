@@ -264,6 +264,52 @@ FS_TEST_ARGS(fs_test_vfs_mkdir_norun,
 	     UTF_SCAN_FDT | UTF_CONSOLE | UTF_MANUAL,
 	     { "fs_image", UT_ARG_STR });
 
+/* Test rmdir on VFS-mounted filesystem */
+static int fs_test_vfs_rmdir_norun(struct unit_test_state *uts)
+{
+	const char *fs_image = ut_str(VFS_ARG_IMAGE);
+	struct udevice *dev;
+	char *buf;
+
+	ut_assertok(vfs_mount_image(uts, fs_image, &dev));
+
+	ut_assertok(run_command("mkdir /mnt/.rmdir_test", 0));
+	buf = map_sysmem(BUF_ADDR, 0x10);
+	memcpy(buf, "keep me\n", 8);
+	ut_assertok(run_commandf("save %x /mnt/.rmdir_test/file 8", BUF_ADDR));
+	ut_assert_nextline("8 bytes written");
+	ut_assert_console_end();
+
+	/* A directory with something in it stays */
+	ut_asserteq(1, run_command("rmdir /mnt/.rmdir_test", 0));
+	ut_assert_nextline(
+		"Cannot remove '/mnt/.rmdir_test': -39: Directory not empty");
+	ut_assert_console_end();
+
+	/* A file is not removed */
+	ut_asserteq(1, run_command("rmdir /mnt/.rmdir_test/file", 0));
+	ut_assert_nextline(
+		"Cannot remove '/mnt/.rmdir_test/file': -20: Not a directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm /mnt/.rmdir_test/file", 0));
+	ut_assertok(run_command("rmdir /mnt/.rmdir_test", 0));
+	ut_assert_console_end();
+
+	/* Verify it is gone */
+	ut_asserteq(1, run_command("stat /mnt/.rmdir_test", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	unmap_sysmem(buf);
+	ut_assertok(vfs_umount_image(uts, dev));
+
+	return 0;
+}
+FS_TEST_ARGS(fs_test_vfs_rmdir_norun,
+	     UTF_SCAN_FDT | UTF_CONSOLE | UTF_MANUAL,
+	     { "fs_image", UT_ARG_STR });
+
 /* Test rm on VFS-mounted filesystem */
 static int fs_test_vfs_rm_norun(struct unit_test_state *uts)
 {
@@ -294,6 +340,43 @@ static int fs_test_vfs_rm_norun(struct unit_test_state *uts)
 	return 0;
 }
 FS_TEST_ARGS(fs_test_vfs_rm_norun,
+	     UTF_SCAN_FDT | UTF_CONSOLE | UTF_MANUAL,
+	     { "fs_image", UT_ARG_STR });
+
+/* Test rm -r and mkdir -p on VFS-mounted filesystem */
+static int fs_test_vfs_rm_tree_norun(struct unit_test_state *uts)
+{
+	const char *fs_image = ut_str(VFS_ARG_IMAGE);
+	struct udevice *dev;
+	char *buf;
+
+	ut_assertok(vfs_mount_image(uts, fs_image, &dev));
+
+	ut_assertok(run_command("mkdir -p /mnt/.tree/a/b /mnt/.tree/c", 0));
+	buf = map_sysmem(BUF_ADDR, 0x10);
+	memcpy(buf, "delete me\n", 10);
+	ut_assertok(run_commandf("save %x /mnt/.tree/f1 a", BUF_ADDR));
+	ut_assertok(run_commandf("save %x /mnt/.tree/a/f2 a", BUF_ADDR));
+	ut_assertok(run_commandf("save %x /mnt/.tree/a/b/f3 a", BUF_ADDR));
+	console_record_reset_enable();
+
+	ut_assertok(run_command("stat /mnt/.tree/a/b/f3", 0));
+	console_record_reset_enable();
+
+	ut_assertok(run_command("rm -r /mnt/.tree", 0));
+	ut_assert_console_end();
+
+	/* Verify it is gone */
+	ut_asserteq(1, run_command("stat /mnt/.tree", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	unmap_sysmem(buf);
+	ut_assertok(vfs_umount_image(uts, dev));
+
+	return 0;
+}
+FS_TEST_ARGS(fs_test_vfs_rm_tree_norun,
 	     UTF_SCAN_FDT | UTF_CONSOLE | UTF_MANUAL,
 	     { "fs_image", UT_ARG_STR });
 

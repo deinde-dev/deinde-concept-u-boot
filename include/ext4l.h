@@ -98,6 +98,7 @@ int ext4l_write(struct ext4l_state *state, const char *filename,
 		void *buf, loff_t offset, loff_t len, loff_t *actwrite);
 int ext4l_unlink(struct ext4l_state *state, const char *filename);
 int ext4l_mkdir(struct ext4l_state *state, const char *dirname);
+int ext4l_rmdir(struct ext4l_state *state, const char *dirname);
 int ext4l_ln(struct ext4l_state *state, const char *filename,
 	     const char *linkname);
 int ext4l_rename(struct ext4l_state *state, const char *old_path,

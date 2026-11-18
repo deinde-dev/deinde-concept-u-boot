@@ -33,6 +33,9 @@
 #define OP_REGEX	17
 #define OP_VFS_FILE	18
 #define OP_VFS_DIR	19
+#define OP_VFS_EXISTS	20
+#define OP_VFS_LINK	21
+#define OP_VFS_SIZE	22
 
 const struct {
 	int arg;
@@ -59,6 +62,8 @@ const struct {
 #if IS_ENABLED(CONFIG_VFS)
 	{0, "-f", OP_VFS_FILE, 2},
 	{0, "-d", OP_VFS_DIR, 2},
+	{0, "-L", OP_VFS_LINK, 2},
+	{0, "-s", OP_VFS_SIZE, 2},
 #endif
 #ifdef CONFIG_REGEX
 	{1, "=~", OP_REGEX, 3},
@@ -132,6 +137,18 @@ static int do_test(struct cmd_tbl *cmdtp, int flag, int argc,
 			expr = 1;
 			break;
 		}
+
+		/*
+		 * With the VFS, -e takes a path. The older form has an
+		 * interface and a device before the path, so there are three
+		 * arguments, the second of which cannot be an operator
+		 */
+		if (IS_ENABLED(CONFIG_VFS) && op == OP_FILE_EXISTS &&
+		    (left < adv || !strcmp(ap[2], "-a") ||
+		     !strcmp(ap[2], "-o"))) {
+			op = OP_VFS_EXISTS;
+			adv = 2;
+		}
 		if (left < adv) {
 			expr = 1;
 			break;
@@ -196,6 +213,25 @@ static int do_test(struct cmd_tbl *cmdtp, int flag, int argc,
 
 			expr = !vfs_stat(ap[1], &dent) &&
 			       dent.type == FS_DT_DIR;
+			break;
+		}
+		case OP_VFS_EXISTS: {
+			struct fs_dirent dent;
+
+			expr = !vfs_stat(ap[1], &dent);
+			break;
+		}
+		case OP_VFS_LINK: {
+			struct fs_dirent dent;
+
+			expr = !vfs_stat(ap[1], &dent) &&
+			       dent.type == FS_DT_LNK;
+			break;
+		}
+		case OP_VFS_SIZE: {
+			struct fs_dirent dent;
+
+			expr = !vfs_stat(ap[1], &dent) && dent.size > 0;
 			break;
 		}
 #endif

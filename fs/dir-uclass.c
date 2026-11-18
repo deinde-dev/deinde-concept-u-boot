@@ -47,7 +47,11 @@ int dir_add_probe(struct udevice *fsdev, struct driver *drv, const char *path,
 	return 0;
 
 no_probe:
+	/* The device owns its name by now, so this frees it */
 	device_unbind(dev);
+	free(dup_path);
+
+	return ret;
 no_bind:
 	free(dup_path);
 no_dev_path:

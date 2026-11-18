@@ -3115,7 +3115,7 @@ bool ext4_empty_dir(struct inode *inode)
 	return true;
 }
 
-static int ext4_rmdir(struct inode *dir, struct dentry *dentry)
+int ext4_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	int retval;
 	struct inode *inode;

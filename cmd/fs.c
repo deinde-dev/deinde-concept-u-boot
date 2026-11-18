@@ -271,6 +271,7 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	ret = vfs_open_file(argv[2], DIR_O_WRONLY, &dst);
 	if (ret) {
 		printf("Dest '%s' failed: %dE\n", argv[2], ret);
+		file_close(src);
 		return CMD_RET_FAILURE;
 	}
 
@@ -285,7 +286,8 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		nread = file_read_at(src, buf, pos, chunk);
 		if (nread < 0) {
 			printf("Read failed: %ldE\n", nread);
-			return CMD_RET_FAILURE;
+			ret = CMD_RET_FAILURE;
+			goto done;
 		}
 		if (!nread)
 			break;
@@ -293,7 +295,8 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		nwritten = file_write_at(dst, buf, pos, nread);
 		if (nwritten < 0) {
 			printf("Write failed: %ldE\n", nwritten);
-			return CMD_RET_FAILURE;
+			ret = CMD_RET_FAILURE;
+			goto done;
 		}
 
 		pos += nread;
@@ -302,31 +305,63 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	printf("%ld bytes copied\n", total);
+	ret = CMD_RET_SUCCESS;
 
-	return CMD_RET_SUCCESS;
+done:
+	file_close(src);
+	file_close(dst);
+
+	return ret;
 }
 
-static int do_rm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_rm(struct getopt_state *gs)
 {
-	int ret;
+	bool recursive = false, force = false;
+	int ret = CMD_RET_SUCCESS;
+	const char *path;
+	int opt;
 
-	if (argc < 2)
+	while ((opt = getopt(gs, "+rf")) > 0) {
+		switch (opt) {
+		case 'r':
+			recursive = true;
+			break;
+		case 'f':
+			force = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+	if (gs->index == gs->argc)
 		return CMD_RET_USAGE;
 
-	ret = vfs_unlink(argv[1]);
-	if (ret) {
-		printf("Error: %dE\n", ret);
-		return CMD_RET_FAILURE;
+	/* Carry on after an error, as with the other paths */
+	while ((path = getopt_pop(gs))) {
+		int err;
+
+		if (recursive)
+			err = vfs_unlink_recursive(path);
+		else
+			err = vfs_unlink(path);
+		if (err == -ENOENT && force)
+			continue;
+		if (err) {
+			printf("Cannot remove '%s': %dE\n", path, err);
+			ret = CMD_RET_FAILURE;
+		}
 	}
 
-	return CMD_RET_SUCCESS;
+	return ret;
 }
 
-U_BOOT_CMD_COMPLETE(
-	rm,	2,	0,	do_rm,
-	"delete a file",
-	"<path>\n"
-	"    - Delete the file at 'path' in the VFS",
+U_BOOT_CMD_GETOPT_COMPLETE(
+	rm,	CONFIG_SYS_MAXARGS,	0,	do_rm,
+	"delete files",
+	"[-rf] <path>...\n"
+	"    - Delete each file at 'path' in the VFS\n"
+	"      -r  Delete a directory too, along with all it contains\n"
+	"      -f  Do not complain if a path does not exist",
 	vfs_cmd_complete
 );
 
@@ -354,28 +389,78 @@ U_BOOT_CMD_COMPLETE(
 	vfs_cmd_complete
 );
 
-static int do_mkdir(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_mkdir(struct getopt_state *gs)
 {
-	int ret;
+	int ret = CMD_RET_SUCCESS;
+	bool parents = false;
+	const char *path;
+	int opt;
 
-	if (argc < 2)
+	while ((opt = getopt(gs, "+p")) > 0) {
+		switch (opt) {
+		case 'p':
+			parents = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+	if (gs->index == gs->argc)
 		return CMD_RET_USAGE;
 
-	ret = vfs_mkdir(argv[1]);
-	if (ret) {
-		printf("Error: %dE\n", ret);
-		return CMD_RET_FAILURE;
+	/* Carry on after an error, as with the other paths */
+	while ((path = getopt_pop(gs))) {
+		int err;
+
+		if (parents)
+			err = vfs_mkdir_parents(path);
+		else
+			err = vfs_mkdir(path);
+		if (err) {
+			printf("Cannot create '%s': %dE\n", path, err);
+			ret = CMD_RET_FAILURE;
+		}
 	}
 
-	return CMD_RET_SUCCESS;
+	return ret;
 }
 
-U_BOOT_CMD_COMPLETE(
-	mkdir,	2,	0,	do_mkdir,
-	"create a directory",
-	"<path>\n"
-	"    - Create directory at 'path' in the VFS",
+U_BOOT_CMD_GETOPT_COMPLETE(
+	mkdir,	CONFIG_SYS_MAXARGS,	0,	do_mkdir,
+	"create directories",
+	"[-p] <path>...\n"
+	"    - Create a directory at each 'path' in the VFS\n"
+	"      -p  Create any missing parent directories and do not complain\n"
+	"          if the directory exists",
+	vfs_cmd_complete
+);
+
+static int do_rmdir(struct getopt_state *gs)
+{
+	int ret = CMD_RET_SUCCESS;
+	const char *path;
+
+	if (gs->index == gs->argc)
+		return CMD_RET_USAGE;
+
+	/* Carry on after an error, as with the other directories */
+	while ((path = getopt_pop(gs))) {
+		int err = vfs_rmdir(path);
+
+		if (err) {
+			printf("Cannot remove '%s': %dE\n", path, err);
+			ret = CMD_RET_FAILURE;
+		}
+	}
+
+	return ret;
+}
+
+U_BOOT_CMD_NOOPTS_COMPLETE(
+	rmdir,	CONFIG_SYS_MAXARGS,	0,	do_rmdir,
+	"remove empty directories",
+	"<path>...\n"
+	"    - Remove each directory at 'path' in the VFS, if it is empty",
 	vfs_cmd_complete
 );
 
@@ -717,6 +802,7 @@ static int do_vfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	buf = map_sysmem(addr, bytes);
 	len_read = file_read_at(fil, buf, pos, bytes);
 	unmap_sysmem(buf);
+	file_close(fil);
 
 	if (len_read < 0) {
 		printf("Read failed: %ldE\n", len_read);
@@ -800,9 +886,10 @@ static int do_save(struct cmd_tbl *cmdtp, int flag, int argc,
 	buf = map_sysmem(addr, bytes);
 	written = file_write_at(fil, buf, pos, bytes);
 	unmap_sysmem(buf);
+	file_close(fil);
 
 	if (written < 0) {
-		printf("Error: %dE\n", ret);
+		printf("Error: %ldE\n", written);
 		return CMD_RET_FAILURE;
 	}
 

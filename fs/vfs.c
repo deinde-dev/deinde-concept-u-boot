@@ -11,6 +11,7 @@
 
 #define LOG_CATEGORY	UCLASS_MOUNT
 
+#include <alist.h>
 #include <blk.h>
 #include <ctype.h>
 #include <dir.h>
@@ -628,29 +629,57 @@ void vfs_print_df(void)
 	}
 }
 
-int vfs_ln(const char *path, const char *target)
+/**
+ * vfs_find_fs() - Find the filesystem which holds a path
+ *
+ * Resolve the path against the current directory, then find the mount which
+ * covers it
+ *
+ * @path: Absolute or relative VFS path
+ * @resolved: Buffer for the resolved path, of FILE_MAX_PATH_LEN bytes
+ * @fsp: Returns the filesystem device
+ * @subpathp: Returns the path within that filesystem, which is in @resolved
+ * Return: 0 if OK, -ENXIO if the VFS is not set up, -ENAMETOOLONG if the path
+ * is too long, other -ve on error
+ */
+static int vfs_find_fs(const char *path, char *resolved, struct udevice **fsp,
+		       const char **subpathp)
 {
-	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *vfs, *mnt;
-	const char *subpath;
 	struct vfsmount *mnt_priv;
+	struct udevice *vfs, *mnt;
 	int ret;
 
 	vfs = vfs_root();
 	if (!vfs)
-		return log_msg_ret("vli", -ENXIO);
+		return log_msg_ret("vfi", -ENXIO);
 
-	path = vfs_path_resolve(vfs_getcwd(), path, resolved, sizeof(resolved));
-
+	path = vfs_path_resolve(vfs_getcwd(), path, resolved,
+				FILE_MAX_PATH_LEN);
 	if (!path)
-		return log_msg_ret("vrp", -ENAMETOOLONG);
-	ret = vfs_find_mount(vfs, path, &mnt, &subpath);
+		return log_msg_ret("vfp", -ENAMETOOLONG);
+
+	ret = vfs_find_mount(vfs, path, &mnt, subpathp);
 	if (ret)
-		return log_msg_ret("vlm", ret);
+		return log_msg_ret("vfm", ret);
 
 	mnt_priv = dev_get_uclass_priv(mnt);
+	*fsp = mnt_priv->target;
 
-	return fs_do_ln(mnt_priv->target, subpath, target);
+	return 0;
+}
+
+int vfs_ln(const char *path, const char *target)
+{
+	char resolved[FILE_MAX_PATH_LEN];
+	const char *subpath;
+	struct udevice *fs;
+	int ret;
+
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
+	if (ret)
+		return log_msg_ret("vln", ret);
+
+	return fs_do_ln(fs, subpath, target);
 }
 
 int vfs_rename(const char *old_path, const char *new_path)
@@ -722,60 +751,73 @@ int vfs_statfs(const char *path, struct fs_statfs *stats)
 int vfs_unlink(const char *path)
 {
 	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *vfs, *mnt;
-	struct vfsmount *mnt_priv;
 	const char *subpath;
+	struct udevice *fs;
 	int ret;
 
-	vfs = vfs_root();
-	if (!vfs)
-		return log_msg_ret("vui", -ENXIO);
-
-	path = vfs_path_resolve(vfs_getcwd(), path, resolved, sizeof(resolved));
-	if (!path)
-		return log_msg_ret("vup", -ENAMETOOLONG);
-
-	ret = vfs_find_mount(vfs, path, &mnt, &subpath);
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
 	if (ret)
-		return log_msg_ret("vum", ret);
+		return log_msg_ret("vun", ret);
 
-	mnt_priv = dev_get_uclass_priv(mnt);
-
-	return fs_do_unlink(mnt_priv->target, subpath);
+	return fs_do_unlink(fs, subpath);
 }
 
 int vfs_mkdir(const char *path)
 {
 	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *vfs, *mnt;
-	struct vfsmount *mnt_priv;
 	const char *subpath;
+	struct udevice *fs;
 	int ret;
 
-	vfs = vfs_root();
-	if (!vfs)
-		return log_msg_ret("vmi", -ENXIO);
-
-	path = vfs_path_resolve(vfs_getcwd(), path, resolved, sizeof(resolved));
-	if (!path)
-		return log_msg_ret("vmp", -ENAMETOOLONG);
-
-	ret = vfs_find_mount(vfs, path, &mnt, &subpath);
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
 	if (ret)
-		return log_msg_ret("vmm", ret);
+		return log_msg_ret("vmk", ret);
 
-	mnt_priv = dev_get_uclass_priv(mnt);
+	return fs_do_mkdir(fs, subpath);
+}
 
-	return fs_do_mkdir(mnt_priv->target, subpath);
+int vfs_rmdir(const char *path)
+{
+	char resolved[FILE_MAX_PATH_LEN];
+	const char *subpath;
+	struct udevice *fs;
+	int ret;
+
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
+	if (ret)
+		return log_msg_ret("vrd", ret);
+
+	return fs_do_rmdir(fs, subpath);
 }
 
 int vfs_stat(const char *path, struct fs_dirent *dent)
 {
+	char resolved[FILE_MAX_PATH_LEN];
 	struct fs_dir_stream *strm;
+	struct udevice *dir, *mnt;
 	struct fs_dirent entry;
-	struct udevice *dir;
+	const char *subpath;
 	char *leaf;
 	int ret;
+
+	/*
+	 * The root, and the root of a mounted filesystem, are not entries in
+	 * a directory which can be read, so describe them here
+	 */
+	ret = vfs_resolve_mount(path, resolved, sizeof(resolved), &mnt,
+				&subpath);
+	if (ret)
+		return log_msg_ret("vsm", ret);
+	if (!mnt || !*subpath || !strcmp("/", subpath)) {
+		const char *name = strrchr(resolved, '/');
+
+		memset(dent, '\0', sizeof(*dent));
+		dent->type = FS_DT_DIR;
+		strlcpy(dent->name, name && name[1] ? name + 1 : "/",
+			sizeof(dent->name));
+
+		return 0;
+	}
 
 	ret = vfs_resolve_dir(path, &dir, &leaf);
 	if (ret)
@@ -811,47 +853,176 @@ static int dirent_cmp(const void *a, const void *b)
 	return strcmp(da->name, db->name);
 }
 
-int vfs_ls(const char *path)
+int vfs_opendir(const char *path, struct vfs_dir *dir)
 {
 	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *mnt, *dir = NULL;
-	struct fs_dir_stream *strm;
-	struct fs_dirent *entries;
-	struct fs_dirent dent;
 	const char *subpath;
-	int count = 0;
-	int max = 64;
-	int ret, i;
+	struct udevice *mnt;
+	int ret;
 
-	ret = vfs_resolve_mount(path, resolved,
-				sizeof(resolved), &mnt, &subpath);
+	ret = vfs_resolve_mount(path, resolved, sizeof(resolved), &mnt,
+				&subpath);
 	if (ret)
-		return ret;
+		return log_msg_ret("vom", ret);
 
 	if (mnt) {
 		struct vfsmount *m = dev_get_uclass_priv(mnt);
 
-		ret = fs_lookup_dir(m->target, subpath, &dir);
+		ret = fs_lookup_dir(m->target, subpath, &dir->dev);
 	} else {
-		/* Root "/" - list the VFS root dir */
-		struct udevice *vfs = vfs_root();
-
-		ret = fs_lookup_dir(vfs, "", &dir);
+		/* Root "/" - use the VFS root dir */
+		ret = fs_lookup_dir(vfs_root(), "", &dir->dev);
 	}
+	if (ret)
+		return log_msg_ret("vol", ret);
+
+	ret = dir_open(dir->dev, &dir->strm);
+	if (ret)
+		return log_msg_ret("voo", ret);
+
+	return 0;
+}
+
+int vfs_readdir(struct vfs_dir *dir, struct fs_dirent *dent)
+{
+	return dir_read(dir->dev, dir->strm, dent);
+}
+
+int vfs_closedir(struct vfs_dir *dir)
+{
+	return dir_close(dir->dev, dir->strm);
+}
+
+/**
+ * vfs_join() - Join a directory and a name into a new path
+ *
+ * @dir: Path of the directory
+ * @name: Name within the directory
+ * Return: allocated path, or NULL if out of memory
+ */
+static char *vfs_join(const char *dir, const char *name)
+{
+	int len = strlen(dir);
+	char *path;
+
+	path = malloc(len + strlen(name) + 2);
+	if (!path)
+		return NULL;
+	sprintf(path, "%s%s%s", dir, len && dir[len - 1] == '/' ? "" : "/",
+		name);
+
+	return path;
+}
+
+int vfs_unlink_recursive(const char *path)
+{
+	char resolved[FILE_MAX_PATH_LEN];
+	struct fs_dirent dent;
+	const char *subpath;
+	struct alist names;
+	struct udevice *mnt;
+	struct vfs_dir dir;
+	char **namep;
+	int ret;
+
+	/* Do not take a filesystem out from under its mount */
+	ret = vfs_resolve_mount(path, resolved, sizeof(resolved), &mnt,
+				&subpath);
+	if (ret)
+		return log_msg_ret("vrm", ret);
+	if (!mnt || !*subpath || !strcmp("/", subpath))
+		return log_msg_ret("vrb", -EBUSY);
+
+	ret = vfs_stat(path, &dent);
+	if (ret)
+		return log_msg_ret("vrs", ret);
+	if (dent.type != FS_DT_DIR)
+		return vfs_unlink(path);
+
+	/*
+	 * Collect the names before removing anything, since a filesystem may
+	 * not cope with entries going away while the directory is being read
+	 */
+	ret = vfs_opendir(path, &dir);
+	if (ret)
+		return log_msg_ret("vro", ret);
+	alist_init_struct(&names, char *);
+	while (!vfs_readdir(&dir, &dent)) {
+		char *name;
+
+		if (!strcmp(".", dent.name) || !strcmp("..", dent.name))
+			continue;
+		name = vfs_join(path, dent.name);
+		if (!name || !alist_add(&names, name)) {
+			free(name);
+			ret = -ENOMEM;
+			break;
+		}
+	}
+	vfs_closedir(&dir);
+
+	alist_for_each(namep, &names) {
+		if (!ret)
+			ret = vfs_unlink_recursive(*namep);
+		free(*namep);
+	}
+	alist_uninit(&names);
+	if (ret)
+		return log_msg_ret("vrc", ret);
+
+	return vfs_rmdir(path);
+}
+
+int vfs_mkdir_parents(const char *path)
+{
+	struct fs_dirent dent;
+	char *copy, *p;
+	int ret = 0;
+
+	copy = strdup(path);
+	if (!copy)
+		return log_msg_ret("vpc", -ENOMEM);
+
+	/* Create each directory in the path which does not exist yet */
+	for (p = copy; !ret && p; ) {
+		p = strchr(p + 1, '/');
+		if (p)
+			*p = '\0';
+		ret = vfs_stat(copy, &dent);
+		if (ret == -ENOENT)
+			ret = vfs_mkdir(copy);
+		else if (!ret && dent.type != FS_DT_DIR)
+			ret = -ENOTDIR;
+		if (p)
+			*p = '/';
+	}
+	free(copy);
+	if (ret)
+		return log_msg_ret("vpm", ret);
+
+	return 0;
+}
+
+int vfs_ls(const char *path)
+{
+	struct fs_dirent *entries;
+	struct fs_dirent dent;
+	struct vfs_dir dir;
+	int count = 0;
+	int max = 64;
+	int ret, i;
+
+	ret = vfs_opendir(path, &dir);
 	if (ret)
 		return ret;
 
 	entries = malloc(max * sizeof(*entries));
-	if (!entries)
+	if (!entries) {
+		vfs_closedir(&dir);
 		return -ENOMEM;
-
-	ret = dir_open(dir, &strm);
-	if (ret) {
-		free(entries);
-		return ret;
 	}
 
-	while (!dir_read(dir, strm, &dent)) {
+	while (!vfs_readdir(&dir, &dent)) {
 		if (count == max) {
 			struct fs_dirent *tmp;
 
@@ -859,12 +1030,14 @@ int vfs_ls(const char *path)
 			tmp = realloc(entries, max * sizeof(*entries));
 			if (!tmp) {
 				free(entries);
+				vfs_closedir(&dir);
 				return -ENOMEM;
 			}
 			entries = tmp;
 		}
 		entries[count++] = dent;
 	}
+	vfs_closedir(&dir);
 
 	qsort(entries, count, sizeof(*entries), dirent_cmp);
 
@@ -876,8 +1049,6 @@ int vfs_ls(const char *path)
 			       entries[i].name);
 	}
 	free(entries);
-
-	dir_close(dir, strm);
 
 	return 0;
 }

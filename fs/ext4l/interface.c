@@ -1228,6 +1228,56 @@ out:
 	return ret;
 }
 
+int ext4l_rmdir(struct ext4l_state *state, const char *dirname)
+{
+	struct dentry *dentry, *dir_dentry;
+	char *path_copy;
+	int ret;
+
+	ret = ext4l_resolve_file(state, dirname, &dir_dentry, &dentry,
+				 &path_copy);
+	if (ret)
+		return ret;
+
+	if (!dentry->d_inode) {
+		ret = -ENOENT;
+		goto out;
+	}
+
+	if (!S_ISDIR(dentry->d_inode->i_mode)) {
+		ret = -ENOTDIR;
+		goto out;
+	}
+
+	/* This fails with -ENOTEMPTY if the directory has anything in it */
+	ret = ext4_rmdir(dir_dentry->d_inode, dentry);
+
+	/*
+	 * Release inode - this triggers ext4_evict_inode for nlink=0 inodes,
+	 * which frees the data blocks and inode.
+	 */
+	if (!ret && dentry->d_inode) {
+		iput(dentry->d_inode);
+		dentry->d_inode = NULL;
+	}
+
+	/* Sync all dirty buffers after inode eviction */
+	if (!ret) {
+		int sync_ret = bh_cache_sync();
+
+		if (sync_ret)
+			ret = sync_ret;
+		/* Commit superblock with updated free counts */
+		ext4_commit_super(state->sb);
+	}
+
+out:
+	kfree(dentry);
+	kfree(dir_dentry);
+	free(path_copy);
+	return ret;
+}
+
 int ext4l_mkdir(struct ext4l_state *state, const char *dirname)
 {
 	struct dentry *dentry, *dir_dentry, *result;

@@ -149,7 +149,10 @@ int os_isatty(int fd)
 
 int os_unlink(const char *pathname)
 {
-	return unlink(pathname);
+	if (unlink(pathname))
+		return -errno;
+
+	return 0;
 }
 
 int os_mkdir(const char *pathname, int mode)

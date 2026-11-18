@@ -1712,7 +1712,16 @@ static int delete_dentry_long(struct fat_itr *itr)
 	return delete_dentry_link(itr);
 }
 
-int fat_unlink(const char *filename)
+/**
+ * fat_remove() - delete a file or empty directory
+ *
+ * @filename: full path to file or directory
+ * @dir_only: true to delete only a directory
+ * Return: 0 on success, -ENOTDIR if @dir_only and @filename is not a
+ * directory, -ENOTEMPTY if @dir_only and the directory has anything in it,
+ * other -ve on error
+ */
+static int fat_remove(const char *filename, bool dir_only)
 {
 	struct fsdata fsdata = { .fatbuf = NULL, };
 	struct fat_itr *itr = NULL;
@@ -1760,11 +1769,18 @@ int fat_unlink(const char *filename)
 			goto exit;
 		}
 		if (n_entries > 2) {
+			if (dir_only) {
+				ret = -ENOTEMPTY;
+				goto exit;
+			}
 			printf("Error: directory is not empty: %d\n",
 			       n_entries);
 			ret = -EINVAL;
 			goto exit;
 		}
+	} else if (dir_only) {
+		ret = -ENOTDIR;
+		goto exit;
 	}
 
 	ret = delete_dentry_long(itr);
@@ -1775,6 +1791,16 @@ exit:
 	free(filename_copy);
 
 	return ret;
+}
+
+int fat_unlink(const char *filename)
+{
+	return fat_remove(filename, false);
+}
+
+int fat_rmdir(const char *dirname)
+{
+	return fat_remove(dirname, true);
 }
 
 int fat_mkdir(const char *dirname)

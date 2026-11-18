@@ -752,6 +752,219 @@ static int dm_test_vfs_mkdir(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_mkdir, UTF_SCAN_FDT);
 
+/* Test the -r and -f options of the rm command, and several paths */
+static int dm_test_vfs_rm_opts(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assertok(run_command("rm -rf /host/.rm_opts", 0));
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("rm", 0));
+	ut_assert_nextlinen("rm - delete files");
+	console_record_reset_enable();
+	ut_asserteq(1, run_command("rm -x /host/.rm_opts", 0));
+	console_record_reset_enable();
+
+	/* Set up a tree: a directory with two files and a subdirectory */
+	ut_assertok(run_command("mkdir /host/.rm_opts /host/.rm_opts/sub", 0));
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.rm_opts/a 4", 0));
+	ut_assertok(run_command("save 1000 /host/.rm_opts/b 4", 0));
+	ut_assertok(run_command("save 1000 /host/.rm_opts/sub/c 4", 0));
+	console_record_reset_enable();
+
+	/* A directory needs -r, and a missing path is an error without -f */
+	ut_asserteq(1, run_command("rm /host/.rm_opts", 0));
+	ut_assert_nextlinen("Cannot remove '/host/.rm_opts': ");
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("rm /host/.rm_none /host/.rm_opts/a", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.rm_none': -2: No such file or directory");
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.rm_opts/a", 0));
+	console_record_reset_enable();
+	ut_assertok(run_command("rm -f /host/.rm_none", 0));
+	ut_assert_console_end();
+
+	/* A mount point is not removed */
+	ut_asserteq(1, run_command("rm -r /host", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host': -16: Device or resource busy");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm -r /host/.rm_opts", 0));
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.rm_opts", 0));
+	console_record_reset_enable();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_rm_opts, UTF_SCAN_FDT);
+
+/* Test the -p option of the mkdir command, and several paths */
+static int dm_test_vfs_mkdir_opts(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("mkdir", 0));
+	ut_assert_nextlinen("mkdir - create directories");
+	console_record_reset_enable();
+
+	/* The parent must exist, unless -p is used */
+	ut_asserteq(1, run_command("mkdir /host/.mkdir_opts/a/b", 0));
+	ut_assert_nextline("Cannot create '/host/.mkdir_opts/a/b': "
+			   "-2: No such file or directory");
+	ut_assert_console_end();
+	ut_assertok(run_command(
+		"mkdir -p /host/.mkdir_opts/a/b /host/.mkdir_opts/c", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("test -d /host/.mkdir_opts/a/b", 0));
+	ut_assertok(run_command("test -d /host/.mkdir_opts/c", 0));
+
+	/* It is only an error for the directory to exist without -p */
+	ut_asserteq(1, run_command("mkdir /host/.mkdir_opts/c", 0));
+	ut_assert_nextline(
+		"Cannot create '/host/.mkdir_opts/c': -17: File exists");
+	ut_assert_console_end();
+	ut_assertok(run_command("mkdir -p /host/.mkdir_opts/c", 0));
+	ut_assert_console_end();
+
+	/* A file in the path is an error */
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.mkdir_opts/f 4", 0));
+	console_record_reset_enable();
+	ut_asserteq(1, run_command("mkdir -p /host/.mkdir_opts/f/d", 0));
+	ut_assert_nextline(
+		"Cannot create '/host/.mkdir_opts/f/d': -20: Not a directory");
+	ut_assert_console_end();
+
+	/* A relative path works too */
+	ut_assertok(run_command("cd /host/.mkdir_opts", 0));
+	ut_assertok(run_command("mkdir -p x/y", 0));
+	ut_assertok(run_command("test -d /host/.mkdir_opts/x/y", 0));
+	ut_assertok(run_command("cd /", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm /host/.mkdir_opts/f", 0));
+	ut_assertok(run_command("rmdir /host/.mkdir_opts/x/y "
+				"/host/.mkdir_opts/x /host/.mkdir_opts/a/b "
+				"/host/.mkdir_opts/a /host/.mkdir_opts/c "
+				"/host/.mkdir_opts", 0));
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_mkdir_opts, UTF_SCAN_FDT);
+
+/* Test that a file is released when closed */
+static int dm_test_vfs_file_close(struct unit_test_state *uts)
+{
+	struct udevice *fil;
+	char buf[5];
+
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+	ut_asserteq(0, uclass_id_count(UCLASS_FILE));
+
+	/* Commands close the files which they open */
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.close_test 4", 0));
+	ut_assert_nextline("4 bytes written");
+	ut_assertok(run_command("load 2000 /host/.close_test", 0));
+	ut_assert_nextline("4 bytes read");
+	ut_assertok(run_command("cat /host/.close_test", 0));
+	ut_assert_nextline("test");
+	ut_assertok(run_command("fs cp /host/.close_test /host/.close_test2",
+				0));
+	ut_assert_nextline("4 bytes copied");
+	ut_assert_console_end();
+	ut_asserteq(0, uclass_id_count(UCLASS_FILE));
+
+	/* A file which is opened stays until it is closed */
+	ut_assertok(vfs_open_file("/host/.close_test", DIR_O_RDONLY, &fil));
+	ut_asserteq(1, uclass_id_count(UCLASS_FILE));
+	ut_asserteq(4, file_read(fil, buf, 4));
+	ut_asserteq_mem("test", buf, 4);
+	ut_assertok(file_close(fil));
+	ut_asserteq(0, uclass_id_count(UCLASS_FILE));
+
+	ut_assertok(run_command("rm /host/.close_test", 0));
+	ut_assertok(run_command("rm /host/.close_test2", 0));
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_file_close, UTF_SCAN_FDT);
+
+/* Test the rmdir command via VFS */
+static int dm_test_vfs_rmdir(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	os_unlink(".vfs_rmdir1/file");
+	os_rmdir(".vfs_rmdir1");
+	os_rmdir(".vfs_rmdir2");
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("rmdir", 0));
+	ut_assert_nextlinen("rmdir - remove empty directories");
+	console_record_reset_enable();
+
+	ut_assertok(run_command("mkdir /host/.vfs_rmdir1", 0));
+	ut_assertok(run_command("mkdir /host/.vfs_rmdir2", 0));
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.vfs_rmdir1/file 4", 0));
+	ut_assert_nextline("4 bytes written");
+	ut_assert_console_end();
+
+	/* The first is not empty, but the second is still removed */
+	ut_asserteq(1, run_command("rmdir /host/.vfs_rmdir1 /host/.vfs_rmdir2",
+				   0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.vfs_rmdir1': -39: Directory not empty");
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.vfs_rmdir2", 0));
+	console_record_reset_enable();
+
+	/* A file is not a directory */
+	ut_asserteq(1, run_command("rmdir /host/.vfs_rmdir1/file", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.vfs_rmdir1/file': -20: Not a directory");
+	ut_assert_console_end();
+
+	/* Nor is something which does not exist */
+	ut_asserteq(1, run_command("rmdir /host/.vfs_rmdir2", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.vfs_rmdir2': -2: No such file or directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm /host/.vfs_rmdir1/file", 0));
+	ut_assertok(run_command("rmdir /host/.vfs_rmdir1", 0));
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.vfs_rmdir1", 0));
+	console_record_reset_enable();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_rmdir, UTF_SCAN_FDT);
+
 /* Test symlink following and readlink */
 static int dm_test_vfs_symlink(struct unit_test_state *uts)
 {
@@ -1054,6 +1267,22 @@ static int dm_test_vfs_stat(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("stat /host/does-not-exist", 0));
 	console_record_reset_enable();
 
+	/* stat a mount point and the root */
+	ut_assertok(run_command("stat /host", 0));
+	ut_assert_nextline("  File: host");
+	ut_assert_nextline("  Size: 0");
+	ut_assert_nextline("  Type: directory");
+	console_record_reset_enable();
+
+	ut_assertok(run_command("stat /", 0));
+	ut_assert_nextline("  File: /");
+	ut_assert_nextline("  Size: 0");
+	ut_assert_nextline("  Type: directory");
+	console_record_reset_enable();
+
+	ut_asserteq(1, run_command("stat /does-not-exist", 0));
+	console_record_reset_enable();
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 
@@ -1084,6 +1313,31 @@ static int dm_test_vfs_test_fd(struct unit_test_state *uts)
 	/* Both should fail for non-existent paths */
 	ut_asserteq(1, run_command("test -f /host/no-such-file", 0));
 	ut_asserteq(1, run_command("test -d /host/no-such-dir", 0));
+
+	/* -e takes a path too, at the end or before another operator */
+	ut_assertok(run_command("test -e /host/README", 0));
+	ut_assertok(run_command("test -e /host/cmd", 0));
+	ut_asserteq(1, run_command("test -e /host/no-such-file", 0));
+	ut_assertok(run_command("test -e /host/README -a -d /host/cmd", 0));
+	ut_asserteq(1, run_command("test -e /host/no-such-file -o -f /host/cmd",
+				   0));
+	ut_assertok(run_command("test ! -e /host/no-such-file", 0));
+
+	/* The form with an interface and device is still available */
+	ut_assertok(run_command("test -e hostfs - README", 0));
+	ut_asserteq(1, run_command("test -e hostfs - no-such-file", 0));
+
+	/* -s needs something in the file */
+	ut_assertok(run_command("test -s /host/README", 0));
+	ut_asserteq(1, run_command("test -s /host/no-such-file", 0));
+
+	/* -L is only true for a symbolic link, which -f does not follow */
+	os_unlink(".vfs_test_L");
+	ut_assertok(run_command("ln README /host/.vfs_test_L", 0));
+	ut_assertok(run_command("test -L /host/.vfs_test_L", 0));
+	ut_asserteq(1, run_command("test -f /host/.vfs_test_L", 0));
+	ut_asserteq(1, run_command("test -L /host/README", 0));
+	ut_assertok(run_command("rm /host/.vfs_test_L", 0));
 
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();

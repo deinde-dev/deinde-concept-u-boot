@@ -55,10 +55,13 @@ static int source_vfs_file(const char *path)
 
 	uc_priv = dev_get_uclass_priv(fil);
 	buf = malloc(uc_priv->size + 1);
-	if (!buf)
+	if (!buf) {
+		file_close(fil);
 		return CMD_RET_FAILURE;
+	}
 
 	actual = file_read_at(fil, buf, 0, uc_priv->size);
+	file_close(fil);
 	if (actual < 0) {
 		free(buf);
 		printf("## Cannot read script '%s'\n", path);
