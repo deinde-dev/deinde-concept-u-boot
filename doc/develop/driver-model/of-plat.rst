@@ -818,6 +818,18 @@ arrives some other way::
 The fix is to create the device from the devicetree instead, or to drop the
 record when of-platdata is enabled.
 
+A driver which has no devicetree node, such as a software implementation of an
+algorithm, can declare its device with `U_BOOT_DRVINFO_NO_NODE()` instead. This
+takes the name of the driver and is the whole record, with no platform data::
+
+    U_BOOT_DRVINFO_NO_NODE(mod_exp_sw);
+
+With of-platdata the record is given a name starting with `zz_`, so that it
+sorts after all the records from dtoc and does not change their indexes. The
+device is bound to the root device, after the devices from dtoc. The check after
+linking allows these records, but fails if a record from dtoc sorts after one of
+them.
+
 Match table set directly
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

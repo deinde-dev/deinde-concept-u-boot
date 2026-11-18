@@ -5,6 +5,15 @@
 #
 
 obj-$(CONFIG_CLK) += clk-uclass.o
+
+# The build can remove the properties which give the default clocks from the
+# xPL devicetree. Then xPL does not need the code which reads them
+ifdef CONFIG_XPL_BUILD
+ifneq ($(filter assigned-clocks,$(subst $\",,$(CONFIG_OF_SPL_REMOVE_PROPS))),)
+CFLAGS_clk-uclass.o += -DXPL_NO_ASSIGNED_CLOCKS=1
+endif
+endif
+
 obj-$(CONFIG_CLK) += clk_fixed_rate.o
 obj-$(CONFIG_CLK) += clk_fixed_factor.o
 obj-$(CONFIG_CLK_CCF) += clk.o clk-divider.o clk-mux.o clk-gate.o

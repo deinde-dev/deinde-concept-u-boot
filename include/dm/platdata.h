@@ -102,4 +102,28 @@ struct driver_rt {
 	ll_entry_declare_list(struct driver_info, __name, driver_info)
 #endif
 
+/*
+ * Declare a device for a driver which has no devicetree node, such as a
+ * software implementation of an algorithm. This is the whole record: the
+ * device uses the driver called @__name, has no platform data and is bound to
+ * the root device.
+ *
+ * This can be used with of-platdata. The record is then named so that it sorts
+ * after all those from dtoc, so it does not change the indexes which dtoc
+ * works out for its own records. The build checks this
+ */
+#if IS_ENABLED(CONFIG_OF_PLATDATA)
+#define U_BOOT_DRVINFO_NO_NODE(__name)					\
+	ll_entry_declare(struct driver_info, zz_##__name, driver_info) = { \
+		DM_DRVINFO_REF(__name),					\
+		.parent_idx	= -1,					\
+		.seq		= -1,					\
+	}
+#else
+#define U_BOOT_DRVINFO_NO_NODE(__name)					\
+	ll_entry_declare(struct driver_info, __name, driver_info) = {	\
+		DM_DRVINFO_REF(__name),					\
+	}
+#endif
+
 #endif
