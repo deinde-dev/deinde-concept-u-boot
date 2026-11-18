@@ -121,8 +121,34 @@ long file_write_at(struct udevice *dev, const void *buf, loff_t offset,
 	return ret;
 }
 
+int file_close(struct udevice *dev)
+{
+	int ret;
+
+	ret = device_remove(dev, DM_REMOVE_NORMAL);
+	if (ret)
+		return log_msg_ret("fcr", ret);
+
+	ret = device_unbind(dev);
+	if (ret)
+		return log_msg_ret("fcu", ret);
+
+	return 0;
+}
+
+static int file_pre_remove(struct udevice *dev)
+{
+	struct file_uc_priv *uc_priv = dev_get_uclass_priv(dev);
+
+	free((char *)uc_priv->leaf);
+	uc_priv->leaf = NULL;
+
+	return 0;
+}
+
 UCLASS_DRIVER(file) = {
 	.name	= "file",
 	.id	= UCLASS_FILE,
+	.pre_remove	= dm_remove_ptr(file_pre_remove),
 	.per_device_auto	= sizeof(struct file_uc_priv),
 };

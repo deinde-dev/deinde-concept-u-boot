@@ -297,6 +297,15 @@ static ssize_t sandbox_write_iter(struct udevice *dev, struct iov_iter *iter,
 	return ret;
 }
 
+static int sandbox_file_remove(struct udevice *dev)
+{
+	struct file_priv *priv = dev_get_priv(dev);
+
+	os_close(priv->fd);
+
+	return 0;
+}
+
 static struct file_ops sandbox_file_ops = {
 	.read_iter	= sandbox_read_iter,
 	.write_iter	= sandbox_write_iter,
@@ -312,6 +321,7 @@ U_BOOT_DRIVER(sandbox_file) = {
 	.id	= UCLASS_FILE,
 	.of_match = file_ids,
 	.ops	= &sandbox_file_ops,
+	.remove	= dm_remove_ptr(sandbox_file_remove),
 	.priv_auto	= sizeof(struct file_priv),
 	.flags	= DM_FLAG_ACTIVE_DMA,
 };
@@ -353,8 +363,10 @@ static int sandbox_dir_open_file(struct udevice *dir, const char *leaf,
 	fd = ret;
 
 	size = os_filesize(fd);
-	if (size < 0)
-		return log_msg_ret("sos", ret);
+	if (size < 0) {
+		os_close(fd);
+		return log_msg_ret("sos", size);
+	}
 
 	ret = file_add_probe(dir, DM_DRIVER_REF(sandbox_file), leaf, size,
 			     oflags, &dev);

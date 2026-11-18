@@ -106,4 +106,15 @@ int file_add_probe(struct udevice *dir, struct driver *drv, const char *leaf,
 		   size_t size, enum dir_open_flags_t flags,
 		   struct udevice **devp);
 
+/**
+ * file_close() - Close a file
+ *
+ * This removes and unbinds the file device, releasing anything it holds. The
+ * device must not be used after this.
+ *
+ * @dev: File device (UCLASS_FILE)
+ * Return: 0 if OK, -ve on error
+ */
+int file_close(struct udevice *dev);
+
 #endif
