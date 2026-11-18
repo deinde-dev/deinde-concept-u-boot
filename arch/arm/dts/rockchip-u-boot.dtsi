@@ -35,6 +35,15 @@
 #define HAS_FIT
 #endif
 
+/*
+ * If SPL returns to the BootROM, the BootROM loads U-Boot. It expects to find
+ * it straight after SPL, in the same image
+ */
+#if defined(CONFIG_SPL_ROCKCHIP_BACK_TO_BROM) && !defined(CONFIG_TPL) && \
+	!defined(CONFIG_ROCKCHIP_EXTERNAL_TPL)
+#define BROM_LOADS_U_BOOT
+#endif
+
 / {
 	binman: binman {
 		multiple-images;
@@ -187,8 +196,13 @@
 #endif
 			u-boot-spl {
 			};
+#ifdef BROM_LOADS_U_BOOT
+			u-boot {
+			};
+#endif
 		};
 
+#ifndef BROM_LOADS_U_BOOT
 #ifdef HAS_FIT
 		fit {
 			filename = "u-boot.itb";
@@ -198,6 +212,7 @@
 #endif
 			offset = <CONFIG_SPL_PAD_TO>;
 		};
+#endif /* !BROM_LOADS_U_BOOT */
 
 		fdtmap {
 		};
