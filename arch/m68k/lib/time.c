@@ -118,7 +118,23 @@ unsigned long long get_ticks(void)
 {
 	return get_timer(0);
 }
+
+/*
+ * This function is derived from PowerPC code (timebase clock frequency).
+ * On M68K it returns the number of timer ticks per second.
+ */
+ulong get_tbclk(void)
+{
+	return CONFIG_SYS_HZ;
+}
 #else
+/*
+ * The PIT counts the bus clock divided by 2 to this power. With a bus clock of
+ * 83MHz that is about 325kHz, or 3us for each tick, so the counter wraps five
+ * times a second. Time is lost if get_ticks() is called less often than that
+ */
+#define PIT_PRESCALE	8
+
 /*
  * The PIT is a 16-bit counter which counts down and wraps. The number of ticks
  * so far is kept in gd->timebase_h and gd->timebase_l. Its low 16 bits follow
@@ -151,22 +167,22 @@ int timer_init(void)
 
 	/* Set up PIT as timebase clock */
 	timerp->pmr = 0xffff;
-	timerp->pcsr = PIT_PCSR_EN | PIT_PCSR_OVW;
+	timerp->pcsr = PIT_PCSR_PRE(PIT_PRESCALE) | PIT_PCSR_EN | PIT_PCSR_OVW;
 
 	return 0;
+}
+
+ulong get_tbclk(void)
+{
+	/* The bus clock is not known until get_clocks() is called */
+	if (!gd->bus_clk)
+		return CONFIG_SYS_HZ;
+
+	return gd->bus_clk >> PIT_PRESCALE;
 }
 #endif				/* CONFIG_MCFTMR */
 
 unsigned long usec2ticks(unsigned long usec)
 {
 	return usec_to_tick(usec);
-}
-
-/*
- * This function is derived from PowerPC code (timebase clock frequency).
- * On M68K it returns the number of timer ticks per second.
- */
-ulong get_tbclk(void)
-{
-	return CONFIG_SYS_HZ;
 }
