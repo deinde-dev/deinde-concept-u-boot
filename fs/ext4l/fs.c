@@ -143,6 +143,13 @@ static int ext4l_vfs_mkdir(struct udevice *dev, const char *path)
 	return ext4l_mkdir(&priv->state, path);
 }
 
+static int ext4l_vfs_rmdir(struct udevice *dev, const char *path)
+{
+	struct ext4l_fs_priv *priv = dev_get_priv(dev);
+
+	return ext4l_rmdir(&priv->state, path);
+}
+
 static const struct fs_ops ext4l_vfs_ops = {
 	.mount		= ext4l_vfs_mount,
 	.unmount	= ext4l_vfs_unmount,
@@ -152,6 +159,7 @@ static const struct fs_ops ext4l_vfs_ops = {
 	.statfs		= ext4l_vfs_statfs,
 	.unlink		= ext4l_vfs_unlink,
 	.mkdir		= ext4l_vfs_mkdir,
+	.rmdir		= ext4l_vfs_rmdir,
 };
 
 U_BOOT_DRIVER(ext4_fs) = {

@@ -3246,6 +3246,7 @@ extern int ext4_create(struct mnt_idmap *idmap, struct inode *dir,
 		       struct dentry *dentry, umode_t mode, bool excl);
 extern struct dentry *ext4_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode);
+extern int ext4_rmdir(struct inode *dir, struct dentry *dentry);
 extern int ext4_symlink(struct mnt_idmap *idmap, struct inode *dir,
 			struct dentry *dentry, const char *symname);
 extern int ext4_rename(struct mnt_idmap *idmap, struct inode *old_dir,
