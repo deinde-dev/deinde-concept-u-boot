@@ -159,7 +159,7 @@ int timer_init(void)
 
 unsigned long usec2ticks(unsigned long usec)
 {
-	return get_timer(usec);
+	return usec_to_tick(usec);
 }
 
 /*
