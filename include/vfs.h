@@ -289,6 +289,18 @@ int vfs_rmdir(const char *path);
 int vfs_unlink(const char *path);
 
 /**
+ * vfs_unlink_recursive() - Delete a file, or a directory and all it contains
+ *
+ * This does not follow symbolic links, and refuses to remove the root of a
+ * mounted filesystem. If something cannot be removed, it stops there, so
+ * part of the tree may be left.
+ *
+ * @path: Absolute or relative VFS path to delete
+ * Return: 0 if OK, -EBUSY if @path is a mount point, other -ve on error
+ */
+int vfs_unlink_recursive(const char *path);
+
+/**
  * vfs_rename() - Rename or move a file or directory
  *
  * Both paths must be on the same mounted filesystem.

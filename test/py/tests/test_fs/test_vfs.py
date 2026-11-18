@@ -20,8 +20,8 @@ from tests.fs_helper import FsHelper
 # fs_test_vfs_foo. Filesystem-specific tests (e.g. ext4-only 'ln') are
 # listed separately and use the fs_test_vfs_<fstype>_<name> naming.
 VFS_TESTS = [
-    'cat', 'cd', 'df', 'load', 'ls', 'mkdir', 'mv', 'nested', 'rm', 'rmdir',
-    'save', 'size', 'stat',
+    'cat', 'cd', 'df', 'load', 'ls', 'mkdir', 'mv', 'nested', 'rm', 'rm_tree',
+    'rmdir', 'save', 'size', 'stat',
 ]
 
 EXT4_TESTS = ['ln']

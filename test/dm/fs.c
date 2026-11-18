@@ -752,6 +752,60 @@ static int dm_test_vfs_mkdir(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_mkdir, UTF_SCAN_FDT);
 
+/* Test the -r and -f options of the rm command, and several paths */
+static int dm_test_vfs_rm_opts(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assertok(run_command("rm -rf /host/.rm_opts", 0));
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("rm", 0));
+	ut_assert_nextlinen("rm - delete files");
+	console_record_reset_enable();
+	ut_asserteq(1, run_command("rm -x /host/.rm_opts", 0));
+	console_record_reset_enable();
+
+	/* Set up a tree: a directory with two files and a subdirectory */
+	ut_assertok(run_command("mkdir /host/.rm_opts /host/.rm_opts/sub", 0));
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.rm_opts/a 4", 0));
+	ut_assertok(run_command("save 1000 /host/.rm_opts/b 4", 0));
+	ut_assertok(run_command("save 1000 /host/.rm_opts/sub/c 4", 0));
+	console_record_reset_enable();
+
+	/* A directory needs -r, and a missing path is an error without -f */
+	ut_asserteq(1, run_command("rm /host/.rm_opts", 0));
+	ut_assert_nextlinen("Cannot remove '/host/.rm_opts': ");
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("rm /host/.rm_none /host/.rm_opts/a", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.rm_none': -2: No such file or directory");
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.rm_opts/a", 0));
+	console_record_reset_enable();
+	ut_assertok(run_command("rm -f /host/.rm_none", 0));
+	ut_assert_console_end();
+
+	/* A mount point is not removed */
+	ut_asserteq(1, run_command("rm -r /host", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host': -16: Device or resource busy");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm -r /host/.rm_opts", 0));
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.rm_opts", 0));
+	console_record_reset_enable();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_rm_opts, UTF_SCAN_FDT);
+
 /* Test the -p option of the mkdir command, and several paths */
 static int dm_test_vfs_mkdir_opts(struct unit_test_state *uts)
 {

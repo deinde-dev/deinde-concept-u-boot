@@ -11,6 +11,7 @@
 
 #define LOG_CATEGORY	UCLASS_MOUNT
 
+#include <alist.h>
 #include <blk.h>
 #include <ctype.h>
 #include <dir.h>
@@ -890,6 +891,86 @@ int vfs_readdir(struct vfs_dir *dir, struct fs_dirent *dent)
 int vfs_closedir(struct vfs_dir *dir)
 {
 	return dir_close(dir->dev, dir->strm);
+}
+
+/**
+ * vfs_join() - Join a directory and a name into a new path
+ *
+ * @dir: Path of the directory
+ * @name: Name within the directory
+ * Return: allocated path, or NULL if out of memory
+ */
+static char *vfs_join(const char *dir, const char *name)
+{
+	int len = strlen(dir);
+	char *path;
+
+	path = malloc(len + strlen(name) + 2);
+	if (!path)
+		return NULL;
+	sprintf(path, "%s%s%s", dir, len && dir[len - 1] == '/' ? "" : "/",
+		name);
+
+	return path;
+}
+
+int vfs_unlink_recursive(const char *path)
+{
+	char resolved[FILE_MAX_PATH_LEN];
+	struct fs_dirent dent;
+	const char *subpath;
+	struct alist names;
+	struct udevice *mnt;
+	struct vfs_dir dir;
+	char **namep;
+	int ret;
+
+	/* Do not take a filesystem out from under its mount */
+	ret = vfs_resolve_mount(path, resolved, sizeof(resolved), &mnt,
+				&subpath);
+	if (ret)
+		return log_msg_ret("vrm", ret);
+	if (!mnt || !*subpath || !strcmp("/", subpath))
+		return log_msg_ret("vrb", -EBUSY);
+
+	ret = vfs_stat(path, &dent);
+	if (ret)
+		return log_msg_ret("vrs", ret);
+	if (dent.type != FS_DT_DIR)
+		return vfs_unlink(path);
+
+	/*
+	 * Collect the names before removing anything, since a filesystem may
+	 * not cope with entries going away while the directory is being read
+	 */
+	ret = vfs_opendir(path, &dir);
+	if (ret)
+		return log_msg_ret("vro", ret);
+	alist_init_struct(&names, char *);
+	while (!vfs_readdir(&dir, &dent)) {
+		char *name;
+
+		if (!strcmp(".", dent.name) || !strcmp("..", dent.name))
+			continue;
+		name = vfs_join(path, dent.name);
+		if (!name || !alist_add(&names, name)) {
+			free(name);
+			ret = -ENOMEM;
+			break;
+		}
+	}
+	vfs_closedir(&dir);
+
+	alist_for_each(namep, &names) {
+		if (!ret)
+			ret = vfs_unlink_recursive(*namep);
+		free(*namep);
+	}
+	alist_uninit(&names);
+	if (ret)
+		return log_msg_ret("vrc", ret);
+
+	return vfs_rmdir(path);
 }
 
 int vfs_mkdir_parents(const char *path)

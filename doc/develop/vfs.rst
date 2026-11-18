@@ -139,8 +139,9 @@ Command              Description
 ``save``             Save memory to file
 ``size``             Get file size (sets ``$filesize``)
 ``stat``             Show file/directory metadata
-``mkdir``            Create a directory
-``rm``               Delete a file
+``mkdir``            Create directories (``-p`` for missing parents)
+``rmdir``            Remove empty directories
+``rm``               Delete files (``-r`` for directories too)
 ``mv``               Rename/move a file or directory
 ``df``               Show filesystem usage statistics
 ``fs cp``            Copy a file (cross-filesystem supported)

@@ -314,27 +314,54 @@ done:
 	return ret;
 }
 
-static int do_rm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_rm(struct getopt_state *gs)
 {
-	int ret;
+	bool recursive = false, force = false;
+	int ret = CMD_RET_SUCCESS;
+	const char *path;
+	int opt;
 
-	if (argc < 2)
+	while ((opt = getopt(gs, "+rf")) > 0) {
+		switch (opt) {
+		case 'r':
+			recursive = true;
+			break;
+		case 'f':
+			force = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+	if (gs->index == gs->argc)
 		return CMD_RET_USAGE;
 
-	ret = vfs_unlink(argv[1]);
-	if (ret) {
-		printf("Error: %dE\n", ret);
-		return CMD_RET_FAILURE;
+	/* Carry on after an error, as with the other paths */
+	while ((path = getopt_pop(gs))) {
+		int err;
+
+		if (recursive)
+			err = vfs_unlink_recursive(path);
+		else
+			err = vfs_unlink(path);
+		if (err == -ENOENT && force)
+			continue;
+		if (err) {
+			printf("Cannot remove '%s': %dE\n", path, err);
+			ret = CMD_RET_FAILURE;
+		}
 	}
 
-	return CMD_RET_SUCCESS;
+	return ret;
 }
 
-U_BOOT_CMD_COMPLETE(
-	rm,	2,	0,	do_rm,
-	"delete a file",
-	"<path>\n"
-	"    - Delete the file at 'path' in the VFS",
+U_BOOT_CMD_GETOPT_COMPLETE(
+	rm,	CONFIG_SYS_MAXARGS,	0,	do_rm,
+	"delete files",
+	"[-rf] <path>...\n"
+	"    - Delete each file at 'path' in the VFS\n"
+	"      -r  Delete a directory too, along with all it contains\n"
+	"      -f  Do not complain if a path does not exist",
 	vfs_cmd_complete
 );
 
