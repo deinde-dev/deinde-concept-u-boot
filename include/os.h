@@ -104,7 +104,7 @@ int os_isatty(int fd);
  * os_unlink() - access to the OS unlink() system call
  *
  * @pathname:	Path of file to delete
- * Return:	0 for success, other for error
+ * Return:	0 for success, -errno on error
  */
 int os_unlink(const char *pathname);
 
