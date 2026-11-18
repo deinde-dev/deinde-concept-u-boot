@@ -81,7 +81,9 @@ efi_status_t efi_add_runtime_mmio(void **mmio_ptr, u64 len);
 void efi_restore_gd(void);
 
 /* Called by networking code to memorize the dhcp ack package */
-void efi_net_set_dhcp_ack(void *pkt, int len);
+void efi_net_set_dhcp_ack(void *pkt, int len, void *proxy, int proxy_len);
+/* Populate PXE mode with the newest cached reply for this interface. */
+void efi_net_get_dhcp_ack(struct udevice *dev, struct efi_pxe_mode *mode);
 /* Print information about all loaded images */
 void efi_print_image_infos(void *pc);
 
@@ -106,7 +108,8 @@ static inline efi_status_t efi_add_runtime_mmio(void *mmio_ptr, u64 len)
 
 /* No loader configured, stub out EFI_ENTRY */
 static inline void efi_restore_gd(void) { }
-static inline void efi_net_set_dhcp_ack(void *pkt, int len) { }
+static inline void efi_net_set_dhcp_ack(void *pkt, int len, void *proxy, int proxy_len) { }
+static inline void efi_net_get_dhcp_ack(struct udevice *dev, struct efi_pxe_mode *mode) { }
 static inline void efi_print_image_infos(void *pc) { }
 static inline efi_status_t efi_launch_capsules(void)
 {
@@ -743,11 +746,16 @@ struct efi_net_dp_entry {
  * struct efi_net_dhcp_entry - entry in the cache of DHCP acknowledgements
  *
  * @dhcp_ack: Copy of the DHCP ACK packet, allocated when first needed
+ * @proxy_offer: Copy of the direct ProxyDHCP reply, allocated when first
+ *	needed
+ * @have_proxy: true if @proxy_offer holds a reply from the same exchange
  * @dev: Network device which received it
  * @is_valid: true if this entry is in use
  */
 struct efi_net_dhcp_entry {
 	struct efi_pxe_packet *dhcp_ack;
+	struct efi_pxe_packet *proxy_offer;
+	bool have_proxy;
 	struct udevice *dev;
 	bool is_valid;
 };

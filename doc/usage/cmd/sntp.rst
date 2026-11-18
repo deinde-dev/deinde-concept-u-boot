@@ -27,8 +27,8 @@ The time which the command sets is printed as it sets it, in the form::
     Date: 2026-12-25 Time: 12:00:30
 
 The address of the NTP server does not need to be given if the DHCP server
-provides one. The legacy network stack (`CONFIG_NET_LEGACY=y`) can only use the
-first NTP server provided in the `ntp-servers` DHCP option.
+provides one and ``CONFIG_BOOTP_NTPSERVER`` is enabled. Both network stacks
+use only the first NTP server provided in the `ntp-servers` DHCP option.
 
 When the network stack is lwIP (`CONFIG_NET_LWIP=y`) and DNS resolution
 is enabled (`CONFIG_DNS=y`), then the sntp command accepts a server
