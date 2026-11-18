@@ -717,6 +717,17 @@ config SHA256
 	  The SHA256 algorithm produces a 256-bit (32-byte) hash value
 	  (digest).
 
+config SHA256_SMALLER
+	bool "Use a smaller implementation of SHA256"
+	depends on SHA256
+	default y if SHA256_MBEDTLS
+	help
+	  Use an implementation of SHA256 which processes each block with a
+	  loop, instead of writing out all 64 rounds. This saves about 8KB of
+	  code on 32-bit ARM, but hashing is slower, by about 13% with the
+	  legacy implementation. It applies to the software implementations,
+	  both the legacy one and MbedTLS.
+
 config SHA512
 	bool "Enable SHA512 support"
 	default y if TI_SECURE_DEVICE && FIT_SIGNATURE
@@ -781,6 +792,17 @@ config SPL_SHA256
 	  The SHA256 algorithm produces a 256-bit (32-byte) hash value
 	  (digest).
 
+config SPL_SHA256_SMALLER
+	bool "Use a smaller implementation of SHA256 in SPL"
+	depends on SPL_SHA256
+	default y
+	help
+	  Use an implementation of SHA256 which processes each block with a
+	  loop, instead of writing out all 64 rounds. This saves about 8KB of
+	  code on 32-bit ARM, but hashing is slower, by about 13% with the
+	  legacy implementation. It applies to the software implementations,
+	  both the legacy one and MbedTLS.
+
 config SPL_SHA512
 	bool "Enable SHA512 support in SPL"
 	default y if SHA512
@@ -840,6 +862,17 @@ config VPL_SHA256
 	  The hash is calculated in software.
 	  The SHA256 algorithm produces a 256-bit (32-byte) hash value
 	  (digest).
+
+config VPL_SHA256_SMALLER
+	bool "Use a smaller implementation of SHA256 in VPL"
+	depends on VPL_SHA256
+	default y
+	help
+	  Use an implementation of SHA256 which processes each block with a
+	  loop, instead of writing out all 64 rounds. This saves about 8KB of
+	  code on 32-bit ARM, but hashing is slower, by about 13% with the
+	  legacy implementation. It applies to the software implementations,
+	  both the legacy one and MbedTLS.
 
 if SHA_HW_ACCEL
 

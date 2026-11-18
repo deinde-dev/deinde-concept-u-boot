@@ -525,6 +525,16 @@ typedef struct table_entry {
 } table_entry_t;
 
 /*
+ * Tables of names for each category. Each is in its own file, so that the
+ * linker can drop the names in the tables which are not used
+ */
+extern const table_entry_t uimage_arch[];
+extern const table_entry_t uimage_comp[];
+extern const table_entry_t uimage_os[];
+extern const table_entry_t uimage_phase[];
+extern const table_entry_t uimage_type[];
+
+/*
  * Compression type and magic number mapping table.
  */
 struct comp_magic_map {

@@ -14,6 +14,8 @@ obj-$(CONFIG_PXE_UTILS) += pxe_utils.o pxe_parse.o
 endif
 
 obj-y += image.o image-board.o bootm_final.o
+obj-y += image-tbl-arch.o image-tbl-comp.o image-tbl-os.o image-tbl-phase.o
+obj-y += image-tbl-type.o
 
 obj-$(CONFIG_ANDROID_AB) += android_ab.o
 obj-$(CONFIG_ANDROID_BOOT_IMAGE) += image-android.o image-android-dt.o
