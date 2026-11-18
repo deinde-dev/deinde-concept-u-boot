@@ -108627,3 +108627,95 @@ The working tree already had some untracked files (`capsule_esl_file`, `codman.d
 
 ---
 
+## 2026-11-18: us/main
+
+Branch: cherry-6b80ba004aca
+
+Commits:
+- 6b80ba004aca arm: imx6: Only read SCU for i.MX6DL/i.MX6Q/i.MX6QP variant detection
+- 619e8efe6f57 ddr: imx: Use the correct GPC registers for the i.MX8MP DDRMIX
+- ae03528affd3 ddr: imx: Recreate the power-on state before repeating ddr_init()
+- 15c7f1d15d4b imx: kontron-osm-s-mx8mp: Remove DDR reinit workaround
+- 2892d4733164 imx: mach: imx8: fdt: return libfdt errors from helpers
+- dbf0a6847b32 imx: mach: imx8: fdt: support newer GPU0 bus node name
+- fa309ac5d09a imx95_frdm: Enable remoteproc for i.MX95 FRDM
+- fe4700ea227a imx95: Remove container.cfg and imximage.cfg
+- 6e1fa4461d6c imx95_frdm: Kconfig: rename board prompt to imx95_15x15_frdm
+- db9e71c40fea imx: Add FRDM-IMX95-PRO initial support
+- c62fcc86a738 imx9: clock: Add missing UART clocks
+- a9ffb286bf7f imx9: scmi: fix up thermal trip points from the temperature grade
+- 7edf681183e8 imx9: scmi: fall back to NOWHERE env location
+- d5fb3c7f15a8 imx9: scmi: Remove useless scmi protocol devices probe
+- b52b40bc9eb7 mx6: implement memory translation table
+- 4642416d4626 imx: bootaux: clarify comment on firmware support
+- 6887b66797ec colibri_vf: separate the partition numbers in dfu_alt_info with a space
+- b0da72e3e8e7 Merge tag 'u-boot-imx-main-20261026' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx
+
+### Conversation log
+Seven of the 18 picks are in and building cleanly; the eighth (fe4700ea227a) hit conflicts in two imx95 defconfigs, which I'm examining now.
+
+Seventeen picks are in and building; now doing the merge commit, then the final checks.
+
+All 18 commits are cherry-picked onto `cherry-6b80ba004aca` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+## Fix-ups
+
+Three commits needed conflict resolution, each with a `[pickman: ...]` note at the end of its message:
+
+- **fe4700ea227a** (imx95: Remove container.cfg and imximage.cfg): conflicts in `imx95_15x15_evk_defconfig` and `imx95_15x15_frdm_defconfig`. I removed `CONFIG_IMX_CONTAINER_CFG` as the commit intends and kept this tree's `# CONFIG_SPL_SHARES_INIT_SP_ADDR is not set` line beside it.
+- **db9e71c40fea** (imx: Add FRDM-IMX95-PRO initial support): conflict in `imx95_15x15_frdm_defconfig`. I took the upstream four-line version that includes the new `imx95_frdm.config`, and changed `CONFIG_TEXT_BASE` to `CONFIG_PPL_TEXT_BASE` in that fragment to match this tree. The fragment otherwise carries the same options the old defconfig had.
+- **b0da72e3e8e7** (the merge): it conflicted on the same two resolutions above, so I kept this tree's versions. It is an empty commit, as expected, with the merge message preserved.
+
+## Checks
+
+- **Deltas:** every pick matches its original in files and line counts; none are concerning.
+- **split-check:** ran after every pick; it changed nothing and reported nothing it could not convert.
+- **Sandbox build:** passed after every pick and at the end.
+- **imx95 boards:** because sandbox does not exercise the hand-resolved defconfigs, I also built `imx95_15x15_frdm`, `imx95_19x19_frdm_pro` and `imx95_15x15_evk`. All three compile, with only binman's warnings about missing external firmware blobs (DDR/OEI binaries).
+
+The working tree had a few untracked files before I started (`codman.db`, `capsule_esl_file` and similar); I left them alone.
+
+---
+
+### Pipeline fix: 2026-11-18 (attempt 1)
+
+Branch: cherry-6b80ba004aca
+
+Failed jobs:
+- build all platforms 6/6 (world_build)
+- rockpro64 (sjg-lab)
+
+### Conversation log
+Waiting for the i.MX board build to finish before diagnosing further.
+
+Neither failure comes from the 18 cherry-picks in this MR. I fixed the build failure with a new commit on top; the rockpro64 failure is transient and needs no change.
+
+## build all platforms 6/6
+
+- **Failing board:** `mt8366_genio_360_evk`. The supplied log tail didn't name it, so I pulled the full job log.
+- **Error:** mkimage reports `Error: Load Address must be set` when creating `u-boot-mtk.bin`.
+- **Root cause:** the defconfig sets `CONFIG_TEXT_BASE`, but this tree uses `CONFIG_PPL_TEXT_BASE`, which is what the Makefile passes to mkimage, so the load address is empty.
+- **Responsible commit:** e65811d1b22c ("board: mediatek: add Genio 360 EVK defconfig"). It is already in ci/master (the MR's base, 1805658c910b), so master itself is broken and there is nothing on this branch to amend.
+- **Fix:** new commit f18af06dadb4 "configs: mt8366_genio_360_evk: Use PPL_TEXT_BASE", a one-line rename in `configs/mt8366_genio_360_evk_defconfig`, matching `mt8365_evk`.
+
+Since the breakage is on master, the same fix is needed there, or other MRs will fail the same job.
+
+## rockpro64 (sjg-lab)
+
+`test_sleep` measured 3.42s against a 3.25s limit for a 3s sleep on the lab board. That is a timing blip; the other 44 tests passed, so a retry should clear it.
+
+## Verification
+
+- `mt8366_genio_360_evk` reproduced the failure locally before the fix and builds after it.
+- The 25 i.MX boards in shard 6/6 build without errors, as do the 128 other i.MX boards that finished before a wider build hit its time limit.
+- `um build sandbox` passes.
+- I did not run the full 259-board shard: the suggested `buildman -o /tmp/pickman 6,all,platforms,rockpro64,sandbox` is not a valid board selection, and the stable buildman lacks `--shard`.
+
+## Left alone
+
+Three other files still use `CONFIG_TEXT_BASE`: `qcom_sdm845_spl_defconfig`, `qcom_sm8650_defconfig` and `amd_versal_premium_2.config`. They did not fail in this job, so I did not touch them, but they may have the same latent problem.
+
+The result is on local branch `cherry-6b80ba004aca-fix1`, not pushed.
+
+---
+
