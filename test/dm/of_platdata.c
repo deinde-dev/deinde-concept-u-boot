@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0+
 
 #include <dm.h>
+#include <dm/device-internal.h>
+#include <dm/lists.h>
 #include <dm/test.h>
 #include <test/test.h>
 #include <test/ut.h>
@@ -99,6 +101,39 @@ static int dm_test_of_plat_dev(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_of_plat_dev, UTF_SCAN_PDATA);
+
+/* Test that devices are numbered using their aliases */
+static int dm_test_of_plat_alias(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+
+	if (!IS_ENABLED(CONFIG_OF_PLATDATA) || !IS_ENABLED(CONFIG_DM_SEQ_ALIAS))
+		return -EAGAIN;
+
+	/* This is the first GPIO device, but its alias is gpio2 */
+	ut_assertok(uclass_first_device_err(UCLASS_GPIO, &dev));
+	ut_asserteq_str("sandbox_gpio", dev->name);
+	ut_asserteq(2, dev_seq(dev));
+	ut_asserteq(2, lists_highest_alias_seq(UCLASS_GPIO));
+
+	ut_assertok(uclass_first_device_err(UCLASS_I2C, &dev));
+	ut_asserteq(0, dev_seq(dev));
+	ut_asserteq(0, lists_highest_alias_seq(UCLASS_I2C));
+
+	/* With no alias, a device is numbered from 0 */
+	ut_assertok(uclass_first_device_err(UCLASS_SERIAL, &dev));
+	ut_asserteq(0, dev_seq(dev));
+	ut_asserteq(-1, lists_highest_alias_seq(UCLASS_SERIAL));
+
+	/* A device bound later is numbered after the highest alias */
+	ut_assertok(device_bind(gd->dm_root, DM_DRIVER_GET(sandbox_gpio),
+				"extra", NULL, ofnode_null(), &dev));
+	ut_asserteq(3, dev_seq(dev));
+	ut_assertok(device_unbind(dev));
+
+	return 0;
+}
+DM_TEST(dm_test_of_plat_alias, UTF_SCAN_PDATA);
 
 #if IS_ENABLED(CONFIG_OF_PLATDATA_PARENT)
 /* Test that device parents are correctly set up */
