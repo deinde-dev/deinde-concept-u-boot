@@ -4,6 +4,7 @@
  */
 
 #include <dm.h>
+#include <dt-chosen.h>
 #include <dm/device_compat.h>
 #include <fdt_support.h>
 #include <log.h>
@@ -13,7 +14,43 @@
 #include <asm/global_data.h>
 #include <dm/uclass-internal.h>
 
-#if IS_ENABLED(CONFIG_OF_LIBFDT)
+/**
+ * mmc_to_boot_device() - maps from an MMC device to a SPL boot device
+ * @mmc:	MMC device to check
+ *
+ * Returns
+ *   -ENOENT, if the device has no block device
+ *   -ENOSYS, if the device can not be mapped onto a SPL boot device (e.g. the
+ *            third MMC device)
+ *   a positive integer (from the BOOT_DEVICE_... family) on success.
+ */
+static int mmc_to_boot_device(struct udevice *mmc)
+{
+	struct udevice *dev;
+	struct blk_desc *desc = NULL;
+
+	for (device_find_first_child(mmc, &dev);
+	     dev;
+	     device_find_next_child(&dev)) {
+		if (device_get_uclass_id(dev) == UCLASS_BLK) {
+			desc = dev_get_uclass_plat(dev);
+			break;
+		}
+	}
+
+	if (!desc)
+		return -ENOENT;
+
+	switch (desc->devnum) {
+	case 0:
+		return BOOT_DEVICE_MMC1;
+	case 1:
+		return BOOT_DEVICE_MMC2;
+	default:
+		return -ENOSYS;
+	}
+}
+
 /**
  * spl_node_to_boot_device() - maps from a DT-node to a SPL boot device
  * @node:	of_offset of the node
@@ -42,31 +79,8 @@ static int spl_node_to_boot_device(int node)
 	 * aware of the block-device layer.  Until then (and to avoid unneeded
 	 * delays in getting this feature out), it lives at the board-level.
 	 */
-	if (!uclass_find_device_by_of_offset(UCLASS_MMC, node, &parent)) {
-		struct udevice *dev;
-		struct blk_desc *desc = NULL;
-
-		for (device_find_first_child(parent, &dev);
-		     dev;
-		     device_find_next_child(&dev)) {
-			if (device_get_uclass_id(dev) == UCLASS_BLK) {
-				desc = dev_get_uclass_plat(dev);
-				break;
-			}
-		}
-
-		if (!desc)
-			return -ENOENT;
-
-		switch (desc->devnum) {
-		case 0:
-			return BOOT_DEVICE_MMC1;
-		case 1:
-			return BOOT_DEVICE_MMC2;
-		default:
-			return -ENOSYS;
-		}
-	}
+	if (!uclass_find_device_by_of_offset(UCLASS_MMC, node, &parent))
+		return mmc_to_boot_device(parent);
 
 	/*
 	 * SPL doesn't differentiate SPI flashes, so we keep the detection
@@ -104,6 +118,70 @@ __weak const char *board_spl_was_booted_from(void)
 	return NULL;
 }
 
+/**
+ * boot_order_plat() - work out the boot order with of-platdata
+ * @spl_boot_list:	list to add the boot devices to
+ *
+ * There is no devicetree to read, but dtoc provides the entries of the
+ * u-boot,spl-boot-order property, each with the index of the driver_info
+ * record for its node, which gives the device.
+ *
+ * For 'same-as-spl' only the path of the device is known, so this is looked
+ * up in the other entries. This means that it only works if the device which
+ * SPL was loaded from is in the boot order as well.
+ *
+ * Returns the number of boot devices added to the list
+ */
+static int boot_order_plat(u32 *spl_boot_list)
+{
+	static const struct dt_boot_order order[] = {
+		DT_CHOSEN_SPL_BOOT_ORDER
+	};
+	struct driver_rt *rt = gd_dm_driver_rt();
+	int count = 0;
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(order); i++) {
+		int rec = order[i].idx;
+		struct udevice *dev;
+		int boot_device;
+
+		if (!order[i].path) {
+			const char *path = board_spl_was_booted_from();
+
+			for (j = 0; path && j < ARRAY_SIZE(order); j++) {
+				if (order[j].path &&
+				    !strcmp(path, order[j].path))
+					rec = order[j].idx;
+			}
+		}
+		if (rec < 0 || !rt[rec].dev)
+			continue;
+		dev = rt[rec].dev;
+
+		switch (device_get_uclass_id(dev)) {
+		case UCLASS_MMC:
+			boot_device = mmc_to_boot_device(dev);
+			break;
+		case UCLASS_SPI_FLASH:
+			boot_device = BOOT_DEVICE_SPI;
+			break;
+		case UCLASS_UFS:
+			boot_device = BOOT_DEVICE_UFS;
+			break;
+		default:
+			boot_device = -1;
+			break;
+		}
+		if (boot_device < 0)
+			continue;
+
+		spl_boot_list[count++] = boot_device;
+	}
+
+	return count;
+}
+
 void board_boot_order(u32 *spl_boot_list)
 {
 	int idx = 0;
@@ -114,8 +192,17 @@ void board_boot_order(u32 *spl_boot_list)
 		spl_boot_list[idx++] = BOOT_DEVICE_RAM;
 	}
 
-	/* In case of no fdt (or only plat), use spl_boot_device() */
-	if (!IS_ENABLED(CONFIG_OF_CONTROL) || IS_ENABLED(CONFIG_OF_PLATDATA)) {
+	/* With of-platdata, dtoc provides the boot order */
+	if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
+		int count = boot_order_plat(spl_boot_list + idx);
+
+		if (!count)
+			spl_boot_list[idx] = spl_boot_device();
+		return;
+	}
+
+	/* In case of no fdt, use spl_boot_device() */
+	if (!IS_ENABLED(CONFIG_OF_CONTROL)) {
 		spl_boot_list[idx++] = spl_boot_device();
 		return;
 	}
@@ -175,6 +262,7 @@ void board_boot_order(u32 *spl_boot_list)
 		spl_boot_list[0] = spl_boot_device();
 }
 
+#if IS_ENABLED(CONFIG_OF_LIBFDT)
 int spl_decode_boot_device(u32 boot_device, char *buf, size_t buflen)
 {
 	struct udevice *dev;
