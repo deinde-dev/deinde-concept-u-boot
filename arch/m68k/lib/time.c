@@ -127,11 +127,8 @@ uint64_t __weak get_ticks(void)
 	volatile pit_t *timerp = (pit_t *) (CFG_SYS_UDELAY_BASE);
 	u16 val = ~timerp->pcntr;
 
-	if (timer16 > val)
-		timer64 += 0xffff - timer16 + val;
-	else
-		timer64 += val - timer16;
-
+	/* the counter has 0x10000 values, so 16-bit arithmetic handles a wrap */
+	timer64 += (u16)(val - timer16);
 	timer16 = val;
 
 	return timer64;
