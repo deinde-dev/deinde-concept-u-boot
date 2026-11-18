@@ -437,6 +437,15 @@ void fat_closedir(struct fs_dir_stream *dirs);
 int fat_unlink(const char *filename);
 
 /**
+ * fat_rmdir() - remove an empty directory
+ * @dirname: full path to directory
+ *
+ * Return: 0 on success, -ENOTDIR if @dirname is not a directory, -ENOTEMPTY
+ * if it has anything in it, other -ve on error
+ */
+int fat_rmdir(const char *dirname);
+
+/**
  * fat_rename() - rename a file or directory
  * @old_path: current full path
  * @new_path: new full path

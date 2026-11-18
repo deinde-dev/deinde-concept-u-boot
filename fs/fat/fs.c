@@ -87,6 +87,11 @@ static int fat_vfs_unlink(struct udevice *dev, const char *path)
 	return fat_unlink(path);
 }
 
+static int fat_vfs_rmdir(struct udevice *dev, const char *path)
+{
+	return fat_rmdir(path);
+}
+
 static int fat_vfs_rename(struct udevice *dev, const char *old_path,
 			  const char *new_path)
 {
@@ -104,6 +109,7 @@ static const struct fs_ops fat_vfs_ops = {
 	.lookup_dir	= fat_vfs_lookup_dir,
 	.mkdir		= fat_vfs_mkdir,
 	.unlink		= fat_vfs_unlink,
+	.rmdir		= fat_vfs_rmdir,
 	.rename		= fat_vfs_rename,
 	.statfs		= fat_vfs_statfs,
 };
