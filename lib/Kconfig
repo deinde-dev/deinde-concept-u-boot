@@ -776,6 +776,7 @@ config SPL_CRC32
 
 config SPL_SHA1
 	bool "Enable SHA1 support in SPL"
+	default n if ARCH_ROCKCHIP
 	default y if SHA1
 	help
 	  This option enables support of hashing using SHA1 algorithm.
