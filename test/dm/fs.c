@@ -752,6 +752,63 @@ static int dm_test_vfs_mkdir(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_mkdir, UTF_SCAN_FDT);
 
+/* Test the rmdir command via VFS */
+static int dm_test_vfs_rmdir(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	os_unlink(".vfs_rmdir1/file");
+	os_rmdir(".vfs_rmdir1");
+	os_rmdir(".vfs_rmdir2");
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("rmdir", 0));
+	ut_assert_nextlinen("rmdir - remove empty directories");
+	console_record_reset_enable();
+
+	ut_assertok(run_command("mkdir /host/.vfs_rmdir1", 0));
+	ut_assertok(run_command("mkdir /host/.vfs_rmdir2", 0));
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.vfs_rmdir1/file 4", 0));
+	ut_assert_nextline("4 bytes written");
+	ut_assert_console_end();
+
+	/* The first is not empty, but the second is still removed */
+	ut_asserteq(1, run_command("rmdir /host/.vfs_rmdir1 /host/.vfs_rmdir2",
+				   0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.vfs_rmdir1': -39: Directory not empty");
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.vfs_rmdir2", 0));
+	console_record_reset_enable();
+
+	/* A file is not a directory */
+	ut_asserteq(1, run_command("rmdir /host/.vfs_rmdir1/file", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.vfs_rmdir1/file': -20: Not a directory");
+	ut_assert_console_end();
+
+	/* Nor is something which does not exist */
+	ut_asserteq(1, run_command("rmdir /host/.vfs_rmdir2", 0));
+	ut_assert_nextline(
+		"Cannot remove '/host/.vfs_rmdir2': -2: No such file or directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm /host/.vfs_rmdir1/file", 0));
+	ut_assertok(run_command("rmdir /host/.vfs_rmdir1", 0));
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("stat /host/.vfs_rmdir1", 0));
+	console_record_reset_enable();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_rmdir, UTF_SCAN_FDT);
+
 /* Test symlink following and readlink */
 static int dm_test_vfs_symlink(struct unit_test_state *uts)
 {

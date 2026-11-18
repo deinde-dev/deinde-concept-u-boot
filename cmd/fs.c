@@ -379,6 +379,35 @@ U_BOOT_CMD_COMPLETE(
 	vfs_cmd_complete
 );
 
+static int do_rmdir(struct getopt_state *gs)
+{
+	int ret = CMD_RET_SUCCESS;
+	const char *path;
+
+	if (gs->index == gs->argc)
+		return CMD_RET_USAGE;
+
+	/* Carry on after an error, as with the other directories */
+	while ((path = getopt_pop(gs))) {
+		int err = vfs_rmdir(path);
+
+		if (err) {
+			printf("Cannot remove '%s': %dE\n", path, err);
+			ret = CMD_RET_FAILURE;
+		}
+	}
+
+	return ret;
+}
+
+U_BOOT_CMD_NOOPTS_COMPLETE(
+	rmdir,	CONFIG_SYS_MAXARGS,	0,	do_rmdir,
+	"remove empty directories",
+	"<path>...\n"
+	"    - Remove each directory at 'path' in the VFS, if it is empty",
+	vfs_cmd_complete
+);
+
 static int do_ln(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	int ret;
