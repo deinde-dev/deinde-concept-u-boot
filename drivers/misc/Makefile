@@ -22,6 +22,7 @@ ifdef CONFIG_SANDBOX
 obj-$(CONFIG_TKEY) += tkey_emul.o
 obj-$(CONFIG_TKEY) += tkey_sandbox.o
 endif
+obj-$(CONFIG_SANDBOX) += spi_eeprom_emul.o
 endif
 
 ifdef CONFIG_DM_I2C
@@ -51,6 +52,7 @@ obj-$(CONFIG_GDSYS_SOC) += gdsys_soc.o
 obj-$(CONFIG_IRQ) += irq-uclass.o
 obj-$(CONFIG_SANDBOX) += irq_sandbox.o irq_sandbox_test.o
 obj-$(CONFIG_I2C_EEPROM) += i2c_eeprom.o
+obj-$(CONFIG_SPI_EEPROM) += spi_eeprom.o
 obj-$(CONFIG_IHS_FPGA) += ihs_fpga.o
 obj-$(CONFIG_IMX8) += imx8/
 obj-$(CONFIG_IMX_ELE) += imx_ele/
