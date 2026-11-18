@@ -329,6 +329,36 @@
 		reg = <0x12360000 0x100 0x12368000 0x40>;
 		dev-prop-present = <5>;
 		dev-prop-rw = <20 30 40 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_test_single &pins_test_extra>;
+	};
+
+	/* A pin controller which records the pins it is asked to set up */
+	pins-test {
+		bootph-pre-ram;
+		compatible = "sandbox,pins-test";
+
+		pins_test_pull_up: pcfg-pull-up {
+			bootph-pre-ram;
+			bias-pull-up;
+		};
+
+		pins_test_drive: pcfg-drive {
+			bootph-pre-ram;
+			bias-disable;
+			drive-strength = <12>;
+		};
+
+		pins_test_single: single {
+			bootph-pre-ram;
+			sandbox,pins = <1 2 &pins_test_pull_up>,
+				<3 4 &pins_test_drive>;
+		};
+
+		pins_test_extra: extra {
+			bootph-pre-ram;
+			sandbox,pins = <5 6 &pins_test_pull_up>;
+		};
 	};
 
 	spl-test {

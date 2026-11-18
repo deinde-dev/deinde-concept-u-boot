@@ -308,8 +308,57 @@ static int pinctrl_select_state_simple(struct udevice *dev)
 	return ops->set_state_simple(pctldev, dev);
 }
 
+/**
+ * pinctrl_select_state_plat() - select the default state with of-platdata
+ *
+ * There is no devicetree to read, but dtoc generates the pin settings for each
+ * device which has a pinctrl-0 property, so long as the driver for its pin
+ * controller uses DM_PINS(). Find the settings for the device and pass them
+ * to the controller.
+ *
+ * @dev: peripheral device
+ * @return: 0 on success, including if the device has no pin settings, or
+ *	negative error code on failure
+ */
+static int pinctrl_select_state_plat(struct udevice *dev)
+{
+	const struct dm_pin_state *state =
+		ll_entry_start(struct dm_pin_state, dm_pin_state);
+	const int n_ents = ll_entry_count(struct dm_pin_state, dm_pin_state);
+	struct driver_rt *rt = gd_dm_driver_rt();
+	int i;
+
+	for (i = 0; i < n_ents; i++, state++) {
+		const struct pinctrl_ops *ops;
+		struct udevice *pctldev;
+		int ret;
+
+		if (rt[state->dev_idx].dev != dev)
+			continue;
+
+		ret = device_get_by_ofplat_idx(state->pctl_idx, &pctldev);
+		if (ret)
+			return ret;
+		ops = pinctrl_get_ops(pctldev);
+		if (!ops->set_pins)
+			return -ENOSYS;
+
+		return ops->set_pins(pctldev, state);
+	}
+
+	return 0;
+}
+
 int pinctrl_select_state(struct udevice *dev, const char *statename)
 {
+	/* With of-platdata there is no ofnode and just the default state */
+	if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
+		if (strcmp(statename, "default"))
+			return -ENOSYS;
+
+		return pinctrl_select_state_plat(dev);
+	}
+
 	/*
 	 * Some device which is logical like mmc.blk, do not have
 	 * a valid ofnode.

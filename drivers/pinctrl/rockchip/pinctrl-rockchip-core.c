@@ -9,6 +9,7 @@
 #include <regmap.h>
 #include <syscon.h>
 #include <fdtdec.h>
+#include <asm/arch-rockchip/clock.h>
 #include <linux/bitops.h>
 #include <linux/err.h>
 #include <linux/libfdt.h>
@@ -460,6 +461,10 @@ static int rockchip_pinctrl_set_state(struct udevice *dev,
 	ofnode node;
 	struct ofprop prop;
 
+	/* Without a devicetree, set_pins() is used instead */
+	if (!IS_ENABLED(CONFIG_OF_REAL))
+		return -ENOSYS;
+
 	data = dev_read_prop(config, "rockchip,pins", &count);
 	if (count < 0) {
 		debug("%s: bad array size %d\n", __func__, count);
@@ -521,8 +526,50 @@ static int rockchip_pinctrl_set_state(struct udevice *dev,
 	return 0;
 }
 
+/*
+ * With of-platdata, dtoc provides the pins for a device, in the form given by
+ * DM_PINS() in each driver: bank, pin and mux, as in the rockchip,pins
+ * property, then the position of the pin's config
+ */
+static int rockchip_pinctrl_set_pins(struct udevice *dev,
+				     const struct dm_pin_state *state)
+{
+	struct rockchip_pinctrl_priv *priv = dev_get_priv(dev);
+	struct rockchip_pin_ctrl *ctrl = priv->ctrl;
+	const u16 *cell = state->pins;
+	int ret, i, j;
+
+	if (!IS_ENABLED(CONFIG_OF_PLATDATA))
+		return -ENOSYS;
+
+	for (i = 0; i < state->count; i++, cell += 4) {
+		u32 bank = cell[0], pin = cell[1], mux = cell[2];
+		const u16 *conf = state->conf + cell[3];
+
+		ret = rockchip_verify_config(dev, bank, pin);
+		if (ret)
+			return ret;
+
+		ret = rockchip_set_mux(&ctrl->pin_banks[bank], pin, mux);
+		if (ret)
+			return ret;
+
+		/* The config is a count, then a parameter and arg for each */
+		for (j = 0; j < conf[0]; j++) {
+			ret = rockchip_pinconf_set(&ctrl->pin_banks[bank], pin,
+						   conf[1 + 2 * j],
+						   conf[2 + 2 * j]);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 const struct pinctrl_ops rockchip_pinctrl_ops = {
 	.set_state			= rockchip_pinctrl_set_state,
+	.set_pins			= rockchip_pinctrl_set_pins,
 	.get_gpio_mux			= rockchip_pinctrl_get_gpio_mux,
 };
 
@@ -644,14 +691,24 @@ int rockchip_pinctrl_probe(struct udevice *dev)
 	struct rockchip_pinctrl_priv *priv = dev_get_priv(dev);
 	struct rockchip_pin_ctrl *ctrl;
 
-	priv->regmap_base =
+	if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
+		/* There are no phandles to follow, so find the syscons by ID */
+		priv->regmap_base =
+			syscon_get_regmap_by_driver_data(ROCKCHIP_SYSCON_GRF);
+		priv->regmap_pmu =
+			syscon_get_regmap_by_driver_data(ROCKCHIP_SYSCON_PMU);
+		if (IS_ERR(priv->regmap_pmu))
+			priv->regmap_pmu = NULL;
+	} else {
+		priv->regmap_base =
 			syscon_regmap_lookup_by_phandle(dev, "rockchip,grf");
+	}
 	if (IS_ERR(priv->regmap_base)) {
 		debug("unable to find rockchip,grf regmap\n");
 		return PTR_ERR(priv->regmap_base);
 	}
 
-	if (dev_read_bool(dev, "rockchip,pmu")) {
+	if (IS_ENABLED(CONFIG_OF_REAL) && dev_read_bool(dev, "rockchip,pmu")) {
 		priv->regmap_pmu =
 			syscon_regmap_lookup_by_phandle(dev, "rockchip,pmu");
 		if (IS_ERR(priv->regmap_pmu)) {
@@ -660,7 +717,7 @@ int rockchip_pinctrl_probe(struct udevice *dev)
 		}
 	}
 
-	if (dev_read_bool(dev, "rockchip,ioc1")) {
+	if (IS_ENABLED(CONFIG_OF_REAL) && dev_read_bool(dev, "rockchip,ioc1")) {
 		priv->regmap_ioc1 =
 			syscon_regmap_lookup_by_phandle(dev, "rockchip,ioc1");
 		if (IS_ERR(priv->regmap_ioc1)) {

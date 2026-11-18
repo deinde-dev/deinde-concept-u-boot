@@ -504,4 +504,39 @@ struct sandbox_dev_prop_plat {
 	struct regmap *map;
 };
 
+/* Limits for the pins which the sandbox_pins_test driver records */
+#define SANDBOX_PINS_MAX	8
+#define SANDBOX_PIN_PARAMS	2
+
+/**
+ * struct sandbox_pin - A pin set up by the sandbox_pins_test driver
+ *
+ * @pin: Pin number
+ * @func: Function selected for the pin
+ * @num_params: Number of config parameters
+ * @param: Each config parameter (enum pin_config_param)
+ * @arg: Argument for each config parameter
+ */
+struct sandbox_pin {
+	u16 pin;
+	u16 func;
+	u16 num_params;
+	u16 param[SANDBOX_PIN_PARAMS];
+	u16 arg[SANDBOX_PIN_PARAMS];
+};
+
+/**
+ * struct sandbox_pins_priv - Pins set up by the sandbox_pins_test driver
+ *
+ * This records the pins which the driver is asked to set up, so a test can
+ * check that devicetree and of-platdata builds give the same results
+ *
+ * @count: Number of pins
+ * @pin: The pins, in the order they were set up
+ */
+struct sandbox_pins_priv {
+	int count;
+	struct sandbox_pin pin[SANDBOX_PINS_MAX];
+};
+
 #endif
