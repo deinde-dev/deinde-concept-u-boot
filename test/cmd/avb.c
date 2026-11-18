@@ -359,8 +359,13 @@ static int cmd_test_avb_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("avb init", 0));
 	ut_assertok(check_usage(uts));
 
-	ut_asserteq(1, run_command("avb init 0 1", 0));
+	ut_asserteq(1, run_command("avb init mmc 0 1", 0));
 	ut_assertok(check_usage(uts));
+
+	/* with two arguments, the first is the interface */
+	ut_asserteq(1, run_command("avb init 0 1", 0));
+	ut_assert_nextline("Unknown interface '0'");
+	ut_assert_console_end();
 
 	ut_asserteq(1, run_command("avb read_rb", 0));
 	ut_assertok(check_usage(uts));

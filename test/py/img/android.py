@@ -10,32 +10,26 @@ import utils
 from test_android import test_abootimg
 
 
-def setup_android_image(config, log):
-    """Create a 20MB disk image with Android partitions
+
+def create_gpt_image(config, log, mmc_dev, required_parts, images):
+    """Create a 20MB GPT disk image and write it to mmc{mmc_dev}.img
 
     Args:
         config (ArbitraryAttributeContainer): Configuration
         log (multiplexed_log.Logfile): Log to write to
+        mmc_dev (int): MMC device number, used to name the output image
+            file mmc{mmc_dev}.img in the source directory
+        required_parts (list of dict): Partitions to create, each with
+            'num' (int) partition number, 'label' (str) partition name,
+            and 'size' (str) either a sector count or 'NM' for N
+            megabytes (e.g. '4M')
+        images (list of tuple): Data to write into partitions, each a
+            (partnum, filename, hex_data) tuple where partnum (int) is
+            the target partition, filename (str) the image file name,
+            and hex_data (str) the image content as hex
     """
     Partition = collections.namedtuple('part', 'start,size,name')
     parts = {}
-    disk_data = None
-
-    def set_part_data(partnum, data):
-        """Set the contents of a disk partition
-
-        This updates disk_data by putting data in the right place
-
-        Args:
-            partnum (int): Partition number to set
-            data (bytes): Data for that partition
-        """
-        nonlocal disk_data
-
-        start = parts[partnum].start * sect_size
-        disk_data = disk_data[:start] + data + disk_data[start + len(data):]
-
-    mmc_dev = 7
     fname = os.path.join(config.source_dir, f'mmc{mmc_dev}.img')
     utils.run_and_log_no_ubman(log, f'qemu-img create {fname} 20M')
     utils.run_and_log_no_ubman(log, f'cgpt create {fname}')
@@ -46,6 +40,47 @@ def setup_android_image(config, log):
     sect_size = 512
     sect_1mb = (1 << 20) // sect_size
 
+    for part in required_parts:
+        size_str = part['size']
+        if 'M' in size_str:
+            size = int(size_str[:-1]) * sect_1mb
+        else:
+            size = int(size_str)
+        utils.run_and_log_no_ubman(
+            log,
+            f"cgpt add -i {part['num']} -b {ptr} -s {size} -l {part['label']} -t basicdata {fname}")
+        ptr += size
+
+    utils.run_and_log_no_ubman(log, f'cgpt boot -p {fname}')
+    out = utils.run_and_log_no_ubman(log, f'cgpt show -q {fname}')
+
+    # Create a dict (indexed by partition number) containing the above info
+    for line in out.splitlines():
+        start, size, num, name = line.split(maxsplit=3)
+        parts[int(num)] = Partition(int(start), int(size), name)
+
+    with open(fname, 'rb') as inf:
+        disk_data = inf.read()
+
+    for partnum, img_name, hex_data in images:
+        test_abootimg.AbootimgTestDiskImage(config, log, img_name, hex_data)
+        img_path = os.path.join(config.result_dir, img_name)
+        with open(img_path, 'rb') as inf:
+            data = inf.read()
+        start = parts[partnum].start * sect_size
+        disk_data = disk_data[:start] + data + disk_data[start + len(data):]
+
+    with open(fname, 'wb') as outf:
+        outf.write(disk_data)
+
+
+def setup_android_v4_image(config, log):
+    """Create mmc7.img: boot image v4 with vendor_boot partitions
+
+    Args:
+        config (ArbitraryAttributeContainer): Configuration
+        log (multiplexed_log.Logfile): Log to write to
+    """
     required_parts = [
         {'num': 1, 'label':'misc', 'size': '1M'},
         {'num': 2, 'label':'boot_a', 'size': '4M'},
@@ -53,94 +88,57 @@ def setup_android_image(config, log):
         {'num': 4, 'label':'vendor_boot_a', 'size': '4M'},
         {'num': 5, 'label':'vendor_boot_b', 'size': '4M'},
     ]
+    images = [
+        (2, 'bootv4.img', test_abootimg.boot_img_hex),
+        (4, 'vendor_boot.img', test_abootimg.vboot_img_hex),
+    ]
+    create_gpt_image(config, log, 7, required_parts, images)
 
-    for part in required_parts:
-        size_str = part['size']
-        if 'M' in size_str:
-            size = int(size_str[:-1]) * sect_1mb
-        else:
-            size = int(size_str)
-        utils.run_and_log_no_ubman(
-            log,
-            f"cgpt add -i {part['num']} -b {ptr} -s {size} -l {part['label']} -t basicdata {fname}")
-        ptr += size
 
-    utils.run_and_log_no_ubman(log, f'cgpt boot -p {fname}')
-    out = utils.run_and_log_no_ubman(log, f'cgpt show -q {fname}')
+def setup_android_v2_image(config, log):
+    """Create mmc8.img: boot image v2 without vendor_boot
 
-    # Create a dict (indexed by partition number) containing the above info
-    for line in out.splitlines():
-        start, size, num, name = line.split(maxsplit=3)
-        parts[int(num)] = Partition(int(start), int(size), name)
-
-    with open(fname, 'rb') as inf:
-        disk_data = inf.read()
-
-    test_abootimg.AbootimgTestDiskImage(config, log, 'bootv4.img',
-                                        test_abootimg.boot_img_hex)
-    boot_img = os.path.join(config.result_dir, 'bootv4.img')
-    with open(boot_img, 'rb') as inf:
-        set_part_data(2, inf.read())
-
-    test_abootimg.AbootimgTestDiskImage(config, log, 'vendor_boot.img',
-                                        test_abootimg.vboot_img_hex)
-    vendor_boot_img = os.path.join(config.result_dir, 'vendor_boot.img')
-    with open(vendor_boot_img, 'rb') as inf:
-        set_part_data(4, inf.read())
-
-    with open(fname, 'wb') as outf:
-        outf.write(disk_data)
-
-    print(f'wrote to {fname}')
-
-    mmc_dev = 8
-    fname = os.path.join(config.source_dir, f'mmc{mmc_dev}.img')
-    utils.run_and_log_no_ubman(log, f'qemu-img create {fname} 20M')
-    utils.run_and_log_no_ubman(log, f'cgpt create {fname}')
-
-    ptr = 40
-
-    # Number of sectors in 1MB
-    sect_size = 512
-    sect_1mb = (1 << 20) // sect_size
-
+    Args:
+        config (ArbitraryAttributeContainer): Configuration
+        log (multiplexed_log.Logfile): Log to write to
+    """
     required_parts = [
         {'num': 1, 'label':'misc', 'size': '1M'},
         {'num': 2, 'label':'boot_a', 'size': '4M'},
         {'num': 3, 'label':'boot_b', 'size': '4M'},
     ]
+    images = [
+        (2, 'boot.img', test_abootimg.img_hex),
+    ]
+    create_gpt_image(config, log, 8, required_parts, images)
 
-    for part in required_parts:
-        size_str = part['size']
-        if 'M' in size_str:
-            size = int(size_str[:-1]) * sect_1mb
-        else:
-            size = int(size_str)
-        utils.run_and_log_no_ubman(
-            log,
-            f"cgpt add -i {part['num']} -b {ptr} -s {size} -l {part['label']} -t basicdata {fname}")
-        ptr += size
 
-    utils.run_and_log_no_ubman(log, f'cgpt boot -p {fname}')
-    out = utils.run_and_log_no_ubman(log, f'cgpt show -q {fname}')
+def setup_android_avb_image(config, log):
+    """Create mmc17.img: boot image v2 with vbmeta.img
 
-    # Create a dict (indexed by partition number) containing the above info
-    for line in out.splitlines():
-        start, size, num, name = line.split(maxsplit=3)
-        parts[int(num)] = Partition(int(start), int(size), name)
+    Args:
+        config (ArbitraryAttributeContainer): Configuration
+        log (multiplexed_log.Logfile): Log to write to
+    """
+    required_parts = [
+        {'num': 1, 'label':'boot', 'size': '4M'},
+        {'num': 2, 'label':'system', 'size': '4M'},
+        {'num': 3, 'label':'vbmeta', 'size': '4M'},
+    ]
+    images = [
+        (1, 'boot.img', test_abootimg.img_hex),
+        (3, 'vbmeta.img', test_abootimg.vbmeta_img_hex),
+    ]
+    create_gpt_image(config, log, 17, required_parts, images)
 
-    with open(fname, 'rb') as inf:
-        disk_data = inf.read()
 
-    test_abootimg.AbootimgTestDiskImage(config, log, 'boot.img',
-                                        test_abootimg.img_hex)
-    boot_img = os.path.join(config.result_dir, 'boot.img')
-    with open(boot_img, 'rb') as inf:
-        set_part_data(2, inf.read())
+def setup_android_image(config, log):
+    """Create disk images with Android partitions
 
-    with open(fname, 'wb') as outf:
-        outf.write(disk_data)
-
-    print(f'wrote to {fname}')
-
-    return fname
+    Args:
+        config (ArbitraryAttributeContainer): Configuration
+        log (multiplexed_log.Logfile): Log to write to
+    """
+    setup_android_v4_image(config, log)
+    setup_android_v2_image(config, log)
+    setup_android_avb_image(config, log)
