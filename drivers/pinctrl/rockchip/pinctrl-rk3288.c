@@ -224,7 +224,21 @@ static const struct rockchip_pin_ctrl rk3288_pin_ctrl = {
 	.set_drive		= rk3288_set_drive,
 };
 
-static const struct udevice_id rk3288_pinctrl_ids[] = {
+/*
+ * With of-platdata the driver data is not set from the compatible string, but
+ * this driver has only one
+ */
+static int rk3288_pinctrl_bind(struct udevice *dev)
+{
+	if (IS_ENABLED(CONFIG_OF_REAL))
+		return dm_scan_fdt_dev(dev);
+
+	dev->driver_data = (ulong)&rk3288_pin_ctrl;
+
+	return 0;
+}
+
+static __maybe_unused const struct udevice_id rk3288_pinctrl_ids[] = {
 	{
 		.compatible = "rockchip,rk3288-pinctrl",
 		.data = (ulong)&rk3288_pin_ctrl
@@ -235,11 +249,10 @@ static const struct udevice_id rk3288_pinctrl_ids[] = {
 U_BOOT_DRIVER(rockchip_rk3288_pinctrl) = {
 	.name		= "rockchip_rk3288_pinctrl",
 	.id		= UCLASS_PINCTRL,
-	.of_match	= rk3288_pinctrl_ids,
+	.of_match	= of_match_ptr(rk3288_pinctrl_ids),
 	.priv_auto	= sizeof(struct rockchip_pinctrl_priv),
 	.ops		= &rockchip_pinctrl_ops,
-#if IS_ENABLED(CONFIG_OF_REAL)
-	.bind		= dm_scan_fdt_dev,
-#endif
+	.bind		= rk3288_pinctrl_bind,
 	.probe		= rockchip_pinctrl_probe,
+	DM_PINS("rockchip,pins", 4, 3)
 };
