@@ -628,29 +628,57 @@ void vfs_print_df(void)
 	}
 }
 
-int vfs_ln(const char *path, const char *target)
+/**
+ * vfs_find_fs() - Find the filesystem which holds a path
+ *
+ * Resolve the path against the current directory, then find the mount which
+ * covers it
+ *
+ * @path: Absolute or relative VFS path
+ * @resolved: Buffer for the resolved path, of FILE_MAX_PATH_LEN bytes
+ * @fsp: Returns the filesystem device
+ * @subpathp: Returns the path within that filesystem, which is in @resolved
+ * Return: 0 if OK, -ENXIO if the VFS is not set up, -ENAMETOOLONG if the path
+ * is too long, other -ve on error
+ */
+static int vfs_find_fs(const char *path, char *resolved, struct udevice **fsp,
+		       const char **subpathp)
 {
-	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *vfs, *mnt;
-	const char *subpath;
 	struct vfsmount *mnt_priv;
+	struct udevice *vfs, *mnt;
 	int ret;
 
 	vfs = vfs_root();
 	if (!vfs)
-		return log_msg_ret("vli", -ENXIO);
+		return log_msg_ret("vfi", -ENXIO);
 
-	path = vfs_path_resolve(vfs_getcwd(), path, resolved, sizeof(resolved));
-
+	path = vfs_path_resolve(vfs_getcwd(), path, resolved,
+				FILE_MAX_PATH_LEN);
 	if (!path)
-		return log_msg_ret("vrp", -ENAMETOOLONG);
-	ret = vfs_find_mount(vfs, path, &mnt, &subpath);
+		return log_msg_ret("vfp", -ENAMETOOLONG);
+
+	ret = vfs_find_mount(vfs, path, &mnt, subpathp);
 	if (ret)
-		return log_msg_ret("vlm", ret);
+		return log_msg_ret("vfm", ret);
 
 	mnt_priv = dev_get_uclass_priv(mnt);
+	*fsp = mnt_priv->target;
 
-	return fs_do_ln(mnt_priv->target, subpath, target);
+	return 0;
+}
+
+int vfs_ln(const char *path, const char *target)
+{
+	char resolved[FILE_MAX_PATH_LEN];
+	const char *subpath;
+	struct udevice *fs;
+	int ret;
+
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
+	if (ret)
+		return log_msg_ret("vln", ret);
+
+	return fs_do_ln(fs, subpath, target);
 }
 
 int vfs_rename(const char *old_path, const char *new_path)
@@ -722,51 +750,29 @@ int vfs_statfs(const char *path, struct fs_statfs *stats)
 int vfs_unlink(const char *path)
 {
 	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *vfs, *mnt;
-	struct vfsmount *mnt_priv;
 	const char *subpath;
+	struct udevice *fs;
 	int ret;
 
-	vfs = vfs_root();
-	if (!vfs)
-		return log_msg_ret("vui", -ENXIO);
-
-	path = vfs_path_resolve(vfs_getcwd(), path, resolved, sizeof(resolved));
-	if (!path)
-		return log_msg_ret("vup", -ENAMETOOLONG);
-
-	ret = vfs_find_mount(vfs, path, &mnt, &subpath);
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
 	if (ret)
-		return log_msg_ret("vum", ret);
+		return log_msg_ret("vun", ret);
 
-	mnt_priv = dev_get_uclass_priv(mnt);
-
-	return fs_do_unlink(mnt_priv->target, subpath);
+	return fs_do_unlink(fs, subpath);
 }
 
 int vfs_mkdir(const char *path)
 {
 	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *vfs, *mnt;
-	struct vfsmount *mnt_priv;
 	const char *subpath;
+	struct udevice *fs;
 	int ret;
 
-	vfs = vfs_root();
-	if (!vfs)
-		return log_msg_ret("vmi", -ENXIO);
-
-	path = vfs_path_resolve(vfs_getcwd(), path, resolved, sizeof(resolved));
-	if (!path)
-		return log_msg_ret("vmp", -ENAMETOOLONG);
-
-	ret = vfs_find_mount(vfs, path, &mnt, &subpath);
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
 	if (ret)
-		return log_msg_ret("vmm", ret);
+		return log_msg_ret("vmk", ret);
 
-	mnt_priv = dev_get_uclass_priv(mnt);
-
-	return fs_do_mkdir(mnt_priv->target, subpath);
+	return fs_do_mkdir(fs, subpath);
 }
 
 int vfs_stat(const char *path, struct fs_dirent *dent)
