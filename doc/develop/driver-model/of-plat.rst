@@ -94,6 +94,7 @@ The rest of the node is left out. It also generates a device declaration:
             DM_DRVINFO_DRIVER(rockchip_rk3288_dw_mshc),
             .plat           = &dtv_dwmmc_at_ff0c0000,
             .parent_idx     = -1,
+            .seq            = 1,
     };
 
 The device is bound at run time from this record. `DM_DRVINFO_DRIVER()` names
@@ -115,6 +116,13 @@ other nodes use to refer to it stay the same.
 The parent_idx is the index of the parent `driver_info` structure within its
 linker list (instantiated by the `U_BOOT_DRVINFO()` macro). This is used to
 support `dev_get_parent()`.
+
+The seq value is the number of the node's alias in the `/aliases` node, or -1 if
+it has none. Here the devicetree has `mmc1 = &sdmmc`. If the phase has
+CONFIG_DM_SEQ_ALIAS enabled, the device takes this as its sequence number, as
+it does with a devicetree, and a device with no alias is numbered after the
+highest alias in its uclass. Without that option, devices are numbered in the
+order in which they are bound.
 
 Note that the `of_to_plat()` method is still called with of-platdata, so it
 must not try to read the devicetree, which is not there: the devicetree access
@@ -525,6 +533,39 @@ Indexes are used to reference devices using device_get_by_ofplat_idx(). This
 allows phandles to work as expected.
 
 
+SPL boot order
+--------------
+
+The `u-boot,spl-boot-order` property in the `/chosen` node gives the devices
+which SPL should try to boot from. With of-platdata there is no devicetree to
+read it from, so dtoc puts the entries in `DT_CHOSEN_SPL_BOOT_ORDER`, which
+`dt-chosen.h` provides:
+
+.. code-block:: c
+
+    #define DT_CHOSEN_SPL_BOOT_ORDER \
+            { NULL, -1 }, \
+            { "/mmc@ff0f0000", 3 }, \
+            { "/mmc@ff0c0000", 2 },
+
+Each entry is an initialiser for `struct dt_boot_order`, with the path of the
+node and the index of its `driver_info` record, or -1 if it has none in this
+phase. An alias is replaced by its path. The macro is empty if there is no
+such property, and also when the phase uses a devicetree, so code can use it
+without checking:
+
+.. code-block:: c
+
+    static const struct dt_boot_order order[] = {
+            DT_CHOSEN_SPL_BOOT_ORDER
+    };
+
+An entry with a NULL path is `same-as-spl`, the device which SPL was loaded
+from. Only the path of that device is known at run time, so it has to be
+looked up in the other entries. This means that `same-as-spl` only works with
+of-platdata if the device is in the boot order as well.
+
+
 Phases
 ------
 
@@ -797,6 +838,10 @@ spl/include/generated/dt-prop.h
    Contains a `DTPLAT_GET_<driver>()` macro for each driver which uses the
    dev_prop helpers, along with the data for each such driver which has just
    one node. It is included only by `dm/prop.h`
+
+spl/include/generated/dt-chosen.h
+   Contains the values which U-Boot needs from the `/chosen` node. See
+   `SPL boot order`_. It is included only by `dt-chosen.h`
 
 spl/dts/dt-plat.c
    Contains the `U_BOOT_DRVINFO()` declarations that U-Boot uses to bind devices

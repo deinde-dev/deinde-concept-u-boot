@@ -127,7 +127,8 @@ ifdef CONFIG_OF_PLATDATA
 # since UBOOTINCLUDE puts $(obj)/include first
 platdata-hdr := $(obj)/include/generated/dt-structs-gen.h \
 	$(obj)/include/generated/dt-decl.h \
-	$(obj)/include/generated/dt-prop.h
+	$(obj)/include/generated/dt-prop.h \
+	$(obj)/include/generated/dt-chosen.h
 u-boot-spl-platdata := $(obj)/dts/dt-plat.o
 
 # Lists the drivers which are in this phase, so that dt-plat.c can refer to
@@ -343,7 +344,7 @@ pythonpath = PYTHONPATH=scripts/dtc/pylibfdt
 DTOC ?= $(or $(shell command -v dtoc 2>/dev/null),$(srctree)/tools/dtoc/dtoc)
 
 DTOC_ARGS = $(pythonpath) $(DTOC) --source-dir $(srctree) --props-only \
-	--driver-ref --parent-first \
+	--driver-ref --parent-first --alias-seq \
 	-d $(obj)/$(XPL_BIN).dtb -p $(XPL_NAME)
 
 quiet_cmd_dtoc = DTOC    $@

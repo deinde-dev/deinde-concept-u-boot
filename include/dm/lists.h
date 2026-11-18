@@ -49,6 +49,20 @@ struct uclass_driver *lists_uclass_lookup(enum uclass_id id);
 int lists_bind_drivers(struct udevice *parent, bool pre_reloc_only);
 
 /**
+ * lists_highest_alias_seq() - find the highest alias number for a uclass
+ *
+ * This searches the U_BOOT_DRVINFO() structures for devices in the uclass and
+ * returns the highest sequence number which any of them has from an alias.
+ * It is used with of-platdata, where dtoc puts the alias number in each
+ * record, so that a device with no alias is numbered after all of those
+ * which have one, whether or not they are bound yet.
+ *
+ * @id: ID of the uclass to check
+ * Return: highest alias number, or -1 if no device in the uclass has an alias
+ */
+int lists_highest_alias_seq(enum uclass_id id);
+
+/**
  * lists_bind_fdt() - bind a device tree node
  *
  * This creates a new device bound to the given device tree node, with

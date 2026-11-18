@@ -316,8 +316,12 @@ int uclass_find_next_free_seq(struct uclass *uc)
 
 	/* If using aliases, start with the highest alias value */
 	if (IS_ENABLED(CONFIG_DM_SEQ_ALIAS) &&
-	    (uc->uc_drv->flags & DM_UC_FLAG_SEQ_ALIAS))
-		max = dev_read_alias_highest_id(uc->uc_drv->name);
+	    (uc->uc_drv->flags & DM_UC_FLAG_SEQ_ALIAS)) {
+		if (IS_ENABLED(CONFIG_OF_PLATDATA))
+			max = lists_highest_alias_seq(uc->uc_drv->id);
+		else
+			max = dev_read_alias_highest_id(uc->uc_drv->name);
+	}
 
 	/* Avoid conflict with existing devices */
 	list_for_each_entry(dev, &uc->dev_head, uclass_node) {
