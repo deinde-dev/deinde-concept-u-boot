@@ -94,6 +94,7 @@ The rest of the node is left out. It also generates a device declaration:
             DM_DRVINFO_DRIVER(rockchip_rk3288_dw_mshc),
             .plat           = &dtv_dwmmc_at_ff0c0000,
             .parent_idx     = -1,
+            .seq            = 1,
     };
 
 The device is bound at run time from this record. `DM_DRVINFO_DRIVER()` names
@@ -115,6 +116,13 @@ other nodes use to refer to it stay the same.
 The parent_idx is the index of the parent `driver_info` structure within its
 linker list (instantiated by the `U_BOOT_DRVINFO()` macro). This is used to
 support `dev_get_parent()`.
+
+The seq value is the number of the node's alias in the `/aliases` node, or -1 if
+it has none. Here the devicetree has `mmc1 = &sdmmc`. If the phase has
+CONFIG_DM_SEQ_ALIAS enabled, the device takes this as its sequence number, as
+it does with a devicetree, and a device with no alias is numbered after the
+highest alias in its uclass. Without that option, devices are numbered in the
+order in which they are bound.
 
 Note that the `of_to_plat()` method is still called with of-platdata, so it
 must not try to read the devicetree, which is not there: the devicetree access

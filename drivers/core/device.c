@@ -40,7 +40,7 @@ DECLARE_GLOBAL_DATA_PTR;
 static int device_bind_common(struct udevice *parent, const struct driver *drv,
 			      const char *name, void *plat,
 			      ulong driver_data, ofnode node,
-			      const void *dtplat,
+			      const void *dtplat, int alias_seq,
 			      struct udevice **devp)
 {
 	struct udevice *dev;
@@ -86,8 +86,13 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 		 * Some devices, such as a SPI bus, I2C bus and serial ports
 		 * are numbered using aliases.
 		 */
-		if (IS_ENABLED(CONFIG_OF_CONTROL) &&
-		    !IS_ENABLED(CONFIG_OF_PLATDATA)) {
+		if (IS_ENABLED(CONFIG_OF_PLATDATA)) {
+			/* dtoc looks up the alias, when it builds the record */
+			if (alias_seq >= 0) {
+				dev->seq_ = alias_seq;
+				auto_seq = false;
+			}
+		} else if (IS_ENABLED(CONFIG_OF_CONTROL)) {
 			if (uc->uc_drv->name && ofnode_valid(node)) {
 				if (!dev_read_alias_seq(dev, &dev->seq_)) {
 					auto_seq = false;
@@ -219,14 +224,14 @@ int device_bind_with_driver_data(struct udevice *parent,
 				 struct udevice **devp)
 {
 	return device_bind_common(parent, drv, name, NULL, driver_data, node,
-				  NULL, devp);
+				  NULL, -1, devp);
 }
 
 int device_bind(struct udevice *parent, const struct driver *drv,
 		const char *name, void *plat, ofnode node,
 		struct udevice **devp)
 {
-	return device_bind_common(parent, drv, name, plat, 0, node, NULL,
+	return device_bind_common(parent, drv, name, plat, 0, node, NULL, -1,
 				  devp);
 }
 
@@ -248,10 +253,11 @@ int device_bind_by_name(struct udevice *parent, bool pre_reloc_only,
 	 */
 	if (IS_ENABLED(CONFIG_OF_PLATDATA))
 		return device_bind_common(parent, drv, drv->name, NULL, 0,
-					  ofnode_null(), info->plat, devp);
+					  ofnode_null(), info->plat,
+					  driver_info_seq(info), devp);
 
 	return device_bind_common(parent, drv, drv->name, (void *)info->plat,
-				  0, ofnode_null(), NULL, devp);
+				  0, ofnode_null(), NULL, -1, devp);
 }
 
 int device_reparent(struct udevice *dev, struct udevice *new_parent)

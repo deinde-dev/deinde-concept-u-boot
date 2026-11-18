@@ -93,6 +93,24 @@ int lists_bind_drivers(struct udevice *parent, bool pre_reloc_only)
 	return result;
 }
 
+int lists_highest_alias_seq(enum uclass_id id)
+{
+	const struct driver_info *info =
+		ll_entry_start(struct driver_info, driver_info);
+	const int n_ents = ll_entry_count(struct driver_info, driver_info);
+	int max = -1;
+	int idx;
+
+	for (idx = 0; idx < n_ents; idx++, info++) {
+		const struct driver *drv = driver_info_drv(info);
+
+		if (drv && drv->id == id && driver_info_seq(info) > max)
+			max = driver_info_seq(info);
+	}
+
+	return max;
+}
+
 #if IS_ENABLED(CONFIG_OF_REAL)
 /**
  * driver_check_compatible() - Check if a driver matches a compatible string

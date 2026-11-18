@@ -26,6 +26,8 @@
  *	which dtoc generates for the driver to read with the dev_prop helpers,
  *	or NULL if there is none
  * @parent_idx:	Index of the parent driver_info structure
+ * @seq:	Sequence number of the device, taken by dtoc from its alias in
+ *	the devicetree, or -1 if it has none
  */
 struct driver_info {
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
@@ -36,11 +38,13 @@ struct driver_info {
 	const void *plat;
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 	short parent_idx;
+	signed char seq;	/* not s8, which is a register name on MIPS */
 #endif
 };
 
 #if IS_ENABLED(CONFIG_OF_PLATDATA)
 #define driver_info_parent_id(driver_info)	driver_info->parent_idx
+#define driver_info_seq(_info)			((_info)->seq)
 #define driver_info_drv(_info)			((_info)->drv)
 #define driver_info_name(_info)	\
 	((_info)->drv ? (_info)->drv->name : "(none)")
@@ -58,6 +62,7 @@ struct driver_info {
 	.drv = IS_ENABLED(DM_HAS_DRIVER_##_name) ? DM_DRIVER_REF(_name) : NULL
 #else
 #define driver_info_parent_id(driver_info)	(-1)
+#define driver_info_seq(_info)			(-1)
 #define driver_info_drv(_info)	lists_driver_lookup_name((_info)->name)
 #define driver_info_name(_info)			((_info)->name)
 #define DM_DRVINFO_REF(_name)			.name = #_name
