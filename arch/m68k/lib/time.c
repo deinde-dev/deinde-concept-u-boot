@@ -119,19 +119,26 @@ unsigned long long get_ticks(void)
 	return get_timer(0);
 }
 #else
-static u64 timer64 __section(".data");
-static u16 timer16 __section(".data");
-
+/*
+ * The PIT is a 16-bit counter which counts down and wraps. The number of ticks
+ * so far is kept in gd->timebase_h and gd->timebase_l. Its low 16 bits follow
+ * the counter, so the ticks since the last call can be worked out from them.
+ *
+ * This cannot be kept in a variable. Before relocation the data section is in
+ * flash, so a write to it is lost
+ */
 uint64_t __weak get_ticks(void)
 {
 	volatile pit_t *timerp = (pit_t *) (CFG_SYS_UDELAY_BASE);
 	u16 val = ~timerp->pcntr;
+	u64 ticks = (u64)gd->timebase_h << 32 | gd->timebase_l;
 
 	/* the counter has 0x10000 values, so 16-bit arithmetic handles a wrap */
-	timer64 += (u16)(val - timer16);
-	timer16 = val;
+	ticks += (u16)(val - (u16)ticks);
+	gd->timebase_h = ticks >> 32;
+	gd->timebase_l = ticks;
 
-	return timer64;
+	return ticks;
 }
 
 /* PIT timer */
@@ -139,8 +146,8 @@ int timer_init(void)
 {
 	volatile pit_t *timerp = (pit_t *) (CFG_SYS_UDELAY_BASE);
 
-	timer16 = 0;
-	timer64 = 0;
+	gd->timebase_h = 0;
+	gd->timebase_l = 0;
 
 	/* Set up PIT as timebase clock */
 	timerp->pmr = 0xffff;
