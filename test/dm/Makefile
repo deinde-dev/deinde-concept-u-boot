@@ -7,6 +7,9 @@
 # subsystem you must add sandbox tests here.
 ifeq ($(CONFIG_XPL_BUILD),y)
 obj-$(CONFIG_SPL_OF_PLATDATA) += of_platdata.o prop.o
+ifdef CONFIG_SPL_OF_PLATDATA
+obj-$(CONFIG_PINCTRL) += pins.o
+endif
 else
 obj-$(CONFIG_UT_DM) += bus.o
 obj-$(CONFIG_UT_DM) += prop.o
@@ -115,6 +118,7 @@ obj-$(CONFIG_PHY) += phy.o
 obj-$(CONFIG_PHY_COMMON_PROPS) += phy_common_props.o
 ifneq ($(CONFIG_PINMUX),)
 obj-$(CONFIG_PINCONF) += pinmux.o
+obj-$(CONFIG_PINCTRL_SANDBOX) += pins.o
 endif
 obj-$(CONFIG_POWER_DOMAIN) += power-domain.o
 obj-$(CONFIG_ACPI_PMC) += pmc.o
