@@ -108432,3 +108432,99 @@ The errors are `ld: invalid length for memory region .sram` and `binman: ... ti-
 
 ---
 
+## 2026-11-17: us/main
+
+Branch: cherry-1d43f1c5f356
+
+Commits:
+- 1d43f1c5f356 tools: mkimage: add SpacemiT K3 boot image support
+- b0acc14b606c doc: board: spacemit: document the SpacemiT boot image format
+- f2b91ab4a84f configs: spacemit: k3: enable spi nor flash in main app
+- 9cefa267d999 configs: spacemit: k3: enable mtdparts in main app
+- 2d79480aad04 configs: spacemit: k3: enable eeprom tlv command in main app
+- 7bc8535d9c2e phy: spacemit: add K1 USB 2.0 PHY driver
+- f0e8c5519b26 usb: dwc3: generic: add SpacemiT K1 and K3 support
+- e45cd28e7355 configs: spacemit_k1: enable USB host
+- 758250c6f99e spacemit: k1: do not require a PMIC or an SPI controller in SPL
+- 53d5fc5d42bf spacemit: k1: fall back to the other boot devices in SPL
+- 8126957eb447 Merge tag 'spacemit-main-20261023' of https://git.u-boot-project.org/u-boot/custodians/u-boot-spacemit
+
+### Conversation log
+First pick is in (conflict resolved, struct names adapted, sandbox builds clean). Now working through the remaining ten commits one at a time.
+
+Seven of eleven picked; resolving a defconfig conflict in the "enable USB host" commit, then three more to go.
+
+All ten regular commits are in; finishing the merge commit, whose content is already applied, so it becomes an empty commit.
+
+Now the final builds: sandbox at the tip, plus spacemit_k1 and spacemit_k3 across every commit on the branch.
+
+All 11 commits are on `cherry-1d43f1c5f356` (based on ci/master), and the final sandbox build is clean with no warnings or errors. The commits were not already in ci/master, so no signal file was written.
+
+One fix-up goes beyond a plain conflict resolution and needs your review: in "configs: spacemit_k1: enable USB host" I changed generic DWC3 code to keep `spacemit_k1` linking.
+
+## Build results
+- **sandbox:** ok after every pick and at the tip.
+- **spacemit_k1 and spacemit_k3:** I also built these at every commit on the branch. Both build throughout, with only the missing-OpenSBI-blob binman warning that ci/master already has.
+
+## Fix-ups
+Each has a note line at the end of its commit message.
+
+- **`tools: mkimage: add SpacemiT K3 boot image support`**
+  - Conflicts in `boot/image.c` and `include/image.h`: this tree has no `IH_TYPE_AMLIMAGE`, so only the `IH_TYPE_SMTIMAGE` entry is added. Its enum value is therefore one lower than upstream.
+  - `tools/smtimage.c` did not compile here, so I renamed `struct image_tool_params` and `struct image_type_params` to this tree's `struct imgtool` and `struct imgtool_funcs`.
+- **`configs: spacemit_k1: enable USB host`**
+  - Conflict in `configs/spacemit_k1_defconfig`: `CONFIG_USB` and `CONFIG_DM_REGULATOR_FIXED` are already set and `CONFIG_CMD_SPI` is not in this tree. The host options sit ahead of the existing gadget options, in savedefconfig order.
+  - With the upstream change alone, `spacemit_k1` fails to link in both SPL and U-Boot proper. DWC3's `dm_usb_gadget_handle_interrupts()` clashes with the one in this tree's `K1X_USB2_CI` gadget driver.
+  - I added `# CONFIG_USB_DWC3_GADGET is not set` to the defconfig. I also made `drivers/usb/dwc3/core.c` build that function only when `CONFIG_USB_DWC3_GADGET` is enabled. If you would rather not touch `core.c` in a pick, the alternative is to leave DWC3 host off for K1 in this tree.
+- **`spacemit: k1: do not require a PMIC or an SPI controller in SPL`**
+  - This tree has no `nor_early_init()`, so only the `pmic_init()` change applies.
+- **`spacemit: k1: fall back to the other boot devices in SPL`**
+  - split-check converted `CONFIG_IS_ENABLED(MMC)` and `CONFIG_IS_ENABLED(SPI_LOAD)` to `IS_ENABLED(CONFIG_MMC)` and `IS_ENABLED(CONFIG_SPI_LOAD)`.
+- **Merge tag `spacemit-main-20261023`**
+  - The pick conflicted with the adapted files. Its content is already applied by the individual picks, so I kept it as an empty commit and removed the `# Conflicts:` lines from the message.
+
+split-check changed nothing for the other commits and added nothing to `scripts/conf_nospl`.
+
+## Deltas
+- **PMIC/SPI commit:** 10 insertions and 2 deletions against 18 and 4 upstream, because of the missing `nor_early_init()`.
+- **USB host commit:** 9 insertions and 1 deletion across two files against 8 insertions in one file upstream, because of the `core.c` change.
+- The other regular picks match upstream line counts exactly.
+
+The branch is not pushed or merged.
+
+---
+
+### Review: 2026-11-18
+
+Branch: cherry-1d43f1c5f356
+
+Comments addressed:
+
+
+### Conversation log
+The tables have moved to separate files in ci/master; find where the type table lives now.
+
+Rebase finished with one conflict resolved; now checking the per-commit deltas and running the final builds.
+
+The rebase onto ci/master (c70bf799408b, 12 commits ahead of the old base) is done and the result is on local branch `cherry-1d43f1c5f356-v2`, checked out and not pushed.
+
+## What happened
+
+- **One conflict**, in the first commit, "tools: mkimage: add SpacemiT K3 boot image support". ci/master now has 5d1c57e349bb ("image: Put each table of names in its own file"), which moves the image-type table out of `boot/image.c`.
+- **Resolution:** I kept ci/master's `boot/image.c` and added the `IH_TYPE_SMTIMAGE` entry to `boot/image-tbl-type.c` instead. I added a `[pickman: ...]` note line to that commit message saying so.
+- **Other commits:** the remaining 11 applied cleanly, and the empty merge commit for `spacemit-main-20261023` is preserved.
+
+## Checks
+
+- **Deltas:** every commit has the same line counts as before the rebase. The first commit is still 4 files and 211 insertions, with the one-line table entry now in `boot/image-tbl-type.c` rather than `boot/image.c`.
+- **sandbox:** `buildman -L --board sandbox -w -o /tmp/pickman` passed after each rebased commit and again at the tip.
+- **spacemit_k1 and spacemit_k3:** both build at the tip, with only the missing-OpenSBI-blob binman warning. I did not rebuild them at every commit this time.
+
+## Suggested MR reply
+
+> Rebased onto ci/master. One conflict, in "tools: mkimage: add SpacemiT K3 boot image support": the image-type table has moved from `boot/image.c` to `boot/image-tbl-type.c` (5d1c57e349bb), so the `IH_TYPE_SMTIMAGE` entry is now added there; a note line in the commit message records this. All other commits applied cleanly with unchanged deltas, and the empty merge commit is preserved. sandbox builds cleanly after every commit; spacemit_k1 and spacemit_k3 build at the tip with only the existing missing-OpenSBI-blob warning.
+
+The earlier review point still stands: the `drivers/usb/dwc3/core.c` change in "configs: spacemit_k1: enable USB host" came through the rebase unchanged and still needs your decision.
+
+---
+
