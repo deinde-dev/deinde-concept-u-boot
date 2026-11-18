@@ -123,6 +123,11 @@ dumpimage-mkimage-objs := aisimage.o \
 			generated/lib/fdtdec_common.o \
 			generated/lib/fdtdec.o \
 			generated/boot/image.o \
+			generated/boot/image-tbl-arch.o \
+			generated/boot/image-tbl-comp.o \
+			generated/boot/image-tbl-os.o \
+			generated/boot/image-tbl-phase.o \
+			generated/boot/image-tbl-type.o \
 			generated/boot/image-host.o \
 			imagetool.o \
 			imximage.o \
