@@ -892,6 +892,36 @@ int vfs_closedir(struct vfs_dir *dir)
 	return dir_close(dir->dev, dir->strm);
 }
 
+int vfs_mkdir_parents(const char *path)
+{
+	struct fs_dirent dent;
+	char *copy, *p;
+	int ret = 0;
+
+	copy = strdup(path);
+	if (!copy)
+		return log_msg_ret("vpc", -ENOMEM);
+
+	/* Create each directory in the path which does not exist yet */
+	for (p = copy; !ret && p; ) {
+		p = strchr(p + 1, '/');
+		if (p)
+			*p = '\0';
+		ret = vfs_stat(copy, &dent);
+		if (ret == -ENOENT)
+			ret = vfs_mkdir(copy);
+		else if (!ret && dent.type != FS_DT_DIR)
+			ret = -ENOTDIR;
+		if (p)
+			*p = '/';
+	}
+	free(copy);
+	if (ret)
+		return log_msg_ret("vpm", ret);
+
+	return 0;
+}
+
 int vfs_ls(const char *path)
 {
 	struct fs_dirent *entries;

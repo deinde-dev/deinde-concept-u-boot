@@ -260,6 +260,17 @@ int vfs_stat(const char *path, struct fs_dirent *dent);
 int vfs_mkdir(const char *path);
 
 /**
+ * vfs_mkdir_parents() - Create a directory and any missing parents
+ *
+ * It is not an error if the directory exists already
+ *
+ * @path: Absolute or relative VFS path of the directory to create
+ * Return: 0 if OK, -ENOTDIR if part of @path exists and is not a directory,
+ * other -ve on error
+ */
+int vfs_mkdir_parents(const char *path);
+
+/**
  * vfs_rmdir() - Remove an empty directory by absolute or relative VFS path
  *
  * @path: Path of the directory to remove

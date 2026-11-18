@@ -752,6 +752,65 @@ static int dm_test_vfs_mkdir(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_mkdir, UTF_SCAN_FDT);
 
+/* Test the -p option of the mkdir command, and several paths */
+static int dm_test_vfs_mkdir_opts(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("mkdir", 0));
+	ut_assert_nextlinen("mkdir - create directories");
+	console_record_reset_enable();
+
+	/* The parent must exist, unless -p is used */
+	ut_asserteq(1, run_command("mkdir /host/.mkdir_opts/a/b", 0));
+	ut_assert_nextline("Cannot create '/host/.mkdir_opts/a/b': "
+			   "-2: No such file or directory");
+	ut_assert_console_end();
+	ut_assertok(run_command(
+		"mkdir -p /host/.mkdir_opts/a/b /host/.mkdir_opts/c", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("test -d /host/.mkdir_opts/a/b", 0));
+	ut_assertok(run_command("test -d /host/.mkdir_opts/c", 0));
+
+	/* It is only an error for the directory to exist without -p */
+	ut_asserteq(1, run_command("mkdir /host/.mkdir_opts/c", 0));
+	ut_assert_nextline(
+		"Cannot create '/host/.mkdir_opts/c': -17: File exists");
+	ut_assert_console_end();
+	ut_assertok(run_command("mkdir -p /host/.mkdir_opts/c", 0));
+	ut_assert_console_end();
+
+	/* A file in the path is an error */
+	memcpy(map_sysmem(0x1000, 4), "test", 4);
+	ut_assertok(run_command("save 1000 /host/.mkdir_opts/f 4", 0));
+	console_record_reset_enable();
+	ut_asserteq(1, run_command("mkdir -p /host/.mkdir_opts/f/d", 0));
+	ut_assert_nextline(
+		"Cannot create '/host/.mkdir_opts/f/d': -20: Not a directory");
+	ut_assert_console_end();
+
+	/* A relative path works too */
+	ut_assertok(run_command("cd /host/.mkdir_opts", 0));
+	ut_assertok(run_command("mkdir -p x/y", 0));
+	ut_assertok(run_command("test -d /host/.mkdir_opts/x/y", 0));
+	ut_assertok(run_command("cd /", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm /host/.mkdir_opts/f", 0));
+	ut_assertok(run_command("rmdir /host/.mkdir_opts/x/y "
+				"/host/.mkdir_opts/x /host/.mkdir_opts/a/b "
+				"/host/.mkdir_opts/a /host/.mkdir_opts/c "
+				"/host/.mkdir_opts", 0));
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_mkdir_opts, UTF_SCAN_FDT);
+
 /* Test that a file is released when closed */
 static int dm_test_vfs_file_close(struct unit_test_state *uts)
 {
