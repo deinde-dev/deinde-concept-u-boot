@@ -566,6 +566,68 @@ looked up in the other entries. This means that `same-as-spl` only works with
 of-platdata if the device is in the boot order as well.
 
 
+Pin settings
+------------
+
+With a devicetree, a device's pins are set up from the nodes which its
+`pinctrl-0` property refers to, when the device is probed. The format of those
+nodes depends on the pin controller. With of-platdata the driver for the
+controller describes the format in its declaration:
+
+.. code-block:: c
+
+    U_BOOT_DRIVER(rockchip_rk3288_pinctrl) = {
+            .name           = "rockchip_rk3288_pinctrl",
+            .id             = UCLASS_PINCTRL,
+            .of_match       = of_match_ptr(rk3288_pinctrl_ids),
+            .ops            = &rockchip_pinctrl_ops,
+            ...
+            DM_PINS("rockchip,pins", 4, 3)
+    };
+
+This says that the pins are in a `rockchip,pins` property, with four cells for
+each pin, of which cell 3 is a phandle to a node holding the generic
+pin-configuration properties, such as `bias-pull-up`. Use -1 if there is no
+such cell.
+
+dtoc then generates the settings for each device which uses the controller, in
+dt-plat.c:
+
+.. code-block:: c
+
+    static const u16 dtv_pinconf_pinctrl[] = {
+            /* 0: pcfg-pull-none-12ma */
+            2, PIN_CONFIG_BIAS_DISABLE, 0, PIN_CONFIG_DRIVE_STRENGTH, 12,
+            /* 5: pcfg-pull-up-drv-12ma */
+            2, PIN_CONFIG_BIAS_PULL_UP, 1, PIN_CONFIG_DRIVE_STRENGTH, 12,
+    };
+
+    static const u16 dtv_pins_mmc_at_ff0c0000[] = {
+            6, 20, 1, 0,
+            6, 21, 1, 5,
+    };
+
+    U_BOOT_PINS(mmc_at_ff0c0000) = {
+            .dev_idx        = 2,
+            .pctl_idx       = 5,
+            .count          = 2,
+            .pins           = dtv_pins_mmc_at_ff0c0000,
+            .conf           = dtv_pinconf_pinctrl,
+    };
+
+Each pin has the cells from the property, with the phandle replaced by the
+position of its config in a table for the controller. A config is a count,
+followed by that many pairs of an `enum pin_config_param` and its argument,
+which is the value of the property, or the usual default if it has none.
+
+When the device is probed, the pinctrl uclass finds its `struct dm_pin_state`
+record and passes it to the `set_pins()` method of the controller, which
+takes the place of `set_state()`. The tables are left out of the build if the
+phase lacks the driver for the controller or for the device.
+
+Only the default state is supported, i.e. `pinctrl-0`.
+
+
 Phases
 ------
 
