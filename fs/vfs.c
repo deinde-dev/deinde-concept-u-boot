@@ -831,47 +831,66 @@ static int dirent_cmp(const void *a, const void *b)
 	return strcmp(da->name, db->name);
 }
 
-int vfs_ls(const char *path)
+int vfs_opendir(const char *path, struct vfs_dir *dir)
 {
 	char resolved[FILE_MAX_PATH_LEN];
-	struct udevice *mnt, *dir = NULL;
-	struct fs_dir_stream *strm;
-	struct fs_dirent *entries;
-	struct fs_dirent dent;
 	const char *subpath;
-	int count = 0;
-	int max = 64;
-	int ret, i;
+	struct udevice *mnt;
+	int ret;
 
-	ret = vfs_resolve_mount(path, resolved,
-				sizeof(resolved), &mnt, &subpath);
+	ret = vfs_resolve_mount(path, resolved, sizeof(resolved), &mnt,
+				&subpath);
 	if (ret)
-		return ret;
+		return log_msg_ret("vom", ret);
 
 	if (mnt) {
 		struct vfsmount *m = dev_get_uclass_priv(mnt);
 
-		ret = fs_lookup_dir(m->target, subpath, &dir);
+		ret = fs_lookup_dir(m->target, subpath, &dir->dev);
 	} else {
-		/* Root "/" - list the VFS root dir */
-		struct udevice *vfs = vfs_root();
-
-		ret = fs_lookup_dir(vfs, "", &dir);
+		/* Root "/" - use the VFS root dir */
+		ret = fs_lookup_dir(vfs_root(), "", &dir->dev);
 	}
+	if (ret)
+		return log_msg_ret("vol", ret);
+
+	ret = dir_open(dir->dev, &dir->strm);
+	if (ret)
+		return log_msg_ret("voo", ret);
+
+	return 0;
+}
+
+int vfs_readdir(struct vfs_dir *dir, struct fs_dirent *dent)
+{
+	return dir_read(dir->dev, dir->strm, dent);
+}
+
+int vfs_closedir(struct vfs_dir *dir)
+{
+	return dir_close(dir->dev, dir->strm);
+}
+
+int vfs_ls(const char *path)
+{
+	struct fs_dirent *entries;
+	struct fs_dirent dent;
+	struct vfs_dir dir;
+	int count = 0;
+	int max = 64;
+	int ret, i;
+
+	ret = vfs_opendir(path, &dir);
 	if (ret)
 		return ret;
 
 	entries = malloc(max * sizeof(*entries));
-	if (!entries)
+	if (!entries) {
+		vfs_closedir(&dir);
 		return -ENOMEM;
-
-	ret = dir_open(dir, &strm);
-	if (ret) {
-		free(entries);
-		return ret;
 	}
 
-	while (!dir_read(dir, strm, &dent)) {
+	while (!vfs_readdir(&dir, &dent)) {
 		if (count == max) {
 			struct fs_dirent *tmp;
 
@@ -879,12 +898,14 @@ int vfs_ls(const char *path)
 			tmp = realloc(entries, max * sizeof(*entries));
 			if (!tmp) {
 				free(entries);
+				vfs_closedir(&dir);
 				return -ENOMEM;
 			}
 			entries = tmp;
 		}
 		entries[count++] = dent;
 	}
+	vfs_closedir(&dir);
 
 	qsort(entries, count, sizeof(*entries), dirent_cmp);
 
@@ -896,8 +917,6 @@ int vfs_ls(const char *path)
 			       entries[i].name);
 	}
 	free(entries);
-
-	dir_close(dir, strm);
 
 	return 0;
 }

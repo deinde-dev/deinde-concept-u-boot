@@ -183,6 +183,48 @@ void vfs_print_mounts(void);
 int vfs_ls(const char *path);
 
 /**
+ * struct vfs_dir - A directory which is open for reading its entries
+ *
+ * This is set up by vfs_opendir() and must be passed to vfs_closedir() when
+ * done. Treat it as opaque.
+ *
+ * @dev: Directory device (UCLASS_DIR)
+ * @strm: Stream used to read the entries
+ */
+struct vfs_dir {
+	struct udevice *dev;
+	struct fs_dir_stream *strm;
+};
+
+/**
+ * vfs_opendir() - Open a directory to read its entries
+ *
+ * @path: Absolute or relative VFS path of the directory
+ * @dir: Set up for use with vfs_readdir()
+ * Return: 0 if OK, -ENOTDIR if @path is not a directory, other -ve on error
+ */
+int vfs_opendir(const char *path, struct vfs_dir *dir);
+
+/**
+ * vfs_readdir() - Read the next entry in a directory
+ *
+ * The entries include '.' and '..' if the filesystem provides them
+ *
+ * @dir: Directory, from vfs_opendir()
+ * @dent: Returns the entry
+ * Return: 0 if OK, -ENOENT if there are no more entries, other -ve on error
+ */
+int vfs_readdir(struct vfs_dir *dir, struct fs_dirent *dent);
+
+/**
+ * vfs_closedir() - Finish reading a directory
+ *
+ * @dir: Directory, from vfs_opendir()
+ * Return: 0 if OK, -ve on error
+ */
+int vfs_closedir(struct vfs_dir *dir);
+
+/**
  * vfs_open_file() - Open a file by absolute VFS path
  *
  * Resolves the path through the mount tree, splits into directory and leaf,
