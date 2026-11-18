@@ -108719,3 +108719,29 @@ The result is on local branch `cherry-6b80ba004aca-fix1`, not pushed.
 
 ---
 
+## 2026-11-18: us/main
+
+Branch: cherry-dc337a6edd7f
+
+Commits:
+- dc337a6edd7f ubi: part: Claim only the block device UBI created
+- ede4c80c159a fs: ubifs: resolve "." path components
+- c267fa81d42b Merge tag 'ubi-updates-for-2027.01-rc2' of https://git.u-boot-project.org/u-boot/custodians/hs/u-boot-ubi
+
+### Conversation log
+All 3 commits are cherry-picked onto `cherry-dc337a6edd7f` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+| Original | New | Subject | Delta |
+|---|---|---|---|
+| dc337a6edd7f | 6f4c564a6c72 | ubi: part: Claim only the block device UBI created | `drivers/mtd/ubi/part.c`, +9, identical |
+| ede4c80c159a | 33a74084473c | fs: ubifs: resolve "." path components | `fs/ubifs/ubifs.c`, +10, identical |
+| c267fa81d42b | ea750d027ae2 | Merge tag 'ubi-updates-for-2027.01-rc2' | empty, as expected for the merge |
+
+- **Build:** sandbox built cleanly after each of the first two picks and again after the merge commit.
+- **Conflicts:** none.
+- **split-check:** changed nothing and reported nothing on any of the three commits, so no commit needed amending.
+- **Fix-ups:** none to commit content. The merge pick stopped as an empty commit despite `--allow-empty`, so I completed it with `git commit --allow-empty --no-edit`; the original message and the "cherry picked from" line are preserved.
+- **Concerning deltas:** none.
+
+---
+
