@@ -288,7 +288,7 @@ const struct pinctrl_ops sandbox_pinctrl_ops = {
 	.set_state = pinctrl_generic_set_state,
 };
 
-static const struct udevice_id sandbox_pinctrl_match[] = {
+static __maybe_unused const struct udevice_id sandbox_pinctrl_match[] = {
 	{ .compatible = "sandbox,pinctrl" },
 	{ /* sentinel */ }
 };
@@ -296,7 +296,7 @@ static const struct udevice_id sandbox_pinctrl_match[] = {
 U_BOOT_DRIVER(sandbox_pinctrl) = {
 	.name = "sandbox_pinctrl",
 	.id = UCLASS_PINCTRL,
-	.of_match = sandbox_pinctrl_match,
+	.of_match = of_match_ptr(sandbox_pinctrl_match),
 	.priv_auto	= sizeof(struct sandbox_pinctrl_priv),
 	.ops = &sandbox_pinctrl_ops,
 };

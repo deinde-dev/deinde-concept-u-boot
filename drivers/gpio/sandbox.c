@@ -571,7 +571,7 @@ static const struct acpi_ops pinctrl_sandbox_acpi_ops = {
 };
 #endif
 
-static const struct udevice_id sandbox_pinctrl_gpio_match[] = {
+static __maybe_unused const struct udevice_id sandbox_pinctrl_gpio_match[] = {
 	{ .compatible = "sandbox,pinctrl-gpio" },
 	{ /* sentinel */ }
 };
@@ -579,7 +579,7 @@ static const struct udevice_id sandbox_pinctrl_gpio_match[] = {
 U_BOOT_DRIVER(sandbox_pinctrl_gpio) = {
 	.name = "sandbox_pinctrl_gpio",
 	.id = UCLASS_PINCTRL,
-	.of_match = sandbox_pinctrl_gpio_match,
+	.of_match = of_match_ptr(sandbox_pinctrl_gpio_match),
 	.ops = &sandbox_pinctrl_gpio_ops,
 	.bind = dm_scan_fdt_dev,
 	.probe = sandbox_pinctrl_probe,
