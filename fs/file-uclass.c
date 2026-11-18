@@ -27,7 +27,7 @@ int file_add_probe(struct udevice *dir, struct driver *drv, const char *leaf,
 	if (!str)
 		goto no_dev_name;
 	dup_leaf = strdup(leaf);
-	if (!str)
+	if (!dup_leaf)
 		goto no_dev_path;
 
 	ret = device_bind_with_driver_data(dir, drv, str,  0 /* data */,
@@ -50,7 +50,11 @@ int file_add_probe(struct udevice *dir, struct driver *drv, const char *leaf,
 	return 0;
 
 no_probe:
-	device_unbind(dir);
+	/* The device owns its name by now, so this frees it */
+	device_unbind(dev);
+	free(dup_leaf);
+
+	return ret;
 no_bind:
 	free(dup_leaf);
 no_dev_path:
