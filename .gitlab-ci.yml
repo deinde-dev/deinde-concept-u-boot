@@ -202,6 +202,11 @@ stages:
 .world_build:
   stage: world_build
   dependencies: []
+  # Start as soon as 'sandbox test.py' finishes, rather than waiting for all
+  # the earlier stages, since these builds do not depend on the lab
+  needs:
+    - job: "sandbox test.py"
+      optional: true
   rules:
     - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-world]  
@@ -214,9 +219,6 @@ stages:
 build all 32bit ARM platforms:
   extends: .world_build
   dependencies: []
-  needs:
-    - job: "sandbox test.py"
-      optional: true
   tags:
     - single
   script:
