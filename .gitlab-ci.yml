@@ -216,31 +216,20 @@ stages:
       when: always
     - when: never
 
-build all 32bit ARM platforms:
+# Build every board, split into shards with the same number of boards, so
+# that the jobs take about the same time. Buildman deals the boards out in
+# order of name, so each shard has a similar mix of architectures. To change
+# the number of shards, just change 'parallel'
+#
+# We exclude xtensa here due to not being able to build on aarch64
+# hosts but covering all platforms in the pytest section.
+build all platforms:
   extends: .world_build
-  dependencies: []
-  tags:
-    - single
-  script:
-    # Prepare python environment
-    - python3 -m venv /tmp/venv;
-      . /tmp/venv/bin/activate;
-      pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
-        setuptools
-    - ret=0;
-      if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
-        T="-T $(( (q + p - 1) / p ))";
-      fi;
-      git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      buildman ${T} -o /tmp -PEWM arm -x aarch64 || ret=$?;
-      if [[ $ret -ne 0 ]]; then
-        buildman -o /tmp -seP;
-        exit $ret;
-      fi;
-
-build all 64bit ARM platforms:
-  extends: .world_build
+  parallel: 6
+  variables:
+    # gigabyte_mz33_ar1_opensil needs an openSIL tree, which CI does not
+    # have, so let it build without one
+    OPENSIL_ALLOW_MISSING: "1"
   dependencies: []
   tags:
     - single
@@ -257,62 +246,10 @@ build all 64bit ARM platforms:
         T="-T $(( (q + p - 1) / p ))";
       fi;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      pip install -r tools/buildman/requirements.txt;
-      buildman ${T} -o /tmp -PEWM aarch64 || ret=$?;
+      sel="-x xtensa --shard ${CI_NODE_INDEX}/${CI_NODE_TOTAL}";
+      buildman ${T} -o /tmp -PEWM ${sel} || ret=$?;
       if [[ $ret -ne 0 ]]; then
-        buildman -o /tmp -seP;
-        exit $ret;
-      fi;
-
-build all PowerPC platforms:
-  extends: .world_build
-  dependencies: []
-  tags:
-    - single
-  script:
-    # Prepare python environment
-    - python3 -m venv /tmp/venv;
-      . /tmp/venv/bin/activate;
-      pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
-        setuptools
-    - ret=0;
-      if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
-        T="-T $(( (q + p - 1) / p ))";
-      fi;
-      git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      buildman ${T} -o /tmp -P -E -W powerpc || ret=$?;
-      if [[ $ret -ne 0 ]]; then
-        buildman -o /tmp -seP;
-        exit $ret;
-      fi;
-
-# We exclude xtensa here due to not being able to build on aarch64
-# hosts but covering all platforms in the pytest section.
-build all other platforms:
-  extends: .world_build
-  variables:
-    # gigabyte_mz33_ar1_opensil needs an openSIL tree, which CI does not
-    # have, so let it build without one
-    OPENSIL_ALLOW_MISSING: "1"
-  dependencies: []
-  tags:
-    - single
-  script:
-    # Prepare python environment
-    - python3 -m venv /tmp/venv;
-      . /tmp/venv/bin/activate;
-      pip install -r tools/binman/requirements.txt
-        -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
-        setuptools
-    - ret=0;
-      if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
-        T="-T $(( (q + p - 1) / p ))";
-      fi;
-      git config --global --add safe.directory "${CI_PROJECT_DIR}";
-      buildman ${T} -o /tmp -PEWM -x arm,powerpc,xtensa || ret=$?;
-      if [[ $ret -ne 0 ]]; then
-        buildman -o /tmp -seP;
+        buildman -o /tmp -seP ${sel};
         exit $ret;
       fi;
 

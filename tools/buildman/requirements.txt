@@ -1,2 +1,2 @@
 # buildman is maintained as the standalone buildman package
-buildman==0.2.0
+buildman==0.3.0
