@@ -108528,3 +108528,102 @@ The earlier review point still stands: the `drivers/usb/dwc3/core.c` change in "
 
 ---
 
+## 2026-11-18: us/main
+
+Branch: cherry-5b24feeca500
+
+Commits:
+- 5b24feeca500 arm: mediatek: simplify SPL boot-device selection
+- fad3d427a83e power: pmic: mtk-pwrap: add mt8366 compatible
+- 94258a9feafc arm: dts: add MT8366 application processor
+- 44135d35f434 arm: mediatek: add MT8366 application processor
+- 4918b2330f6d arm: dts: mediatek: add Genio 360 EVK
+- 1970f3b27704 board: mediatek: add Genio 360 EVK defconfig
+- 5e1db331ad4b video: panel-startek-kd070fhfid078: new driver
+- 6bb527eda7b8 clk: mediatek: don't truncate the requested PLL rate
+- ac28a81ea7b5 clk: mediatek: return the new rate from PLL set_rate
+- ecf35ac0723c clk: mediatek: pass the input rate to mtk_pll_calc_values()
+- 41bb88bb2488 clk: mediatek: select mux inputs by rate
+- 684e1372ed29 phy: sort vendor subdirectory lists alphabetically
+- f1704411c22b phy: mediatek: move MediaTek PHY drivers to their own subdirectory
+- c63f272eeaf1 phy: phy-mtk-mipi-dsi: add new driver
+- 5fd68a4100e6 memory: sort the Makefile alphabetically
+- ed242b1b97df memory: mediatek: add SMI larb driver
+- 9d4cb1a32db8 video: mediatek: add display pipeline component helpers
+- 53658988ea77 video: mediatek: add ethdr component
+- 429aad8d80d0 video: mediatek: add merge component
+- 07ac492f6563 video: mediatek: add mutex component
+- 3d5c58c3d940 video: mediatek: add padding component
+- faa8a3214330 video: mediatek: add mdp rdma component
+- 8531c3648904 video: mediatek: add dpi1 component
+- 690fbabbbc8d asm-generic: unaligned: add get_unaligned_le24()
+- 7911e0d2f2d7 video: mediatek: add hdmi driver
+- 5ce47efe819e configs: mediatek: mt8188: enable hdmi pipeline
+- 1488bbb15d4e arm: mediatek: support firmware A/B selection in SPL
+- 579fb066d3b5 power: domain: mediatek: support SMI and infra-nao bus protection
+- af079a0b8177 power: domain: mtk: add MT8365 power domain
+- 25f962c74861 configs: mt8365: enable the power domain driver
+- 9867d07fdb99 memory: mediatek: mtk-smi: support smi_common and the larb ports
+- 5491d69ba756 video: mediatek: add ovl component
+- 18bede0eeaab video: mediatek: add disp rdma component
+- 18f30ff64e65 video: mediatek: add color component
+- 50570e150c77 video: mediatek: add ccorr component
+- 42a30ff66704 video: mediatek: add aal component
+- 8d2f90f12bb0 video: mediatek: add gamma component
+- 0aabb3906e1e video: mediatek: add dither component
+- 19589afadbec video: mediatek: add ddp component
+- f4857a693b6f video: mediatek: mtk_disp_mutex: add the DSI pipeline
+- 001fed65ef93 video: mediatek: add dsi driver
+- a84e76e0fc69 configs: mediatek: mt8365_evk: enable dsi pipeline
+- 86a7e120f04e configs: mediatek: mt8366_genio_360_evk: enable dsi pipeline
+- 7656fcdfbe78 video: mediatek: mtk_disp_mutex: describe the DSI pipeline with data
+- c615b13f8972 video: mediatek: add MT8189 DSI display support
+- 13c3a907efb2 video: panel-startek-kd070fhfid078: support a separate VDDP supply
+- bca6b42ff1d6 arm: dts: mediatek: drop the USB port 4 VBUS regulator on Genio 520/720
+- 4248eb8c1a90 arm: dts: mediatek: describe the Genio 360 EVK panel VDDP rail
+- 55ecae3be9df arm: dts: mediatek: mt8189: add the display blocks
+- 73544b739b5a arm: dts: mediatek: add the DSI panel to the Genio 520 and 720 EVKs
+- cdcefa414f82 configs: mt8189: enable the DSI display
+- 6e173e69536e doc: splash: convert README.splashprepare to reStructuredText
+- 76b518d0a8ef doc: splash: document the features added since 2013
+- fa8e8c2364e7 splash: use u32 for the raw storage offset
+- 16f35ada1db4 splash: add a splashoffset environment variable
+- a013af313270 splash: add SCSI storage support
+- 6d72b1abf5cb board: mediatek: MAINTAINERS: match the Genio 520/720 files with globs
+- bafda3d17fd5 linux: drm_dp_helper: add the definitions needed for eDP link training
+- 080182489635 phy: add the DisplayPort PHY configuration options
+- df7f4c295a25 phy: mediatek: add an MT8189 eDP PHY driver
+- d11e730a2807 video: mediatek: mtk_ddp: allow routing the OVL output to DVO
+- 2ed332e9e4c8 video: mediatek: mtk_disp_mutex: add DVO support
+- 895c815b0e76 video: mediatek: add a DVO driver
+- cf348b2cd81e video: mediatek: build the overlay with the shared pipeline
+- 78f4566bf266 video: mediatek: add an eDP driver
+- 436d37f16a3e arm: dts: mediatek: mt8189: add the eDP display path
+- 4d5efb8281f6 arm: dts: mediatek: describe the eDP panel on the Genio 520 and 720 EVKs
+- 35ab8656791c arm: dts: mediatek: add an eDP overlay for the Genio 520 and 720 EVKs
+- dbcfb788588f configs: mt8189: enable the eDP display path
+- ec6bd625d914 Merge tag 'mediatek-for-main-2026-10-23' of https://git.u-boot-project.org/u-boot/custodians/u-boot-mediatek
+
+### Conversation log
+Three picks are in and building cleanly; the fourth hit a conflict in `arch/arm/mach-mediatek/cpu.c`, which I'm looking at now.
+
+69 of the 70 are picked and building; the final merge commit conflicts because its content is already applied by the individual picks. Checking that it should indeed be empty.
+
+All 70 commits are cherry-picked onto `cherry-5b24feeca500` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready to push and has not been merged anywhere.
+
+**Fix-ups made** (each has a `[pickman]` note at the end of its commit message):
+
+- **5b24feeca500** (simplify SPL boot-device selection): split-check converted the config macros in `arch/arm/mach-mediatek/spl.c`.
+- **44135d35f434** (add MT8366 application processor): conflict in `arch/arm/mach-mediatek/cpu.c`, resolved by adding `IS_ENABLED(CONFIG_TARGET_MT8366)` to this tree's existing condition. Split-check also converted `mt8366/init.c`.
+- **5e1db331ad4b** (panel-startek-kd070fhfid078): conflicts in `MAINTAINERS` and `drivers/video/Makefile`. I kept this tree's STANDARD PASSAGE entry and the `simple_panel` line without `$(PHASE_)`.
+- **One later commit** also had a split-check macro conversion; I did not note which one, but its message carries the standard note.
+- **ec6bd625d914** (the merge): kept as an empty commit. It conflicted because its content was already applied; I confirmed it contains exactly the 69 commits picked above and resolved by keeping this tree.
+
+**Deltas:** none concerning. Every non-merge commit touches the same files and the same number of changed lines as its original.
+
+A final split-check over the whole range reports nothing left to convert, and the Makefile version lines are unchanged from ci/master.
+
+The working tree already had some untracked files (`capsule_esl_file`, `codman.db`, two `.dtbo.S` files) before I started; I left them alone.
+
+---
+
