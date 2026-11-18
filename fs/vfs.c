@@ -791,11 +791,32 @@ int vfs_rmdir(const char *path)
 
 int vfs_stat(const char *path, struct fs_dirent *dent)
 {
+	char resolved[FILE_MAX_PATH_LEN];
 	struct fs_dir_stream *strm;
+	struct udevice *dir, *mnt;
 	struct fs_dirent entry;
-	struct udevice *dir;
+	const char *subpath;
 	char *leaf;
 	int ret;
+
+	/*
+	 * The root, and the root of a mounted filesystem, are not entries in
+	 * a directory which can be read, so describe them here
+	 */
+	ret = vfs_resolve_mount(path, resolved, sizeof(resolved), &mnt,
+				&subpath);
+	if (ret)
+		return log_msg_ret("vsm", ret);
+	if (!mnt || !*subpath || !strcmp("/", subpath)) {
+		const char *name = strrchr(resolved, '/');
+
+		memset(dent, '\0', sizeof(*dent));
+		dent->type = FS_DT_DIR;
+		strlcpy(dent->name, name && name[1] ? name + 1 : "/",
+			sizeof(dent->name));
+
+		return 0;
+	}
 
 	ret = vfs_resolve_dir(path, &dir, &leaf);
 	if (ret)

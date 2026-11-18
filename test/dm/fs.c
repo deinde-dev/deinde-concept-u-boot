@@ -1154,6 +1154,22 @@ static int dm_test_vfs_stat(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("stat /host/does-not-exist", 0));
 	console_record_reset_enable();
 
+	/* stat a mount point and the root */
+	ut_assertok(run_command("stat /host", 0));
+	ut_assert_nextline("  File: host");
+	ut_assert_nextline("  Size: 0");
+	ut_assert_nextline("  Type: directory");
+	console_record_reset_enable();
+
+	ut_assertok(run_command("stat /", 0));
+	ut_assert_nextline("  File: /");
+	ut_assert_nextline("  Size: 0");
+	ut_assert_nextline("  Type: directory");
+	console_record_reset_enable();
+
+	ut_asserteq(1, run_command("stat /does-not-exist", 0));
+	console_record_reset_enable();
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 
