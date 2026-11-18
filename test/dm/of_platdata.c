@@ -135,6 +135,39 @@ static int dm_test_of_plat_alias(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_of_plat_alias, UTF_SCAN_PDATA);
 
+/* A driver with no devicetree node, so that its device is declared here */
+U_BOOT_DRIVER(sandbox_no_node) = {
+	.name	= "sandbox_no_node",
+	.id	= UCLASS_MISC,
+};
+
+U_BOOT_DRVINFO_NO_NODE(sandbox_no_node);
+
+/* Test that a device with no devicetree node is bound */
+static int dm_test_of_plat_no_node(struct unit_test_state *uts)
+{
+	struct driver_info *info =
+		ll_entry_start(struct driver_info, driver_info);
+	const int n_ents = ll_entry_count(struct driver_info, driver_info);
+	struct udevice *dev;
+
+	ut_assertok(device_find_child_by_name(gd->dm_root, "sandbox_no_node",
+					      &dev));
+	ut_asserteq_ptr(DM_DRIVER_GET(sandbox_no_node), dev->driver);
+	ut_assertnull(dev_get_dtplat(dev));
+	ut_asserteq_ptr(gd->dm_root, dev_get_parent(dev));
+
+	/*
+	 * Its record must be the last one, so that it does not change the
+	 * indexes of the records from dtoc
+	 */
+	ut_asserteq_ptr(dev->driver, info[n_ents - 1].drv);
+	ut_asserteq_ptr(dev, gd_dm_driver_rt()[n_ents - 1].dev);
+
+	return 0;
+}
+DM_TEST(dm_test_of_plat_no_node, UTF_SCAN_PDATA);
+
 #if IS_ENABLED(CONFIG_OF_PLATDATA_PARENT)
 /* Test that device parents are correctly set up */
 static int dm_test_of_plat_parent(struct unit_test_state *uts)

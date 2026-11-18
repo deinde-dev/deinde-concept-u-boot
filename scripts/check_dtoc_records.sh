@@ -10,6 +10,10 @@
 # indexes from the records it generates, so any other record moves them and
 # breaks the references.
 #
+# The exception is a record declared with U_BOOT_DRVINFO_NO_NODE(), whose name
+# starts with zz_ so that it sorts after the records from dtoc. Check that it
+# does.
+#
 # Usage: check_dtoc_records.sh <nm> <elf> <dt-plat.c>
 
 nm="$1"
@@ -22,10 +26,19 @@ want=$(sed -n 's/^U_BOOT_DRVINFO(\([A-Za-z0-9_]*\)) = {$/\1/p' "$plat")
 got=$($nm "$elf" | sed -n 's/.* _u_boot_list_2_driver_info_2_//p')
 [ -z "$got" ] && exit 0
 
-extra=$(echo "$got" | grep -vxF -e "${want:-.}")
+extra=$(echo "$got" | grep -v '^zz_' | grep -vxF -e "${want:-.}")
 if [ -n "$extra" ]; then
 	echo "$elf: driver_info records which are not from dtoc:" >&2
 	echo "$extra" | sed 's/^/   /' >&2
 	echo "With of-platdata, use the devicetree to create devices" >&2
+	exit 1
+fi
+
+# The linker sorts the records by name, as 'sort' does in the C locale
+after=$(echo "$got" | LC_ALL=C sort | sed -n '/^zz_/,$p' | grep -v '^zz_')
+if [ -n "$after" ]; then
+	echo "$elf: driver_info records which sort after a zz_ record:" >&2
+	echo "$after" | sed 's/^/   /' >&2
+	echo "Rename the node, since this changes the record's index" >&2
 	exit 1
 fi
