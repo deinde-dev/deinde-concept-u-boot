@@ -108494,3 +108494,37 @@ The branch is not pushed or merged.
 
 ---
 
+### Review: 2026-11-18
+
+Branch: cherry-1d43f1c5f356
+
+Comments addressed:
+
+
+### Conversation log
+The tables have moved to separate files in ci/master; find where the type table lives now.
+
+Rebase finished with one conflict resolved; now checking the per-commit deltas and running the final builds.
+
+The rebase onto ci/master (c70bf799408b, 12 commits ahead of the old base) is done and the result is on local branch `cherry-1d43f1c5f356-v2`, checked out and not pushed.
+
+## What happened
+
+- **One conflict**, in the first commit, "tools: mkimage: add SpacemiT K3 boot image support". ci/master now has 5d1c57e349bb ("image: Put each table of names in its own file"), which moves the image-type table out of `boot/image.c`.
+- **Resolution:** I kept ci/master's `boot/image.c` and added the `IH_TYPE_SMTIMAGE` entry to `boot/image-tbl-type.c` instead. I added a `[pickman: ...]` note line to that commit message saying so.
+- **Other commits:** the remaining 11 applied cleanly, and the empty merge commit for `spacemit-main-20261023` is preserved.
+
+## Checks
+
+- **Deltas:** every commit has the same line counts as before the rebase. The first commit is still 4 files and 211 insertions, with the one-line table entry now in `boot/image-tbl-type.c` rather than `boot/image.c`.
+- **sandbox:** `buildman -L --board sandbox -w -o /tmp/pickman` passed after each rebased commit and again at the tip.
+- **spacemit_k1 and spacemit_k3:** both build at the tip, with only the missing-OpenSBI-blob binman warning. I did not rebuild them at every commit this time.
+
+## Suggested MR reply
+
+> Rebased onto ci/master. One conflict, in "tools: mkimage: add SpacemiT K3 boot image support": the image-type table has moved from `boot/image.c` to `boot/image-tbl-type.c` (5d1c57e349bb), so the `IH_TYPE_SMTIMAGE` entry is now added there; a note line in the commit message records this. All other commits applied cleanly with unchanged deltas, and the empty merge commit is preserved. sandbox builds cleanly after every commit; spacemit_k1 and spacemit_k3 build at the tip with only the existing missing-OpenSBI-blob warning.
+
+The earlier review point still stands: the `drivers/usb/dwc3/core.c` change in "configs: spacemit_k1: enable USB host" came through the rebase unchanged and still needs your decision.
+
+---
+
