@@ -546,6 +546,7 @@ config USE_ARCH_MEMCPY
 
 config SPL_USE_ARCH_MEMCPY
 	bool "Use an assembly optimized implementation of memcpy for SPL"
+	default n if ARCH_ROCKCHIP
 	default y if USE_ARCH_MEMCPY
 	depends on SPL
 	help
@@ -555,6 +556,7 @@ config SPL_USE_ARCH_MEMCPY
 
 config TPL_USE_ARCH_MEMCPY
 	bool "Use an assembly optimized implementation of memcpy for TPL"
+	default n if ARCH_ROCKCHIP
 	default y if USE_ARCH_MEMCPY
 	depends on TPL
 	help
