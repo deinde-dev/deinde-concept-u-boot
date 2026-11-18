@@ -388,6 +388,10 @@ int clk_set_defaults(struct udevice *dev, enum clk_defaults_stage stage)
 	if (!dev_has_ofnode(dev))
 		return 0;
 
+	/* The Makefile sets this if the xPL devicetree lacks the properties */
+	if (IS_ENABLED(XPL_NO_ASSIGNED_CLOCKS))
+		return 0;
+
 	/*
 	 * To avoid setting defaults twice, don't set them before relocation.
 	 * However, still set them for SPL. And still set them if explicitly
