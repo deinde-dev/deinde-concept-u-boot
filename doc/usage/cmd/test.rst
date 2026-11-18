@@ -18,6 +18,7 @@ Synopsis
     test <expr1> -o <expr2>
     test <expr1> -a <expr2>
     test -e <interface> <dev[:part]> <path>
+    test <file-op> <path>
     test <s> =~ <re>
 
     [ <test expression> ]
@@ -80,6 +81,39 @@ arguments:
 - The device number, possibly including a partition specification.
 - The usual path argument, which is interpreted relative to the root
   of the filesystem.
+
+Files in the VFS
+~~~~~~~~~~~~~~~~
+
+When ``CONFIG_VFS`` is enabled, these operators take a path in the VFS, as in
+ordinary shells:
+
+``-e``
+    true if the path exists
+
+``-f``
+    true if the path is a regular file
+
+``-d``
+    true if the path is a directory, which includes a mount point
+
+``-L``
+    true if the path is a symbolic link
+
+``-s``
+    true if the path exists and its size is more than zero
+
+A symbolic link is not followed, so ``-f`` and ``-d`` are false for one.
+
+The three-argument form of ``-e`` described above still works. It is used if
+``-e`` is followed by at least three arguments and the second of them is not
+``-a`` or ``-o``.
+
+For example::
+
+    => mount hostfs /host
+    => if test -e /host/boot.scr; then source /host/boot.scr; fi
+    => test -d /host/extlinux -a -s /host/extlinux/extlinux.conf
 
 Regular expressions
 ~~~~~~~~~~~~~~~~~~~

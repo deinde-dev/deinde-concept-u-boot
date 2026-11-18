@@ -1314,6 +1314,31 @@ static int dm_test_vfs_test_fd(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("test -f /host/no-such-file", 0));
 	ut_asserteq(1, run_command("test -d /host/no-such-dir", 0));
 
+	/* -e takes a path too, at the end or before another operator */
+	ut_assertok(run_command("test -e /host/README", 0));
+	ut_assertok(run_command("test -e /host/cmd", 0));
+	ut_asserteq(1, run_command("test -e /host/no-such-file", 0));
+	ut_assertok(run_command("test -e /host/README -a -d /host/cmd", 0));
+	ut_asserteq(1, run_command("test -e /host/no-such-file -o -f /host/cmd",
+				   0));
+	ut_assertok(run_command("test ! -e /host/no-such-file", 0));
+
+	/* The form with an interface and device is still available */
+	ut_assertok(run_command("test -e hostfs - README", 0));
+	ut_asserteq(1, run_command("test -e hostfs - no-such-file", 0));
+
+	/* -s needs something in the file */
+	ut_assertok(run_command("test -s /host/README", 0));
+	ut_asserteq(1, run_command("test -s /host/no-such-file", 0));
+
+	/* -L is only true for a symbolic link, which -f does not follow */
+	os_unlink(".vfs_test_L");
+	ut_assertok(run_command("ln README /host/.vfs_test_L", 0));
+	ut_assertok(run_command("test -L /host/.vfs_test_L", 0));
+	ut_asserteq(1, run_command("test -f /host/.vfs_test_L", 0));
+	ut_asserteq(1, run_command("test -L /host/README", 0));
+	ut_assertok(run_command("rm /host/.vfs_test_L", 0));
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 
