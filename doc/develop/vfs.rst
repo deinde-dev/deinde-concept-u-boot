@@ -208,6 +208,9 @@ Directory and working directory
 ``vfs_mkdir(path)``
     Create a directory.
 
+``vfs_rmdir(path)``
+    Remove an empty directory.
+
 ``vfs_unlink(path)``
     Delete a file.
 

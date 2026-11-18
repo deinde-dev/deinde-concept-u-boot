@@ -445,6 +445,11 @@ static int sandbox_fs_mkdir(struct udevice *dev, const char *path)
 	return os_mkdir(path, 0755);
 }
 
+static int sandbox_fs_rmdir(struct udevice *dev, const char *path)
+{
+	return os_rmdir(path);
+}
+
 static int sandbox_fs_remove(struct udevice *dev)
 {
 	return 0;
@@ -459,6 +464,7 @@ static const struct fs_ops sandbox_fs_ops = {
 	.readlink	= sandbox_fs_readlink,
 	.unlink		= sandbox_fs_unlink,
 	.mkdir		= sandbox_fs_mkdir,
+	.rmdir		= sandbox_fs_rmdir,
 };
 
 static const struct udevice_id sandbox_fs_ids[] = {

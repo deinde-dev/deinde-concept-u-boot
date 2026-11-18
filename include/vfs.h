@@ -218,6 +218,16 @@ int vfs_stat(const char *path, struct fs_dirent *dent);
 int vfs_mkdir(const char *path);
 
 /**
+ * vfs_rmdir() - Remove an empty directory by absolute or relative VFS path
+ *
+ * @path: Path of the directory to remove
+ * Return: 0 if OK, -ENOSYS if the filesystem does not support this, -ENOTDIR
+ * if @path is not a directory, -ENOTEMPTY if it has anything in it, other -ve
+ * on error
+ */
+int vfs_rmdir(const char *path);
+
+/**
  * vfs_unlink() - Delete a file by absolute or relative VFS path
  *
  * @path: Path of the file to delete

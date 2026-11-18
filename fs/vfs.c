@@ -775,6 +775,20 @@ int vfs_mkdir(const char *path)
 	return fs_do_mkdir(fs, subpath);
 }
 
+int vfs_rmdir(const char *path)
+{
+	char resolved[FILE_MAX_PATH_LEN];
+	const char *subpath;
+	struct udevice *fs;
+	int ret;
+
+	ret = vfs_find_fs(path, resolved, &fs, &subpath);
+	if (ret)
+		return log_msg_ret("vrd", ret);
+
+	return fs_do_rmdir(fs, subpath);
+}
+
 int vfs_stat(const char *path, struct fs_dirent *dent)
 {
 	struct fs_dir_stream *strm;

@@ -140,6 +140,16 @@ struct fs_ops {
 	 * Return 0 if OK, -ve on error
 	 */
 	int (*mkdir)(struct udevice *dev, const char *path);
+
+	/**
+	 * rmdir() - Remove an empty directory
+	 *
+	 * @dev: Filesystem device
+	 * @path: Path of the directory to remove
+	 * Return 0 if OK, -ENOTDIR if @path is not a directory, -ENOTEMPTY if
+	 * it has anything in it, other -ve on error
+	 */
+	int (*rmdir)(struct udevice *dev, const char *path);
 };
 
 /* Get access to a filesystem's operations */
@@ -233,6 +243,16 @@ int fs_do_unlink(struct udevice *dev, const char *path);
  * Return: 0 if OK, -ENOSYS if not supported, other -ve on error
  */
 int fs_do_mkdir(struct udevice *dev, const char *path);
+
+/**
+ * fs_do_rmdir() - Remove an empty directory
+ *
+ * @dev: Filesystem device
+ * @path: Path of the directory to remove
+ * Return 0 if OK, -ENOSYS if not supported, -ENOTDIR if @path is not a
+ * directory, -ENOTEMPTY if it has anything in it, other -ve on error
+ */
+int fs_do_rmdir(struct udevice *dev, const char *path);
 
 /**
  * fs_split_path() - Get a list of subdirs in a filename
