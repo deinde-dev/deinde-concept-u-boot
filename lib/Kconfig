@@ -795,7 +795,7 @@ config SPL_SHA256
 config SPL_SHA256_SMALLER
 	bool "Use a smaller implementation of SHA256 in SPL"
 	depends on SPL_SHA256
-	default y if SPL_SHA256_MBEDTLS
+	default y
 	help
 	  Use an implementation of SHA256 which processes each block with a
 	  loop, instead of writing out all 64 rounds. This saves about 8KB of
@@ -866,7 +866,7 @@ config VPL_SHA256
 config VPL_SHA256_SMALLER
 	bool "Use a smaller implementation of SHA256 in VPL"
 	depends on VPL_SHA256
-	default y if VPL_SHA256_MBEDTLS
+	default y
 	help
 	  Use an implementation of SHA256 which processes each block with a
 	  loop, instead of writing out all 64 rounds. This saves about 8KB of
