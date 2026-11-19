@@ -1363,6 +1363,12 @@ zybo:
     ROLE: zybo
   <<: *sjg_lab_dfn
 
+# Avnet Ultra96-V2 (Zynq UltraScale+ ZU3EG)
+ultra96:
+  variables:
+    ROLE: ultra96
+  <<: *sjg_lab_dfn
+
 trigger_snap_builds:
   stage: release
   variables:
