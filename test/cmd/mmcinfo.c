@@ -13,15 +13,13 @@
  * select_mmc0() - Make the first emulated MMC device the current one
  *
  * The command reports on the current device, which an earlier test may have
- * changed. Also, find_mmc_device() needs the device to be probed, which
- * 'mmc list' does, so neither 'mmc dev' nor mmcinfo can reach it on its own.
+ * changed
  *
  * @uts: Test state
  * Return: 0 if OK, other value on error
  */
 static int select_mmc0(struct unit_test_state *uts)
 {
-	ut_assertok(run_command("mmc list", 0));
 	ut_assertok(run_command("mmc dev 0", 0));
 	console_record_reset();
 

@@ -6,6 +6,7 @@
 #include <dm.h>
 #include <mmc.h>
 #include <part.h>
+#include <dm/uclass-internal.h>
 #include <dm/test.h>
 #include <test/test.h>
 #include <test/ut.h>
@@ -23,6 +24,27 @@ static int dm_test_mmc_base(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_mmc_base, UTF_SCAN_PDATA | UTF_SCAN_FDT);
+
+/* Check that find_mmc_device() works with a device which is not yet probed */
+static int dm_test_mmc_find(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+	struct mmc *mmc;
+
+	ut_assertok(uclass_find_device_by_seq(UCLASS_MMC, 0, &dev));
+	ut_assert(!device_active(dev));
+
+	mmc = find_mmc_device(0);
+	ut_assertnonnull(mmc);
+	ut_assert(device_active(dev));
+	ut_asserteq_ptr(dev, mmc->dev);
+
+	/* a device which does not exist */
+	ut_assertnull(find_mmc_device(99));
+
+	return 0;
+}
+DM_TEST(dm_test_mmc_find, UTF_SCAN_PDATA | UTF_SCAN_FDT);
 
 static int dm_test_mmc_blk(struct unit_test_state *uts)
 {

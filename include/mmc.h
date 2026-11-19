@@ -896,6 +896,16 @@ int mmc_set_clock(struct mmc *mmc, uint clock, bool disable);
 #define MMC_CLK_ENABLE		false
 #define MMC_CLK_DISABLE		true
 
+/**
+ * find_mmc_device() - Find an MMC device by its number
+ *
+ * With driver model this probes the device if needed, so that its struct mmc
+ * is available. It does not start up the card: use mmc_init() for that
+ *
+ * @dev_num:	Device number to find
+ * Return: associated mmc struct pointer, or NULL if there is no such device,
+ *	or it cannot be probed
+ */
 struct mmc *find_mmc_device(int dev_num);
 int mmc_set_dev(int dev_num);
 void print_mmc_devices(char separator);
