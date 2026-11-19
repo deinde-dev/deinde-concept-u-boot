@@ -2047,7 +2047,7 @@ F:	drivers/virtio/
 F:	cmd/virtio.c
 F:	include/virtio*.h
 F:	test/cmd/virtio.c
-F:	test/dm/virtio.c
+F:	test/dm/virtio*.c
 F:	doc/develop/driver-model/virtio.rst
 F:	doc/usage/cmd/virtio.rst
 
