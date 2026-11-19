@@ -24,7 +24,9 @@
 #include <malloc.h>
 #include <of_live.h>
 #include <asm/global_data.h>
+#include <linux/kernel.h>
 #include <linux/libfdt.h>
+#include <linux/sizes.h>
 #include <mapmem.h>
 #include <tpm_tcg2.h>
 #include <asm/io.h>
@@ -88,6 +90,25 @@ static const struct legacy_img_hdr *image_get_fdt(ulong fdt_addr)
 static void boot_fdt_handle_region(u64 addr, u64 size, u32 flags, bool free)
 {
 	long ret;
+
+	/*
+	 * LMB already reserves all memory above ram_top so that nothing is
+	 * allocated there. Only handle the part of the region below it.
+	 */
+	if (IS_ENABLED(CONFIG_LMB_LIMIT_DMA_BELOW_RAM_TOP)) {
+		/* As in lmb_add_memory(), a ram_top of 0 means 4 GiB. */
+		u64 ram_top = gd->ram_top ?: SZ_4G;
+
+		if (addr >= ram_top) {
+			debug("   skip %s fdt memory region above ram_top: addr=%llx size=%llx flags=%x\n",
+			      free ? "freeing" : "reserving",
+			      (unsigned long long)addr,
+			      (unsigned long long)size, flags);
+			return;
+		}
+
+		size = min(size, ram_top - addr);
+	}
 
 	if (free)
 		ret = lmb_free_flags(addr, size, flags);
