@@ -214,8 +214,33 @@ a few 'imply' options as above, then regenerate, hopefully you can reduce the
 number of defconfigs changed in the commit.
 
 
+Checking for stale options
+--------------------------
+
+Kconfig ignores an option which it does not know about. So when an option is
+renamed or removed, a defconfig file or config fragment which still sets the
+old one gives no error: the board silently gets the default value instead. This
+is easy to miss when a new board arrives after a rename.
+
+To check every defconfig file in `configs/` and every config fragment
+(`*.config`) in `configs/` and `board/` against the Kconfig files::
+
+    ./tools/qconfig.py --check-stale
+
+This lists each stale option with its file and line number::
+
+    configs/snow_defconfig:112: CONFIG_NOT_REAL is not in Kconfig
+    1 stale options in 1 of 1631 config files: Kconfig ignores them, so use the new name or drop them
+
+It returns a non-zero exit code if any are found, so it can be used in CI. No
+toolchain or database is needed and it takes about a second.
+
 Available options
 -----------------
+
+ --check-stale
+   Check the defconfig files and config fragments for options which Kconfig
+   does not define.
 
  --nocolour
    Disables colouring of output. This is normally used when writing to a

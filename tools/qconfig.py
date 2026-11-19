@@ -79,6 +79,9 @@ SIZES = {
 
 RE_REMOVE_DEFCONFIG = re.compile(r'(.*)_defconfig')
 
+# A line in a config file which sets a CONFIG option, or says it is not set
+RE_SET_CONFIG = re.compile(r'(?:# )?CONFIG_([A-Za-z0-9_]+)(?:=| is not set$)')
+
 # CONFIG symbols present in the build system (from Linux) but not actually used
 # in U-Boot; KCONFIG symbols
 IGNORE_SYMS = ['DEBUG_SECTION_MISMATCH', 'FTRACE_MCOUNT_RECORD', 'GCOV_KERNEL',
@@ -256,8 +259,11 @@ class Progress:
         self.failure_msg = f'{self.failed} failed, ' if self.failed else ''
 
 
-def scan_kconfig():
+def scan_kconfig(warn=True):
     """Scan all the Kconfig files and create a Config object
+
+    Args:
+        warn (bool): True to show warnings about the Kconfig files
 
     Returns:
         Kconfig object
@@ -267,7 +273,64 @@ def scan_kconfig():
     os.environ['UBOOTVERSION'] = 'dummy'
     os.environ['KCONFIG_OBJDIR'] = ''
     os.environ['CC'] = 'gcc'
-    return kconfiglib.Kconfig()
+    return kconfiglib.Kconfig(warn=warn)
+
+
+def find_stale(kconf, fnames):
+    """Find CONFIG options in config files which Kconfig does not define
+
+    Kconfig ignores an option which it does not know about, so when an option
+    is renamed or removed, a file which still sets the old one silently gets
+    the default value instead.
+
+    Args:
+        kconf (kconfiglib.Kconfig): Kconfig tree to check against
+        fnames (list of str): Config files to check, e.g. defconfig files and
+            config fragments
+
+    Returns:
+        list of tuple: one for each stale option found, in the order given:
+            str: filename
+            int: line number
+            str: name of the option, e.g. 'CONFIG_BOOTRETRY'
+    """
+    stale = []
+    for fname in fnames:
+        for linenum, line in enumerate(read_file(fname), 1):
+            m_cfg = RE_SET_CONFIG.match(line)
+            if m_cfg and m_cfg.group(1) not in kconf.syms:
+                stale.append((fname, linenum, f'CONFIG_{m_cfg.group(1)}'))
+    return stale
+
+
+def do_check_stale():
+    """Check the config files for options which Kconfig does not define
+
+    This checks the defconfig files and the config fragments which can be
+    included by them or added on the 'make' command line.
+
+    Returns:
+        int: 0 if there are no stale options, 1 if there are
+    """
+    kconf = scan_kconfig(warn=False)
+
+    fnames = [os.path.join('configs', fname)
+              for fname in get_all_defconfigs()]
+    fnames += glob.glob('configs/**/*.config', recursive=True)
+    fnames += glob.glob('board/**/*.config', recursive=True)
+    fnames = sorted(set(fnames))
+
+    stale = find_stale(kconf, fnames)
+    for fname, linenum, name in stale:
+        print(f'{fname}:{linenum}: {name} is not in Kconfig')
+    if stale:
+        num_files = len({fname for fname, _, _ in stale})
+        print(f'{len(stale)} stale options in {num_files} of '
+              f'{len(fnames)} config files: Kconfig ignores them, so use '
+              'the new name or drop them')
+        return 1
+    print(f'No stale options in {len(fnames)} config files')
+    return 0
 
 
 def _cpp_preprocess(srcdir, fname):
@@ -2070,6 +2133,8 @@ doc/develop/qconfig.rst for documentation.'''
                       help='build a CONFIG database')
     parser.add_argument('-C', '--commit', action='store_true', default=False,
                       help='Create a git commit for the operation')
+    parser.add_argument('--check-stale', action='store_true', default=False,
+                      help='check config files for options not in Kconfig')
     parser.add_argument('--nocolour', action='store_true', default=False,
                       help="don't display the log in colour")
     parser.add_argument('-d', '--defconfigs', type=str,
@@ -2117,7 +2182,7 @@ doc/develop/qconfig.rst for documentation.'''
 
     args = parser.parse_args()
     if not any((args.force_sync, args.build_db, args.imply, args.find,
-                args.scan_source, args.test)):
+                args.scan_source, args.test, args.check_stale)):
         parser.print_usage()
         sys.exit(1)
 
@@ -2376,6 +2441,55 @@ class SyncTests(unittest.TestCase):
             os.unlink(tmp_name)
 
 
+class StaleTests(unittest.TestCase):
+    """Tests for finding stale options in config files"""
+
+    @classmethod
+    def setUpClass(cls):
+        """Create a shared Kconfig instance for all tests"""
+        cls.kconf = scan_kconfig(warn=False)
+
+    def check(self, data):
+        """Write a config file and look for stale options in it
+
+        Args:
+            data (str): Contents of the config file
+
+        Returns:
+            list of tuple: (line number, option name) for each stale option
+        """
+        with tempfile.NamedTemporaryFile(mode='w', suffix='_defconfig',
+                                         delete=False) as outf:
+            outf.write(data)
+        try:
+            stale = find_stale(self.kconf, [outf.name])
+        finally:
+            os.unlink(outf.name)
+        for fname, _, _ in stale:
+            self.assertEqual(outf.name, fname)
+        return [(linenum, name) for _, linenum, name in stale]
+
+    def test_none(self):
+        """Options which Kconfig defines are not reported"""
+        self.assertEqual([], self.check(
+            'CONFIG_ARM=y\n# CONFIG_CMD_BOOTD is not set\n'
+            'CONFIG_SYS_MAXARGS=32\nCONFIG_BOOTCOMMAND="run distro"\n'))
+
+    def test_stale(self):
+        """Options which Kconfig does not define are reported"""
+        self.assertEqual(
+            [(2, 'CONFIG_NOT_AN_OPTION'), (4, 'CONFIG_ALSO_MISSING')],
+            self.check('CONFIG_ARM=y\nCONFIG_NOT_AN_OPTION=0x1000\n'
+                       'CONFIG_CMD_BOOTD=y\n'
+                       '# CONFIG_ALSO_MISSING is not set\n'))
+
+    def test_other_lines(self):
+        """Lines which do not set an option are ignored"""
+        self.assertEqual([], self.check(
+            '#include <configs/missing.config>\n\n# A comment\n'
+            '# CONFIG_NOT_AN_OPTION might be mentioned in a comment\n'))
+
+
 def do_tests():
     """Run doctests and unit tests"""
     sys.argv = [sys.argv[0]]
@@ -2457,6 +2571,8 @@ def main():
 
     if args.test:
         return do_tests()
+    if args.check_stale:
+        return do_check_stale()
     if args.scan_source:
         do_scan_source(os.getcwd(), args.update, args.update_source,
                        args.list_problems, args.commit)

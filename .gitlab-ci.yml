@@ -277,6 +277,18 @@ check for new CONFIG symbols outside Kconfig:
         :^lib/doom/engine &&
         exit 1 || exit 0
 
+# Kconfig ignores an option which it does not know, so a config file which sets
+# one that has been renamed or removed silently gets the default instead
+check for stale CONFIG options in config files:
+  extends: .test_suites
+  script:
+    - git config --global --add safe.directory "${CI_PROJECT_DIR}"
+    - python3 -m venv /tmp/venv
+    - . /tmp/venv/bin/activate
+    - pip install -r tools/buildman/requirements.txt
+        -r tools/u_boot_pylib/requirements.txt
+    - ./tools/qconfig.py --check-stale
+
 # build documentation
 docs:
   extends: .test_suites
