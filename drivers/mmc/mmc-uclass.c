@@ -327,11 +327,12 @@ struct mmc *find_mmc_device(int dev_num)
 		return NULL;
 	}
 
+	/* Nothing else is certain to have probed the device by now */
 	mmc_dev = dev_get_parent(dev);
+	if (device_probe(mmc_dev))
+		return NULL;
 
-	struct mmc *mmc = mmc_get_mmc_dev(mmc_dev);
-
-	return mmc;
+	return mmc_get_mmc_dev(mmc_dev);
 }
 
 int get_mmc_num(void)
