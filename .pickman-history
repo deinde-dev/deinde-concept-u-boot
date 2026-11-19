@@ -108745,3 +108745,38 @@ All 3 commits are cherry-picked onto `cherry-dc337a6edd7f` (based on ci/master),
 
 ---
 
+## 2026-11-19: us/main
+
+Branch: cherry-f09629da79ab
+
+Commits:
+- f09629da79ab rockchip: mkimage: Update init code size limit for PX30/RK3326
+- 57eb402cc8e5 board: rockchip: Add Xunlong Orange Pi 5 Pro
+- a7d8b3195851 power: regulator: rk8xx: add RK818 LDO9 support
+- 1d28b4d1e2c1 clk: rockchip: rk3568: Ungate PCIE30PHY_REF clocks when PCI is enabled
+- fffeb5318d01 clk: rockchip: rk3568: Always initialize clocks in SPL
+- 514663543ecf clk: rockchip: rk3588: Always initialize clocks in SPL
+- 62cbf47dc054 clk: rockchip: rk3576: Always initialize clocks in SPL
+- 41da99375dde clk: rockchip: rk3528: Always initialize clocks in SPL
+- 7fcc2b394886 rockchip: mkimage: Update init code size limit for RK3328
+- 325709312951 board: rockchip: Add support for Graperain G3568 v2
+- 5ad82e871b62 Merge tag 'u-boot-rockchip-2027.01-20261030' of https://git.u-boot-project.org/u-boot/custodians/u-boot-rockchip
+
+### Conversation log
+Three picks are in and building; the fourth (fffeb5318d01) hit a simple conflict in clk_rk3568.c, which I'm resolving now.
+
+All 11 commits are cherry-picked onto `cherry-f09629da79ab` (based on ci/master), and the branch is ready to push.
+
+**Build:** the final sandbox build passes with no warnings or errors, as did the build after each pick. Sandbox does not compile the Rockchip clock drivers, so the two fix-ups below are not build-tested.
+
+**Fix-ups:**
+- **1d28b4d1e2c1** (rk3568 ungate PCIE30PHY_REF): `split-check` converted `CONFIG_IS_ENABLED(PCI)` to `IS_ENABLED(CONFIG_PCI)` in `drivers/clk/rockchip/clk_rk3568.c`. I amended the commit with the note `[pickman] convert to per-phase config macros`.
+- **fffeb5318d01** (rk3568 always initialise clocks in SPL): there was a conflict in `rk3568_pmuclk_bind()`, because this tree already uses `#if IS_ENABLED(CONFIG_RESET_ROCKCHIP)` there. I took the upstream version of the function and wrote its check as `IS_ENABLED(CONFIG_RESET_ROCKCHIP)`. The commit carries a note saying so.
+- **5ad82e871b62** (merge): the `-m 1` pick tried to re-apply changes already on the branch and conflicted in `clk_rk3528.c` and `clk_rk3568.c`. All ten of its commits were already picked, so I restored the tree to HEAD and kept it as an empty commit with the original merge message.
+
+**Deltas:** none concerning. Every non-merge commit matches its original in files and line counts, and the branch's total diff against ci/master (12 files, 264 insertions, 16 deletions) equals the upstream merge's first-parent diff.
+
+`split-check` reported nothing for the other commits.
+
+---
+
