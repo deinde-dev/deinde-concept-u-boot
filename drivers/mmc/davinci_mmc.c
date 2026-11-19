@@ -521,7 +521,7 @@ static const struct udevice_id davinci_mmc_ids[] = {
 };
 #endif
 U_BOOT_DRIVER(ti_da830_mmc) = {
-	.name = "davinci_mmc",
+	.name = "ti_da830_mmc",
 	.id		= UCLASS_MMC,
 #if IS_ENABLED(CONFIG_OF_CONTROL)
 	.of_match	= davinci_mmc_ids,
