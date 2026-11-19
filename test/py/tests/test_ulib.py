@@ -4,11 +4,17 @@
 """Test U-Boot library functionality"""
 
 import os
+import re
+import select
 import shutil
 import subprocess
 import tempfile
+import time
 import pytest
 import utils
+
+# The last line which a demo prints
+RE_DEMO_DONE = re.compile(rb'Demo complete.*\n')
 
 def check_output(out):
     """Check output from the ulib test"""
@@ -241,26 +247,37 @@ def assert_demo_output(out):
     assert '=================================' in out
     assert 'Demo complete' in out
 
-def run_qemu_demo(qemu_cmd, timeout=5):
+def run_qemu_demo(qemu_cmd, timeout=60):
     """Run a ulib demo under QEMU and return output.
+
+    QEMU keeps running when the demo finishes, so this reads the output until
+    the last line of the demo appears, then kills QEMU. It also stops if QEMU
+    exits, or if the demo takes too long.
 
     Args:
         qemu_cmd (list): QEMU command and arguments (e.g.
                   ['qemu-system-i386', '-bios', 'demo.rom', ...])
-        timeout (int): Seconds to wait before killing QEMU (default 5)
+        timeout (int): Longest time to wait for the demo to finish, in seconds
 
     Returns:
         str: Decoded stdout from QEMU
     """
+    out = b''
+    limit = time.monotonic() + timeout
     with subprocess.Popen(qemu_cmd, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE) as proc:
-        try:
-            stdout, _ = proc.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            stdout, _ = proc.communicate()
+                          stderr=subprocess.DEVNULL) as proc:
+        fd = proc.stdout.fileno()
+        while not RE_DEMO_DONE.search(out):
+            remain = limit - time.monotonic()
+            if remain <= 0 or not select.select([fd], [], [], remain)[0]:
+                break
+            data = os.read(fd, 4096)
+            if not data:
+                break
+            out += data
+        proc.kill()
 
-    return stdout.decode('utf-8', errors='replace')
+    return out.decode('utf-8', errors='replace')
 
 def run_x86_rom_demo(ubman, qemu_binary):
     """Boot the demo ROM image under QEMU and check for expected output.
@@ -470,7 +487,7 @@ def run_efi_demo(ubman, qemu_binary, fw_code, fw_vars, extra_qemu_args=None):
     # FAT drive with EFI binary and startup script
     cmd += ['-drive', f'file=fat:rw:{efi_dir},format=raw',
             '-nographic', '-no-reboot', '-nic', 'none']
-    out = run_qemu_demo(cmd, timeout=15)
+    out = run_qemu_demo(cmd)
     assert_demo_output(out)
 
 def run_efi_rust_demo(ubman, qemu_binary, fw_code, fw_vars,
@@ -518,7 +535,7 @@ def run_efi_rust_demo(ubman, qemu_binary, fw_code, fw_vars,
     # FAT drive with EFI binary and startup script
     cmd += ['-drive', f'file=fat:rw:{efi_dir},format=raw',
             '-nographic', '-no-reboot', '-nic', 'none']
-    out = run_qemu_demo(cmd, timeout=15)
+    out = run_qemu_demo(cmd)
     assert_demo_output(out)
 
 @pytest.mark.localqemu
