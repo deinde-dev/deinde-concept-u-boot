@@ -108780,3 +108780,31 @@ All 11 commits are cherry-picked onto `cherry-f09629da79ab` (based on ci/master)
 
 ---
 
+## 2026-11-19: us/main
+
+Branch: cherry-14f5984c276a
+
+Commits:
+- 14f5984c276a Makefile: drop GNU Make < 4.0 compatibility code
+- 334d8ce83af2 scripts: pass dtc cpp flags via a GCC response file
+- e87ffc999ba9 Merge patch series "scripts: dtc cpp flags via response file, GNU Make 4.0 cleanup"
+
+### Conversation log
+The merge cherry-pick stopped because it is empty; committing it as an empty commit.
+
+All 3 commits are cherry-picked onto `cherry-14f5984c276a` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+| Commit | Original | Delta vs original |
+|---|---|---|
+| `7c5550005b69` Makefile: drop GNU Make < 4.0 compatibility code | `14f5984c276a` | Identical (2 files, +8/-15) |
+| `0a56c78d322e` scripts: pass dtc cpp flags via a GCC response file | `334d8ce83af2` | Identical (2 files, +26/-6) |
+| `a2e28b02ac19` Merge patch series "scripts: dtc cpp flags via response file, GNU Make 4.0 cleanup" | `e87ffc999ba9` | Empty, as expected for the merge |
+
+- **Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passed after each pick and at the end.
+- **Fix-ups:** none. Both regular commits applied without conflicts, and `pickman split-check` changed nothing on any of the three.
+- **Concerning deltas:** none.
+
+The branch is 3 commits ahead of ci/master, ready for pushing, and has not been merged anywhere.
+
+---
+
