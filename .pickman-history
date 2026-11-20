@@ -108845,3 +108845,37 @@ Nothing was merged or pushed.
 
 ---
 
+### Pipeline fix: 2026-11-19 (attempt 1)
+
+Branch: cherry-a074405c48d8
+
+Failed jobs:
+- build all platforms 4/6 (world_build)
+- check for stale CONFIG options in config files (test_suites)
+
+### Conversation log
+Fix is applied and builds pass; I'm just confirming that an7583_evb was the board that failed in the world build before the fix.
+
+Both failures still happen on the rebased branch and share one cause, now fixed on local branch `cherry-a074405c48d8-fix1` (not pushed).
+
+**Root cause:** this tree renames `CONFIG_TEXT_BASE` to `CONFIG_PPL_TEXT_BASE` (commit 8588a21c6180 "Rename CONFIG_TEXT_BASE"), but the cherry-picked upstream commit still uses the old name for the new board.
+- **Stale CONFIG check:** `configs/an7583_evb_defconfig:4: CONFIG_TEXT_BASE is not in Kconfig`.
+- **World build 4/6:** `an7583_evb` fails at config time with `no value for new symbol 'PPL_TEXT_BASE'`. The CI log tail doesn't name the failing board, but I reproduced this failure on the unfixed branch.
+
+**Responsible commit:** `07b5bfcbf2d5` "airoha: add support for Airoha AN7583 SoC" (upstream 67f0bfe5ce35).
+
+**Fix:** amended into that commit (now `2e6c1f95f5b5`), with a `[pickman]` note appended to its message:
+- `configs/an7583_evb_defconfig`: `CONFIG_TEXT_BASE=0x81E00000` becomes `CONFIG_PPL_TEXT_BASE=0x81E00000`.
+- `include/configs/an7583.h`: `CFG_SYS_UBOOT_BASE` and `CFG_SYS_INIT_RAM_ADDR` now use `CONFIG_PPL_TEXT_BASE`.
+
+This matches how the existing `an7581_evb` and `en7523_evb` defconfigs are set up. The branch still has all 18 commits, including the empty merge commit and the pickman record commit, and differs from the original only in those two files.
+
+**Verification:**
+- `./tools/qconfig.py --check-stale` reports no stale options in 1638 config files.
+- `um build sandbox` is clean.
+- `buildman -o /tmp/pickman an7583_evb an7581_evb en7523_evb sandbox` builds all 12 boards with no errors, only device-tree warnings on `en7523_evb` and two sandbox64 boards, in files this fix does not touch.
+
+The board list in the instructions was made of words from the job names, so I built the three Airoha boards plus sandbox instead. I did not run the full world build locally.
+
+---
+
