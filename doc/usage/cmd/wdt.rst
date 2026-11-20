@@ -16,6 +16,7 @@ Synopsis
     wdt start <timeout_ms> [flags]
     wdt stop
     wdt reset
+    wdt gettimeout
     wdt expire [flags]
 
 Description
@@ -44,6 +45,10 @@ The *wdt reset* command services the current watchdog timer without stopping
 it, so that the timeout starts again. It prints nothing. U-Boot does this by
 itself while the watchdog runs, so the command is needed only around something
 which keeps U-Boot from reaching its main loop.
+
+The *wdt gettimeout* command reports the timeout which the current watchdog
+device is programmed with, in milliseconds, when the driver supports this. The
+command fails if the watchdog is not running or the driver does not support it.
 
 The *wdt expire* command lets the current watchdog timer expire immediately,
 which resets the board. There is nothing to show for it: the next output is the
@@ -83,8 +88,12 @@ to begin with, so one has to be chosen before the timer can be started::
     dev: wdt@0
     => wdt start 3000
     WDT:   Started wdt@0 with servicing every 50ms (3s timeout)
+    => wdt gettimeout
+    Timeout: 3000ms
     => wdt reset
     => wdt stop
+    => wdt gettimeout
+    Watchdog not running.
 
 A name no watchdog has is refused, and so is stopping one which the devicetree
 marks always-running::

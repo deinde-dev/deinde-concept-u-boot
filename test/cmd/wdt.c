@@ -6,6 +6,7 @@
  */
 
 #include <command.h>
+#include <console.h>
 #include <errno.h>
 #include <asm/state.h>
 #include <test/cmd.h>
@@ -41,6 +42,7 @@ static int check_usage(struct unit_test_state *uts)
 		ut_assert_nextline(HELP_START);
 		ut_assert_nextline("wdt stop - stop watchdog timer");
 		ut_assert_nextline("wdt reset - reset watchdog timer");
+		ut_assert_nextline("wdt gettimeout - get device timeout in ms");
 		ut_assert_nextline(HELP_EXPIRE);
 		ut_assert_nextline_empty();
 	}
@@ -139,6 +141,48 @@ static int cmd_test_wdt_abbrev(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_wdt_abbrev, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
+
+/* Test the wdt gettimeout command with a driver which supports it */
+static int cmd_test_wdt_gettimeout(struct unit_test_state *uts)
+{
+	struct sandbox_state *state = state_get_current();
+	struct sandbox_wdt_info old = state->wdt;
+	const u64 timeout = 5000;
+
+	ut_assertok(select_wdt(uts, SANDBOX_WDT));
+	ut_assertok(run_commandf("wdt start %llu", timeout));
+
+	console_record_reset();
+	ut_assertok(run_command("wdt gettimeout", 0));
+	ut_assert_nextline("Timeout: %llums", timeout);
+	ut_assert_console_end();
+
+	ut_assertok(run_command("wdt stop", 0));
+	ut_assert_console_end();
+
+	ut_asserteq(CMD_RET_FAILURE, run_command("wdt gettimeout", 0));
+	ut_assert_nextline("Watchdog not running.");
+	ut_assert_console_end();
+
+	/* put the state back as it was found, as cmd_test_wdt_base does */
+	state->wdt = old;
+
+	return 0;
+}
+CMD_TEST(cmd_test_wdt_gettimeout, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
+
+/* Test the wdt gettimeout command with a driver which lacks the operation */
+static int cmd_test_wdt_gettimeout_unsupp(struct unit_test_state *uts)
+{
+	ut_assertok(select_wdt(uts, GPIO_WDT));
+
+	ut_asserteq(CMD_RET_FAILURE, run_command("wdt gettimeout", 0));
+	ut_assert_nextline("Getting watchdog timeout not supported.");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_wdt_gettimeout_unsupp, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
 
 /* Test a watchdog which the driver cannot stop */
 static int cmd_test_wdt_gpio(struct unit_test_state *uts)

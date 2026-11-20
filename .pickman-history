@@ -109149,3 +109149,89 @@ Only the sandbox build was run; I did not build the affected boards (nbxv3, ls10
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-2cf6e33809ea
+
+Commits:
+- 2cf6e33809ea watchdog: wdt-uclass: add get_timeout operation and helper
+- 097f3f2268dd watchdog: warn if timeout not longer than servicing interval
+- 3349890de991 cmd: wdt: store the device sequence number instead of a pointer
+- fb528e82056b cmd: wdt: add gettimeout command
+- eb10dc19b038 watchdog: designware_wdt: add get_timeout operation
+- 5eec7c521e8a watchdog: max6370_wdt: use a lookup table for timeout selection
+- c47decbdd90b watchdog: max6370_wdt: add get_timeout operation
+- e39cf59b7384 watchdog: sandbox_wdt: add get_timeout operation
+- dca813084f72 test: wdt: add tests for get_timeout support
+- be72b4a8b02f watchdog: Add support for i6300esb
+- 855f4b05489d watchdog: add support to call initr_watchdog multiple times
+- d01cea876ff6 board: qemu: arm/riscv: Probe watchdogs late
+- 4e3cdd7aeb67 Merge tag 'u-boot-watchdog-20261107' of https://git.u-boot-project.org/u-boot/custodians/u-boot-watchdog
+
+### Conversation log
+Three of 13 commits are picked so far (one conflict in cmd/wdt.c resolved); continuing with the remaining ten.
+
+Nine of 13 picked; the test commit's conflict is resolved and the wdt tests pass, so I'm committing it and moving on to the last four.
+
+All 12 regular commits are in and building; I'm just finishing off the empty merge commit, then a final build.
+
+All 13 commits are on `cherry-2cf6e33809ea` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready to push and has not been merged anywhere.
+
+The wdt tests pass on sandbox at the tip (`ut cmd cmd_test_wdt*` 9 tests, `ut dm wdt*` 6 tests). I also built qemu_arm64, qemu-riscv64 and qemu-x86_64, since the last commit touches boards that sandbox does not cover. They built with no errors; buildman reported warnings (exit 101), and the one I saw was a devicetree `gpios_property` warning in qemu-arm64.
+
+## Fix-ups
+
+Each has a note at the end of its commit message.
+
+- **3349890de991** (store the device sequence number): conflict in `cmd/wdt.c` with this tree's getopt command signature and with "Keep the current device when a name is not found". I kept this tree's behaviour, so a failed `wdt dev <name>` leaves the selection alone, where upstream resets it to -1.
+- **fb528e82056b** (add gettimeout command): conflicts in `cmd/wdt.c` and `doc/usage/cmd/wdt.rst`. `do_wdt_gettimeout()` uses the getopt signature and `U_BOOT_CMD_MKENT_NOOPTS`. The documentation is reworded to fit this tree's rewritten page.
+- **dca813084f72** (tests for get_timeout): `test/cmd/wdt.c` already exists here, so the two gettimeout command tests are added to it in its `CMD_TEST` style. `check_usage()` now expects the new help line, and the existing Makefile rule is kept. `test/dm/wdt.c` applied cleanly.
+- **d01cea876ff6** (probe watchdogs late): split-check converted `CONFIG_IS_ENABLED(WDT)` to `IS_ENABLED(CONFIG_WDT)` in `qemu-arm.c` and `qemu-riscv.c`.
+- **4e3cdd7aeb67** (merge): everything it brings is already applied by the 12 picks, so it is kept as an empty commit.
+
+## Deltas
+
+- **fb528e82056b**: 33 insertions against 36 insertions and 1 deletion upstream, because of the doc rewording.
+- **dca813084f72**: 2 files and 115 insertions against 3 files and 134 insertions upstream, because the tests went into the existing file and the Makefile is unchanged.
+- **3349890de991**: 21+/21- against 22+/19-, from the conflict resolution.
+- The other regular commits match upstream exactly.
+
+## Bisect gap
+
+Between fb528e82056b and dca813084f72 the existing `cmd_test_wdt_usage`, `cmd_test_wdt_abbrev` and `cmd_test_wdt_opt` tests would fail. The help text gains the gettimeout line in the first commit, but `check_usage()` only learns to expect it in the second. The build is fine at every commit. Say if you want that one-line test change moved into the earlier commit.
+
+---
+
+### Pipeline fix: 2026-11-20 (attempt 1)
+
+Branch: cherry-2cf6e33809ea
+
+Failed jobs:
+- build all platforms 5/6 (world_build)
+
+### Conversation log
+Shard 5/6 is building locally, since the supplied log tail does not include the actual error lines. I'll pick up when it finishes.
+
+The first attempt failed immediately because the local buildman lacks `--shard`. The shard 5/6 build is now running with buildman 0.3.1 from pip, which is what CI uses; I'll diagnose once it finishes.
+
+Reproduced: one failure, turris_1x_sdcard (powerpc).
+
+The failure is a real build error, not infrastructure: `turris_1x_sdcard` (powerpc) overflows its 1MB image limit, and it is now fixed on local branch `cherry-2cf6e33809ea-fix1` (not pushed).
+
+- **Root cause:** `u-boot-nodtb.bin` exceeds `CONFIG_BOARD_SIZE_LIMIT` (0x100000) by 0x170 bytes at the tip. The board enables `CONFIG_WDT`, `CONFIG_WATCHDOG` and `CONFIG_WDT_MAX6370`, so it picks up the new watchdog code.
+- **Responsible commit:** 951dbad10eeb "watchdog: wdt-uclass: add get_timeout operation and helper" is the first to overflow (by 0x68 bytes). The timeout warning and the max6370 `get_timeout` commits then add the rest.
+- **Fix:** I removed `CONFIG_CMD_MEMTEST` from `configs/turris_1x_sdcard_defconfig` and amended that into the first commit (now 15e17b6c2afb) with a `[pickman]` note. That is the only change against the original branch.
+
+Verification:
+- `um build sandbox` is clean.
+- `turris_1x_sdcard` and `turris_1x_nor` build without errors at every one of the 14 commits.
+- I did not rerun the full shard after the fix. Before the fix, the shard 5/6 build of all 260 boards had `turris_1x_sdcard` as its only failure, and the fix touches only that board's defconfig.
+
+Things you should know:
+- **Thin headroom:** the board now has only about 640 bytes to spare, so the next growth in common code will overflow it again.
+- **Choice of option:** dropping `mtest` was my pick as a low-value diagnostic command. Earlier commits in this tree freed space on this board the same way, by dropping `CONFIG_CMD_WDT`, `CONFIG_CMD_LSBLK` and `CONFIG_CMD_TFTPPUT`. Say if you would rather lose a different option.
+- **Supplied log:** the job-log tail contained only warnings and blob notices, so I reproduced the failure locally to find the error.
+- **Build command:** the suggested `buildman -o /tmp/pickman 5,6,all,platforms,sandbox` is not a valid board list. CI uses `--shard 5/6`, which needs buildman 0.3.x from pip; neither the in-tree buildman nor the one on the path has it. I installed 0.3.1 in a venv at `/tmp/pickman-venv` to match CI.
+
+---
+
