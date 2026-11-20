@@ -1742,6 +1742,13 @@ binman_dtb = ./u-boot.dtb
 endif
 endif
 
+# Arguments which tell binman about an xPL phase
+# Args:
+#   $1: Name of the phase, e.g. tpl
+#   $2: Name of the phase in upper case, e.g. TPL
+binman_xpl_args = -a $(1)-bss-pad=$(if $(CONFIG_$(2)_SEPARATE_BSS),,1) \
+	-a $(1)-dtb=$(CONFIG_$(2)_OF_REAL)
+
 quiet_cmd_binman = BINMAN  $@
 cmd_binman = $(BINMAN) $(if $(BINMAN_DEBUG),-D) \
 		$(foreach f,$(BINMAN_TOOLPATHS),--toolpath $(f)) \
@@ -1762,12 +1769,8 @@ cmd_binman = $(BINMAN) $(if $(BINMAN_DEBUG),-D) \
 		-a default-dt=$(default_dt) \
 		-a scp-path=$(SCP) \
 		-a rockchip-tpl-path=$(ROCKCHIP_TPL) \
-		-a spl-bss-pad=$(if $(CONFIG_SPL_SEPARATE_BSS),,1) \
-		-a tpl-bss-pad=$(if $(CONFIG_TPL_SEPARATE_BSS),,1) \
-		-a vpl-bss-pad=$(if $(CONFIG_VPL_SEPARATE_BSS),,1) \
-		-a spl-dtb=$(CONFIG_SPL_OF_REAL) \
-		-a tpl-dtb=$(CONFIG_TPL_OF_REAL) \
-		-a vpl-dtb=$(CONFIG_VPL_OF_REAL) \
+		$(foreach p,$(XPL_PHASES), \
+			$(call binman_xpl_args,$(p),$(XPL_UPPER_$(p)))) \
 		-a pre-load-key-path=${PRE_LOAD_KEY_PATH} \
 		-a of-spl-remove-props=$(CONFIG_OF_SPL_REMOVE_PROPS) \
 		$(BINMAN_$(@F))
