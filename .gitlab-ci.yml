@@ -1369,6 +1369,12 @@ ultra96:
     ROLE: ultra96
   <<: *sjg_lab_dfn
 
+# TI OMAP-L138 LCDK; U-Boot written to the SD card via SD-Wire
+lcdk:
+  variables:
+    ROLE: lcdk
+  <<: *sjg_lab_dfn
+
 trigger_snap_builds:
   stage: release
   variables:
