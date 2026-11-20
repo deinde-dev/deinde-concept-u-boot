@@ -109058,3 +109058,52 @@ The branch is ready for pushing and has not been merged anywhere.
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-fd78a15fc3b0
+
+Commits:
+- fd78a15fc3b0 efi_loader: set dfu_alt_info before FWU alt num lookup
+- 9417fcdefad6 doc: odroid: Update the link to the boot binaries for X2/U3
+- ed6eda797cca efi_loader: fix image and load_options leak on FDT load failure
+- a8d34a162458 efi_loader: fix HII GetString()
+- 48f75d2ac2d3 doc: Update certifi version for building
+- a89a1ed7464b efi_loader: implement EFI_DT_FIXUP_PROTOCOL v0.06
+- 55c64d6fe416 efi_selftest: factor out a module with fdt helper functions
+- 707dddb1ad95 efi_selftest: test for EFI_DT_FIXUP_PROTOCOL
+- d46a320d3ced doc: Replace master with main as primary branch name
+- 51abacb8ddf9 cmd: binop: validate inputs and fix heap overrun
+- 2b4cf320ccec test: cmd: add tests for the binop command
+- 8c16a9aa2da9 doc: cmd: add documentation for binop
+- f3c133668cde configs: sandbox: Enable binop command
+- d292beefc359 global: Update references to U-Boot git repo URL
+- 9180bf9d214e doc: board: nxp: convert README.fsl-hwconfig to RST
+- e40277927adb doc: board: nxp: convert the Layerscape SoC README to RST
+- 1908bd24d60e cmd: efidebug: require the URI argument of 'boot add -u'
+- 4c615ef2c80d dm: blk: Fix blk_common_cmd() return code typo
+- cc11cd044288 armv8: sha256_ce: load and store state with ld1/st1
+- 58eb0801bca5 tools: mkimage: copy the FIT in process instead of shelling out to cp
+- 709a97a05df6 Merge tag 'efi-2027-01-rc2' of https://git.u-boot-project.org/u-boot/custodians/u-boot-efi
+
+### Conversation log
+Eight of 21 picked and building cleanly; now resolving an expected `tools/buildman/` modify/delete conflict on d46a320d3ced by dropping that file.
+
+Nineteen of 21 are in; the mkimage commit (58eb0801bca5) has a real content conflict in `tools/fit_image.c`, which I'm inspecting now.
+
+The merge pick re-staged a duplicate of a define that's already in the tree (plus the buildman file); both are spurious, so I'm making it the expected empty commit.
+
+All 21 commits are cherry-picked onto `cherry-fd78a15fc3b0` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready for pushing and has not been merged anywhere.
+
+**Build:** ok after every pick and at the end. `split-check` reported nothing to convert on any commit.
+
+**Fix-ups** (each has a one-line `[pickman: ...]` note at the end of its commit message):
+
+- **d46a320d3ced** (doc: Replace master with main): modify/delete conflict on `tools/buildman/buildman.rst`, resolved by removing the file. The two other doc files applied unchanged.
+- **d292beefc359** (global: Update references to U-Boot git repo URL): same buildman conflict, same resolution. The `board/rockchip/evb_rk3229/README` change applied unchanged.
+- **58eb0801bca5** (tools: mkimage: copy the FIT in process): content conflict in `tools/fit_image.c`, because this tree uses `itl` where upstream uses `params` in `fit_handle_file()`. I applied the upstream change with `itl->imagefile`; the delta matches the original (4 insertions, 2 deletions).
+- **709a97a05df6** (Merge tag 'efi-2027-01-rc2'): kept as an empty commit. The merge pick hit the buildman conflict again and also staged a second copy of the `EFI_DT_FIXUP_PROTOCOL2_GUID` define in `include/efi_api.h`. That define is already in the tree from the a89a1ed7464b pick, so I dropped the duplicate hunk.
+
+**Deltas:** no concerning ones. The other 17 commits match the originals exactly in files and line counts; the only differences are the dropped buildman changes above. No commits were skipped.
+
+---
+
