@@ -109107,3 +109107,45 @@ All 21 commits are cherry-picked onto `cherry-fd78a15fc3b0` (based on ci/master)
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-7abb7cad855a
+
+Commits:
+- 7abb7cad855a configs: nbxv3: enable SPI_FLASH_SFDP_SUPPORT
+- f1ce20d606c7 configs: nbxv3: build lib/ for speed and zstd unminified
+- 671b4831ca90 board: nbxv3: get carrier from the RCW build stamp
+- 4e5797a9b988 board: nbxv3: do not start the MC for bring-up RCW
+- 0133a75c3e21 board: nbxv3: serses 1 lane settings
+- 07aa0e328ddc board: nbxv3: get carrier from the NOR overlay
+- 436d9b17fa1b pci: layerscape: bind LX2160A rev2 aligned with Linux kernel
+- 48c8c9628e83 board: nxp: fix memory leak and check calloc in ft_board_setup
+- 8ab9f25f7e39 configs: ls1021aiot_sdcard: Limit the U-Boot image to 1 MiB
+- 28c0cda224b5 net: fm: fix the FMan firmware load offset
+- 217f4f659d9a lmb: Enable LMB_LIMIT_DMA_BELOW_RAM_TOP for ARCH_EXYNOS9
+- 5811f38a9b08 mtd: spi-nor: Indent SF: just like other boot time messages
+- cfa47eaae821 Azure CI: Update to using macOS-26
+- e4e99f4997ca Merge tag 'fsl-qoriq-for-2027-01-rc2-1' of https://git.u-boot-project.org/u-boot/custodians/u-boot-fsl-qoriq
+
+### Conversation log
+Eight of fourteen commits are picked and building cleanly; the ninth (8ab9f25f7e39) has a conflict in the ls1021aiot_sdcard defconfig, which I'm looking at now.
+
+Eleven commits are in; I'm resolving a small test conflict in commit 12 (the SF: indent change), where this tree's bootdev test lacks one upstream line.
+
+All 14 commits are on `cherry-7abb7cad855a` (based on ci/master), and the final sandbox build passes with no warnings or errors. The branch is ready to push and has not been merged anywhere.
+
+Four commits needed conflict fix-ups, each recorded as a `[pickman: ...]` note at the end of the commit message:
+
+- **8ab9f25f7e39** (ls1021aiot_sdcard 1 MiB limit): this tree has `CONFIG_SPL_MAX_SIZE=0x1a000` at the same spot in the defconfig. I kept it and added the two new `BOARD_SIZE_LIMIT` lines after it.
+- **217f4f659d9a** (LMB for ARCH_EXYNOS9): I added only `ARCH_EXYNOS9` to the `LMB_LIMIT_DMA_BELOW_RAM_TOP` default. The upstream line also lists `STARFIVE_JH7110`, but that comes from c05bde78bdef, which is not in this tree, so I left it out.
+- **5811f38a9b08** (SF: indent): this tree's `test/boot/bootdev.c` has no "Hunting with: virtio" assertion, so I updated only the two "SF:    Detected" strings.
+- **cfa47eaae821** (Azure macOS-26): I took `macOS-26` and kept this tree's `sjg20/...` `ci_runner_image`.
+
+The merge commit **e4e99f4997ca** is kept as an empty commit, since its ten commits were already picked individually. It hit the same defconfig conflict, which I resolved by keeping the branch's version; the message still carries git's `# Conflicts:` lines.
+
+No commit has a concerning delta: every pick matches the original's file list and line counts. `split-check` made no changes and reported nothing on any commit.
+
+Only the sandbox build was run; I did not build the affected boards (nbxv3, ls1021aiot) or run the bootdev test touched by the SF: change.
+
+---
+
