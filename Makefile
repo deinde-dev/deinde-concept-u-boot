@@ -1182,23 +1182,20 @@ else
 BOARD_SIZE_CHECK =
 endif
 
+# The limit for SPL depends on other options too, so a tool works it out
 ifneq ($(CONFIG_SPL_SIZE_LIMIT),0x0)
 SPL_SIZE_CHECK = @$(call size_check,$@,$$(tools/spl_size_limit))
 else
 SPL_SIZE_CHECK =
 endif
 
-ifneq ($(CONFIG_TPL_SIZE_LIMIT),0x0)
-TPL_SIZE_CHECK = @$(call size_check,$@,$(CONFIG_TPL_SIZE_LIMIT))
-else
-TPL_SIZE_CHECK =
-endif
-
-ifneq ($(CONFIG_VPL_SIZE_LIMIT),0x0)
-VPL_SIZE_CHECK = @$(call size_check,$@,$(CONFIG_VPL_SIZE_LIMIT))
-else
-VPL_SIZE_CHECK =
-endif
+# Check the image of an xPL phase against CONFIG_<phase>_SIZE_LIMIT, unless
+# that is zero or not defined
+# Args:
+#   $1: Name of the phase in upper case, e.g. TPL
+xpl_size_limit = $(filter-out 0x0,$(CONFIG_$(1)_SIZE_LIMIT))
+xpl_size_check = $(or $($(1)_SIZE_CHECK),$(if $(call xpl_size_limit,$(1)),\
+	@$(call size_check,$@,$(call xpl_size_limit,$(1)))))
 
 # Statically apply RELA-style relocations (currently arm64 only)
 # This is useful for arm64 where static relocation needs to be performed on
@@ -2642,7 +2639,7 @@ u-boot.lds: $(LDSCRIPT) prepare FORCE
 define xpl_phase_rules
 $(1)/u-boot-$(1).bin: $(1)/u-boot-$(1)
 	@:
-	$$($(XPL_UPPER_$(1))_SIZE_CHECK)
+	$$(call xpl_size_check,$(XPL_UPPER_$(1)))
 
 $(1)/u-boot-$(1): tools prepare $$(if $$(CONFIG_$(XPL_UPPER_$(1))_OF_CONTROL),dts/dt.dtb)
 	$$(Q)$$(MAKE) obj=$(1) -f $$(srctree)/scripts/Makefile.xpl all
