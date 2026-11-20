@@ -109202,3 +109202,36 @@ Between fb528e82056b and dca813084f72 the existing `cmd_test_wdt_usage`, `cmd_te
 
 ---
 
+### Pipeline fix: 2026-11-20 (attempt 1)
+
+Branch: cherry-2cf6e33809ea
+
+Failed jobs:
+- build all platforms 5/6 (world_build)
+
+### Conversation log
+Shard 5/6 is building locally, since the supplied log tail does not include the actual error lines. I'll pick up when it finishes.
+
+The first attempt failed immediately because the local buildman lacks `--shard`. The shard 5/6 build is now running with buildman 0.3.1 from pip, which is what CI uses; I'll diagnose once it finishes.
+
+Reproduced: one failure, turris_1x_sdcard (powerpc).
+
+The failure is a real build error, not infrastructure: `turris_1x_sdcard` (powerpc) overflows its 1MB image limit, and it is now fixed on local branch `cherry-2cf6e33809ea-fix1` (not pushed).
+
+- **Root cause:** `u-boot-nodtb.bin` exceeds `CONFIG_BOARD_SIZE_LIMIT` (0x100000) by 0x170 bytes at the tip. The board enables `CONFIG_WDT`, `CONFIG_WATCHDOG` and `CONFIG_WDT_MAX6370`, so it picks up the new watchdog code.
+- **Responsible commit:** 951dbad10eeb "watchdog: wdt-uclass: add get_timeout operation and helper" is the first to overflow (by 0x68 bytes). The timeout warning and the max6370 `get_timeout` commits then add the rest.
+- **Fix:** I removed `CONFIG_CMD_MEMTEST` from `configs/turris_1x_sdcard_defconfig` and amended that into the first commit (now 15e17b6c2afb) with a `[pickman]` note. That is the only change against the original branch.
+
+Verification:
+- `um build sandbox` is clean.
+- `turris_1x_sdcard` and `turris_1x_nor` build without errors at every one of the 14 commits.
+- I did not rerun the full shard after the fix. Before the fix, the shard 5/6 build of all 260 boards had `turris_1x_sdcard` as its only failure, and the fix touches only that board's defconfig.
+
+Things you should know:
+- **Thin headroom:** the board now has only about 640 bytes to spare, so the next growth in common code will overflow it again.
+- **Choice of option:** dropping `mtest` was my pick as a low-value diagnostic command. Earlier commits in this tree freed space on this board the same way, by dropping `CONFIG_CMD_WDT`, `CONFIG_CMD_LSBLK` and `CONFIG_CMD_TFTPPUT`. Say if you would rather lose a different option.
+- **Supplied log:** the job-log tail contained only warnings and blob notices, so I reproduced the failure locally to find the error.
+- **Build command:** the suggested `buildman -o /tmp/pickman 5,6,all,platforms,sandbox` is not a valid board list. CI uses `--shard 5/6`, which needs buildman 0.3.x from pip; neither the in-tree buildman nor the one on the path has it. I installed 0.3.1 in a venv at `/tmp/pickman-venv` to match CI.
+
+---
+
