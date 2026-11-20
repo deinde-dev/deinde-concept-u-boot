@@ -108916,3 +108916,70 @@ Nothing was merged or pushed.
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-caa897843530
+
+Commits:
+- caa897843530 iommu: Add RISC-V IOMMU driver
+- 9b4885355a77 riscv: restore ILP32 size types on RV32
+- d2ce34097a32 board: microchip: mpfs_generic: Allow serial number read failures
+- 64124be974c0 riscv: spacemit: handle overlapping DDR firmware relocation
+- f21923472bc7 board: sophgo: milkv_duo_256m: fix fdtfile quoting
+- 7db3a1f719ef board: sophgo: milkv_duo: add environment for standard boot
+- fd14acda6be2 configs: milkv_duo: enable BOOTSTD_DEFAULTS
+- 2fc01c7cf794 configs: milkv_duo: reduce CONFIG_STACK_SIZE to 1MB
+- fa243a6624b8 rtc: cv1800b: Add seconds counter support
+- d3f57d34664d riscv: sophgo: Enable RTC-backed system reset
+- edd7eabc98b8 sysreset: cv1800b: Use the RTC device node for register access
+- 320f8ddfe6f1 cmd: Enable qfw by default on QEMU RISC-V
+- 34108d339f4a riscv: qemu: Do not disable initrd relocation
+- 155513201d84 riscv: qemu: Switch to standard boot
+- 77d5b1f9fbdb doc: qemu-riscv: Describe booting a kernel through fw_cfg
+- f15b519b8c08 bootm: Relocate RISC-V Linux Images before booting
+- 7b7edfbc7321 dm: cache: Add flush_all operation
+- 121ed821b215 cache: andes-l2: implement flush_all
+- 4d560c5de778 riscv: andes: flush the L2 cache in flush_dcache_all()
+- 5b479b77aa76 riscv: andes: probe the L2 cache device in U-Boot proper
+- e302c77280d2 configs: starfive: enable mtdparts on visionfive2
+- f1fd97b340b6 configs: k1: enable GigaDevice SPI NOR flash support
+- 7009e73cafc8 spacemit: k1: initialise the EEPROM index in read_ddr_info()
+- e6308cc144db spacemit: k1: drop the CS1 DRAM map on single-rank boards
+- d1d45c926a57 Merge branch 'main' of https://git.u-boot-project.org/u-boot/custodians/u-boot-riscv
+
+### Conversation log
+The "maybe already applied" merge 47b68972a39f is an older, different pull, so I'll pick d1d45c926a57 as normal.
+
+Eight of 25 picked so far; now folding in a split-config conversion that pickman made on the RTC commit.
+
+15 of 25 picked; resolving a conflict in boot/bootm.c for the RISC-V kernel-relocation commit.
+
+Now the merge commit.
+
+The merge brings in exactly the 24 commits already picked, and nothing else is staged, so it resolves to an empty commit by keeping this tree's versions.
+
+All 25 commits are on `cherry-caa897843530` (based on ci/master, not merged anywhere), and the final sandbox build passes with no warnings or errors.
+
+The merge marked "maybe already applied as 47b68972a39f" was not: that hash is an older, different riscv pull, so I picked d1d45c926a57 as normal.
+
+**Fix-ups** (each has a note line at the end of its commit message):
+
+| Commit | What I did |
+|---|---|
+| 64124be974c0 riscv: spacemit: handle overlapping DDR firmware relocation | Conflict in `board/spacemit/k1/spl.c`. This tree already uses `memmove()` there (0abf8f419d4e), so it is kept as an empty commit. |
+| fa243a6624b8 rtc: cv1800b: Add seconds counter support | split-check converted `CONFIG_IS_ENABLED(SYSRESET_CV1800B)` and added `SYSRESET_CV1800B` to `scripts/conf_nospl`. |
+| 320f8ddfe6f1 cmd: Enable qfw by default on QEMU RISC-V | Context conflict in the two `qemu-riscv*_spl_defconfig` files; I added the `# CONFIG_SPL_BLOBLIST is not set` line. Both files match `savedefconfig`. |
+| f15b519b8c08 bootm: Relocate RISC-V Linux Images before booting | Conflict in `boot/bootm.c`. I kept this tree's `booti_is_supported()`, which already covers RISC-V, so only the error-message change lands. |
+| 5b479b77aa76 riscv: andes: probe the L2 cache device in U-Boot proper | split-check converted `CONFIG_IS_ENABLED(SYS_DCACHE_OFF)`. |
+| f1fd97b340b6 configs: k1: enable GigaDevice SPI NOR flash support | Conflict in `configs/spacemit_k1_defconfig`. SPI and SPI flash are not enabled for K1 in this tree, so the option would have no effect; kept as an empty commit. |
+| d1d45c926a57 Merge branch 'main' of …/u-boot-riscv | Empty, as it contains only the 24 commits above; the conflicts were resolved by keeping this tree's files. |
+
+**Concerning deltas:**
+- **f15b519b8c08** is 1 line changed instead of 3, for the reason above.
+- **64124be974c0** and **f1fd97b340b6** are empty.
+- **f1fd97b340b6** needs a decision from you: K1 has no SPI NOR support here because the earlier "spl: k1: enable SPI NOR flash detection and boot" pick is recorded as `[FAILED]` (6f7ee40bd222). If that is redone, the GigaDevice option needs adding with it.
+
+The other 19 commits match the originals in files and line counts. Only sandbox was built, so the RISC-V boards these commits touch were not compiled.
+
+---
+
