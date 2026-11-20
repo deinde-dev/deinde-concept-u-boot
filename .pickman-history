@@ -108983,3 +108983,50 @@ The other 19 commits match the originals in files and line counts. Only sandbox 
 
 ---
 
+### Pipeline fix: 2026-11-20 (attempt 1)
+
+Branch: cherry-caa897843530
+
+Failed jobs:
+- qemu-riscv64_spl test.py (test.py)
+- qemu-riscv32_spl test.py (test.py)
+- build all platforms 6/6 (world_build)
+- build all platforms 5/6 (world_build)
+- build all platforms 4/6 (world_build)
+- build all platforms 2/6 (world_build)
+- opi_pc2 (sjg-lab)
+
+### Conversation log
+Root cause found (QFW_SMBIOS builds into SPL without bloblist); now building the two RISC-V SPL boards to verify the fix.
+
+The build fix is in place on local branch `cherry-caa897843530-fix1` (not pushed): both RISC-V SPL boards now link.
+
+## Root cause
+
+- **Responsible commit:** "cmd: Enable qfw by default on QEMU RISC-V" (was 4f82a8562836, now 5daa02524a4e).
+- **What breaks:** enabling `CMD_QFW` on `TARGET_QEMU_VIRT` brings in `QFW_SMBIOS`. In this tree `drivers/qfw/` is also built for SPL, so `qfw_smbios.o` lands in SPL and calls `bloblist_add()`. The same commit turns off `SPL_BLOBLIST` in the two `qemu-riscv*_spl` defconfigs, so the link fails with `undefined reference to 'bloblist_add'`.
+
+## Fix
+
+I added `QFW_SMBIOS` to `scripts/conf_nospl` (one line) and amended it into the responsible commit with a `[pickman]` note. The SMBIOS handler only runs on `EVT_LAST_STAGE_INIT` in U-Boot proper, so it has no use in SPL. This also drops `qfw_smbios.o` from SPL on other QEMU SPL boards. The rest of the branch is unchanged, including the empty commits.
+
+## Failed jobs
+
+| Job | Verdict |
+|---|---|
+| qemu-riscv64_spl test.py | Fixed: `bloblist_add` link error |
+| qemu-riscv32_spl test.py | Fixed: same error |
+| build all platforms 2/6, 4/6 | Probably the same two boards, but the log tails cut off the board summary, so this is not confirmed |
+| build all platforms 5/6, 6/6 | Infrastructure: HTTP 502 on git fetch |
+| opi_pc2 | Infrastructure: HTTP 403 on git fetch |
+
+## Verification
+
+- Without the fix, `qemu-riscv64_spl` fails locally with the same error as CI; with it, both SPL boards build.
+- `um build sandbox` is clean.
+- `buildman -o /tmp/pickman -E riscv qemu opi_pc2` built 55 boards with no errors apart from `qemu-xtensa-dc233c`, which has no local toolchain. The remaining boards show only binman missing-blob warnings (OpenSBI and similar).
+- I did not run the suggested `buildman ... 2,4,5,6,all,...` command, as its board list is mangled job names; the selection above replaces it.
+- If 2/6 or 4/6 still fail on the retry, there is a second problem outside the RISC-V and QEMU boards, and the full job logs will be needed.
+
+---
+
