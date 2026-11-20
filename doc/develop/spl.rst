@@ -253,8 +253,11 @@ To add a phase:
 
 #. Add a line to ``scripts/xpl_phases``, at the point where the phase runs
 #. Add a Kconfig option named after the phase which enables it, such as
-   ``CONFIG_TPL``, along with the phase's versions of the options it uses,
-   such as its text base and linker script
+   ``CONFIG_TPL``, and one which a board or SoC selects to say that it
+   supports the phase, such as ``CONFIG_SUPPORT_TPL``
+#. Add the phase's versions of the options it uses, such as its text base and
+   linker script. If it has a ``SIZE_LIMIT`` option, such as
+   ``CONFIG_TPL_SIZE_LIMIT``, the build checks the size of its image
 #. Check ``xpl_phase()`` in code which needs to behave differently in the new
    phase (see below)
 
