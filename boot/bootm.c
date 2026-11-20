@@ -960,7 +960,7 @@ static int bootm_load_os(struct bootm_info *bmi, int boot_progress)
 			ret = booti_setup(load, &relocated_addr, &image_size,
 					  false);
 		if (ret) {
-			printf("Failed to prep arm64 kernel (err=%d)\n", ret);
+			printf("Failed to prep kernel image (err=%d)\n", ret);
 			return BOOTM_ERR_RESET;
 		}
 

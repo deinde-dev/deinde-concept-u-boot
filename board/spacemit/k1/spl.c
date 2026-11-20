@@ -54,6 +54,7 @@
 #define DDR_DEFAULT_DATA_RATE   2400
 
 #define MAGIC_NUM		0xaa55aa55
+#define DDR_CS1_MAP		((void __iomem *)0xc0000208)
 
 typedef void (*puts_func_t)(const char *s);
 typedef int (*ddr_init_func_t)(u64 ddr_base, u32 cs_num, u32 data_rate,
@@ -305,7 +306,7 @@ int read_ddr_info(struct ddr_cfg *cfg)
 	struct tlvinfo_header *tlv_hdr;
 	struct tlvinfo_tlv *tlv_entry;
 	u32 size, entry_size;
-	int ret, i;
+	int ret, i = 0;
 	bool found = false;
 
 	if (!cfg)
@@ -379,6 +380,12 @@ void ddr_early_init(void)
 #else
 	ddr_init(0xc0000000, cfg.cs_num, cfg.data_rate, NULL);
 #endif
+	/*
+	 * The DDR firmware leaves the CS1 map valid on single-rank boards too,
+	 * and dram_init() adds up every valid map.
+	 */
+	if (cfg.cs_num == 1)
+		clrbits_le32(DDR_CS1_MAP, BIT(0));
 	writel(MAGIC_NUM, (void __iomem *)0x00000000);
 	flush_dcache_range(0, 64);
 	invalidate_dcache_range(0, 64);
