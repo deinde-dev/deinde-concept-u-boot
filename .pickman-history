@@ -109030,3 +109030,31 @@ I added `QFW_SMBIOS` to `scripts/conf_nospl` (one line) and amended it into the 
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-f4feca283c39
+
+Commits:
+- f4feca283c39 omap4_var_som: extract MAC address from EEPROM
+- f5df14cb949c omap4-var-som: forward MAC address to Linux
+- ca397fed3948 Merge patch series "omap4-var-som: extract MAC address from EEPROM"
+
+### Conversation log
+All 3 commits are cherry-picked onto `cherry-f4feca283c39` (based on ci/master), and the sandbox build passes with no warnings or errors after each pick and at the end.
+
+```
+1d8bc91d1212 Merge patch series "omap4-var-som: extract MAC address from EEPROM"
+4dc5de7aaf84 omap4-var-som: forward MAC address to Linux
+e256387bf6f7 omap4_var_som: extract MAC address from EEPROM
+```
+
+- **Fix-ups:** only the merge commit needed one. It conflicted in `configs/omap4_var_som_defconfig`, which I resolved by keeping this tree's version, since both patches were already applied by the two preceding picks. It is kept as an empty commit, with a `[pickman: ...]` note at the end of its message saying so.
+- **Deltas:** the two regular commits match the originals exactly (4 files/50 insertions and 2 files/8 insertions). The merge commit is empty, as expected.
+- **split-check:** it changed nothing and reported nothing for any of the three commits.
+
+The sandbox build does not compile the omap4_var_som board files, so the board code itself is not build-tested here.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
