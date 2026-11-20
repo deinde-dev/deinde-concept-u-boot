@@ -57,4 +57,9 @@ class TestReadPhases(unittest.TestCase):
         """The phases in this source tree"""
         srcdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               '..', '..')
-        self.assertEqual(('tpl', 'vpl', 'spl'), xpl.read_phases(srcdir))
+        phases = xpl.read_phases(srcdir)
+
+        # Check for the phase which every tree has, so that adding a phase
+        # does not need a change here
+        self.assertIn('spl', phases)
+        self.assertEqual(len(phases), len(set(phases)))
