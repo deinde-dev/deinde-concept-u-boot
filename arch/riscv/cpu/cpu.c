@@ -129,7 +129,7 @@ int riscv_cpu_setup(void)
 	int __maybe_unused ret;
 
 	if (!IS_ENABLED(CONFIG_CPU))
-		return 0;
+		goto init_riscv_ipi;
 
 	/* Enable FPU */
 	if (supports_extension('d') || supports_extension('f')) {
@@ -160,6 +160,7 @@ int riscv_cpu_setup(void)
 #endif
 	}
 
+init_riscv_ipi:
 #if IS_ENABLED(CONFIG_SMP)
 	ret = riscv_init_ipi();
 	if (ret)

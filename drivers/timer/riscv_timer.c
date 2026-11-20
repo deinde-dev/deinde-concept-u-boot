@@ -7,7 +7,9 @@
  *
  * RISC-V architecturally-defined generic timer driver
  *
- * This driver provides generic timer support for S-mode U-Boot.
+ * This driver provides generic timer support for S-mode
+ * and M-Mode U-Boot if the TIME CSR is implemented in hardware
+ * (e.g., when the Zicntr extension is present).
  */
 
 #include <config.h>
@@ -37,24 +39,28 @@ static u64 notrace riscv_timer_get_count(struct udevice *dev)
 	return ((u64)hi << 32) | lo;
 }
 
-#if IS_ENABLED(CONFIG_RISCV_SMODE) && IS_ENABLED(CONFIG_TIMER_EARLY)
+#if IS_ENABLED(CONFIG_TIMER_EARLY)
 /**
  * timer_early_get_rate() - Get the timer rate before driver model
  */
-unsigned long notrace timer_early_get_rate(void)
+unsigned long notrace __weak timer_early_get_rate(void)
 {
+#if IS_ENABLED(CONFIG_RISCV_SMODE)
 	return RISCV_SMODE_TIMER_FREQ;
+#elif IS_ENABLED(CONFIG_RISCV_MMODE)
+	return RISCV_MMODE_TIMER_FREQ;
+#endif
 }
+#endif
 
 /**
  * timer_early_get_count() - Get the timer count before driver model
  *
  */
-u64 notrace timer_early_get_count(void)
+u64 notrace __weak timer_early_get_count(void)
 {
 	return riscv_timer_get_count(NULL);
 }
-#endif
 
 #if IS_ENABLED(CONFIG_RISCV_SMODE) && IS_ENABLED(CONFIG_BOOTSTAGE)
 ulong timer_get_boot_us(void)

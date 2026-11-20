@@ -235,6 +235,9 @@ static int do_mdio(struct getopt_state *gs)
 	if (strlen(argv[1]) > 1) {
 		op[1] = argv[1][1];
 		if (op[1] == 'x') {
+			if (argc < 3)
+				return CMD_RET_USAGE;
+
 			phydev = mdio_phydev_for_ethname(argv[2]);
 
 			if (phydev) {
