@@ -1099,6 +1099,13 @@ colibrimx8:
     ROLE: colibrimx8
   <<: *sjg_lab_dfn
 
+# NXP FRDM-iMX93; loaded over USB with uuu, so needs time to stop autoboot
+mx93:
+  variables:
+    ROLE: mx93
+    ADJUST: BOOTDELAY=5
+  <<: *sjg_lab_dfn
+
 rockpro64:
   variables:
     ROLE: rockpro64
