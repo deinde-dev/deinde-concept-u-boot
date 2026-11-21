@@ -109605,3 +109605,75 @@ The commit for `e38cfd97ee5a` carries two `[pickman: ...]` note lines (the first
 
 ---
 
+## 2026-11-21: us/main
+
+Branch: cherry-58ac309aa8c6
+
+Commits:
+- 58ac309aa8c6 usb: dwc3: gadget: make Set Endpoint Configuration macros safe
+- 0a3f609e2959 MAINTAINERS: android: add myself as a reviewer
+- 9450a497dc03 libavb: build the SHA functions on U-Boot's SHA library
+- cdafa8448ed4 libavb: update to AOSP 1.4.0
+- 33194a8025f9 usb: gadget: mass_storage: add SuperSpeed descriptor support
+- 0e3fb22a5b2e usb: gadget: dfu: add SuperSpeed descriptor support
+- 8c1ea2aa6638 Merge tag 'u-boot-dfu-20261110' of https://git.u-boot-project.org/u-boot/custodians/u-boot-dfu
+
+### Conversation log
+Six of seven commits are picked cleanly and build; now picking the final merge commit and running the final build.
+
+All 7 commits are cherry-picked onto `cherry-58ac309aa8c6` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+| New hash | Original | Subject |
+|---|---|---|
+| 5c4840c7d810 | 58ac309aa8c6 | usb: dwc3: gadget: make Set Endpoint Configuration macros safe |
+| f7480decd1d2 | 0a3f609e2959 | MAINTAINERS: android: add myself as a reviewer |
+| ce8f49e1afe2 | 9450a497dc03 | libavb: build the SHA functions on U-Boot's SHA library |
+| fc2712c7b254 | cdafa8448ed4 | libavb: update to AOSP 1.4.0 |
+| b4241a8bd6e0 | 33194a8025f9 | usb: gadget: mass_storage: add SuperSpeed descriptor support |
+| 30f4de517482 | 0e3fb22a5b2e | usb: gadget: dfu: add SuperSpeed descriptor support |
+| f7c15d62c8b2 | 8c1ea2aa6638 | Merge tag 'u-boot-dfu-20261110' (empty commit) |
+
+- **Build:** ok after every pick and for the final build.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing on any commit.
+- **Deltas:** no concerns. Each pick matches its original's file and line counts exactly. The branch's total diff against ci/master (28 files, +1257/-1205) is identical to the original merge's first-parent diff.
+- **Merge commit:** it is empty, as expected, since its content is already in the six picks; the original message is kept.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
+### Pipeline fix: 2026-11-21 (attempt 1)
+
+Branch: cherry-58ac309aa8c6
+
+Failed jobs:
+- sandbox test.py (test.py)
+- sandbox with clang test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- sandbox64 test.py (test.py)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Passes now. Amend into the libavb 1.4.0 commit (4th from HEAD).
+
+Fix is amended and the avb tests pass locally; now checking a buildman error in `examples/ulib` to see whether it is related to this branch.
+
+All seven jobs failed on the same test, `cmd_test_avb_verify`, and the fix is a one-line change now on local branch `cherry-58ac309aa8c6-fix1` (not pushed).
+
+- **Responsible commit:** "libavb: update to AOSP 1.4.0" (was `fc2712c7b254`, now `bdc93d05830d`).
+- **Root cause:** that commit bumps the libavb version to 1.4.0, but `test/cmd/avb.c` still expects the banner `## Android Verified Boot 2.0 version 1.3.0`. That test exists only in this tree, so the upstream commit could not have updated it. The SIGSEGV seen in most jobs came in the flat-tree re-run straight after that failed assertion, and it no longer occurs once the assertion passes.
+- **Change:** line 296 of `test/cmd/avb.c` now expects `1.4.0`. It is amended into the libavb commit with a `[pickman]` note; the later commits are rebased unchanged, and the branch differs from the original only by that line.
+
+**Verification:**
+- `um build sandbox` is clean.
+- `ut cmd cmd_test_avb*` passes all 8 tests with 0 failures, including the flat-tree runs.
+- I did not run the full test.py suite.
+- The board list in step 5 was the job names split into words, so I ran `buildman -o /tmp/pickman sandbox sandbox64 sandbox_flattree` instead. That matched 9 boards, and one of them, `sandbox`, failed.
+- The `sandbox` failure was a link error in `examples/ulib` ("Relocations in generic ELF (EM: 183)", an aarch64 object). The same board builds cleanly with buildman in a fresh output directory, so it looks like a stale object in `/tmp/pickman/.bm-work/00` rather than anything on this branch.
+
+The original `cherry-58ac309aa8c6` branch was also rewritten locally and points at the same commit as the `-fix1` branch.
+
+---
+
