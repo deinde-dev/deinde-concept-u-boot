@@ -34,6 +34,8 @@ below:
   to be selected; and a name, as in "choice" <symbol>, which allows the choice
   to be defined in more than one place
 
+The "phases" attribute is specific to U-Boot.
+
 Introduction
 ------------
 
@@ -247,6 +249,36 @@ applicable everywhere (see syntax).
   Note: If "imply" <symbol> is followed by "if" <expr>, the default of <symbol>
   will be the logical AND of the value of the current menu symbol and <expr>.
   (The future of this behavior is undecided.)
+
+- phases: "phases" ["!"]<phase> [["!"]<phase> ...]
+
+  This is specific to U-Boot. It lists the phases in which a config option
+  exists and creates a symbol for each one, with the name of the phase as a
+  prefix, e.g. SPL_SERIAL and TPL_SERIAL from SERIAL. Each symbol has its
+  own value. A phase is one of the names in scripts/xpl_phases, or "all" for
+  every phase. A "!" before a name leaves that phase out, so "!spl" means
+  every phase except SPL.
+
+  One line in scripts/xpl_phases is marked as the primary phase. Its symbol
+  has no prefix, so with "ppl" as the primary phase, "phases ppl spl" creates
+  SERIAL and SPL_SERIAL.
+
+  The other attributes apply to each symbol, with any symbol they mention
+  being the one for the same phase, where there is one. In this example
+  SPL_SERIAL depends on SPL_DM and TPL_SERIAL depends on TPL_DM::
+
+    config SERIAL
+	bool "Serial"
+	phases all
+	depends on DM
+
+  If a config option with this attribute is defined multiple times, every
+  definition needs the attribute. The definitions are combined for each
+  phase, so dependencies in one of them apply to them all. The attribute
+  cannot be used within a choice. A symbol which it creates, e.g. SPL_SERIAL,
+  cannot have an entry of its own.
+
+  See "Options for each phase" in :doc:`spl` for more information.
 
 - limiting menu display: "visible if" <expr>
 
