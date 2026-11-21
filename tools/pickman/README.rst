@@ -957,7 +957,14 @@ it, leaving the branch subtly wrong.  Because this is easy to miss, the parked
 backlog is also printed at the end of every ``step`` and ``poll`` run.
 
 By default the comparison uses the tracked source position as the upstream
-side.  ``--upstream COMMIT`` overrides it, read-only, so drift becomes a
+side, or where the source meets another tracked source's position, if that is
+further on.  Upstream merges next into main at each release, so pickman brings
+next's commits in through main while the position of next stays where it is;
+measured from there, next would look thousands of commits behind.  Status says
+which source the position is reached through, and gives the source's own
+position too.  The same position is used by ``drift``.
+
+``--upstream COMMIT`` overrides the position, read-only, so drift becomes a
 function of the (branch, upstream) pair and can be evaluated for a past point
 by pairing it with a rewound ``-b``::
 

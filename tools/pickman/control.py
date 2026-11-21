@@ -1202,6 +1202,40 @@ def drift_blame(branch, path, down_hashes):
     return blame
 
 
+def source_position(dbs, source):
+    """Find how far upstream a source is brought in
+
+    A source's commits can arrive through another source: upstream merges
+    next into main at each release, so pickman brings next's commits in
+    through main while next's own position stays where it is. Measured from
+    that position, next looks thousands of commits behind. So go on to where
+    the source meets each other source's position, if that is further.
+
+    Args:
+        dbs (Database): Database instance
+        source (str): Source branch name, e.g. 'us/next'
+
+    Return:
+        tuple: (commit, via), where commit is the position to measure from
+            and via is the source it is reached through, or None for the
+            source's own position; or (None, None) if the source is unknown
+    """
+    pos = dbs.source_get(source)
+    if not pos:
+        return None, None
+    via = None
+    for name, other in dbs.source_get_all():
+        if name == source or not other:
+            continue
+        try:
+            meet = gitutil.merge_base(other, source)
+        except command.CommandExc:
+            continue
+        if meet and meet != pos and gitutil.is_ancestor(pos, meet):
+            pos, via = meet, name
+    return pos, via
+
+
 # pylint: disable-next=too-many-locals,too-many-branches
 def drift_collect(dbs, source, branch, deep=False, base=None):
     """Compare the downstream tree with upstream and classify every delta
@@ -1213,15 +1247,15 @@ def drift_collect(dbs, source, branch, deep=False, base=None):
         deep (bool): Blame the files which downstream commits touch, to find
             drift inside them; otherwise assume such files are wholly intended
         base (str): Upstream commit to compare against, overriding the tracked
-            source position; None to use the position from the database.  An
-            override lets drift be computed for a past point, since it makes
-            the result a pure function of (branch, base)
+            source position; None to use the position from source_position().
+            An override lets drift be computed for a past point, since it
+            makes the result a pure function of (branch, base)
 
     Return:
         DriftInfo: Result of the comparison, or None if the source is unknown
     """
     if base is None:
-        base = dbs.source_get(source)
+        base, _ = source_position(dbs, source)
         if not base:
             tout.error(f"Source '{source}' not found - use "
                        "'pickman add-source'")
@@ -3053,8 +3087,11 @@ def do_status(args, dbs):  # pylint: disable=too-many-locals
         return 1
 
     # An override supplies the base directly; otherwise use the tracked
-    # position.  Everything below compares against this same base
-    last_commit = base or dbs.source_get(source)
+    # position, or where another source has got to.  Everything below
+    # compares against this same base
+    last_commit, via = base, None
+    if not base:
+        last_commit, via = source_position(dbs, source)
     if not last_commit:
         tout.error(f"Source '{source}' not found - use 'pickman add-source'")
         return 1
@@ -3068,6 +3105,9 @@ def do_status(args, dbs):  # pylint: disable=too-many-locals
     tip = gitutil.commit_summary(source)
     tout.info('Upstream backlog (to bring in):')
     tout.info(f'  source position: {pos}')
+    if via:
+        own = gitutil.commit_summary(dbs.source_get(source))
+        tout.info(f'    (reached through {via}; own position: {own})')
     tout.info(f'  upstream tip:    {tip}')
     tout.info(f'  {merges} series remaining ({commits} non-merge commits)')
     tout.info('')
