@@ -109306,3 +109306,60 @@ The branch is not pushed or merged.
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-c0518f5cfc69
+
+Commits:
+- c0518f5cfc69 toradex: apalis-imx8: Disable PCIe B without on-module Wi-Fi
+- 30328d5aea7e imx8m: soc: Disable OP-TEE CAAM job ring in kernel device-tree
+- e0e0c5a50d61 doc: imx: mxs: remove link to Denx's mirror for elftosb
+- 7f0840f30713 board: engicam: imx8mp: adjust the fdt_addr_r and initrd_addr location
+- eaea73015371 ddr: imx: keep ddrmix_initialized out of .bss
+- ee44c7d4b6d1 binman: add nxp_imxcst base etype for i.MX CST signing
+- e29f8d09b72c binman: nxp_imx8mcst: use the nxp_imxcst base etype
+- 98040cb088c5 binman: add nxp_imx93cst etype for i.MX93 flash.bin signing
+- d3808a5e1bcf imx93-u-boot: wrap SPL and U-Boot nodes in a CST node if AHAB_BOOT enabled
+- d9d2741ccc46 doc: imx: ahab: add AHAB introduction
+- 008ca9c04956 doc: imx: ahab: add i.MX93 secure boot guide
+- 6980043064f0 binman: test: add a helper to mock the cst bintool run_cmd()
+- 9b8370109431 binman: test: use the cst mock helper in testNxpImx8mCSTSigned
+- 250b934a32ed binman: test: add code coverage for nxp_imx93cst etype
+- 82282c70f23c imx: fdt: drop the cooling devices of the disabled cores
+- a12816dadcf2 net: dwc_eth_qos: Support external RMII reference clock on i.MX8M Plus
+- 199643c1a551 imx93_frdm: make room for distro kernels and initrd
+- f033daf7a663 remoteproc: imx_rproc: make bounds check overflow-safe
+- 6a4be1646592 net: fec_mxc: fix double free of shared MDIO bus
+- 3333824b70df imx93_frdm: prefer fastboot over regular boot in recovery mode
+- 934995f642a2 Merge tag 'u-boot-imx-main-20261107' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx
+
+### Conversation log
+Five picks are in and building cleanly; the sixth (a binman-only commit) applied as a stray new file under `tools/binman/`, so I'm dropping it as instructed and continuing with the rest.
+
+All regular commits are picked; the final merge commit is conflicting only on the dropped `tools/binman/` files, so I'm removing those and keeping it as an empty merge commit.
+
+Branch `cherry-c0518f5cfc69` (based on `ci/master`) is ready for pushing, with 16 of the 21 commits on it; the other 5 touch only `tools/binman/` and were dropped as instructed.
+
+**Build:** `buildman -L --board sandbox -w -o /tmp/pickman` passes after each pick and for the final run, with no warnings or errors.
+
+**Skipped (binman-only, handled in the separate project):**
+- ee44c7d4b6d1 binman: add nxp_imxcst base etype for i.MX CST signing
+- e29f8d09b72c binman: nxp_imx8mcst: use the nxp_imxcst base etype
+- 6980043064f0 binman: test: add a helper to mock the cst bintool run_cmd()
+- 9b8370109431 binman: test: use the cst mock helper in testNxpImx8mCSTSigned
+- 250b934a32ed binman: test: add code coverage for nxp_imx93cst etype
+
+ee44c7d4b6d1 applied without conflict, because it only adds a new file, so I removed that commit from the branch by hand (`git reset --hard HEAD~1`) rather than with `git cherry-pick --skip`.
+
+**Fix-ups (each has a `[pickman: ...]` note in the commit message):**
+- **98040cb088c5** (nxp_imx93cst etype): `tools/binman/etype/nxp_imx93cst.py` is dropped, so the commit now holds only the two-line `.gitignore` change.
+- **934995f642a2** (merge): the only conflicts were on `tools/binman/` files, which I removed; it is kept as an empty commit with its original message.
+
+**Deltas:** the other 14 commits match the originals exactly in files and line counts. The only differences are the binman drops above, which don't count as a significant delta.
+
+**split-check:** it reported nothing to convert and changed nothing on every commit.
+
+The verification step expected 21 commits in the log; it shows 16 because of the five skips. No `.pickman-signal` file was written, and nothing was merged or pushed.
+
+---
+
