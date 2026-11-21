@@ -5952,6 +5952,11 @@ def _report_run_passed(remote, merge_req, run, dbs):
 # test/py/console_base.py
 LAB_MARKERS = ('Lab failure: ', 'Lab timeout: ')
 
+# CI stages whose jobs use lab boards, see .gitlab-ci.yml. test/py prints the
+# same markers when a QEMU U-Boot does not reach its prompt, so in any other
+# stage they show that the code under test is at fault
+LAB_STAGES = ('sage-lab', 'sjg-lab', 'sjg-lab-slow')
+
 # What labgrid prints when someone else holds the board's place, in which case
 # test/py never gets as far as the console
 PLACE_MARKERS = ('is not acquired by your user', 'is not acquired on this '
@@ -6036,7 +6041,7 @@ def _lab_note(lab):
 def _select_failed_jobs(remote, merge_req, dbs, attempt):
     """Work out which of a pipeline's failed jobs to try to fix
 
-    Jobs where test/py gives up on the lab board are left out, as are jobs
+    Lab jobs where test/py gives up on the board are left out, as are jobs
     which also fail in other merge requests, since this series is not what
     breaks them. If nothing is left, say so on the merge request and record
     the pipeline, so that it is not looked at again.
@@ -6063,7 +6068,7 @@ def _select_failed_jobs(remote, merge_req, dbs, attempt):
     # Leave out jobs which the lab breaks
     lab = {}
     for job in failed_jobs:
-        found = lab_failure(job.log_tail)
+        found = job.stage in LAB_STAGES and lab_failure(job.log_tail)
         if found:
             lab[job.name] = job, found
     failed_jobs = [job for job in failed_jobs if job.name not in lab]

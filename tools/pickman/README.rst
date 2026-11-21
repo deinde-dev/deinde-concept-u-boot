@@ -479,7 +479,10 @@ for failed pipelines. For each failed pipeline:
    reaches GitLab's time limit is not counted as a lab failure, since the
    series may make the board hang. Nor is a job whose build of U-Boot fails
    or whose U-Boot stops before its prompt (e.g. 'build failed:' or 'Please
-   RESET the board' in the log), unless the lab's disk is full
+   RESET the board' in the log), unless the lab's disk is full. Only jobs in
+   the lab stages ('sage-lab', 'sjg-lab' and 'sjg-lab-slow') are checked,
+   since test/py prints the same 'Lab timeout' when a QEMU U-Boot does not
+   reach its prompt, which the series may well cause
 3. A Claude agent analyses the logs, diagnoses the root cause, and makes
    targeted fixes
 4. The fix is pushed to the MR branch, triggering a new pipeline
