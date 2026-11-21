@@ -12,6 +12,7 @@ This checks that:
 - an option listed in scripts/conf_nospl is left out of the xPL phases
 - an option for one phase has no prefix in that phase
 - the files giving the list of phases are correct
+- a phase can have no devicetree, in which case its tag is empty
 """
 
 

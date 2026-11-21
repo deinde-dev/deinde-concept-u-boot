@@ -9,6 +9,7 @@
  */
 #define XPL_FOR_EACH_PHASE(x) \
 	x(TPL, tpl), \
+	x(RPL, rpl), \
 	x(SPL, spl)
 
 /*
@@ -17,6 +18,7 @@
  */
 #define XPL_PHASE_CASES(x) \
 	case PHASE_TPL: x(TPL, tpl); break; \
+	case PHASE_RPL: x(RPL, rpl); break; \
 	case PHASE_SPL: x(SPL, spl); break
 
 /*
@@ -30,6 +32,17 @@
 #define XPL_PREV_PHASE \
 	(PHASE_NONE)
 #define XPL_NEXT_PHASE \
+	(IS_ENABLED(CONFIG_RPL) ? PHASE_RPL : \
+	 IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
+	 PHASE_BOARD_F)
+#elif defined(CONFIG_RPL_BUILD)
+#define XPL_PHASE		PHASE_RPL
+#define XPL_PHASE_NAME		"RPL"
+#define XPL_AUTOCONF		<generated/autoconf_rpl.h>
+#define XPL_PREV_PHASE \
+	(IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
+	 PHASE_NONE)
+#define XPL_NEXT_PHASE \
 	(IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
 	 PHASE_BOARD_F)
 #elif defined(CONFIG_SPL_BUILD)
@@ -37,13 +50,15 @@
 #define XPL_PHASE_NAME		"SPL"
 #define XPL_AUTOCONF		<generated/autoconf_spl.h>
 #define XPL_PREV_PHASE \
-	(IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
+	(IS_ENABLED(CONFIG_RPL) ? PHASE_RPL : \
+	 IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
 	 PHASE_NONE)
 #define XPL_NEXT_PHASE \
 	(PHASE_BOARD_F)
 #else
 #define XPL_PREV_PHASE \
 	(IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
+	 IS_ENABLED(CONFIG_RPL) ? PHASE_RPL : \
 	 IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
 	 PHASE_NONE)
 #endif

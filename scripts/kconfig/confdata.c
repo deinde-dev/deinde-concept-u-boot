@@ -24,7 +24,8 @@
  *
  * @name: Prefix in upper case, e.g. "SPL", so that CONFIG_SPL_xxx is
  *	considered to be an xPL version of CONFIG_xxx
- * @tag: Devicetree tag which marks the nodes the phase needs (NULL for TOOLS)
+ * @tag: Devicetree tag which marks the nodes the phase needs, NULL if it has
+ *	no devicetree (also for TOOLS)
  */
 struct xpl_phase {
 	char *name;
@@ -1526,7 +1527,7 @@ static int u_boot_read_phases(const char *fname)
 		}
 		phase = &xpl_phases[count++];
 		phase->name = xstrdup(name);
-		phase->tag = xstrdup(tag);
+		phase->tag = strcmp(tag, "-") ? xstrdup(tag) : NULL;
 	}
 	fclose(f);
 	if (!primary_name) {
@@ -1644,8 +1645,10 @@ static int u_boot_write_phases(void)
 	for (i = 0; i < num_phases; i++) {
 		fprintf(out, "\nXPL_UPPER_%s := %s\n", phase_lower(i),
 			xpl_phases[i].name);
-		fprintf(out, "XPL_TAG_%s := %s\n", phase_lower(i),
-			xpl_phases[i].tag);
+		fprintf(out, "XPL_TAG_%s :=", phase_lower(i));
+		if (xpl_phases[i].tag)
+			fprintf(out, " %s", xpl_phases[i].tag);
+		fprintf(out, "\n");
 	}
 	fclose(out);
 

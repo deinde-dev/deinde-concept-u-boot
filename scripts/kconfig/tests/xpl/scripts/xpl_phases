@@ -1,4 +1,5 @@
 # Phases used by the test
 tpl	bootph-pre-sram
+rpl	-
 spl	bootph-pre-ram
 ppl	-		primary

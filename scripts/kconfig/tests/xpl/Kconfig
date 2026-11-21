@@ -4,6 +4,9 @@ config SPL
 config TPL
 	bool "Enable TPL"
 
+config RPL
+	bool "Enable RPL"
+
 config SERIAL
 	bool "Serial"
 
