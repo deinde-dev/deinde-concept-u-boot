@@ -109,13 +109,22 @@ config CONS_INDEX
 
 config DM_SERIAL
 	bool "Enable Driver Model for serial drivers"
+	phases all
 	depends on DM
-	select SYS_MALLOC_F
 	help
 	  Enable driver model for serial. This replaces
 	  drivers/serial/serial.c with the serial uclass, which
 	  implements serial_putc() etc. The uclass interface is
 	  defined in include/serial.h.
+
+config DM_SERIAL
+	phases ppl
+	select SYS_MALLOC_F
+
+config DM_SERIAL
+	phases !ppl
+	depends on PPL_DM_SERIAL
+	default y
 
 config SERIAL_RX_BUFFER
 	bool "Enable RX buffer for serial input"
@@ -171,36 +180,6 @@ config SERIAL_PROBE_ALL
 	  and receiving the characters.
 
 	  If unsure, say N.
-
-config SPL_DM_SERIAL
-	bool "Enable Driver Model for serial drivers in SPL"
-	depends on DM_SERIAL && SPL_DM
-	default y
-	help
-	  Enable driver model for serial in SPL. This replaces
-	  drivers/serial/serial.c with the serial uclass, which
-	  implements serial_putc() etc. The uclass interface is
-	  defined in include/serial.h.
-
-config TPL_DM_SERIAL
-	bool "Enable Driver Model for serial drivers in TPL"
-	depends on DM_SERIAL && TPL_DM
-	default y if TPL && DM_SERIAL
-	help
-	  Enable driver model for serial in TPL. This replaces
-	  drivers/serial/serial.c with the serial uclass, which
-	  implements serial_putc() etc. The uclass interface is
-	  defined in include/serial.h.
-
-config VPL_DM_SERIAL
-	bool "Enable Driver Model for serial drivers in VPL"
-	depends on DM_SERIAL && VPL_DM
-	default y if VPL && DM_SERIAL
-	help
-	  Enable driver model for serial in VPL. This replaces
-	  drivers/serial/serial.c with the serial uclass, which
-	  implements serial_putc() etc. The uclass interface is
-	  defined in include/serial.h.
 
 config SERIAL_TERM_PRESENT
 	bool "Assume there is a serial terminal present on the serial line"
