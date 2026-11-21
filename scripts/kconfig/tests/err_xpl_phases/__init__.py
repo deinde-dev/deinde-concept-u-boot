@@ -3,7 +3,8 @@
 U-Boot: mistakes in the list of phases
 
 scripts/xpl_phases lists the phases, one to a line, each with the devicetree
-tag which marks the nodes it needs.
+tag which marks the nodes it needs. A line marked 'primary' gives the primary
+phase, which has '-' for its tag.
 
 This checks that a mistake in the list is reported, with its line number where
 it has one. Each case is a list of phases and the message which it should
@@ -28,6 +29,17 @@ CASES = [
     (''.join(f'p{seq} bootph-pre-ram\n' for seq in range(8)),
      'xpl_phases:8: Too many phases'),
     (None, 'Cannot open'),
+    ('spl a\nppl - primary\nqpl - primary\n',
+     'xpl_phases:3: Only one phase can be primary'),
+    ('spl a\nspl - primary\n',
+     "xpl_phases:2: Phase name 'spl' is already in use"),
+    ('ppl - primary\nppl a\n',
+     "xpl_phases:2: Phase name 'ppl' is already in use"),
+    ('spl a\nppl primary\n',
+     "xpl_phases:2: Missing devicetree tag before 'primary'"),
+    ('spl a\nppl bootph-all primary\n',
+     "xpl_phases:2: The primary phase has no devicetree tag: use '-'"),
+    ('spl a\nppl - primary wibble\n', "xpl_phases:2: Unexpected 'wibble'"),
 ]
 
 
