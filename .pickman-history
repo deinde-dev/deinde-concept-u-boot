@@ -109677,3 +109677,34 @@ The original `cherry-58ac309aa8c6` branch was also rewritten locally and points 
 
 ---
 
+## 2026-11-21: us/main
+
+Branch: cherry-93173aa98dc9
+
+Commits:
+- 93173aa98dc9 spmi: msm: Fix V5 ownership table offset
+- 2d0ce884cefb mach-snapdragon: skip serial# env set if already present
+- 0687e8c4a2d3 mach-snapdragon: fix the serial number taken from the command line
+- cfadd2b48480 doc: board/qualcomm: Fix kconfig formatting
+- 007637428acd Merge branch 'qcom-main' of https://git.u-boot-project.org/u-boot/custodians/u-boot-snapdragon
+
+### Conversation log
+All 5 commits are cherry-picked onto `cherry-93173aa98dc9` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+| Commit | Original | Subject | Delta |
+|---|---|---|---|
+| 478fe9c49a8f | 93173aa98dc9 | spmi: msm: Fix V5 ownership table offset | identical (1 file, +15/-5) |
+| fe532252960c | 2d0ce884cefb | mach-snapdragon: skip serial# env set if already present | identical (1 file, +3) |
+| 49dfa4410d14 | 0687e8c4a2d3 | mach-snapdragon: fix the serial number taken from the command line | identical (1 file, +8/-8) |
+| 391eaa24f48c | cfadd2b48480 | doc: board/qualcomm: Fix kconfig formatting | identical (1 file, +4/-1) |
+| eda03d0debf6 | 007637428acd | Merge branch 'qcom-main' of …/u-boot-snapdragon | empty, as expected |
+
+- **Build:** ok after each pick and for the final build.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing on any commit.
+- **Concerning deltas:** none.
+- **Merge commit:** the pick stopped because it was empty, so I completed it with `git commit --allow-empty --no-edit`; the original message and the "cherry picked from" line are preserved.
+
+The branch is 5 commits ahead of ci/master with a clean working tree, ready for pushing. Nothing has been pushed or merged.
+
+---
+
