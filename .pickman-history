@@ -109605,3 +109605,40 @@ The commit for `e38cfd97ee5a` carries two `[pickman: ...]` note lines (the first
 
 ---
 
+## 2026-11-21: us/main
+
+Branch: cherry-58ac309aa8c6
+
+Commits:
+- 58ac309aa8c6 usb: dwc3: gadget: make Set Endpoint Configuration macros safe
+- 0a3f609e2959 MAINTAINERS: android: add myself as a reviewer
+- 9450a497dc03 libavb: build the SHA functions on U-Boot's SHA library
+- cdafa8448ed4 libavb: update to AOSP 1.4.0
+- 33194a8025f9 usb: gadget: mass_storage: add SuperSpeed descriptor support
+- 0e3fb22a5b2e usb: gadget: dfu: add SuperSpeed descriptor support
+- 8c1ea2aa6638 Merge tag 'u-boot-dfu-20261110' of https://git.u-boot-project.org/u-boot/custodians/u-boot-dfu
+
+### Conversation log
+Six of seven commits are picked cleanly and build; now picking the final merge commit and running the final build.
+
+All 7 commits are cherry-picked onto `cherry-58ac309aa8c6` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+| New hash | Original | Subject |
+|---|---|---|
+| 5c4840c7d810 | 58ac309aa8c6 | usb: dwc3: gadget: make Set Endpoint Configuration macros safe |
+| f7480decd1d2 | 0a3f609e2959 | MAINTAINERS: android: add myself as a reviewer |
+| ce8f49e1afe2 | 9450a497dc03 | libavb: build the SHA functions on U-Boot's SHA library |
+| fc2712c7b254 | cdafa8448ed4 | libavb: update to AOSP 1.4.0 |
+| b4241a8bd6e0 | 33194a8025f9 | usb: gadget: mass_storage: add SuperSpeed descriptor support |
+| 30f4de517482 | 0e3fb22a5b2e | usb: gadget: dfu: add SuperSpeed descriptor support |
+| f7c15d62c8b2 | 8c1ea2aa6638 | Merge tag 'u-boot-dfu-20261110' (empty commit) |
+
+- **Build:** ok after every pick and for the final build.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing on any commit.
+- **Deltas:** no concerns. Each pick matches its original's file and line counts exactly. The branch's total diff against ci/master (28 files, +1257/-1205) is identical to the original merge's first-parent diff.
+- **Merge commit:** it is empty, as expected, since its content is already in the six picks; the original message is kept.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
