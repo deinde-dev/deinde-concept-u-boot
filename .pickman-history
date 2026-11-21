@@ -109708,3 +109708,32 @@ The branch is 5 commits ahead of ci/master with a clean working tree, ready for 
 
 ---
 
+## 2026-11-21: us/main
+
+Branch: cherry-8ea02c99391d
+
+Commits:
+- 8ea02c99391d mailmap: update entry for Viacheslav Bocharov
+- a52df6536495 pinctrl: airoha: fix bias readback in airoha_pinconf_get()
+- 3e285bf4de88 pinctrl: airoha: fix pin lookup in airoha_pinmux_set()
+- 8d62e85e539d Merge patch series "pinctrl: airoha: fix pinconf_get and pinmux_set"
+
+### Conversation log
+All 4 commits are cherry-picked onto `cherry-8ea02c99391d` (based on ci/master), and the final sandbox build passes with no warnings or errors.
+
+| Original | New | Subject | Delta |
+|---|---|---|---|
+| 8ea02c99391d | bddf237957a2 | mailmap: update entry for Viacheslav Bocharov | identical (1 insertion) |
+| a52df6536495 | 05a091bb031f | pinctrl: airoha: fix bias readback in airoha_pinconf_get() | identical (+1/-1) |
+| 3e285bf4de88 | 2241b4ae748d | pinctrl: airoha: fix pin lookup in airoha_pinmux_set() | identical (+35/-9) |
+| 8d62e85e539d | 5c90048f4c5f | Merge patch series "pinctrl: airoha: fix pinconf_get and pinmux_set" | empty, as expected |
+
+- **Build:** sandbox built cleanly after each pick and again at the end. The sandbox build probably does not compile the airoha pinctrl driver, so those two commits are effectively untested here.
+- **Fix-ups:** none. There were no conflicts, and `split-check` changed nothing and reported nothing on any commit.
+- **Merge commit:** the cherry-pick stopped because it was empty, so I completed it with `git commit --allow-empty`; the original message and the "cherry picked from" line are preserved.
+- **Concerning deltas:** none.
+
+The branch is ready for pushing and has not been merged anywhere.
+
+---
+
