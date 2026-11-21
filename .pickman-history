@@ -109480,3 +109480,41 @@ The commit for `e38cfd97ee5a` carries two `[pickman: ...]` note lines (the first
 
 ---
 
+### Pipeline fix: 2026-11-21 (attempt 1)
+
+Branch: cherry-ce18369dd062
+
+Failed jobs:
+- sandbox with clang test.py (test.py)
+- sandbox test.py (test.py)
+- build all platforms 5/6 (world_build)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Test failure fixed and verified in sandbox; now reproducing the world-build shard 5/6 failure, whose log tail doesn't show the actual error.
+
+The shard 5/6 build is running in the background; I'll pick up when it finishes and report the failing boards.
+
+The local buildman lacks `--shard`, so I'm building an approximation of shard 5/6 (260 boards, every sixth board by name) in the background to find the world-build error. I'll report once it finishes.
+
+Found the world-build failure: `turris_1x_sdcard` overflows its 1MB image limit by 0x48 bytes starting at the bootvx commit. Checking how to trim it.
+
+Both failures trace to one cherry-picked commit, "cmd: bootvx: use stack-independent TFTP downloads", and are fixed by amending it on local branch `cherry-ce18369dd062-fix1` (not pushed).
+
+**1. The four test jobs (sandbox test.py, sandbox with clang, make check, make qcheck)**
+- **Root cause:** the commit adds a second line to the `bootvx` help text ("bootvx tftp - download the image using TFTP before booting"). The existing `cmd_test_bootvx_opt` test in `test/cmd/bootvx.c` expects the console output to end after the first help line.
+- **Fix:** the test now expects the new help line too.
+- **Verified:** `um build sandbox` is clean and the `bootvx` unit tests pass (6 run, 0 failures).
+
+**2. World build 5/6**
+- **Root cause:** the CI log tail did not include the actual error, so I reproduced it locally. `turris_1x_sdcard` exceeds its 1MB `u-boot-nodtb.bin` limit by 0x48 bytes. A per-commit build shows the overflow first appears at the bootvx commit; the board was already within a few hundred bytes of the limit.
+- **Fix:** `# CONFIG_CMD_ELF_BOOTVX is not set` added to `configs/turris_1x_sdcard_defconfig`. This is my judgement call: it removes the `bootvx` command from that board, following the earlier precedent of trimming options on Turris 1.x for size. If you would rather keep `bootvx` there, another option has to go instead.
+- **Verified:** `turris_1x_sdcard`, `turris_1x_nor` and `turris_1x_nand` now build cleanly, with about 1.3KB of headroom on the sdcard image.
+
+The buildman command from your step 5 was not run as written, since its arguments are the job-name words rather than board names. The local buildman also has no `--shard` option, so I built an approximation of shard 5/6 instead: every sixth board by name, 260 boards. `turris_1x_sdcard` was the only failure in that set, but the set may not match CI's shard exactly, so another failing board in the real shard is possible.
+
+The two `[pickman]` note lines are appended to the commit message without a blank line between them.
+
+---
+
