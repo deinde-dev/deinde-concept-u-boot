@@ -15,6 +15,7 @@ This checks that:
 - a twin which is written out by hand is used where there is one
 - an option whose only twin is for another phase is off
 - an option can be left out of the primary phase
+- an option for the primary phase only is left out of the others
 - enclosing menus and 'if' blocks are translated too
 
 The dump shows the entries which are created for each phase. The files which

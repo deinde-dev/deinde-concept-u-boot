@@ -538,6 +538,10 @@ void u_boot_expand_phases(void)
 			continue;
 		phase_drop_props(sym);
 
+		/* A primary-only option is not passed to the other phases */
+		if (sym->phases == PHASE_BIT(PHASE_PRIMARY))
+			sym->flags |= SYMBOL_NO_XPL;
+
 		/* An option not in the primary phase has no symbol there */
 		if (!(sym->phases & PHASE_BIT(PHASE_PRIMARY)))
 			sym->type = S_UNKNOWN;
