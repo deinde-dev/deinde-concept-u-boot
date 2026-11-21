@@ -1,0 +1,77 @@
+config SPL
+	bool "Enable SPL"
+
+config TPL
+	bool "Enable TPL"
+
+config ARCH_X
+	bool "Architecture X"
+
+config DM
+	bool "Driver model"
+	phases all
+
+config PRINTF
+	bool "printf()"
+	phases ppl spl
+
+config SERIAL
+	bool "Serial"
+	phases all
+	depends on DM
+	select PRINTF
+
+config SERIAL
+	phases !ppl
+	default y
+
+config MAX_SIZE
+	hex "Maximum size"
+	phases spl tpl
+	default 0x1000
+
+config GLOBAL
+	bool "Same in every phase, except for a twin"
+
+config SPL_GLOBAL
+	bool "Twin written out by hand"
+
+config USES_GLOBAL
+	bool "Depends on an option with no phases"
+	phases all
+	depends on GLOBAL
+
+config PRIMARY_ONLY
+	bool "Only in the primary phase"
+	phases ppl
+	default y
+
+menu "Menu"
+	depends on DM
+
+config IN_MENU
+	bool "In a menu"
+	phases all
+
+endmenu
+
+if SERIAL
+
+config IN_IF
+	bool "In an if block"
+	phases all
+	default y
+
+endif
+
+config BY_ARCH
+	bool "Default set by the architecture"
+	phases all
+
+if ARCH_X
+
+config BY_ARCH
+	phases all
+	default y
+
+endif

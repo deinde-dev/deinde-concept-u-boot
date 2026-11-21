@@ -119,6 +119,12 @@ struct symbol {
 	/* List of properties. See prop_type. */
 	struct property *prop;
 
+	/*
+	 * U-Boot: mask of the phases in which this option exists, if it is
+	 * defined with a 'phases' line; 0 if it is the same in every phase
+	 */
+	unsigned int phases;
+
 	/* Dependencies from enclosing menus, choices, and ifs */
 	struct expr_value dir_dep;
 
@@ -283,7 +289,10 @@ struct menu {
 	/* MENU_* flags */
 	unsigned int flags;
 
-	/* U-Boot: mask of the phases from the 'phases' line, 0 if none */
+	/*
+	 * U-Boot: mask of the phases from the 'phases' line, 0 if none. For a
+	 * menu or 'if' block, this is the phases of the entries inside it
+	 */
 	unsigned int phases;
 
 	/* Any help text associated with the node */

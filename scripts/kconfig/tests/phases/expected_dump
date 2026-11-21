@@ -1,0 +1,189 @@
+
+config SPL
+	bool
+	prompt "Enable SPL"
+
+config TPL
+	bool
+	prompt "Enable TPL"
+
+config ARCH_X
+	bool
+	prompt "Architecture X"
+
+config DM
+	bool
+	prompt "Driver model"
+
+config PRINTF
+	bool
+	prompt "printf()"
+
+config SERIAL
+	bool
+	depends on DM
+	prompt "Serial" if DM
+	select PRINTF if DM
+
+config SERIAL
+	bool
+	default y
+
+config MAX_SIZE
+	hex
+	prompt "Maximum size"
+	default 0x1000
+
+config GLOBAL
+	bool
+	prompt "Same in every phase, except for a twin"
+
+config SPL_GLOBAL
+	bool
+	prompt "Twin written out by hand"
+
+config USES_GLOBAL
+	bool
+	depends on GLOBAL
+	prompt "Depends on an option with no phases" if GLOBAL
+
+config PRIMARY_ONLY
+	bool
+	prompt "Only in the primary phase"
+	default y
+
+menu "Menu"
+	depends on DM
+
+config IN_MENU
+	bool
+	depends on DM
+	prompt "In a menu" if DM
+
+endmenu
+
+config IN_IF
+	bool
+	depends on SERIAL
+	prompt "In an if block" if SERIAL
+	default y if SERIAL
+
+config BY_ARCH
+	bool
+	prompt "Default set by the architecture"
+
+config BY_ARCH
+	bool
+	depends on ARCH_X
+	default y if ARCH_X
+
+menu "TPL phase options"
+	depends on TPL
+
+config TPL_DM
+	bool
+	depends on TPL
+	prompt "Driver model" if TPL
+
+config TPL_SERIAL
+	bool
+	depends on TPL && DM
+	prompt "Serial" if TPL && DM
+	select PRINTF if TPL && DM
+
+config TPL_SERIAL
+	bool
+	depends on TPL
+	default y if TPL
+
+config TPL_MAX_SIZE
+	hex
+	depends on TPL
+	prompt "Maximum size" if TPL
+	default 0x1000 if TPL
+
+config TPL_USES_GLOBAL
+	bool
+	depends on TPL && GLOBAL
+	prompt "Depends on an option with no phases" if TPL && GLOBAL
+
+config TPL_IN_MENU
+	bool
+	depends on TPL
+	prompt "In a menu" if TPL
+
+config TPL_IN_IF
+	bool
+	depends on TPL
+	prompt "In an if block" if TPL
+	default y if TPL
+
+config TPL_BY_ARCH
+	bool
+	depends on TPL
+	prompt "Default set by the architecture" if TPL
+
+config TPL_BY_ARCH
+	bool
+	depends on TPL
+	default y if TPL
+
+endmenu
+
+menu "SPL phase options"
+	depends on SPL
+
+config SPL_DM
+	bool
+	depends on SPL
+	prompt "Driver model" if SPL
+
+config SPL_PRINTF
+	bool
+	depends on SPL
+	prompt "printf()" if SPL
+
+config SPL_SERIAL
+	bool
+	depends on SPL && DM
+	prompt "Serial" if SPL && DM
+	select PRINTF if SPL && DM
+
+config SPL_SERIAL
+	bool
+	depends on SPL
+	default y if SPL
+
+config SPL_MAX_SIZE
+	hex
+	depends on SPL
+	prompt "Maximum size" if SPL
+	default 0x1000 if SPL
+
+config SPL_USES_GLOBAL
+	bool
+	depends on SPL && GLOBAL
+	prompt "Depends on an option with no phases" if SPL && GLOBAL
+
+config SPL_IN_MENU
+	bool
+	depends on SPL
+	prompt "In a menu" if SPL
+
+config SPL_IN_IF
+	bool
+	depends on SPL
+	prompt "In an if block" if SPL
+	default y if SPL
+
+config SPL_BY_ARCH
+	bool
+	depends on SPL
+	prompt "Default set by the architecture" if SPL
+
+config SPL_BY_ARCH
+	bool
+	depends on SPL
+	default y if SPL
+
+endmenu

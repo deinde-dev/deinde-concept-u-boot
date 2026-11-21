@@ -10,6 +10,12 @@
  *		phases ppl spl tpl
  *		depends on DM
  *
+ * This creates the symbol DM_SERIAL for the primary phase ('ppl') along with
+ * SPL_DM_SERIAL and TPL_DM_SERIAL, each with its own value.
+ *
+ * The entries for each phase other than the primary one go in a menu of
+ * their own.
+ *
  * Copyright 2026 Simon Glass <sjg@chromium.org>
  */
 
@@ -82,4 +88,215 @@ void menu_add_phase(const char *name, bool negate)
 	current_entry->phases &= ~mask;
 	if (!current_entry->phases)
 		zconf_error("'phases' leaves the option with no phases");
+}
+
+/* Check whether a symbol is defined by a config entry, not just mentioned */
+static bool phase_sym_defined(const struct symbol *sym)
+{
+	struct property *prop;
+
+	for (prop = sym->prop; prop; prop = prop->next) {
+		if (prop->type == P_SYMBOL)
+			return true;
+	}
+
+	return false;
+}
+
+/* Get the symbol for a phase's version of an option, e.g. SPL_FOO */
+static struct symbol *phase_instance(const struct symbol *sym, int phase,
+				     bool create)
+{
+	char name[SYMBOL_MAXLENGTH];
+
+	snprintf(name, sizeof(name), "%s_%s", xpl_name[phase - 1], sym->name);
+
+	return create ? sym_lookup(name, 0) : sym_find(name);
+}
+
+/**
+ * phase_copy_prop() - Copy a property to the symbol for a phase
+ *
+ * @prop: Property to copy
+ * @sym: Symbol to add the copy to, NULL if it is for a menu
+ * @menu: Menu entry which the copy belongs to
+ * Return: new property
+ */
+static struct property *phase_copy_prop(const struct property *prop,
+					struct symbol *sym, struct menu *menu)
+{
+	struct property *copy;
+
+	copy = prop_alloc(prop->type, sym);
+	copy->text = prop->text;
+	if (prop->type == P_SYMBOL)
+		copy->expr = expr_alloc_symbol(sym);
+	else
+		copy->expr = expr_copy(prop->expr);
+	copy->visible.expr = expr_copy(prop->visible.expr);
+	copy->menu = menu;
+	copy->file = prop->file;
+	copy->lineno = prop->lineno;
+
+	return copy;
+}
+
+static struct menu *phase_alloc_menu(const struct menu *org)
+{
+	struct menu *menu;
+
+	menu = xmalloc(sizeof(*menu));
+	memset(menu, 0, sizeof(*menu));
+	menu->file = org->file;
+	menu->lineno = org->lineno;
+	menu->help = org->help;
+	menu->dep = expr_copy(org->dep);
+	menu->visibility = expr_copy(org->visibility);
+
+	return menu;
+}
+
+/* Create the entry for one phase's symbol, from a phased entry */
+static struct menu *phase_clone_entry(struct menu *org, int phase)
+{
+	struct symbol *base = org->sym;
+	struct property *prop, *copy;
+	struct symbol *sym;
+	struct menu *menu;
+
+	sym = phase_instance(base, phase, true);
+	sym->flags |= SYMBOL_OPTIONAL;
+	if (sym->type == S_UNKNOWN)
+		sym->type = base->type;
+	else if (base->type != S_UNKNOWN && sym->type != base->type)
+		menu_warn(org, "type of '%s' differs from '%s'", sym->name,
+			  base->name);
+
+	menu = phase_alloc_menu(org);
+	menu->sym = sym;
+	for (prop = base->prop; prop; prop = prop->next) {
+		if (prop->menu != org)
+			continue;
+		copy = phase_copy_prop(prop, sym, menu);
+		if (prop == org->prompt)
+			menu->prompt = copy;
+	}
+
+	return menu;
+}
+
+/**
+ * phase_clone_list() - Create the entries of a phase from those in a list
+ *
+ * This looks inside menus and 'if' blocks too, but the new entries all go in
+ * the one list.
+ *
+ * @list: First entry in the list to copy
+ * @parent: Parent for the new entries
+ * @tailp: Pointer to the end of the new list, which is updated
+ * @phase: Bit number of the phase to copy for
+ */
+static void phase_clone_list(struct menu *list, struct menu *parent,
+			     struct menu ***tailp, int phase)
+{
+	struct menu *org, *menu;
+
+	for (org = list; org; org = org->next) {
+		if (org->sym) {
+			if (org->phases & PHASE_BIT(phase)) {
+				menu = phase_clone_entry(org, phase);
+				menu->parent = parent;
+				**tailp = menu;
+				*tailp = &menu->next;
+			}
+		} else if (org->phases & PHASE_BIT(phase)) {
+			phase_clone_list(org->list, parent, tailp, phase);
+		}
+	}
+}
+
+/**
+ * phase_collect() - Collect the phases of each symbol
+ *
+ * This also records the phases of the entries inside each menu and 'if'
+ * block, so that one with nothing for a phase can be skipped.
+ *
+ * @list: First entry in the list to check
+ * Return: mask of the phases of the entries in the list
+ */
+static unsigned int phase_collect(struct menu *list)
+{
+	unsigned int mask = 0, inside;
+	struct menu *menu;
+
+	for (menu = list; menu; menu = menu->next) {
+		if (menu->sym) {
+			menu->sym->phases |= menu->phases;
+			mask |= menu->phases;
+		}
+		if (menu->list) {
+			inside = phase_collect(menu->list);
+			if (!menu->sym)
+				menu->phases = inside;
+			mask |= inside;
+		}
+	}
+
+	return mask;
+}
+
+/**
+ * u_boot_expand_phases() - Create the symbols and menus for phased entries
+ *
+ * This is called once the Kconfig files are parsed, before the menu tree is
+ * finalised. For each phase other than the primary one it adds a menu at the
+ * end of the main menu, holding that phase's version of each phased entry.
+ */
+void u_boot_expand_phases(void)
+{
+	struct menu *mirror[MAX_XPLS] = { NULL };
+	struct menu *menu, **tailp;
+	struct property *prop;
+	struct symbol *sym;
+	char *text;
+	int i;
+
+	if (!phase_collect(rootmenu.list))
+		return;
+
+	for (i = 0; i < num_phases; i++) {
+		menu = xmalloc(sizeof(*menu));
+		memset(menu, 0, sizeof(*menu));
+		tailp = &menu->list;
+		phase_clone_list(rootmenu.list, menu, &tailp, i + 1);
+		if (!menu->list) {
+			free(menu);
+			continue;
+		}
+		menu->parent = &rootmenu;
+		menu->file = rootmenu.list->file;
+		menu->lineno = rootmenu.list->lineno;
+
+		/* The options of a phase depend on the phase being enabled */
+		sym = sym_find(xpl_name[i]);
+		if (sym && phase_sym_defined(sym))
+			menu->dep = expr_alloc_symbol(sym);
+
+		text = xmalloc(strlen(xpl_name[i]) + 20);
+		sprintf(text, "%s phase options", xpl_name[i]);
+		prop = prop_alloc(P_MENU, NULL);
+		prop->text = text;
+		prop->menu = menu;
+		menu->prompt = prop;
+		mirror[i] = menu;
+	}
+
+	for (tailp = &rootmenu.list; *tailp; tailp = &(*tailp)->next)
+		;
+	for (i = 0; i < num_phases; i++) {
+		if (mirror[i]) {
+			*tailp = mirror[i];
+			tailp = &mirror[i]->next;
+		}
+	}
 }
