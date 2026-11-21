@@ -902,6 +902,11 @@ cherry-pick, merge or revert unfinished, or HEAD detached, the poll stops so
 that someone can look. Any other exception also stops the poll, with its
 traceback, since that points to a bug in pickman.
 
+Each request to GitLab gives up after two minutes, so a server which stops
+answering part way through a reply cannot hold up the poll. The round fails,
+as it does when GitLab cannot be reached at all, and the poll tries again in
+the next round.
+
 Options for the poll command:
 
 - ``-F, --fix-retries``: Max pipeline-fix attempts per MR (default: 3, 0 to disable)

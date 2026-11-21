@@ -276,6 +276,27 @@ def push_branch(remote, branch, force=False, skip_ci=True):
 
 
 # pylint: disable=too-many-arguments
+# How long to wait for GitLab to answer, in seconds. Without a limit, a
+# server which stops answering part way through a reply blocks the poll
+# forever
+TIMEOUT = 120
+
+
+def connect(host, token):
+    """Connect to a GitLab server
+
+    Args:
+        host (str): GitLab host
+        token (str): GitLab API token
+
+    Returns:
+        gitlab.Gitlab: Connection whose requests give up with
+            requests.exceptions.Timeout after TIMEOUT seconds
+    """
+    return gitlab.Gitlab(f'https://{host}', private_token=token,
+                         timeout=TIMEOUT)
+
+
 def create_mr(host, proj_path, source, target, title, desc=''):
     """Create a merge request via GitLab API
 
@@ -299,7 +320,7 @@ def create_mr(host, proj_path, source, target, title, desc=''):
         return None
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
 
         merge_req = project.mergerequests.create({
@@ -353,7 +374,7 @@ def get_pickman_mrs(remote, state='opened'):
         return None
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
 
         # Sort by created_at ascending so oldest MRs are processed first
@@ -461,7 +482,7 @@ def get_mr_comments(remote, mr_iid):
         return None
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         glab.auth()
         project = glab.projects.get(proj_path)
         merge_req = project.mergerequests.get(mr_iid)
@@ -513,7 +534,7 @@ def get_failed_jobs(remote, pipeline_id, max_log_lines=200):
         return None
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
         pipeline = project.pipelines.get(pipeline_id)
         jobs = pipeline.jobs.list(scope='failed', get_all=True)
@@ -591,7 +612,7 @@ def get_shared_failures(remote, mr_iid, job_names, min_mrs=2, days=2,
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     failed_in = {name: set() for name in job_names}
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
         seen = set()
         for pipe in project.pipelines.list(
@@ -642,7 +663,7 @@ def reply_to_mr(remote, mr_iid, message):
         return False
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
         merge_req = project.mergerequests.get(mr_iid)
         merge_req.notes.create({'body': message})
@@ -678,7 +699,7 @@ def update_mr_desc(remote, mr_iid, desc):
         return False
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
         merge_req = project.mergerequests.get(mr_iid)
         merge_req.description = desc
@@ -715,7 +736,7 @@ def update_mr_title(remote, mr_iid, title):
         return False
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
         merge_req = project.mergerequests.get(mr_iid)
         merge_req.title = title
@@ -813,7 +834,7 @@ def ensure_mr_pipeline(remote, mr_iid, tries=12, delay=10):
         return False
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         project = glab.projects.get(proj_path)
         merge_req = project.mergerequests.get(mr_iid)
 
@@ -875,7 +896,7 @@ def get_project(remote):
     host, proj_path = parse_url(get_remote_url(remote))
     if not host or not proj_path:
         return None
-    glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+    glab = connect(host, token)
     return glab.projects.get(proj_path)
 
 
@@ -1024,7 +1045,7 @@ def check_permissions(remote):  # pylint: disable=too-many-return-statements
         return None
 
     try:
-        glab = gitlab.Gitlab(f'https://{host}', private_token=token)
+        glab = connect(host, token)
         glab.auth()
         user = glab.user
 

@@ -14,12 +14,15 @@ import json
 import os
 import shutil
 import signal
+import socket
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest import mock
+
+import requests
 
 # Allow 'from pickman import xxx' to work via symlink
 our_path = os.path.dirname(os.path.realpath(__file__))
@@ -2489,6 +2492,21 @@ class TestStep(unittest.TestCase):
                 ret = control.do_step(args, None)
 
         self.assertEqual(ret, 1)
+
+    def test_step_timeout(self):
+        """Test step when GitLab stops answering"""
+        with mock.patch.object(gitlab, 'get_merged_pickman_mrs',
+                               side_effect=requests.exceptions.ReadTimeout(
+                                   'Read timed out')):
+            args = argparse.Namespace(cmd='step', source='us/next',
+                                      remote='ci', target='master',
+                                      max_mrs=5)
+            with terminal.capture() as (_, err):
+                ret = control.do_step(args, None)
+
+        self.assertEqual(ret, 1)
+        self.assertIn('step failed with connection error: Read timed out',
+                      err.getvalue())
 
     def test_step_open_mrs_error(self):
         """Test step when get_open_pickman_mrs returns error."""
@@ -10884,6 +10902,21 @@ class TestPipelineApi(unittest.TestCase):
         job.name = name
         return job
 
+    def test_connect_timeout(self):
+        """Test that a server which never answers does not block forever"""
+        with socket.socket() as srv:
+            # Take the connection but never answer it
+            srv.bind(('127.0.0.1', 0))
+            srv.listen(1)
+            host = f'127.0.0.1:{srv.getsockname()[1]}'
+            with mock.patch.object(gitlab, 'TIMEOUT', 0.1):
+                glab = gitlab.connect(host, 'tok')
+
+                # Without a timeout, the request below would never return
+                self.assertEqual(0.1, glab.timeout)
+                with self.assertRaises(requests.exceptions.Timeout):
+                    glab.projects.get('group/project')
+
     def test_get_project(self):
         """Test that a missing module, token or URL gives no project"""
         with mock.patch.object(gitlab, 'check_available',
@@ -10910,7 +10943,8 @@ class TestPipelineApi(unittest.TestCase):
             project = gitlab.get_project('ci')
         self.assertIs(glab.projects.get.return_value, project)
         mock_glab.assert_called_once_with('https://gitlab.com',
-                                          private_token='tok')
+                                          private_token='tok',
+                                          timeout=gitlab.TIMEOUT)
         glab.projects.get.assert_called_once_with('group/project')
 
     def test_get_pipeline_jobs(self):
