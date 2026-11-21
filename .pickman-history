@@ -109235,3 +109235,74 @@ Things you should know:
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-4123564432d5
+
+Commits:
+- 4123564432d5 pci: dw_amd: Enable CPM6 host1 and quiesce interrupts on init
+- d08fbde98d0f xilinx: fru: Add bounds checks when parsing FRU data
+- f349a7175233 xilinx: fru: Fix wrong argv index in do_fru_capture() addr check
+- 70d2551bf9a4 xilinx: fru: Use sizeof() for board header size
+- 0840dba3b98f fpga: zynqmppl: fix pointer arithmetic in zynqmp_align_dma_buffer()
+- d18ef312a7c7 fpga: zynqpl: use actread for bitstream scan in zynq_loadfs
+- 3b0d6251c370 fpga: zynqpl: stop header scan once a full header can't fit
+- 0a1f6f8c1b95 configs: zynqmp: Enable Xilinx AXI Quad SPI driver
+- 5b5c92cb939f firmware: zynqmp: fix PM_REGNODE_PMC_TAP node ID collision
+- aa579fc5b6ae configs: versal: Skip relocation for mini OSPI
+- 4f9d08098675 spi: cadence_qspi: Fix double reset assert
+- eba26807ab0e amd: versal2: Enable SCMI power domain support
+- 38ab1fea2e4b amd: versal2: Disable EEMI clk reset power and switch to SCMI
+- ad8c887a67aa riscv: dts: mbv: Update mem size to 2GB
+- 2ba7943ec002 riscv: dts: mbv: Update bootph-all in xilinx-mbv64 DT
+- 4d16fa0db8f9 xilinx: mbv: Enable Ethernet support
+- b895149d2740 xilinx: mbv: Enable GPIO driver and command
+- 0303e87b4806 xilinx: mbv: Enable CMD_EXCEPTION
+- adaf9e453950 xilinx: mbv: Update stack, heap, and OpenSBI memory
+- 67a9e750a9bc xilinx: mbv: Add support for using bigger boot images via bootm
+- a665a78042be xilinx: mbv: Add sys prompt for mbv32 and mbv64
+- f63614711e12 xilinx: mbv: Disable SPL raw image support
+- 712a3e372cd0 xilinx: mbv: Add SPI-related board config
+- 2dec69b5ad71 xilinx: mbv: Enable MTD command by default
+- b80b7593c8f4 arm64: versal2: Disable FF-A
+- 3f341093d31b arm64: dts: xilinx: drop bias-high-impedance on SDIO CD/WP pins
+- b44c5fc0ee92 arm64: zynqmp: Fix DTOVL warning about graphs in kv/kr260
+- 180f5ea975b3 arm64: dts: zynqmp: Add post-init provider for USB424 USB3 hub
+- 087f6651756c board: zynqmp: Remove 1 second delay in psu_uboot_init
+- feb8913982e4 Merge tag 'xilinx-for-v2027.01-rc2' of https://git.u-boot-project.org/u-boot/custodians/u-boot-amd
+
+### Conversation log
+The "maybe already applied" commit differs materially (b44c5fc0ee92 adds `#address-cells`/`#size-cells`/`reg` on top of what db7827ba9d3e did), so I'll pick it.
+
+Resolved a defconfig conflict on commit 10 of 30 (this tree names the option `CONFIG_PPL_TEXT_BASE`); committing it with a note and carrying on with the remaining picks.
+
+Hit a second defconfig conflict at commit 19 of 30 (`xilinx_mbv32_defconfig`); inspecting it now.
+
+Third conflict (commit 20 of 30), same root cause as the last one — a context-only clash; resolving by just dropping the `CONFIG_SYS_BOOTM_LEN` line as the original does.
+
+29 of 30 picked; the final merge commit conflicts only because its content is already on the branch — resolving it to this branch's versions so it lands as the empty marker commit.
+
+All 30 commits are on `cherry-4123564432d5` (based on ci/master), and the final sandbox build passes with no warnings or errors. One pick needs your eye: adaf9e453950 is only partly applied.
+
+**Build:** sandbox built cleanly after every pick. Sandbox does not exercise any of the Xilinx defconfigs that were touched, so the conflict resolutions below are not build-tested.
+
+**"Maybe already applied" check:** b44c5fc0ee92 is not the same as db7827ba9d3e. The earlier commit moves the `out_dp` endpoint into a `ports` node; this one adds `#address-cells`, `#size-cells` and `reg = <5>` on top. I picked it and it applied cleanly.
+
+**Fix-ups** (each has a `[pickman: ...]` note at the end of its commit message):
+
+- **aa579fc5b6ae** (configs: versal: Skip relocation for mini OSPI): this tree names the option `CONFIG_PPL_TEXT_BASE`, so I set `CONFIG_PPL_TEXT_BASE=0xFFFE0000`. The delta matches the original (6 insertions, 3 deletions).
+- **adaf9e453950** (xilinx: mbv: Update stack, heap, and OpenSBI memory): only partly applicable. This tree reverts "xilinx: mbv: Update defconfigs as per memory map" (38bbcd51751e, for mbv32 test failures), so `xilinx_mbv32_defconfig` has no `CONFIG_SPL_CUSTOM_SYS_MALLOC_ADDR` to move.
+  - Applied: `CONFIG_SPL_STACK=0x8F000000` and the OpenSBI load address of 0x80000000 in both smode defconfigs.
+  - Dropped: the heap move to 0x8C000000. The heap stays at BSS end (0x84080000), which does not overlap OpenSBI or the new stack.
+  - Delta: 3 lines changed against 4 in the original, same three files.
+- **67a9e750a9bc** (bigger boot images via bootm) and **f63614711e12** (Disable SPL raw image support): context-only conflicts from the same differing SPL layout. The actual change in each is identical to the original.
+- **feb8913982e4** (the merge): conflicted in the two defconfigs above. I kept this branch's versions, which leaves it as an empty commit as intended.
+
+**Split-check:** `pickman split-check` reported nothing to convert on any commit.
+
+**Concerning deltas:** only adaf9e453950, as described. Because the earlier memory-map change was reverted here for mbv32 test failures, the mbv32/mbv64 boards are worth a run in CI or the lab before merging. The other 25 non-merge picks have stats identical to their originals.
+
+The branch is not pushed or merged.
+
+---
+
