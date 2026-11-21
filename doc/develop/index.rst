@@ -15,6 +15,7 @@ General
    designprinciples
    docstyle
    kconfig
+   kconfig-language
    memory
    pickman
    process
