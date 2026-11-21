@@ -25,15 +25,6 @@ config SERIAL
 	prompt "Serial" if DM
 	select PRINTF if DM
 
-config SERIAL
-	bool
-	default y
-
-config MAX_SIZE
-	hex
-	prompt "Maximum size"
-	default 0x1000
-
 config GLOBAL
 	bool
 	prompt "Same in every phase, except for a twin"

@@ -309,7 +309,10 @@ static struct menu *phase_alloc_menu(struct menu *org, int phase)
 	return menu;
 }
 
-/* Create the entry for one phase's symbol, from a phased entry */
+/*
+ * Create the entry for one phase's symbol, from a phased entry. For the
+ * primary phase the symbol is that of the entry itself
+ */
 static struct menu *phase_clone_entry(struct menu *org, int phase)
 {
 	struct symbol *base = org->sym;
@@ -317,13 +320,17 @@ static struct menu *phase_clone_entry(struct menu *org, int phase)
 	struct symbol *sym;
 	struct menu *menu;
 
-	sym = phase_instance(base, phase, true);
-	sym->flags |= SYMBOL_OPTIONAL;
-	if (sym->type == S_UNKNOWN)
-		sym->type = base->type;
-	else if (base->type != S_UNKNOWN && sym->type != base->type)
-		menu_warn(org, "type of '%s' differs from '%s'", sym->name,
-			  base->name);
+	if (phase == PHASE_PRIMARY) {
+		sym = base;
+	} else {
+		sym = phase_instance(base, phase, true);
+		sym->flags |= SYMBOL_OPTIONAL;
+		if (sym->type == S_UNKNOWN)
+			sym->type = base->type;
+		else if (base->type != S_UNKNOWN && sym->type != base->type)
+			menu_warn(org, "type of '%s' differs from '%s'",
+				  sym->name, base->name);
+	}
 
 	menu = phase_alloc_menu(org, phase);
 	menu->sym = sym;
@@ -425,6 +432,52 @@ static unsigned int phase_collect(struct menu *list)
 }
 
 /**
+ * phase_fix_primary() - Update the phased entries for the primary phase
+ *
+ * Replace each entry with a copy which is translated for the primary phase,
+ * since it may mention options which are not in that phase. Remove an entry
+ * which does not include the primary phase.
+ *
+ * @listp: Pointer to the first entry in the list to update
+ */
+static void phase_fix_primary(struct menu **listp)
+{
+	struct menu *org, *menu;
+
+	while (*listp) {
+		org = *listp;
+		if (org->list)
+			phase_fix_primary(&org->list);
+		if (!org->sym || !org->phases) {
+			listp = &org->next;
+			continue;
+		}
+		if (!(org->phases & PHASE_BIT(PHASE_PRIMARY))) {
+			*listp = org->next;
+			continue;
+		}
+		menu = phase_clone_entry(org, PHASE_PRIMARY);
+		menu->parent = org->parent;
+		menu->next = org->next;
+		*listp = menu;
+		listp = &menu->next;
+	}
+}
+
+/* Remove the properties of the phased entries, which are all copied by now */
+static void phase_drop_props(struct symbol *sym)
+{
+	struct property **propp = &sym->prop;
+
+	while (*propp) {
+		if ((*propp)->menu && (*propp)->menu->phases)
+			*propp = (*propp)->next;
+		else
+			propp = &(*propp)->next;
+	}
+}
+
+/**
  * u_boot_expand_phases() - Create the symbols and menus for phased entries
  *
  * This is called once the Kconfig files are parsed, before the menu tree is
@@ -469,6 +522,8 @@ void u_boot_expand_phases(void)
 		mirror[i] = menu;
 	}
 
+	phase_fix_primary(&rootmenu.list);
+
 	for (tailp = &rootmenu.list; *tailp; tailp = &(*tailp)->next)
 		;
 	for (i = 0; i < num_phases; i++) {
@@ -476,5 +531,15 @@ void u_boot_expand_phases(void)
 			*tailp = mirror[i];
 			tailp = &mirror[i]->next;
 		}
+	}
+
+	for_all_symbols(i, sym) {
+		if (!sym->phases)
+			continue;
+		phase_drop_props(sym);
+
+		/* An option not in the primary phase has no symbol there */
+		if (!(sym->phases & PHASE_BIT(PHASE_PRIMARY)))
+			sym->type = S_UNKNOWN;
 	}
 }
