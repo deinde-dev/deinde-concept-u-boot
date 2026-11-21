@@ -109518,3 +109518,90 @@ The two `[pickman]` note lines are appended to the commit message without a blan
 
 ---
 
+## 2026-11-20: us/main
+
+Branch: cherry-ce18369dd062
+
+Commits:
+- ce18369dd062 net: fastboot_tcp: act on a command that succeeded, not on one that failed
+- bf59c3a24ed3 net: fm: fix the FMan firmware load offset
+- 4c08266b7a66 x86: Handle unordered runtime relocations
+- 7d10111a397b net: lwip: tftp: fix write-request transfers
+- d243101fa28c net: lwip: tftp: fix transfer retransmissions
+- 655e8af0ccb5 net: lwip: tftp: honor transport variables
+- ce41f7fb2002 net: lwip: tftp: add tftpput support
+- de38a1de1815 net: tftp: make automatic updates stack-independent
+- 6ffb52e10071 dfu: enable TFTP transport with lwIP
+- 16139de333b6 net: lwip: preserve the net_loop download return contract
+- 0203d99c2646 net: lwip: tftp: support RFC 7440 receive windows
+- 0c8415276a55 net: keep internal TFTP and DHCP downloads from automatically booting
+- e38cfd97ee5a net: lwip: honor autostart after TFTP download commands
+- 51d854861dbe cmd: bootvx: use stack-independent TFTP downloads
+- 0eb37f5894ed net: lwip: preserve interface state across network retries
+- 62bec5f8c0a4 net: lwip: use the selected interface for TFTP addressing
+- 5ea49ff544cd net: lwip: retry TFTP transfers using the network failure policy
+- ae79242adada net: lwip: keep DHCP and BOOTP autoload retries with their caller
+- fc70afb403e0 net: lwip: retry TFTP after matching ICMP port-unreachable errors
+- 3a4df969f9b1 net: ftgmac100: Add RGMII delay support for AST2600
+- 7be6cacf088b net: ftgmac100: Add RGMII delay support for AST2700
+- c687ee1b0f2a arm: dts: ast2600: add aspeed,scu property for MAC
+- e2d3ed713ac5 arm: dts: ast2600-evb: Configure RGMII delay for MAC
+- e0acb7626cf1 arm: dts: ast2700: add aspeed,scu property for MAC
+- c35db056f4bb arm: dts: ast2700-evb: Set TI DP83867 internal delay for mac1 PHY
+- 59068d481776 net: preserve the driver error in eth_init()
+- 348b0e4fc5a5 net: phy: SMSC: add Microchip LAN8841 support
+- 91ccdb82cae0 net: designware: Don't cache the MAC priv in the MDIO bus device
+- 1ab29552e706 net: designware: Release the clocks if the PHY supply fails
+- 841abbc6d561 boot: pxe: support booting PE/COFF EFI applications
+- 6b21f70073b0 net: constify enetaddr in eth_env_set_enetaddr_by_index()
+- e91aea7feee4 net: designware: Claim the reset GPIO in probe and free it on failure
+- 8dabddb86a2b Merge tag 'net-20261109' of https://git.u-boot-project.org/u-boot/custodians/u-boot-net
+
+### Conversation log
+Five commits are in so far; the sixth (tftpput support) conflicts in four files, so I'm looking at those conflicts now.
+
+Eight commits are in; the ninth (net_loop return contract) conflicts in `net/lwip/net-lwip.c` and `test/py/tests/test_ut.py`, so I'm inspecting those.
+
+Fifteen commits are in and building cleanly on both sandbox and the lwIP sandbox. Continuing with the remaining 17.
+
+Sixteen commits are in. The seventeenth (DHCP/BOOTP autoload retries) conflicts in three files against this tree's getopt-style commands; I've worked out the resolution and am applying it now.
+
+Twenty-six commits are in. The designware MDIO commit conflicts in `drivers/net/designware.c`; looking at it now, with five more commits after it.
+
+Twenty-nine commits are in; the PXE PE/COFF commit had to be ported by hand into this tree's refactored `label_run_boot()` and builds cleanly. Three commits left.
+
+The branch `cherry-ce18369dd062` is ready for pushing with 32 commits on top of `ci/master`, not 33: `bf59c3a24ed3` was skipped because it is already applied as `fb0cff340b61` with an identical diff.
+
+## Build and tests
+- **Final sandbox build:** ok, no warnings or errors.
+- **sandbox64_lwip:** builds with no C warnings; I built it after each remaining pick from the tftpput commit onwards, since sandbox itself uses the legacy stack and does not compile the lwIP code. A fresh build of this board shows devicetree warnings from `sandbox.dtsi`, which I did not confirm against `ci/master`.
+- **Driver boards:** `rock64-rk3328`, `evb-ast2600` and `socfpga_cyclone5` compile with no C warnings (designware and ftgmac100 are not built by sandbox).
+- **Unit tests:** `ut dm tftp*` passes on both sandbox variants and `ut dm lwip*` passes on sandbox64_lwip (10 tests, 0 failures).
+- **Not run:** the PXE/bootflow tests, so the hand-ported PE/COFF change is build-tested only.
+
+## Fix-ups
+Each has a `[pickman: ...]` note at the end of its commit message. Most come from this tree's getopt-style command signature (`do_tftpb(struct getopt_state *gs)` etc.) and argument-less `bootm_maybe_autostart()`.
+
+- **d243101fa28c** (tftp retransmissions): conflict in `net/lwip/net-lwip.c`, kept `IS_ENABLED(CONFIG_SANDBOX_TIMER)`.
+- **ce41f7fb2002** (tftpput): `do_tftpput()`/`do_tftp()` take `getopt_state`, both commands use `U_BOOT_CMD_NOOPTS()`, the moved `CMD_TFTPPUT` gains `select GETOPT`, and `CMD_PCAP` stays where it is.
+- **de38a1de1815** (automatic updates): include conflict in `net/net-common.c`.
+- **16139de333b6** (net_loop contract): conflicts in `net-lwip.c` and `test_ut.py`; the new test entry uses this tree's `f'ut {flags}'` form.
+- **0c8415276a55** (no auto-boot for internal downloads):
+  - The PXE paths in `boot/bootmeth_pxe.c` and `cmd/pxe.c` already call `netboot_run()` directly here, so I left them unchanged.
+  - The new static helper clashed with that public name, so it is renamed `net_cmd_run_noboot()` and takes `getopt_state`.
+- **e38cfd97ee5a** (autostart after TFTP): adapted the autostart calls and added a `tftp_test_cmd()` helper in `test/dm/tftp.c`.
+- **0eb37f5894ed**, **62bec5f8c0a4**, **5ea49ff544cd**, **ae79242adada**: new test code called `do_dhcp()`/`do_bootp()`/`do_tftpb()` with the old signature; switched to the getopt test helpers. In `ae79242adada`, `do_tftp()` takes argc/argv plus the parent context as upstream does, with the wrappers passing `gs->argc`/`gs->argv`.
+- **91ccdb82cae0** and **e91aea7feee4** (designware): conflicts resolved keeping `IS_ENABLED(CONFIG_DM_xxx)`; split-check converted three more `CONFIG_IS_ENABLED()` uses in the second one.
+- **841abbc6d561** (PXE PE/COFF): `boot/pxe_utils.c` is refactored here, so I applied the change by hand to `label_run_boot()`. It returns `-EINVAL` if `efi_binary_run()` fails, where upstream only logs.
+- **8dabddb86a2b** (merge): kept as an empty commit, since every commit in the merge is already on the branch.
+
+## Deltas
+- **0c8415276a55** touches 3 files instead of 5, because the two PXE files are left as they are; line counts are close (56/34 against 56/33).
+- **e38cfd97ee5a** is 11 lines larger than the original because of the added test helper.
+- All others match the originals to within a line or two.
+
+## One blemish
+The commit for `e38cfd97ee5a` carries two `[pickman: ...]` note lines (the first is a shorter version of the second). I left it rather than rewrite earlier commits; say if you want it tidied.
+
+---
+
