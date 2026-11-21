@@ -1,5 +1,5 @@
 # Phases used by the test
 tpl	bootph-pre-sram
-rpl	-
+rpl	-		resident
 spl	bootph-pre-ram
 ppl	-		primary

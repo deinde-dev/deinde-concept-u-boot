@@ -4,7 +4,8 @@ U-Boot: mistakes in the list of phases
 
 scripts/xpl_phases lists the phases, one to a line, each with the devicetree
 tag which marks the nodes it needs. A line marked 'primary' gives the primary
-phase, which has '-' for its tag. There must be one.
+phase, which has '-' for its tag. There must be one. A phase can also be
+marked 'resident'.
 
 This checks that a mistake in the list is reported, with its line number where
 it has one. Each case is a list of phases and the message which it should
@@ -42,6 +43,10 @@ CASES = [
     ('spl a\nppl - primary wibble\n', "xpl_phases:2: Unexpected 'wibble'"),
     ('spl a\ntpl b\n',
      "xpl_phases: No primary phase: mark one with 'primary'"),
+    ('rpl resident\nppl - primary\n',
+     "xpl_phases:1: Missing devicetree tag before 'resident'"),
+    ('spl a\nppl - primary resident\n',
+     'xpl_phases:2: The primary phase cannot be resident'),
 ]
 
 

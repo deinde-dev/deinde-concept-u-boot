@@ -26,10 +26,13 @@
  *	considered to be an xPL version of CONFIG_xxx
  * @tag: Devicetree tag which marks the nodes the phase needs, NULL if it has
  *	no devicetree (also for TOOLS)
+ * @resident: true if the phase stays resident, rather than handing over to
+ *	the next phase
  */
 struct xpl_phase {
 	char *name;
 	char *tag;
+	bool resident;
 };
 
 /*
@@ -1461,7 +1464,7 @@ static int u_boot_read_phases(const char *fname)
 	for (line = 1; s = fgets(buf, sizeof(buf), f), s; line++) {
 		struct xpl_phase *phase;
 		char *name, *extra, *p;
-		bool primary;
+		bool primary, resident;
 		int i;
 
 		name = strtok(s, " \t\n");
@@ -1473,17 +1476,23 @@ static int u_boot_read_phases(const char *fname)
 				line);
 			goto err;
 		}
-		extra = strtok(NULL, " \t\n");
-		if (!strcmp(tag, "primary")) {
+		if (!strcmp(tag, "primary") || !strcmp(tag, "resident")) {
 			fprintf(stderr,
-				"%s:%d: Missing devicetree tag before 'primary'\n",
-				fname, line);
+				"%s:%d: Missing devicetree tag before '%s'\n",
+				fname, line, tag);
 			goto err;
 		}
-		primary = extra && !strcmp(extra, "primary");
-		if (primary)
-			extra = strtok(NULL, " \t\n");
-		if (extra && *extra != '#') {
+		primary = false;
+		resident = false;
+		while (extra = strtok(NULL, " \t\n"), extra && *extra != '#') {
+			if (!strcmp(extra, "primary")) {
+				primary = true;
+				continue;
+			}
+			if (!strcmp(extra, "resident")) {
+				resident = true;
+				continue;
+			}
 			fprintf(stderr, "%s:%d: Unexpected '%s'\n", fname, line,
 				extra);
 			goto err;
@@ -1491,6 +1500,12 @@ static int u_boot_read_phases(const char *fname)
 		if (primary && strcmp(tag, "-")) {
 			fprintf(stderr,
 				"%s:%d: The primary phase has no devicetree tag: use '-'\n",
+				fname, line);
+			goto err;
+		}
+		if (primary && resident) {
+			fprintf(stderr,
+				"%s:%d: The primary phase cannot be resident\n",
 				fname, line);
 			goto err;
 		}
@@ -1528,6 +1543,7 @@ static int u_boot_read_phases(const char *fname)
 		phase = &xpl_phases[count++];
 		phase->name = xstrdup(name);
 		phase->tag = strcmp(tag, "-") ? xstrdup(tag) : NULL;
+		phase->resident = resident;
 	}
 	fclose(f);
 	if (!primary_name) {
@@ -1601,7 +1617,8 @@ static int u_boot_rename_if_changed(const char *tmpname, const char *fname)
  * write_phase_chain() - Write an expression for the phase before or after one
  *
  * This writes a C expression giving the nearest enabled phase in the given
- * direction, e.g. for the phase after TPL:
+ * direction, ignoring resident phases, which are not part of the chain. For
+ * example, for the phase after TPL:
  *
  *	(IS_ENABLED(CONFIG_VPL) ? PHASE_VPL : IS_ENABLED(CONFIG_SPL) ?
  *	PHASE_SPL : PHASE_BOARD_F)
@@ -1615,9 +1632,12 @@ static void write_phase_chain(FILE *out, int phase, int dir)
 	int i;
 
 	fprintf(out, " \\\n\t(");
-	for (i = phase + dir; i >= 0 && i < num_phases; i += dir)
+	for (i = phase + dir; i >= 0 && i < num_phases; i += dir) {
+		if (xpl_phases[i].resident)
+			continue;
 		fprintf(out, "IS_ENABLED(CONFIG_%s) ? PHASE_%s : \\\n\t ",
 			xpl_phases[i].name, xpl_phases[i].name);
+	}
 	fprintf(out, "%s)\n", dir < 0 ? "PHASE_NONE" : "PHASE_BOARD_F");
 }
 
