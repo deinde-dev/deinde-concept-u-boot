@@ -2739,8 +2739,9 @@ CHANGELOG:
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # The xPL phases, read from the source if there is no configuration
-xpl-all-phases = $(or $(XPL_PHASES),$(shell sed -n \
-	's/^\([a-z0-9]*\)[[:space:]].*/\1/p' $(srctree)/scripts/xpl_phases))
+xpl-all-phases = $(or $(XPL_PHASES),$(shell awk \
+	'/^[a-z0-9]+[ \t]/ && $$3 != "primary" { print $$1 }' \
+	$(srctree)/scripts/xpl_phases))
 
 # Directories & files removed with 'make clean'
 CLEAN_FILES  += $(MODVERDIR) \
