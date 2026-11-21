@@ -23,8 +23,10 @@ class TestReadPhases(unittest.TestCase):
             with open(os.path.join(srcdir, 'scripts', 'xpl_phases'), 'w',
                       encoding='utf-8') as outf:
                 outf.write('# comment\n\ntpl\tbootph-pre-sram\n'
-                           'mpl  bootph-monitor\nspl\tbootph-pre-ram\n')
-            self.assertEqual(('tpl', 'mpl', 'spl'), xpl.read_phases(srcdir))
+                           'mpl  bootph-monitor\nspl\tbootph-pre-ram\n'
+                           'rpl\t-\n')
+            self.assertEqual(('tpl', 'mpl', 'spl', 'rpl'),
+                             xpl.read_phases(srcdir))
 
     def test_parse(self):
         """The phases are parsed from text, e.g. read from a git commit"""

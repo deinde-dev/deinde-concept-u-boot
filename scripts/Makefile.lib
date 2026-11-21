@@ -720,7 +720,8 @@ cmd_mkimage = $(objtree)/tools/mkimage $(MKIMAGEFLAGS_$(@F)) -d $< $@ \
 # pass removes various unused properties from the remaining nodes.
 # The output is typically a much smaller device tree file.
 
-# The tag for each phase comes from scripts/xpl_phases
+# The tag for each phase comes from scripts/xpl_phases. A phase with no tag
+# cannot have a devicetree
 fdtgrep_props = -b bootph-all -b $(or $(XPL_TAG_$(XPL_NAME)), \
 	$(error No devicetree tag for xPL phase '$(XPL_NAME)'))
 
@@ -738,7 +739,8 @@ quiet_cmd_fdtgrep = FDTGREP $@
       cmd_fdtgrep = $(objtree)/tools/fdtgrep $(fdtgrep_props) -u -RT $< \
 		-n /chosen -n /config -O dtb | \
 	$(objtree)/tools/fdtgrep -r -O dtb - -o $@ \
-		-P bootph-all $(foreach p,$(XPL_PHASES),-P $(XPL_TAG_$(p))) \
+		-P bootph-all \
+		$(addprefix -P ,$(foreach p,$(XPL_PHASES),$(XPL_TAG_$(p)))) \
 		-P bootph-some-ram \
 		$(addprefix -P ,$(subst $\",,$(CONFIG_OF_SPL_REMOVE_PROPS)))
 

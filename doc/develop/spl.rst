@@ -123,11 +123,11 @@ Describing the phases
 
 The xPL phases are listed in ``scripts/xpl_phases``, in the order in which
 they run. Each line gives the name of a phase, such as ``tpl``, and the
-devicetree tag which marks the nodes it needs, such as ``bootph-pre-sram``. The
-upper-case name is the prefix of the phase's Kconfig options, so TPL has
-options such as ``CONFIG_TPL_SERIAL``, and ``CONFIG_TPL`` enables the phase.
-When it finishes, a phase moves on to the next enabled phase in the list, with
-U-Boot proper coming after the last one.
+devicetree tag which marks the nodes it needs, such as ``bootph-pre-sram``, or
+``-`` for a phase which has no devicetree. The upper-case name is the prefix of
+the phase's Kconfig options, so TPL has options such as ``CONFIG_TPL_SERIAL``,
+and ``CONFIG_TPL`` enables the phase. When it finishes, a phase moves on to the
+next enabled phase in the list, with U-Boot proper coming after the last one.
 
 The last line is for U-Boot proper, which is marked ``primary`` and has ``-``
 for its tag. It is not an xPL phase, so does not appear in the files below.
@@ -236,8 +236,8 @@ example::
 In a Makefile, ``$(XPL_PHASES)`` gives the lower-case names of the phases, in
 order. For each phase, ``$(XPL_UPPER_<phase>)`` gives its upper-case name and
 ``$(XPL_TAG_<phase>)`` its devicetree tag, e.g. ``$(XPL_TAG_tpl)`` is
-``bootph-pre-sram``. While building a phase, ``$(XPL_NAME)`` is its
-lower-case name.
+``bootph-pre-sram``. The tag is empty for a phase which has no devicetree.
+While building a phase, ``$(XPL_NAME)`` is its lower-case name.
 
 Python tools can call ``read_phases()`` in ``u_boot_pylib.xpl`` to get the
 phases of a source tree. A tree without ``scripts/xpl_phases``, such as
