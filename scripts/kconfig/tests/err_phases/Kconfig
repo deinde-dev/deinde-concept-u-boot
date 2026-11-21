@@ -1,0 +1,28 @@
+config SPL
+	bool "Enable SPL"
+
+config SERIAL
+	bool "Serial"
+	phases all
+
+config SERIAL
+	default y
+
+choice
+	prompt "Console"
+
+config CONSOLE_UART
+	bool "UART"
+	phases all
+
+config CONSOLE_NONE
+	bool "None"
+
+endchoice
+
+config DM
+	bool "Driver model"
+	phases all
+
+config SPL_DM
+	bool "Driver model in SPL"

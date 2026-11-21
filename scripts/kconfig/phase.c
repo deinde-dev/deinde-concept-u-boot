@@ -574,6 +574,77 @@ static unsigned int phase_collect(struct menu *list)
 }
 
 /**
+ * phase_check_written() - Check for entries which clash with a phased option
+ *
+ * A symbol which a phased option creates, e.g. SPL_SERIAL from SERIAL, cannot
+ * also have an entry which is written out by hand, since it would then have
+ * two entries, with a prompt for each
+ *
+ * @menu: Entry of a phased option; this does nothing unless it is the first
+ *	entry for that option, so that a clash is only reported once
+ */
+static void phase_check_written(struct menu *menu)
+{
+	struct symbol *base = menu->sym;
+	struct property *prop;
+	struct symbol *sym;
+	int phase;
+
+	for (prop = base->prop; prop; prop = prop->next) {
+		if (prop->type == P_SYMBOL)
+			break;
+	}
+	if (!prop || prop->menu != menu)
+		return;
+
+	for (phase = 1; phase <= num_phases; phase++) {
+		if (!(base->phases & PHASE_BIT(phase)))
+			continue;
+		sym = phase_instance(base, phase, false);
+		if (!sym)
+			continue;
+		for (prop = sym->prop; prop; prop = prop->next) {
+			if (prop->type != P_SYMBOL)
+				continue;
+			phase_error(prop->menu,
+				    "'%s' comes from the phases of '%s', so cannot have an entry",
+				    sym->name, base->name);
+		}
+	}
+}
+
+/**
+ * phase_check() - Check that the 'phases' lines can be supported
+ *
+ * Every entry for a phased option needs a 'phases' line, so that it is clear
+ * which phases it applies to. Choices cannot hold phased options. A symbol
+ * which a phased option creates cannot have an entry of its own.
+ *
+ * @list: First entry in the list to check
+ * @in_choice: true if the list is inside a choice
+ */
+static void phase_check(struct menu *list, bool in_choice)
+{
+	struct menu *menu;
+
+	for (menu = list; menu; menu = menu->next) {
+		bool choice = menu->sym && sym_is_choice(menu->sym);
+
+		if (menu->sym && menu->phases && in_choice)
+			phase_error(menu,
+				    "'phases' is not supported in a choice");
+		else if (menu->sym && menu->sym->phases && !menu->phases)
+			phase_error(menu,
+				    "'%s' has phases, so each of its entries needs a 'phases' line",
+				    menu->sym->name);
+		else if (menu->sym && menu->phases)
+			phase_check_written(menu);
+		if (menu->list)
+			phase_check(menu->list, in_choice || choice);
+	}
+}
+
+/**
  * phase_fix_primary() - Update the phased entries for the primary phase
  *
  * Replace the entry which holds each option with a copy which is translated
@@ -637,6 +708,9 @@ void u_boot_expand_phases(void)
 	int i;
 
 	if (!phase_collect(rootmenu.list))
+		return;
+	phase_check(rootmenu.list, false);
+	if (yynerrs)
 		return;
 
 	for (i = 0; i < num_phases; i++) {
