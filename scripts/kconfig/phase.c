@@ -147,7 +147,8 @@ static const char *phase_name(int phase)
  * this means the symbol for that phase, if the option has one. An option with
  * a single symbol is the same in every phase. If it has a twin which is
  * written out by hand, that is used, and if only some other phase has a twin,
- * the option is off, since it is not passed to this phase.
+ * the option is off, since it is not passed to this phase. A name with the
+ * prefix of the primary phase, e.g. PPL_FOO, means the symbol in that phase.
  *
  * @sym: Symbol mentioned in the entry
  * @phase: Bit number of the phase to translate for
@@ -156,10 +157,18 @@ static const char *phase_name(int phase)
 static struct symbol *phase_xlate_sym(struct symbol *sym, int phase)
 {
 	struct symbol *twin;
+	const char *base;
 	int i;
 
 	if (!sym || !sym->name || (sym->flags & (SYMBOL_CONST | SYMBOL_CHOICE)))
 		return sym;
+
+	base = primary_base(sym->name);
+	if (base && !phase_sym_defined(sym)) {
+		twin = sym_find(base);
+
+		return twin && phase_sym_defined(twin) ? twin : sym;
+	}
 
 	if (sym->phases) {
 		if (!(sym->phases & PHASE_BIT(phase)))

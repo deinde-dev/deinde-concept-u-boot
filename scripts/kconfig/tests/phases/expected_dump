@@ -74,9 +74,9 @@ config TPL_DM
 
 config TPL_SERIAL
 	bool
-	depends on TPL && TPL_DM
-	prompt "Serial" if TPL && TPL_DM
-	default y if TPL && TPL_DM
+	depends on TPL && TPL_DM && SERIAL
+	prompt "Serial" if TPL && TPL_DM && SERIAL
+	default y if TPL && TPL_DM && SERIAL
 
 config TPL_MAX_SIZE
 	hex
@@ -128,10 +128,10 @@ config SPL_PRINTF
 
 config SPL_SERIAL
 	bool
-	depends on SPL && SPL_DM
-	prompt "Serial" if SPL && SPL_DM
-	select SPL_PRINTF if SPL && SPL_DM
-	default y if SPL && SPL_DM
+	depends on SPL && SPL_DM && SERIAL
+	prompt "Serial" if SPL && SPL_DM && SERIAL
+	select SPL_PRINTF if SPL && SPL_DM && SERIAL
+	default y if SPL && SPL_DM && SERIAL
 
 config SPL_MAX_SIZE
 	hex

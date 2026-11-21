@@ -23,6 +23,7 @@ config SERIAL
 
 config SERIAL
 	phases !ppl
+	depends on PPL_SERIAL
 	default y
 
 config MAX_SIZE

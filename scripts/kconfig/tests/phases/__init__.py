@@ -14,6 +14,7 @@ This checks that:
 - 'depends on' and 'select' use the symbol for the phase
 - a twin which is written out by hand is used where there is one
 - an option whose only twin is for another phase is off
+- the prefix of the primary phase, as in PPL_xxx, refers to its option
 - several entries for an option are combined
 - an 'if' block around a later entry applies only to what it adds
 - an option can be left out of the primary phase
