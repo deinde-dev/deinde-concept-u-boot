@@ -29,6 +29,9 @@
 static char *xpl_name[MAX_XPLS];
 int num_xpls;	/* 0 if not supporting xPL, else the number of prefixes */
 
+/* true once the list of phases is read; there may be no phases in it */
+static bool phases_read;
+
 /* Devicetree tag for each phase, and the number of phases (not TOOLS) */
 static char *phase_tag[MAX_XPLS];
 static int num_phases;
@@ -1396,7 +1399,8 @@ static bool is_phase_name(const char *name)
  * u_boot_read_phases() - Read the list of xPL phases
  *
  * This sets up xpl_name[] with the upper-case name of each phase, followed by
- * TOOLS for the host tools, and sets num_xpls to the number of names
+ * TOOLS for the host tools, and sets num_phases to the number of phases. It
+ * does nothing if this is already done.
  *
  * @fname: Leaf name of the file listing the phases (see scripts/xpl_phases)
  * Return: 0 if OK, 1 on error
@@ -1405,13 +1409,15 @@ static int u_boot_read_phases(const char *fname)
 {
 	char buf[256];
 	char *s, *tag;
+	int count, line;
 	FILE *f;
-	int line;
 
+	if (phases_read)
+		return 0;
 	f = u_boot_open_script(fname);
 	if (!f)
 		return 1;
-	num_xpls = 0;
+	count = 0;
 	for (line = 1; s = fgets(buf, sizeof(buf), f), s; line++) {
 		char *name, *extra, *p;
 		int i;
@@ -1437,27 +1443,28 @@ static int u_boot_read_phases(const char *fname)
 				fname, line, name);
 			goto err;
 		}
-		for (i = 0; i < num_xpls; i++) {
+		for (i = 0; i < count; i++) {
 			if (!strcasecmp(name, xpl_name[i]))
 				break;
 		}
-		if (i < num_xpls || !strcmp(name, "tools")) {
+		if (i < count || !strcmp(name, "tools")) {
 			fprintf(stderr, "%s:%d: Phase name '%s' is already in use\n",
 				fname, line, name);
 			goto err;
 		}
-		if (num_xpls == MAX_XPLS - 1) {
+		if (count == MAX_XPLS - 1) {
 			fprintf(stderr, "%s:%d: Too many phases\n", fname, line);
 			goto err;
 		}
 		for (p = name; *p; p++)
 			*p = toupper(*p);
-		phase_tag[num_xpls] = xstrdup(tag);
-		xpl_name[num_xpls++] = xstrdup(name);
+		phase_tag[count] = xstrdup(tag);
+		xpl_name[count++] = xstrdup(name);
 	}
 	fclose(f);
-	num_phases = num_xpls;
-	xpl_name[num_xpls++] = "TOOLS";
+	num_phases = count;
+	xpl_name[count] = "TOOLS";
+	phases_read = true;
 
 	return 0;
 
@@ -1638,6 +1645,7 @@ int conf_write_autoconf(bool support_xpl)
 	if (support_xpl) {
 		if (u_boot_read_phases("xpl_phases"))
 			return 1;
+		num_xpls = num_phases + 1;
 		if (u_boot_write_phases())
 			return 1;
 		if (conf_mark_symbols())
