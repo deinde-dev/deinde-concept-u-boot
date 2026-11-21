@@ -1,0 +1,20 @@
+config SPL
+	bool "Enable SPL"
+
+config TPL
+	bool "Enable TPL"
+
+config SERIAL
+	bool "Serial"
+
+config SPL_SERIAL
+	bool "Serial in SPL"
+
+config CMDLINE
+	bool "Command line"
+
+config NET
+	bool "Networking"
+
+config TPL_MAX_SIZE
+	hex "Maximum size of TPL"
