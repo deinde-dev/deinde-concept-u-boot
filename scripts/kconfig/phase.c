@@ -11,7 +11,9 @@
  *		depends on DM
  *
  * This creates the symbol DM_SERIAL for the primary phase ('ppl') along with
- * SPL_DM_SERIAL and TPL_DM_SERIAL, each with its own value.
+ * SPL_DM_SERIAL and TPL_DM_SERIAL, each with its own value. Symbols which the
+ * entry refers to are those of the phase where they exist, so SPL_DM_SERIAL
+ * depends on SPL_DM
  *
  * The entries for each phase other than the primary one go in a menu of
  * their own, which mirrors the main menu, so that enclosing menus and 'if'
@@ -21,6 +23,7 @@
  */
 
 #include <ctype.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -115,26 +118,174 @@ static struct symbol *phase_instance(const struct symbol *sym, int phase,
 	return create ? sym_lookup(name, 0) : sym_find(name);
 }
 
+/* Entry which is being translated, for use in messages */
+static struct menu *phase_cur;
+
+/* Report an error in an entry; conf stops once the phases are expanded */
+static void phase_error(const struct menu *menu, const char *fmt, ...)
+{
+	va_list ap;
+
+	fprintf(stderr, "%s:%d:error: ", menu->file->name, menu->lineno);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fputc('\n', stderr);
+	yynerrs++;
+}
+
+/* Get the name of a phase, e.g. SPL, from its bit number */
+static const char *phase_name(int phase)
+{
+	return phase == PHASE_PRIMARY ? primary_name : xpl_name[phase - 1];
+}
+
 /**
- * phase_copy_prop() - Copy a property to the symbol for a phase
+ * phase_xlate_sym() - Find the symbol which an entry means in a given phase
+ *
+ * A phased entry refers to other options by their base name. For each phase,
+ * this means the symbol for that phase, if the option has one. An option with
+ * a single symbol is the same in every phase. If it has a twin which is
+ * written out by hand, that is used, and if only some other phase has a twin,
+ * the option is off, since it is not passed to this phase.
+ *
+ * @sym: Symbol mentioned in the entry
+ * @phase: Bit number of the phase to translate for
+ * Return: symbol to use, which is 'n' if the option is not in that phase
+ */
+static struct symbol *phase_xlate_sym(struct symbol *sym, int phase)
+{
+	struct symbol *twin;
+	int i;
+
+	if (!sym || !sym->name || (sym->flags & (SYMBOL_CONST | SYMBOL_CHOICE)))
+		return sym;
+
+	if (sym->phases) {
+		if (!(sym->phases & PHASE_BIT(phase)))
+			return &symbol_no;
+		if (phase == PHASE_PRIMARY)
+			return sym;
+
+		return phase_instance(sym, phase, true);
+	}
+	if (phase == PHASE_PRIMARY)
+		return sym;
+
+	/* Use a twin which is written out by hand, if there is one */
+	twin = phase_instance(sym, phase, false);
+	if (twin && phase_sym_defined(twin))
+		return twin;
+
+	/* This includes a twin for the host tools, which follow the phases */
+	for (i = 1; i <= num_phases + 1; i++) {
+		twin = phase_instance(sym, i, false);
+		if (twin && phase_sym_defined(twin))
+			return &symbol_no;
+	}
+
+	return sym;
+}
+
+/**
+ * phase_xlate_value() - Translate a symbol whose value is needed
+ *
+ * In a comparison, a range or the default of an option which is not a bool,
+ * 'n' makes no sense, so the option must be in the phase.
+ *
+ * @sym: Symbol mentioned in the entry
+ * @phase: Bit number of the phase to translate for
+ * Return: symbol to use
+ */
+static struct symbol *phase_xlate_value(struct symbol *sym, int phase)
+{
+	struct symbol *xlate = phase_xlate_sym(sym, phase);
+
+	if (xlate == &symbol_no && sym != &symbol_no)
+		phase_error(phase_cur,
+			    "'%s' is not in the %s phase, so its value cannot be used",
+			    sym->name, phase_name(phase));
+
+	return xlate;
+}
+
+/* Make a copy of an expression, as it applies in a given phase */
+static struct expr *phase_xlate_expr(const struct expr *org, int phase)
+{
+	struct expr *e;
+
+	if (!org)
+		return NULL;
+
+	e = xmalloc(sizeof(*e));
+	*e = *org;
+	switch (org->type) {
+	case E_SYMBOL:
+		e->left.sym = phase_xlate_sym(org->left.sym, phase);
+		break;
+	case E_NOT:
+		e->left.expr = phase_xlate_expr(org->left.expr, phase);
+		break;
+	case E_AND:
+	case E_OR:
+		e->left.expr = phase_xlate_expr(org->left.expr, phase);
+		e->right.expr = phase_xlate_expr(org->right.expr, phase);
+		break;
+	case E_EQUAL:
+	case E_UNEQUAL:
+	case E_LTH:
+	case E_LEQ:
+	case E_GTH:
+	case E_GEQ:
+	case E_RANGE:
+		e->left.sym = phase_xlate_value(org->left.sym, phase);
+		e->right.sym = phase_xlate_value(org->right.sym, phase);
+		break;
+	default:
+		free(e);
+		e = expr_copy(org);
+		break;
+	}
+
+	return e;
+}
+
+/**
+ * phase_copy_prop() - Copy a property to a symbol, translating it for a phase
  *
  * @prop: Property to copy
  * @sym: Symbol to add the copy to, NULL if it is for a menu
  * @menu: Menu entry which the copy belongs to
- * Return: new property
+ * @phase: Bit number of the phase to translate for
+ * Return: new property, or NULL if it selects something which is not in
+ *	this phase
  */
 static struct property *phase_copy_prop(const struct property *prop,
-					struct symbol *sym, struct menu *menu)
+					struct symbol *sym, struct menu *menu,
+					int phase)
 {
 	struct property *copy;
+	struct expr *expr;
+
+	if (prop->type == P_SYMBOL) {
+		expr = expr_alloc_symbol(sym);
+	} else if (prop->type == P_DEFAULT && sym && sym->type != S_BOOLEAN &&
+		   sym->type != S_TRISTATE && prop->expr->type == E_SYMBOL) {
+		expr = expr_alloc_symbol(phase_xlate_value(prop->expr->left.sym,
+							   phase));
+	} else {
+		expr = phase_xlate_expr(prop->expr, phase);
+		if ((prop->type == P_SELECT || prop->type == P_IMPLY) &&
+		    expr->left.sym == &symbol_no) {
+			expr_free(expr);
+			return NULL;
+		}
+	}
 
 	copy = prop_alloc(prop->type, sym);
 	copy->text = prop->text;
-	if (prop->type == P_SYMBOL)
-		copy->expr = expr_alloc_symbol(sym);
-	else
-		copy->expr = expr_copy(prop->expr);
-	copy->visible.expr = expr_copy(prop->visible.expr);
+	copy->expr = expr;
+	copy->visible.expr = phase_xlate_expr(prop->visible.expr, phase);
 	copy->menu = menu;
 	copy->file = prop->file;
 	copy->lineno = prop->lineno;
@@ -142,17 +293,18 @@ static struct property *phase_copy_prop(const struct property *prop,
 	return copy;
 }
 
-static struct menu *phase_alloc_menu(const struct menu *org)
+static struct menu *phase_alloc_menu(struct menu *org, int phase)
 {
 	struct menu *menu;
 
+	phase_cur = org;
 	menu = xmalloc(sizeof(*menu));
 	memset(menu, 0, sizeof(*menu));
 	menu->file = org->file;
 	menu->lineno = org->lineno;
 	menu->help = org->help;
-	menu->dep = expr_copy(org->dep);
-	menu->visibility = expr_copy(org->visibility);
+	menu->dep = phase_xlate_expr(org->dep, phase);
+	menu->visibility = phase_xlate_expr(org->visibility, phase);
 
 	return menu;
 }
@@ -173,12 +325,12 @@ static struct menu *phase_clone_entry(struct menu *org, int phase)
 		menu_warn(org, "type of '%s' differs from '%s'", sym->name,
 			  base->name);
 
-	menu = phase_alloc_menu(org);
+	menu = phase_alloc_menu(org, phase);
 	menu->sym = sym;
 	for (prop = base->prop; prop; prop = prop->next) {
 		if (prop->menu != org)
 			continue;
-		copy = phase_copy_prop(prop, sym, menu);
+		copy = phase_copy_prop(prop, sym, menu, phase);
 		if (prop == org->prompt)
 			menu->prompt = copy;
 	}
@@ -194,7 +346,7 @@ static struct menu *phase_clone_menu(struct menu *org, int phase)
 {
 	struct menu *menu;
 
-	menu = phase_alloc_menu(org);
+	menu = phase_alloc_menu(org, phase);
 	menu->list = phase_clone_list(org->list, menu, phase);
 	if (!menu->list) {
 		expr_free(menu->dep);
@@ -202,8 +354,10 @@ static struct menu *phase_clone_menu(struct menu *org, int phase)
 		free(menu);
 		return NULL;
 	}
-	if (org->prompt)
-		menu->prompt = phase_copy_prop(org->prompt, NULL, menu);
+	if (org->prompt) {
+		phase_cur = org;
+		menu->prompt = phase_copy_prop(org->prompt, NULL, menu, phase);
+	}
 
 	return menu;
 }

@@ -571,6 +571,8 @@ void conf_parse(const char *name)
 	}
 
 	u_boot_expand_phases();
+	if (yynerrs)
+		exit(1);
 
 	menu_finalize(&rootmenu);
 	for_all_symbols(i, sym) {

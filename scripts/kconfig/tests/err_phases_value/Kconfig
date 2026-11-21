@@ -1,0 +1,22 @@
+config SPL
+	bool "Enable SPL"
+
+config SIZE
+	int "Size"
+	phases ppl
+	default 8
+
+config RANGED
+	int "Has a range"
+	phases all
+	range 1 SIZE
+
+config USES_SIZE
+	int "Default from another option"
+	phases all
+	default SIZE
+
+config COMPARES
+	bool "Compares another option"
+	phases all
+	depends on SIZE > 4

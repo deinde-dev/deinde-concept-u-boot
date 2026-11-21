@@ -87,9 +87,8 @@ config TPL_DM
 
 config TPL_SERIAL
 	bool
-	depends on TPL && DM
-	prompt "Serial" if TPL && DM
-	select PRINTF if TPL && DM
+	depends on TPL && TPL_DM
+	prompt "Serial" if TPL && TPL_DM
 
 config TPL_SERIAL
 	bool
@@ -104,24 +103,24 @@ config TPL_MAX_SIZE
 
 config TPL_USES_GLOBAL
 	bool
-	depends on TPL && GLOBAL
-	prompt "Depends on an option with no phases" if TPL && GLOBAL
+	depends on TPL && n
+	prompt "Depends on an option with no phases" if TPL && n
 
 menu "Menu"
-	depends on TPL && DM
+	depends on TPL && TPL_DM
 
 config TPL_IN_MENU
 	bool
-	depends on TPL && DM
-	prompt "In a menu" if TPL && DM
+	depends on TPL && TPL_DM
+	prompt "In a menu" if TPL && TPL_DM
 
 endmenu
 
 config TPL_IN_IF
 	bool
-	depends on TPL && SERIAL
-	prompt "In an if block" if TPL && SERIAL
-	default y if TPL && SERIAL
+	depends on TPL && TPL_SERIAL
+	prompt "In an if block" if TPL && TPL_SERIAL
+	default y if TPL && TPL_SERIAL
 
 config TPL_BY_ARCH
 	bool
@@ -150,9 +149,9 @@ config SPL_PRINTF
 
 config SPL_SERIAL
 	bool
-	depends on SPL && DM
-	prompt "Serial" if SPL && DM
-	select PRINTF if SPL && DM
+	depends on SPL && SPL_DM
+	prompt "Serial" if SPL && SPL_DM
+	select SPL_PRINTF if SPL && SPL_DM
 
 config SPL_SERIAL
 	bool
@@ -167,24 +166,24 @@ config SPL_MAX_SIZE
 
 config SPL_USES_GLOBAL
 	bool
-	depends on SPL && GLOBAL
-	prompt "Depends on an option with no phases" if SPL && GLOBAL
+	depends on SPL && SPL_GLOBAL
+	prompt "Depends on an option with no phases" if SPL && SPL_GLOBAL
 
 menu "Menu"
-	depends on SPL && DM
+	depends on SPL && SPL_DM
 
 config SPL_IN_MENU
 	bool
-	depends on SPL && DM
-	prompt "In a menu" if SPL && DM
+	depends on SPL && SPL_DM
+	prompt "In a menu" if SPL && SPL_DM
 
 endmenu
 
 config SPL_IN_IF
 	bool
-	depends on SPL && SERIAL
-	prompt "In an if block" if SPL && SERIAL
-	default y if SPL && SERIAL
+	depends on SPL && SPL_SERIAL
+	prompt "In an if block" if SPL && SPL_SERIAL
+	default y if SPL && SPL_SERIAL
 
 config SPL_BY_ARCH
 	bool

@@ -4,12 +4,17 @@ U-Boot: options which are defined once for several phases
 
 An entry with a 'phases' line creates a symbol for each phase listed, e.g.
 SPL_SERIAL and TPL_SERIAL from SERIAL. The names of the phases come from
-scripts/xpl_phases, with 'all' meaning every phase.
+scripts/xpl_phases, with 'all' meaning every phase. The entry refers to
+other options by their base name, which means the symbol for the phase in each
+case.
 
 This checks that:
 - each phase has its own value
 - a '!' before the name of a phase leaves that phase out
-- an option in a menu is in a copy of that menu for each phase
+- 'depends on' and 'select' use the symbol for the phase
+- a twin which is written out by hand is used where there is one
+- an option whose only twin is for another phase is off
+- enclosing menus and 'if' blocks are translated too
 
 The dump shows the entries which are created for each phase. The files which
 syncconfig writes show the options which each phase sees.
