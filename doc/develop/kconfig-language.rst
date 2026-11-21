@@ -4,6 +4,36 @@
 Kconfig Language
 ================
 
+U-Boot
+------
+
+This is the description of the language from Linux v7.3. The Kconfig tool in
+scripts/kconfig is that of Linux v4.20, although the build system (kbuild)
+follows Linux v6.1, so the language differs in a few ways.
+
+These are described below but are not supported in U-Boot:
+
+- a condition on a dependency, i.e. "depends on" <expr> "if" <expr>. For a
+  bool option, "depends on FOO if BAR" can be written as
+  "depends on FOO || !BAR"
+- the "transitional" attribute
+- "modules" as an attribute of its own: use "option modules" instead
+- the values shown for "imply" with a tristate symbol: an option which is
+  implied by one that is y cannot be set to m. U-Boot does not use modules, so
+  this makes no difference in practice
+
+These are supported in U-Boot but are no longer in Linux, so are not described
+below:
+
+- "---help---" in place of "help"
+- "option" <symbol>, which gives a config option a special role: "modules" for
+  the MODULES symbol, "defconfig_list" for the list of default configurations
+  to try, and "allnoconfig_y" for an option which is y with "allnoconfig"
+- in a choice: a type, which is "bool" or "tristate", where a tristate choice
+  allows any number of its entries to be m; "optional", which allows no entry
+  to be selected; and a name, as in "choice" <symbol>, which allows the choice
+  to be defined in more than one place
+
 Introduction
 ------------
 
