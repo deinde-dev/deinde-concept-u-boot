@@ -8103,7 +8103,7 @@ class TestFailedJobSelection(PipelineFailures):
     def _lab_job(self, name='samus', job_id=7, log_tail=None):
         """Build a FailedJob for a board which test/py gives up on"""
         return gitlab.FailedJob(
-            id=job_id, name=name, stage='test',
+            id=job_id, name=name, stage='sjg-lab',
             web_url=f'https://gitlab.com/job/{job_id}',
             log_tail=log_tail or LAB_LOG)
 
@@ -8197,6 +8197,35 @@ class TestFailedJobSelection(PipelineFailures):
             self.assertEqual(1, dbs.pfix_count(1))
             dbs.close()
 
+    def test_qemu_timeout_fixed(self):
+        """Test that a QEMU job where test/py gives up is sent for a fix"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+
+            job = gitlab.FailedJob(
+                id=812874, name='xilinx_mbv32_smode test.py',
+                stage='test.py', web_url='https://gitlab.com/job/812874',
+                log_tail=QEMU_LOG)
+            with mock.patch.object(control, 'run_git'), \
+                 mock.patch.object(gitlab, 'get_failed_jobs',
+                                   return_value=[job]), \
+                 mock.patch.object(gitlab, 'get_shared_failures',
+                                   return_value={}), \
+                 mock.patch.object(agent, 'fix_pipeline',
+                                   return_value=(False, 'No luck')) as fix, \
+                 mock.patch.object(gitlab, 'reply_to_mr') as reply, \
+                 mock.patch.object(control, '_abort_in_progress'):
+                control.process_pipeline_failures(
+                    'ci', [self._make_mr()], dbs, 'master', 3)
+
+            jobs = fix.call_args[0][2]
+            self.assertEqual(['xilinx_mbv32_smode test.py'],
+                             [job.name for job in jobs])
+            self.assertNotIn('test/py gave up', reply.call_args[0][2])
+            self.assertEqual(1, dbs.pfix_count(1))
+            dbs.close()
+
     def test_lab_failures_left_out(self):
         """Test that lab failures are left out of a fix attempt"""
         with terminal.capture():
@@ -8241,6 +8270,24 @@ other tests will run
 2026-11-08T15:38:09.136172Z 01O ! _pytest.outcomes.Exit: Lab failure: \
 Marking connection bad - no other tests will run !
 2026-11-08T15:38:09.200000Z 01O \x1b[32;1m$ u-boot-test-release\x1b[0;m
+'''
+
+# The end of the log of a QEMU job where U-Boot does not reach its prompt,
+# from job 812874 in pipeline 12243, where test/py gives up just as for a lab
+# board
+QEMU_LOG = '''2026-11-20T20:26:10.408709Z 01O collected 882 items / 2 \
+deselected / 880 selected
+2026-11-20T20:26:10.408710Z 01O
+2026-11-20T20:26:10.408710Z 01O test/py/tests/test_000_version.py
+2026-11-20T20:26:41.415455Z 01O
+2026-11-20T20:26:41.415458Z 01O ----------- generated xml file: \
+/tmp/xilinx_mbv32_smode/results.xml ------------
+2026-11-20T20:26:41.415460Z 01O ! _pytest.outcomes.Exit: Lab timeout: \
+Marking connection bad - no other tests will run !
+2026-11-20T20:26:41.415462Z 01O ============================ 2 deselected \
+in 33.01s ============================
+2026-11-20T20:26:41.441460Z 01O +u-boot-test-release xilinx_mbv32_smode qemu
+2026-11-20T20:26:51.859034Z 00O section_end:1795206411:step_script
 '''
 
 # Part of the log of a job whose board's place someone else holds, from job
