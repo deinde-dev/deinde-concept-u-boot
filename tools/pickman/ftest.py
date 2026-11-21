@@ -9627,6 +9627,69 @@ class TestDriftCommands(unittest.TestCase):
         return dbs
 
 
+class TestSourcePosition(unittest.TestCase):
+    """Tests for source_position()"""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        _git_init(self.test_dir)
+        self.dbs = database.Database(os.path.join(self.test_dir, 'test.db'))
+        with terminal.capture():
+            self.dbs.start()
+        os.chdir(self.test_dir)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        self.dbs.close()
+        database.Database.instances.clear()
+        shutil.rmtree(self.test_dir)
+
+    def _commit(self, name):
+        """Add a commit touching a file of its own, returning its hash"""
+        tools.write_file(os.path.join(self.test_dir, name), name,
+                         binary=False)
+        _git(self.test_dir, 'add', name)
+        _git(self.test_dir, 'commit', '-q', '-m', name)
+        return _git(self.test_dir, 'rev-parse', 'HEAD')
+
+    def test_through_other_source(self):
+        """Test reaching next's commits through main, which merges next"""
+        base = self._commit('base')
+        _git(self.test_dir, 'checkout', '-q', '-b', 'us/next')
+        first = self._commit('first')
+        _git(self.test_dir, 'checkout', '-q', '-b', 'us/main', base)
+        self._commit('fix')
+        _git(self.test_dir, 'merge', '-q', '--no-edit', 'us/next')
+        main = _git(self.test_dir, 'rev-parse', 'HEAD')
+        _git(self.test_dir, 'checkout', '-q', 'us/next')
+        self._commit('second')
+
+        # A source with no history in common, which is passed over
+        _git(self.test_dir, 'checkout', '-q', '--orphan', 'other')
+        other = self._commit('other')
+
+        self.dbs.source_set('us/next', base)
+        self.dbs.source_set('us/main', main)
+        self.dbs.source_set('us/master', base)
+        self.dbs.source_set('other', other)
+        with terminal.capture():
+            self.assertEqual((first, 'us/main'),
+                             control.source_position(self.dbs, 'us/next'))
+
+            # Main is ahead of where it meets next, so keeps its position
+            self.assertEqual((main, None),
+                             control.source_position(self.dbs, 'us/main'))
+
+            # Only the commit added to next since main merged it is left
+            self.assertEqual((0, 1), control.status_backlog(first, 'us/next'))
+
+    def test_unknown(self):
+        """Test a source which is not tracked"""
+        self.assertEqual((None, None),
+                         control.source_position(self.dbs, 'us/next'))
+
+
 class TestStatus(unittest.TestCase):
     """Tests for the status command"""
 
@@ -9782,6 +9845,43 @@ class TestStatus(unittest.TestCase):
         # No hunks at all must not divide by zero
         self.assertEqual(control.drift_percent(
             {drift.WANTED: 0, drift.ACCEPTED: 0, drift.DRIFT: 0}), 0.0)
+
+    def test_status_through_other_source(self):
+        """Test that status measures from where another source has got to"""
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            dbs.source_set('us/main', 'b' * 40)
+            dbs.commit()
+            dbs.close()
+        database.Database.instances.clear()
+        with terminal.capture() as (stdout, _):
+            ret = control.do_pickman(self._args())
+        self.assertEqual(ret, 0)
+        out = stdout.getvalue()
+        self.assertIn('(reached through us/main; own position: abc1234 A '
+                      'subject)', out)
+
+        # The upstream-status page takes the first 'source position:' line
+        self.assertEqual(1, out.count('source position:'))
+
+        # Drift compares against the same position, where main meets this
+        # source, not against this source's own one
+        diffs = []
+
+        def handle(pipe_list=None, **kwargs):
+            args = list(pipe_list[0])[1:]
+            if args[0] == 'diff':
+                diffs.append(args)
+            return self._handle_git(pipe_list, **kwargs)
+
+        command.TEST_RESULT = handle
+        with terminal.capture():
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            control.drift_collect(dbs, 'us/master', 'ci/master')
+            dbs.close()
+        self.assertEqual('f' * 40, diffs[0][-2])
 
     def test_status_unknown_source(self):
         """Test that an unknown source is reported"""
