@@ -730,6 +730,9 @@ static void print_symbol(FILE *out, struct menu *menu)
 	default:
 		break;
 	}
+	if (sym_is_choice(sym) && sym_is_optional(sym))
+		fputs("\toptional\n", out);
+	print_depends(out, menu->dep);
 	for (prop = sym->prop; prop; prop = prop->next) {
 		if (prop->menu != menu)
 			continue;
@@ -751,17 +754,17 @@ static void print_symbol(FILE *out, struct menu *menu)
 		case P_SELECT:
 			fputs("\tselect ", out);
 			dump_expr(prop->expr, out);
-			fputc('\n', out);
+			print_cond(out, prop->visible.expr);
 			break;
 		case P_IMPLY:
 			fputs("\timply ", out);
 			dump_expr(prop->expr, out);
-			fputc('\n', out);
+			print_cond(out, prop->visible.expr);
 			break;
 		case P_RANGE:
-			fprintf(out, "\trange %s %s\n",
-				prop->expr->left.sym->name,
+			fprintf(out, "\trange %s %s", prop->expr->left.sym->name,
 				prop->expr->right.sym->name);
+			print_cond(out, prop->visible.expr);
 			break;
 		default:
 			fprintf(out, "\tunknown prop %d!\n", prop->type);
@@ -796,6 +799,11 @@ void zconfdump(FILE *out)
 				break;
 			default:
 				;
+			}
+			if (!expr_is_yes(menu->visibility)) {
+				fputs("\tvisible if ", out);
+				dump_expr(menu->visibility, out);
+				fputc('\n', out);
 			}
 			print_depends(out, prop->visible.expr);
 		}
