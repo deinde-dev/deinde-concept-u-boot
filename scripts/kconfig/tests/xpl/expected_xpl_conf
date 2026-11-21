@@ -1,0 +1,9 @@
+# Automatically generated from scripts/xpl_phases: do not edit
+
+XPL_PHASES := tpl spl
+
+XPL_UPPER_tpl := TPL
+XPL_TAG_tpl := bootph-pre-sram
+
+XPL_UPPER_spl := SPL
+XPL_TAG_spl := bootph-pre-ram

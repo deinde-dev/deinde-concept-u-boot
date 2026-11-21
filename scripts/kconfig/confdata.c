@@ -29,9 +29,38 @@
 static char *xpl_name[MAX_XPLS];
 int num_xpls;	/* 0 if not supporting xPL, else the number of prefixes */
 
+/* true once the list of phases is read; there may be no phases in it */
+static bool phases_read;
+
 /* Devicetree tag for each phase, and the number of phases (not TOOLS) */
 static char *phase_tag[MAX_XPLS];
 static int num_phases;
+
+/*
+ * Name of the primary phase in upper case, e.g. PPL, or NULL if the list of
+ * phases is not read yet. This is the phase whose options have no prefix
+ */
+static char *primary_name;
+
+/**
+ * primary_base() - Check whether a name has the prefix of the primary phase
+ *
+ * @name: Name to check, e.g. PPL_FOO
+ * Return: the name without its prefix, e.g. FOO, or NULL if it does not have
+ *	the prefix
+ */
+static const char *primary_base(const char *name)
+{
+	int len;
+
+	if (!primary_name)
+		return NULL;
+	len = strlen(primary_name);
+	if (strncmp(name, primary_name, len) || name[len] != '_')
+		return NULL;
+
+	return name + len + 1;
+}
 
 /* return true if 'path' exists, false otherwise */
 static bool is_present(const char *path)
@@ -549,19 +578,19 @@ static void print_makefile_sym(FILE *fp, const char *name,
 }
 
 /**
- * get_primary_name() - Prepends PPL to a symbol if it is an xPL symbol
+ * get_primary_name() - Prepends the primary phase to a symbol, e.g. PPL_FOO
  *
  * @sym: Symbol to process
  * @str: Buffer space to use, of size SYMBOL_MAXLENGTH
- * Returns: NULL if this is not an xPL symbol, otherwise returns the symbol
- * name with PPL_ prepended
+ * Returns: NULL if this is an xPL symbol, otherwise returns the symbol name
+ * with the prefix of the primary phase prepended
  */
 static const char *get_primary_name(const struct symbol *sym, char *str)
 {
 	if (sym->flags & SYMBOL_XPL)
 		return NULL;
 
-	snprintf(str, SYMBOL_MAXLENGTH, "PPL_%s", sym->name);
+	snprintf(str, SYMBOL_MAXLENGTH, "%s_%s", primary_name, sym->name);
 
 	return str;
 }
@@ -1151,12 +1180,13 @@ static int conf_split_config(void)
 		if ((sym->flags & SYMBOL_NO_WRITE) || !sym->name)
 			continue;
 		/*
-		 * U-Boot: auto.conf also holds a PPL_ copy of each option, which
-		 * reads back as a symbol with an old value but no new one, so
-		 * would be touched every time. Only the top-level Makefile uses
-		 * these, through the saved commands, so skip them
+		 * U-Boot: auto.conf also holds a copy of each option with the
+		 * prefix of the primary phase, e.g. PPL_FOO, which reads back
+		 * as a symbol with an old value but no new one, so would be
+		 * touched every time. Only the top-level Makefile uses these,
+		 * through the saved commands, so skip them
 		 */
-		if (!sym->prop && !strncmp(sym->name, "PPL_", 4))
+		if (!sym->prop && primary_base(sym->name))
 			continue;
 		if (sym->flags & SYMBOL_WRITE) {
 			if (sym->flags & SYMBOL_DEF_AUTO) {
@@ -1396,7 +1426,12 @@ static bool is_phase_name(const char *name)
  * u_boot_read_phases() - Read the list of xPL phases
  *
  * This sets up xpl_name[] with the upper-case name of each phase, followed by
- * TOOLS for the host tools, and sets num_xpls to the number of names
+ * TOOLS for the host tools, and sets num_phases to the number of phases. It
+ * does nothing if this is already done.
+ *
+ * A line marked 'primary' gives the primary phase, whose options have no
+ * prefix. It is not an xPL phase, so only its name is recorded, in
+ * primary_name, and its tag must be '-'
  *
  * @fname: Leaf name of the file listing the phases (see scripts/xpl_phases)
  * Return: 0 if OK, 1 on error
@@ -1405,15 +1440,18 @@ static int u_boot_read_phases(const char *fname)
 {
 	char buf[256];
 	char *s, *tag;
+	int count, line;
 	FILE *f;
-	int line;
 
+	if (phases_read)
+		return 0;
 	f = u_boot_open_script(fname);
 	if (!f)
 		return 1;
-	num_xpls = 0;
+	count = 0;
 	for (line = 1; s = fgets(buf, sizeof(buf), f), s; line++) {
 		char *name, *extra, *p;
+		bool primary;
 		int i;
 
 		name = strtok(s, " \t\n");
@@ -1426,9 +1464,24 @@ static int u_boot_read_phases(const char *fname)
 			goto err;
 		}
 		extra = strtok(NULL, " \t\n");
+		if (!strcmp(tag, "primary")) {
+			fprintf(stderr,
+				"%s:%d: Missing devicetree tag before 'primary'\n",
+				fname, line);
+			goto err;
+		}
+		primary = extra && !strcmp(extra, "primary");
+		if (primary)
+			extra = strtok(NULL, " \t\n");
 		if (extra && *extra != '#') {
 			fprintf(stderr, "%s:%d: Unexpected '%s'\n", fname, line,
 				extra);
+			goto err;
+		}
+		if (primary && strcmp(tag, "-")) {
+			fprintf(stderr,
+				"%s:%d: The primary phase has no devicetree tag: use '-'\n",
+				fname, line);
 			goto err;
 		}
 		if (!is_phase_name(name)) {
@@ -1437,27 +1490,43 @@ static int u_boot_read_phases(const char *fname)
 				fname, line, name);
 			goto err;
 		}
-		for (i = 0; i < num_xpls; i++) {
+		for (i = 0; i < count; i++) {
 			if (!strcasecmp(name, xpl_name[i]))
 				break;
 		}
-		if (i < num_xpls || !strcmp(name, "tools")) {
+		if (i < count || !strcmp(name, "tools") ||
+		    (primary_name && !strcasecmp(name, primary_name))) {
 			fprintf(stderr, "%s:%d: Phase name '%s' is already in use\n",
 				fname, line, name);
 			goto err;
 		}
-		if (num_xpls == MAX_XPLS - 1) {
+		if (primary && primary_name) {
+			fprintf(stderr, "%s:%d: Only one phase can be primary\n",
+				fname, line);
+			goto err;
+		}
+		if (!primary && count == MAX_XPLS - 1) {
 			fprintf(stderr, "%s:%d: Too many phases\n", fname, line);
 			goto err;
 		}
 		for (p = name; *p; p++)
 			*p = toupper(*p);
-		phase_tag[num_xpls] = xstrdup(tag);
-		xpl_name[num_xpls++] = xstrdup(name);
+		if (primary) {
+			primary_name = xstrdup(name);
+			continue;
+		}
+		phase_tag[count] = xstrdup(tag);
+		xpl_name[count++] = xstrdup(name);
 	}
 	fclose(f);
-	num_phases = num_xpls;
-	xpl_name[num_xpls++] = "TOOLS";
+	if (!primary_name) {
+		fprintf(stderr, "%s: No primary phase: mark one with 'primary'\n",
+			fname);
+		return 1;
+	}
+	num_phases = count;
+	xpl_name[count] = "TOOLS";
+	phases_read = true;
 
 	return 0;
 
@@ -1638,6 +1707,7 @@ int conf_write_autoconf(bool support_xpl)
 	if (support_xpl) {
 		if (u_boot_read_phases("xpl_phases"))
 			return 1;
+		num_xpls = num_phases + 1;
 		if (u_boot_write_phases())
 			return 1;
 		if (conf_mark_symbols())

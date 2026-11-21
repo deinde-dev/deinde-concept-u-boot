@@ -1,0 +1,7 @@
+config FOO
+	bool "In every phase"
+	phases all
+
+config BAR
+	bool "Only in the primary phase"
+	phases ppl

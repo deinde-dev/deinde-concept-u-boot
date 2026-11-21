@@ -10,10 +10,11 @@ The conventional configuration was replaced by Kconfig at v2014.10-rc1 release.
 Language Specification
 ----------------------
 
-The Kconfig configuration language originates in Linux kernel.
-See the Linux document
-`Kconfig Language <https://www.kernel.org/doc/html/latest/kbuild/kconfig-language.html>`_
-for a description of Kconfig.
+The Kconfig configuration language originates in the Linux kernel. The Kconfig
+tool in ``scripts/kconfig`` is that of Linux v4.20, with some additions,
+although the build system (kbuild) follows Linux v6.1. See
+:doc:`kconfig-language` for a description of the language, which starts with
+the ways in which U-Boot's version differs.
 
 Difference from Linux's Kconfig
 -------------------------------

@@ -37,7 +37,7 @@ class Conf:
 
     # runners
     def _run_conf(self, mode, dot_config=None, out_file='.config',
-                  interactive=False, in_keys=None, extra_env={}):
+                  interactive=False, in_keys=None, extra_env={}, out_dirs=()):
         """Run text-based Kconfig executable and save the result.
 
         mode: input mode option (--oldaskconfig, --defconfig=<file> etc.)
@@ -46,12 +46,13 @@ class Conf:
         interactive: flag to specify the interactive mode
         in_keys: key inputs for interactive modes
         extra_env: additional environments
+        out_dirs: directories whose files are kept, by leaf name, in 'files'
         returncode: exit status of the Kconfig executable
         """
         command = [CONF_PATH, mode, 'Kconfig']
 
-        # Override 'srctree' environment to make the test as the top directory
-        extra_env['srctree'] = self._test_dir
+        # Make the test the top directory, unless it provides one of its own
+        extra_env = dict({'srctree': self._test_dir}, **extra_env)
 
         # Run Kconfig in a temporary directory.
         # This directory is automatically removed when done.
@@ -96,6 +97,18 @@ class Conf:
             else:
                 self.config = None
 
+            # Retrieve the files in the directories requested
+            self.files = {}
+            for out_dir in out_dirs:
+                path = os.path.join(temp_dir, out_dir)
+                if not os.path.isdir(path):
+                    continue
+                for fname in sorted(os.listdir(path)):
+                    full = os.path.join(path, fname)
+                    if os.path.isfile(full):
+                        with open(full) as f:
+                            self.files[fname] = f.read()
+
         # Logging:
         # Pytest captures the following information by default.  In failure
         # of tests, the captured log will be displayed.  This will be useful to
@@ -114,6 +127,11 @@ class Conf:
         if self.config is not None:
             print("[output for '{}']".format(out_file))
             print(self.config)
+
+        for fname, data in self.files.items():
+            if data:
+                print("[output for '{}']".format(fname))
+                print(data)
 
         return self.retcode
 
@@ -220,6 +238,29 @@ class Conf:
         return self._run_conf('--listnewconfig', dot_config=dot_config,
                               out_file=None)
 
+    def syncconfig(self, dot_config, extra_env={}):
+        """Run syncconfig, which writes the files used by the build.
+
+        The files written to include/config and include/generated are kept in
+        'files', by leaf name, e.g. 'auto.conf'
+
+        dot_config: .config file to use for configuration base
+        extra_env: additional environments
+        returncode: exit status of the Kconfig executable
+        """
+        return self._run_conf('--syncconfig', dot_config=dot_config,
+                              extra_env=extra_env,
+                              out_dirs=['include/config', 'include/generated'])
+
+    def dump(self):
+        """Run conf to show the Kconfig files as they are understood.
+
+        This is specific to U-Boot. The result is in stdout.
+
+        returncode: exit status of the Kconfig executable
+        """
+        return self._run_conf('--dump', out_file=None)
+
     # checkers
     def _read_and_compare(self, compare, expected):
         """Compare the result with expectation.
@@ -255,6 +296,26 @@ class Conf:
         returncode: True if result matches the expected data, False otherwise
         """
         return self._matches('config', expected)
+
+    def file_contains(self, fname, expected):
+        """Check if a file which was kept contains expected data.
+
+        fname: leaf name of the file to check, e.g. 'auto.conf'
+        expected: file that contains the expected data
+        returncode: True if file contains the expected data, False otherwise
+        """
+        return self._read_and_compare(lambda s, e: s.files[fname].find(e) >= 0,
+                                      expected)
+
+    def file_matches(self, fname, expected):
+        """Check if a file which was kept exactly matches expected data.
+
+        fname: leaf name of the file to check, e.g. 'auto.conf'
+        expected: file that contains the expected data
+        returncode: True if file matches the expected data, False otherwise
+        """
+        return self._read_and_compare(lambda s, e: s.files[fname] == e,
+                                      expected)
 
     def stdout_contains(self, expected):
         """Check if resulted stdout contains expected data.

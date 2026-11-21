@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0+
 #
-# Phases of U-Boot which run before U-Boot proper (xPL), in the order in which
-# they run
+# Phases of U-Boot, in the order in which they run: those which run before
+# U-Boot proper (xPL), then U-Boot proper itself
 #
 # Each line describes one phase:
 #
@@ -9,6 +9,9 @@
 #		and, in upper case, the prefix of its Kconfig options, so 'tpl'
 #		builds in tpl/ and uses options such as CONFIG_TPL_SERIAL
 #   tag		Devicetree property which marks the nodes the phase needs
+#   primary	Marks the primary phase, U-Boot proper, whose options have no
+#		prefix. Its name is used where an option needs a prefix, e.g.
+#		CONFIG_PPL_TEXT_BASE as seen by another phase. It has no tag
 #
 # A phase is enabled by the Kconfig option with its upper-case name, e.g.
 # CONFIG_TPL. When it runs, a phase moves on to the next enabled phase in this
@@ -17,3 +20,4 @@
 tpl	bootph-pre-sram
 vpl	bootph-verify
 spl	bootph-pre-ram
+ppl	-		primary

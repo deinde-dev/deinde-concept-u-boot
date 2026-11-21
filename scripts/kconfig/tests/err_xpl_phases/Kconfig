@@ -1,0 +1,2 @@
+config SPL
+	bool "Enable SPL"

@@ -1,0 +1,3 @@
+Kconfig:9:error: 'SIZE' is not in the SPL phase, so its value cannot be used
+Kconfig:14:error: 'SIZE' is not in the SPL phase, so its value cannot be used
+Kconfig:19:error: 'SIZE' is not in the SPL phase, so its value cannot be used

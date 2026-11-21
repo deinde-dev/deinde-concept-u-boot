@@ -16,6 +16,9 @@ DEFAULT_PHASES = ('tpl', 'vpl', 'spl')
 def parse_phases(text):
     """Parse the names of the xPL phases from scripts/xpl_phases
 
+    A line marked 'primary' gives the primary phase (U-Boot proper), which is
+    not an xPL phase, so is left out
+
     Args:
         text (str): Contents of the file
 
@@ -26,8 +29,11 @@ def parse_phases(text):
     phases = []
     for line in text.splitlines():
         fields = line.split()
-        if fields and not fields[0].startswith('#'):
-            phases.append(fields[0])
+        if not fields or fields[0].startswith('#'):
+            continue
+        if fields[2:3] == ['primary']:
+            continue
+        phases.append(fields[0])
     return tuple(phases)
 
 

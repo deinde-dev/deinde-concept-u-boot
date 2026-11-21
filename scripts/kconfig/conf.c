@@ -477,6 +477,7 @@ static struct option long_opts[] = {
 	{"randconfig",      no_argument,       NULL, randconfig},
 	{"listnewconfig",   no_argument,       NULL, listnewconfig},
 	{"olddefconfig",    no_argument,       NULL, olddefconfig},
+	{"dump",            no_argument,       NULL, 'd'},
 	{NULL, 0, NULL, 0}
 };
 
@@ -498,6 +499,7 @@ static void conf_usage(const char *progname)
 	printf("  --allmodconfig          New config where all options are answered with mod\n");
 	printf("  --alldefconfig          New config with all symbols set to default\n");
 	printf("  --randconfig            New config with random answer to all options\n");
+	printf("  --dump                  Show the Kconfig files as they are understood, then exit\n");
 }
 
 int main(int ac, char **av)
@@ -508,6 +510,7 @@ int main(int ac, char **av)
 	struct stat tmpstat;
 	int no_conf_write = 0;
 	bool support_xpl;
+	bool dump = false;
 
 	tty_stdio = isatty(0) && isatty(1);
 
@@ -517,6 +520,10 @@ int main(int ac, char **av)
 	while ((opt = getopt_long(ac, av, "s", long_opts, NULL)) != -1) {
 		if (opt == 's') {
 			conf_set_message_callback(NULL);
+			continue;
+		}
+		if (opt == 'd') {
+			dump = true;
 			continue;
 		}
 		input_mode = (enum input_mode)opt;
@@ -580,7 +587,10 @@ int main(int ac, char **av)
 	}
 	name = av[optind];
 	conf_parse(name);
-	//zconfdump(stdout);
+	if (dump) {
+		zconfdump(stdout);
+		return 0;
+	}
 	if (sync_kconfig) {
 		name = conf_get_configname();
 		if (stat(name, &tmpstat)) {

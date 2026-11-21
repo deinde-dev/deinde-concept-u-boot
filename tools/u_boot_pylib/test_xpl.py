@@ -32,6 +32,20 @@ class TestReadPhases(unittest.TestCase):
                          xpl.parse_phases('# comment\n\ntpl a\n  spl\tb\n'))
         self.assertEqual((), xpl.parse_phases(''))
 
+    def test_primary(self):
+        """The primary phase is not an xPL phase, so is left out"""
+        self.assertEqual(
+            ('tpl', 'spl'),
+            xpl.parse_phases('tpl a\nspl\tb\nppl\t-\tprimary\n'))
+
+        # the marker is only looked for after the tag
+        self.assertEqual(('primary', 'spl'),
+                         xpl.parse_phases('primary a\nspl primary\n'))
+
+        # and not in a comment
+        self.assertEqual(
+            ('spl',), xpl.parse_phases('spl a # runs before primary\n'))
+
     def test_missing(self):
         """A tree without the file has the original phases"""
         with tempfile.TemporaryDirectory() as srcdir:

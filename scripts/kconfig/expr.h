@@ -119,6 +119,19 @@ struct symbol {
 	/* List of properties. See prop_type. */
 	struct property *prop;
 
+	/*
+	 * U-Boot: mask of the phases in which this option exists, if it is
+	 * defined with a 'phases' line; 0 if it is the same in every phase
+	 */
+	unsigned int phases;
+
+	/*
+	 * U-Boot: for a symbol with phases, the entry which holds the option
+	 * in each phase, indexed by the bit number in @phases. The option's
+	 * other entries for that phase are combined into it
+	 */
+	struct menu **phase_home;
+
 	/* Dependencies from enclosing menus, choices, and ifs */
 	struct expr_value dir_dep;
 
@@ -282,6 +295,12 @@ struct menu {
 
 	/* MENU_* flags */
 	unsigned int flags;
+
+	/*
+	 * U-Boot: mask of the phases from the 'phases' line, 0 if none. For a
+	 * menu or 'if' block, this is the phases of the entries inside it
+	 */
+	unsigned int phases;
 
 	/* Any help text associated with the node */
 	char *help;

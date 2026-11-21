@@ -129,6 +129,12 @@ options such as ``CONFIG_TPL_SERIAL``, and ``CONFIG_TPL`` enables the phase.
 When it finishes, a phase moves on to the next enabled phase in the list, with
 U-Boot proper coming after the last one.
 
+The last line is for U-Boot proper, which is marked ``primary`` and has ``-``
+for its tag. It is not an xPL phase, so does not appear in the files below.
+Its options have no prefix, but its name is used where one is needed, e.g.
+``CONFIG_PPL_TEXT_BASE`` gives the text base of U-Boot proper in the
+configuration of every phase.
+
 Kconfig reads the list and writes two files from it during the build. Both
 depend only on the list, so they are the same for every board.
 
@@ -245,6 +251,76 @@ To add a phase:
    such as its text base and linker script
 #. Check ``xpl_phase()`` in code which needs to behave differently in the new
    phase (see below)
+
+Options for each phase
+----------------------
+
+Each phase has its own configuration. An option with a single symbol, such as
+``CONFIG_ARM``, has the same value in every phase. An option which needs a
+different value in each phase has a symbol for each one, with the name of the
+phase as a prefix, such as ``CONFIG_SPL_SERIAL``. When SPL is built, that
+symbol appears as ``CONFIG_SERIAL``, so the code does not need to know which
+phase it is in.
+
+These symbols can be written out in Kconfig one at a time, but an option can
+instead be defined once, with a ``phases`` line which lists the phases where it
+exists::
+
+    config DM_SERIAL
+	bool "Enable Driver Model for serial drivers"
+	phases all
+	depends on DM
+	help
+	  Enable driver model for serial.
+
+    config DM_SERIAL
+	phases ppl
+	select SYS_MALLOC_F
+
+    config DM_SERIAL
+	phases !ppl
+	depends on PPL_DM_SERIAL
+	default y
+
+The words allowed are the names in ``scripts/xpl_phases``, including ``ppl``
+for U-Boot proper, and ``all`` for every phase. A ``!`` before a name leaves
+that phase out, so ``!ppl`` means every phase except U-Boot proper. The
+example creates ``DM_SERIAL`` for U-Boot proper along with
+``SPL_DM_SERIAL``, ``TPL_DM_SERIAL`` and so on, each with its own value.
+
+Some rules apply to such an entry:
+
+- An option which it mentions means the symbol for the same phase, where there
+  is one, so ``SPL_DM_SERIAL`` depends on ``SPL_DM``. An option with a single
+  symbol means that symbol, unless it has a twin which is written out for some
+  other phase but not this one, in which case it is off in this phase. A name
+  which is written with its prefix, such as ``TPL_DM``, always means that
+  symbol, and ``PPL_`` gives the symbol for U-Boot proper
+- An option which is not in a phase is off there, but its value cannot be
+  used: in a comparison, in a ``range`` or as the default of an option which is
+  not a bool, this is an error
+- A ``select`` or ``imply`` of an option with a single symbol gives a warning
+  if the entry has xPL phases, since enabling the option in one of those
+  phases then enables the other one in every phase. Write it with the ``PPL_``
+  prefix, e.g. ``select PPL_FOO``, to show that this is intended
+- An option can have several entries, as above, to give some phases something
+  extra. Each needs a ``phases`` line. For each phase, the entries are combined
+  into one, so a ``depends on`` in any of them applies to the whole option. It
+  appears where the first entry with a prompt is. A menu or ``if`` block
+  around one of the other entries applies only to what that entry adds, such
+  as a default
+- If the list leaves out ``ppl``, there is no symbol for U-Boot proper, so
+  ``phases spl tpl`` on ``MAX_SIZE`` creates only ``SPL_MAX_SIZE`` and
+  ``TPL_MAX_SIZE``
+- ``phases ppl`` creates an option which is never enabled in xPL
+- The symbols for each phase appear in a menu of their own, such as 'SPL phase
+  options', which depends on the phase being enabled. It mirrors the main
+  menu, so a menu or ``if`` block around the entry applies to each phase in
+  the same way, e.g. ``if SERIAL`` becomes ``if SPL_SERIAL``
+- ``phases`` cannot be used inside a ``choice``
+- A symbol which comes from a ``phases`` line, e.g. ``SPL_SERIAL``, cannot
+  also have an entry of its own. When adding ``phases`` to an option, remove
+  the entries which are written out for each phase
 
 Checking the boot phase
 -----------------------

@@ -1,0 +1,51 @@
+/* Automatically generated from scripts/xpl_phases: do not edit */
+
+#ifndef __XPL_PHASES_H
+#define __XPL_PHASES_H
+
+/*
+ * Calls x(upper, lower) for each phase, in the order they run,
+ * with a comma between each one
+ */
+#define XPL_FOR_EACH_PHASE(x) \
+	x(TPL, tpl), \
+	x(SPL, spl)
+
+/*
+ * Gives a case label for each phase, with x(upper, lower) followed
+ * by a break as its statements and a semicolon between each one
+ */
+#define XPL_PHASE_CASES(x) \
+	case PHASE_TPL: x(TPL, tpl); break; \
+	case PHASE_SPL: x(SPL, spl); break
+
+/*
+ * The phase being built, the header holding its configuration
+ * and the enabled phases which run before and after it
+ */
+#if defined(CONFIG_TPL_BUILD)
+#define XPL_PHASE		PHASE_TPL
+#define XPL_PHASE_NAME		"TPL"
+#define XPL_AUTOCONF		<generated/autoconf_tpl.h>
+#define XPL_PREV_PHASE \
+	(PHASE_NONE)
+#define XPL_NEXT_PHASE \
+	(IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
+	 PHASE_BOARD_F)
+#elif defined(CONFIG_SPL_BUILD)
+#define XPL_PHASE		PHASE_SPL
+#define XPL_PHASE_NAME		"SPL"
+#define XPL_AUTOCONF		<generated/autoconf_spl.h>
+#define XPL_PREV_PHASE \
+	(IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
+	 PHASE_NONE)
+#define XPL_NEXT_PHASE \
+	(PHASE_BOARD_F)
+#else
+#define XPL_PREV_PHASE \
+	(IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
+	 IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
+	 PHASE_NONE)
+#endif
+
+#endif
