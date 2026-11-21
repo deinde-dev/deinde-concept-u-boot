@@ -109642,3 +109642,38 @@ The branch is ready for pushing and has not been merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-21 (attempt 1)
+
+Branch: cherry-58ac309aa8c6
+
+Failed jobs:
+- sandbox test.py (test.py)
+- sandbox with clang test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- sandbox64 test.py (test.py)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Passes now. Amend into the libavb 1.4.0 commit (4th from HEAD).
+
+Fix is amended and the avb tests pass locally; now checking a buildman error in `examples/ulib` to see whether it is related to this branch.
+
+All seven jobs failed on the same test, `cmd_test_avb_verify`, and the fix is a one-line change now on local branch `cherry-58ac309aa8c6-fix1` (not pushed).
+
+- **Responsible commit:** "libavb: update to AOSP 1.4.0" (was `fc2712c7b254`, now `bdc93d05830d`).
+- **Root cause:** that commit bumps the libavb version to 1.4.0, but `test/cmd/avb.c` still expects the banner `## Android Verified Boot 2.0 version 1.3.0`. That test exists only in this tree, so the upstream commit could not have updated it. The SIGSEGV seen in most jobs came in the flat-tree re-run straight after that failed assertion, and it no longer occurs once the assertion passes.
+- **Change:** line 296 of `test/cmd/avb.c` now expects `1.4.0`. It is amended into the libavb commit with a `[pickman]` note; the later commits are rebased unchanged, and the branch differs from the original only by that line.
+
+**Verification:**
+- `um build sandbox` is clean.
+- `ut cmd cmd_test_avb*` passes all 8 tests with 0 failures, including the flat-tree runs.
+- I did not run the full test.py suite.
+- The board list in step 5 was the job names split into words, so I ran `buildman -o /tmp/pickman sandbox sandbox64 sandbox_flattree` instead. That matched 9 boards, and one of them, `sandbox`, failed.
+- The `sandbox` failure was a link error in `examples/ulib` ("Relocations in generic ELF (EM: 183)", an aarch64 object). The same board builds cleanly with buildman in a fresh output directory, so it looks like a stale object in `/tmp/pickman/.bm-work/00` rather than anything on this branch.
+
+The original `cherry-58ac309aa8c6` branch was also rewritten locally and points at the same commit as the `-fix1` branch.
+
+---
+
