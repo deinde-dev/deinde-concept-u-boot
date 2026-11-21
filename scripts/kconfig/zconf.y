@@ -64,6 +64,7 @@ static struct menu *current_menu, *current_entry;
 %token <id>T_DEFAULT
 %token <id>T_SELECT
 %token <id>T_IMPLY
+%token <id>T_PHASES
 %token <id>T_RANGE
 %token <id>T_VISIBLE
 %token <id>T_OPTION
@@ -231,6 +232,22 @@ config_option: T_IMPLY nonconst_symbol if_expr T_EOL
 	menu_add_symbol(P_IMPLY, $2, $3);
 	printd(DEBUG_PARSE, "%s:%d:imply\n", zconf_curname(), zconf_lineno());
 };
+
+/* U-Boot: phases in which the option exists, each with its own symbol */
+config_option: T_PHASES phase_list T_EOL
+{
+	printd(DEBUG_PARSE, "%s:%d:phases\n", zconf_curname(), zconf_lineno());
+};
+
+phase_list:
+	  phase
+	| phase_list phase
+;
+
+phase:
+	  T_WORD		{ menu_add_phase($1, false); free($1); }
+	| T_NOT T_WORD		{ menu_add_phase($2, true); free($2); }
+;
 
 config_option: T_RANGE symbol symbol if_expr T_EOL
 {
@@ -573,6 +590,7 @@ static const char *zconf_tokenname(int token)
 	case T_IF:		return "if";
 	case T_ENDIF:		return "endif";
 	case T_DEPENDS:		return "depends";
+	case T_PHASES:		return "phases";
 	case T_VISIBLE:		return "visible";
 	}
 	return "<token>";
@@ -832,4 +850,5 @@ void zconfdump(FILE *out)
 #include "expr.c"
 #include "symbol.c"
 #include "menu.c"
+#include "phase.c"
 #include "preprocess.c"

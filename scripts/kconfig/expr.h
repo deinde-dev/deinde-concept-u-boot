@@ -283,6 +283,9 @@ struct menu {
 	/* MENU_* flags */
 	unsigned int flags;
 
+	/* U-Boot: mask of the phases from the 'phases' line, 0 if none */
+	unsigned int phases;
+
 	/* Any help text associated with the node */
 	char *help;
 

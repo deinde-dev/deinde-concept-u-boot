@@ -104,6 +104,9 @@ void menu_add_option(int token, char *arg);
 void menu_finalize(struct menu *parent);
 void menu_set_type(int type);
 
+/* phase.c */
+void menu_add_phase(const char *name, bool negate);
+
 /* util.c */
 struct file *file_lookup(const char *name);
 void *xmalloc(size_t size);
