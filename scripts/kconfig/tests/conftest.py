@@ -51,8 +51,8 @@ class Conf:
         """
         command = [CONF_PATH, mode, 'Kconfig']
 
-        # Override 'srctree' environment to make the test as the top directory
-        extra_env['srctree'] = self._test_dir
+        # Make the test the top directory, unless it provides one of its own
+        extra_env = dict({'srctree': self._test_dir}, **extra_env)
 
         # Run Kconfig in a temporary directory.
         # This directory is automatically removed when done.
