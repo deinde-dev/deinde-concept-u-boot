@@ -220,6 +220,15 @@ class Conf:
         return self._run_conf('--listnewconfig', dot_config=dot_config,
                               out_file=None)
 
+    def dump(self):
+        """Run conf to show the Kconfig files as they are understood.
+
+        This is specific to U-Boot. The result is in stdout.
+
+        returncode: exit status of the Kconfig executable
+        """
+        return self._run_conf('--dump', out_file=None)
+
     # checkers
     def _read_and_compare(self, compare, expected):
         """Compare the result with expectation.

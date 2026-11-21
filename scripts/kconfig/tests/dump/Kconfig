@@ -1,0 +1,80 @@
+config MODULES
+	bool "Modules"
+	option modules
+
+config BOOL
+	bool "A bool" if MODULES
+	default y if !TRI
+	select SELECTED if TRI
+	imply IMPLIED
+	help
+	  This is the help.
+
+	  It has two paragraphs.
+
+config TRI
+	tristate "A tristate"
+	depends on MODULES
+
+config SELECTED
+	bool
+
+config IMPLIED
+	bool "Implied"
+
+config STR
+	string "A string"
+	default "hello \"there\""
+
+config INT
+	int "An int"
+	range 1 HEX if BOOL
+	default 3
+
+config HEX
+	hex "A hex"
+	default 0x10
+
+comment "A comment"
+	depends on BOOL
+
+menu "A menu"
+	visible if TRI
+	depends on BOOL
+
+config IN_MENU
+	bool "In a menu"
+
+if IMPLIED || STR = "a"
+
+config IN_IF
+	bool "In an if block"
+	depends on HEX > 0x5
+
+endif
+
+endmenu
+
+menuconfig MENUCFG
+	bool "A menuconfig"
+
+config SUB
+	bool "Under the menuconfig"
+	depends on MENUCFG
+
+choice
+	prompt "A choice"
+	default CH2
+	optional
+
+config CH1
+	bool "One"
+
+config CH2
+	bool "Two"
+	depends on BOOL
+
+endchoice
+
+config BOOL
+	default n if STR != ""

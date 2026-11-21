@@ -1,0 +1,93 @@
+
+config MODULES
+	bool
+	prompt "Modules"
+
+config BOOL
+	bool
+	prompt "A bool" if MODULES
+	default y if !TRI
+	select SELECTED if TRI
+	imply IMPLIED
+	help
+	  This is the help.
+
+	  It has two paragraphs.
+
+config TRI
+	tristate
+	depends on MODULES
+	prompt "A tristate" if MODULES
+
+config SELECTED
+	bool
+
+config IMPLIED
+	bool
+	prompt "Implied"
+
+config STR
+	string
+	prompt "A string"
+	default "hello \"there\""
+
+config INT
+	int
+	prompt "An int"
+	range 1 HEX if BOOL
+	default 3
+
+config HEX
+	hex
+	prompt "A hex"
+	default 0x10
+
+comment "A comment"
+	depends on BOOL
+
+menu "A menu"
+	visible if TRI
+	depends on BOOL
+
+config IN_MENU
+	bool
+	depends on BOOL
+	prompt "In a menu" if BOOL && TRI
+
+config IN_IF
+	bool
+	depends on BOOL && (IMPLIED || STR="a") && HEX>0x5
+	prompt "In an if block" if BOOL && (IMPLIED || STR="a") && HEX>0x5 && TRI
+
+endmenu
+
+menuconfig MENUCFG
+	bool
+	prompt "A menuconfig"
+
+config SUB
+	bool
+	depends on MENUCFG
+	prompt "Under the menuconfig" if MENUCFG
+
+choice
+	bool
+	optional
+	prompt "A choice"
+	default CH2
+
+config CH1
+	bool
+	depends on <choice>
+	prompt "One" if <choice>
+
+config CH2
+	bool
+	depends on <choice> && BOOL
+	prompt "Two" if <choice> && BOOL
+
+endchoice
+
+config BOOL
+	bool
+	default n if STR!=""
