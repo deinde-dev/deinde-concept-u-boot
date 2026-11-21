@@ -14,7 +14,8 @@
  * SPL_DM_SERIAL and TPL_DM_SERIAL, each with its own value.
  *
  * The entries for each phase other than the primary one go in a menu of
- * their own.
+ * their own, which mirrors the main menu, so that enclosing menus and 'if'
+ * blocks work in the same way.
  *
  * Copyright 2026 Simon Glass <sjg@chromium.org>
  */
@@ -185,34 +186,58 @@ static struct menu *phase_clone_entry(struct menu *org, int phase)
 	return menu;
 }
 
+static struct menu *phase_clone_list(struct menu *list, struct menu *parent,
+				     int phase);
+
+/* Copy a menu or 'if' block for a phase, if it holds any phased entries */
+static struct menu *phase_clone_menu(struct menu *org, int phase)
+{
+	struct menu *menu;
+
+	menu = phase_alloc_menu(org);
+	menu->list = phase_clone_list(org->list, menu, phase);
+	if (!menu->list) {
+		expr_free(menu->dep);
+		expr_free(menu->visibility);
+		free(menu);
+		return NULL;
+	}
+	if (org->prompt)
+		menu->prompt = phase_copy_prop(org->prompt, NULL, menu);
+
+	return menu;
+}
+
 /**
- * phase_clone_list() - Create the entries of a phase from those in a list
- *
- * This looks inside menus and 'if' blocks too, but the new entries all go in
- * the one list.
+ * phase_clone_list() - Copy the parts of a menu which are in a phase
  *
  * @list: First entry in the list to copy
  * @parent: Parent for the new entries
- * @tailp: Pointer to the end of the new list, which is updated
  * @phase: Bit number of the phase to copy for
+ * Return: first entry in the new list, NULL if there is nothing in the phase
  */
-static void phase_clone_list(struct menu *list, struct menu *parent,
-			     struct menu ***tailp, int phase)
+static struct menu *phase_clone_list(struct menu *list, struct menu *parent,
+				     int phase)
 {
+	struct menu *head = NULL, **tailp = &head;
 	struct menu *org, *menu;
 
 	for (org = list; org; org = org->next) {
+		menu = NULL;
 		if (org->sym) {
-			if (org->phases & PHASE_BIT(phase)) {
+			if (org->phases & PHASE_BIT(phase))
 				menu = phase_clone_entry(org, phase);
-				menu->parent = parent;
-				**tailp = menu;
-				*tailp = &menu->next;
-			}
 		} else if (org->phases & PHASE_BIT(phase)) {
-			phase_clone_list(org->list, parent, tailp, phase);
+			menu = phase_clone_menu(org, phase);
+		}
+		if (menu) {
+			menu->parent = parent;
+			*tailp = menu;
+			tailp = &menu->next;
 		}
 	}
+
+	return head;
 }
 
 /**
@@ -267,8 +292,7 @@ void u_boot_expand_phases(void)
 	for (i = 0; i < num_phases; i++) {
 		menu = xmalloc(sizeof(*menu));
 		memset(menu, 0, sizeof(*menu));
-		tailp = &menu->list;
-		phase_clone_list(rootmenu.list, menu, &tailp, i + 1);
+		menu->list = phase_clone_list(rootmenu.list, menu, i + 1);
 		if (!menu->list) {
 			free(menu);
 			continue;

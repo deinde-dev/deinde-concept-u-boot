@@ -9,6 +9,7 @@ scripts/xpl_phases, with 'all' meaning every phase.
 This checks that:
 - each phase has its own value
 - a '!' before the name of a phase leaves that phase out
+- an option in a menu is in a copy of that menu for each phase
 
 The dump shows the entries which are created for each phase. The files which
 syncconfig writes show the options which each phase sees.

@@ -107,16 +107,21 @@ config TPL_USES_GLOBAL
 	depends on TPL && GLOBAL
 	prompt "Depends on an option with no phases" if TPL && GLOBAL
 
+menu "Menu"
+	depends on TPL && DM
+
 config TPL_IN_MENU
 	bool
-	depends on TPL
-	prompt "In a menu" if TPL
+	depends on TPL && DM
+	prompt "In a menu" if TPL && DM
+
+endmenu
 
 config TPL_IN_IF
 	bool
-	depends on TPL
-	prompt "In an if block" if TPL
-	default y if TPL
+	depends on TPL && SERIAL
+	prompt "In an if block" if TPL && SERIAL
+	default y if TPL && SERIAL
 
 config TPL_BY_ARCH
 	bool
@@ -125,8 +130,8 @@ config TPL_BY_ARCH
 
 config TPL_BY_ARCH
 	bool
-	depends on TPL
-	default y if TPL
+	depends on TPL && ARCH_X
+	default y if TPL && ARCH_X
 
 endmenu
 
@@ -165,16 +170,21 @@ config SPL_USES_GLOBAL
 	depends on SPL && GLOBAL
 	prompt "Depends on an option with no phases" if SPL && GLOBAL
 
+menu "Menu"
+	depends on SPL && DM
+
 config SPL_IN_MENU
 	bool
-	depends on SPL
-	prompt "In a menu" if SPL
+	depends on SPL && DM
+	prompt "In a menu" if SPL && DM
+
+endmenu
 
 config SPL_IN_IF
 	bool
-	depends on SPL
-	prompt "In an if block" if SPL
-	default y if SPL
+	depends on SPL && SERIAL
+	prompt "In an if block" if SPL && SERIAL
+	default y if SPL && SERIAL
 
 config SPL_BY_ARCH
 	bool
@@ -183,7 +193,7 @@ config SPL_BY_ARCH
 
 config SPL_BY_ARCH
 	bool
-	depends on SPL
-	default y if SPL
+	depends on SPL && ARCH_X
+	default y if SPL && ARCH_X
 
 endmenu
