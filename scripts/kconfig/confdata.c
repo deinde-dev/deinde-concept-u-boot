@@ -19,22 +19,29 @@
 /* Maximum number of xPL prefixes we recognise, including TOOLS */
 #define MAX_XPLS	 8
 
-/*
- * xPL prefixes recognised. For example CONFIG_SPL_xxx is considered to be an
- * xPL version of CONFIG_xxx
+/**
+ * struct xpl_phase - Details of an xPL prefix
  *
- * These are the xPL phases listed in scripts/xpl_phases, in upper case,
- * followed by TOOLS for the host tools
+ * @name: Prefix in upper case, e.g. "SPL", so that CONFIG_SPL_xxx is
+ *	considered to be an xPL version of CONFIG_xxx
+ * @tag: Devicetree tag which marks the nodes the phase needs (NULL for TOOLS)
  */
-static char *xpl_name[MAX_XPLS];
+struct xpl_phase {
+	char *name;
+	char *tag;
+};
+
+/*
+ * xPL prefixes recognised. These are the xPL phases listed in
+ * scripts/xpl_phases followed by TOOLS for the host tools
+ */
+static struct xpl_phase xpl_phases[MAX_XPLS];
 int num_xpls;	/* 0 if not supporting xPL, else the number of prefixes */
 
 /* true once the list of phases is read; there may be no phases in it */
 static bool phases_read;
 
-/* Devicetree tag for each phase, and the number of phases (not TOOLS) */
-static char *phase_tag[MAX_XPLS];
-static int num_phases;
+static int num_phases;	/* Number of phases, i.e. prefixes other than TOOLS */
 
 /*
  * Name of the primary phase in upper case, e.g. PPL, or NULL if the list of
@@ -656,7 +663,7 @@ static struct conf_printer kconfig_printer_cb =
  *
  * @sym: Symbol to look up
  * @arg: Argument passed to the symbol function. This is void * but is actually
- *	an int, indicating the xPL index / type (see xpl_name[])
+ *	an int, indicating the xPL index / type (see xpl_phases[])
  * @return name to write out for this symbol xxx:
  *	NULL (don't write) if xxx has an associated xPL symbol
  *	xxx if xxx is a non-xPL symbol
@@ -680,9 +687,10 @@ static const char *get_xpl_name(const struct symbol *sym, const void *arg)
 	 * Drop the prefix.
 	 */
 	if (sym->flags & SYMBOL_XPL) {
-		int len = strlen(xpl_name[xpl]);
+		const char *prefix = xpl_phases[xpl].name;
+		int len = strlen(prefix);
 
-		if (!strncmp(name, xpl_name[xpl], len) && name[len] == '_')
+		if (!strncmp(name, prefix, len) && name[len] == '_')
 			name += len + 1;
 	}
 
@@ -1425,9 +1433,9 @@ static bool is_phase_name(const char *name)
 /**
  * u_boot_read_phases() - Read the list of xPL phases
  *
- * This sets up xpl_name[] with the upper-case name of each phase, followed by
- * TOOLS for the host tools, and sets num_phases to the number of phases. It
- * does nothing if this is already done.
+ * This sets up xpl_phases[] with the details of each phase, followed by TOOLS
+ * for the host tools, and sets num_phases to the number of phases. It does
+ * nothing if this is already done.
  *
  * A line marked 'primary' gives the primary phase, whose options have no
  * prefix. It is not an xPL phase, so only its name is recorded, in
@@ -1450,6 +1458,7 @@ static int u_boot_read_phases(const char *fname)
 		return 1;
 	count = 0;
 	for (line = 1; s = fgets(buf, sizeof(buf), f), s; line++) {
+		struct xpl_phase *phase;
 		char *name, *extra, *p;
 		bool primary;
 		int i;
@@ -1491,7 +1500,7 @@ static int u_boot_read_phases(const char *fname)
 			goto err;
 		}
 		for (i = 0; i < count; i++) {
-			if (!strcasecmp(name, xpl_name[i]))
+			if (!strcasecmp(name, xpl_phases[i].name))
 				break;
 		}
 		if (i < count || !strcmp(name, "tools") ||
@@ -1515,8 +1524,9 @@ static int u_boot_read_phases(const char *fname)
 			primary_name = xstrdup(name);
 			continue;
 		}
-		phase_tag[count] = xstrdup(tag);
-		xpl_name[count++] = xstrdup(name);
+		phase = &xpl_phases[count++];
+		phase->name = xstrdup(name);
+		phase->tag = xstrdup(tag);
 	}
 	fclose(f);
 	if (!primary_name) {
@@ -1525,7 +1535,7 @@ static int u_boot_read_phases(const char *fname)
 		return 1;
 	}
 	num_phases = count;
-	xpl_name[count] = "TOOLS";
+	xpl_phases[count].name = "TOOLS";
 	phases_read = true;
 
 	return 0;
@@ -1543,7 +1553,7 @@ static const char *phase_lower(int phase)
 	char *p = lower[which ^= 1];
 	const char *s;
 
-	for (s = xpl_name[phase]; *s; s++)
+	for (s = xpl_phases[phase].name; *s; s++)
 		*p++ = tolower(*s);
 	*p = '\0';
 
@@ -1606,7 +1616,7 @@ static void write_phase_chain(FILE *out, int phase, int dir)
 	fprintf(out, " \\\n\t(");
 	for (i = phase + dir; i >= 0 && i < num_phases; i += dir)
 		fprintf(out, "IS_ENABLED(CONFIG_%s) ? PHASE_%s : \\\n\t ",
-			xpl_name[i], xpl_name[i]);
+			xpl_phases[i].name, xpl_phases[i].name);
 	fprintf(out, "%s)\n", dir < 0 ? "PHASE_NONE" : "PHASE_BOARD_F");
 }
 
@@ -1633,9 +1643,9 @@ static int u_boot_write_phases(void)
 	fprintf(out, "\n");
 	for (i = 0; i < num_phases; i++) {
 		fprintf(out, "\nXPL_UPPER_%s := %s\n", phase_lower(i),
-			xpl_name[i]);
+			xpl_phases[i].name);
 		fprintf(out, "XPL_TAG_%s := %s\n", phase_lower(i),
-			phase_tag[i]);
+			xpl_phases[i].tag);
 	}
 	fclose(out);
 
@@ -1656,8 +1666,8 @@ static int u_boot_write_phases(void)
 	fprintf(out, " * with a comma between each one\n */\n");
 	fprintf(out, "#define XPL_FOR_EACH_PHASE(x)");
 	for (i = 0; i < num_phases; i++)
-		fprintf(out, " \\\n\tx(%s, %s)%s", xpl_name[i], phase_lower(i),
-			i < num_phases - 1 ? "," : "");
+		fprintf(out, " \\\n\tx(%s, %s)%s", xpl_phases[i].name,
+			phase_lower(i), i < num_phases - 1 ? "," : "");
 	fprintf(out, "\n\n");
 
 	fprintf(out, "/*\n * Gives a case label for each phase, with x(upper, lower) followed\n");
@@ -1665,17 +1675,19 @@ static int u_boot_write_phases(void)
 	fprintf(out, "#define XPL_PHASE_CASES(x)");
 	for (i = 0; i < num_phases; i++)
 		fprintf(out, " \\\n\tcase PHASE_%s: x(%s, %s); break%s",
-			xpl_name[i], xpl_name[i], phase_lower(i),
+			xpl_phases[i].name, xpl_phases[i].name, phase_lower(i),
 			i < num_phases - 1 ? ";" : "");
 	fprintf(out, "\n\n");
 
 	fprintf(out, "/*\n * The phase being built, the header holding its configuration\n");
 	fprintf(out, " * and the enabled phases which run before and after it\n */\n");
 	for (i = 0; i < num_phases; i++) {
+		const char *name = xpl_phases[i].name;
+
 		fprintf(out, "#%s defined(CONFIG_%s_BUILD)\n", i ? "elif" : "if",
-			xpl_name[i]);
-		fprintf(out, "#define XPL_PHASE\t\tPHASE_%s\n", xpl_name[i]);
-		fprintf(out, "#define XPL_PHASE_NAME\t\t\"%s\"\n", xpl_name[i]);
+			name);
+		fprintf(out, "#define XPL_PHASE\t\tPHASE_%s\n", name);
+		fprintf(out, "#define XPL_PHASE_NAME\t\t\"%s\"\n", name);
 		fprintf(out, "#define XPL_AUTOCONF\t\t<generated/autoconf_%s.h>\n",
 			phase_lower(i));
 		fprintf(out, "#define XPL_PREV_PHASE");
@@ -1740,7 +1752,7 @@ int conf_write_autoconf(bool support_xpl)
 		char fname[80];
 
 		snprintf(fname, sizeof(fname), ".tmpconfig_%s",
-			 xpl_name[xpl]);
+			 xpl_phases[xpl].name);
 
 		out_xpl[xpl] = fopen(fname, "w");
 		if (!out_xpl[xpl]) {
@@ -1755,7 +1767,7 @@ int conf_write_autoconf(bool support_xpl)
 		}
 
 		snprintf(fname, sizeof(fname), ".tmpconfig_%s.h",
-			 xpl_name[xpl]);
+			 xpl_phases[xpl].name);
 
 		out_h_xpl[xpl] = fopen(fname, "w");
 		if (!out_h_xpl[xpl]) {
@@ -1819,10 +1831,10 @@ int conf_write_autoconf(bool support_xpl)
 		char *s;
 
 		snprintf(tmpname, sizeof(tmpname), ".tmpconfig_%s",
-			 xpl_name[xpl]);
+			 xpl_phases[xpl].name);
 		snprintf(fname, sizeof(fname), "include/config/auto_%s.conf",
-			 xpl_name[xpl]);
-		snprintf(dir, sizeof(dir), "phase-%s", xpl_name[xpl]);
+			 xpl_phases[xpl].name);
+		snprintf(dir, sizeof(dir), "phase-%s", xpl_phases[xpl].name);
 		for (s = fname; *s; s++)
 			*s = tolower(*s);
 		for (s = dir; *s; s++)
@@ -1844,18 +1856,19 @@ int conf_write_autoconf(bool support_xpl)
 		char *s;
 
 		snprintf(tmpname, sizeof(tmpname), ".tmpconfig_%s.h",
-			 xpl_name[xpl]);
+			 xpl_phases[xpl].name);
 		snprintf(fname, sizeof(fname),
-			 "include/generated/autoconf_%s.h", xpl_name[xpl]);
+			 "include/generated/autoconf_%s.h",
+			 xpl_phases[xpl].name);
 		for (s = fname; *s; s++)
 			*s = tolower(*s);
 		if (rename(tmpname, fname))
 			return 1;
 
 		snprintf(tmpname, sizeof(tmpname), ".tmpconfig_%s",
-			 xpl_name[xpl]);
+			 xpl_phases[xpl].name);
 		snprintf(fname, sizeof(fname),
-			 "include/config/auto_%s.conf", xpl_name[xpl]);
+			 "include/config/auto_%s.conf", xpl_phases[xpl].name);
 		for (s = fname; *s; s++)
 			*s = tolower(*s);
 		if (rename(tmpname, fname))
@@ -2118,8 +2131,8 @@ static bool is_xpl(const char *name, int *lenp)
 
 	len = uscore - name;
 	for (i = 0; i < num_xpls; i++) {
-		if (len == strlen(xpl_name[i]) &&
-		    !strncmp(name, xpl_name[i], len)) {
+		if (len == strlen(xpl_phases[i].name) &&
+		    !strncmp(name, xpl_phases[i].name, len)) {
 			*lenp = len;
 			return true;
 		}

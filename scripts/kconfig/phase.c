@@ -29,7 +29,7 @@
 
 #include "lkc.h"
 
-/* Bit in a phase mask for the primary phase; xpl_name[n] is bit n + 1 */
+/* Bit in a phase mask for the primary phase; xpl_phases[n] is bit n + 1 */
 #define PHASE_PRIMARY	0
 #define PHASE_BIT(n)	(1U << (n))
 
@@ -60,7 +60,7 @@ static unsigned int u_boot_phase_mask(const char *name)
 	if (phase_name_is(primary_name, name))
 		return PHASE_BIT(PHASE_PRIMARY);
 	for (i = 0; i < num_phases; i++) {
-		if (phase_name_is(xpl_name[i], name))
+		if (phase_name_is(xpl_phases[i].name, name))
 			return PHASE_BIT(i + 1);
 	}
 
@@ -113,7 +113,8 @@ static struct symbol *phase_instance(const struct symbol *sym, int phase,
 {
 	char name[SYMBOL_MAXLENGTH];
 
-	snprintf(name, sizeof(name), "%s_%s", xpl_name[phase - 1], sym->name);
+	snprintf(name, sizeof(name), "%s_%s", xpl_phases[phase - 1].name,
+		 sym->name);
 
 	return create ? sym_lookup(name, 0) : sym_find(name);
 }
@@ -137,7 +138,10 @@ static void phase_error(const struct menu *menu, const char *fmt, ...)
 /* Get the name of a phase, e.g. SPL, from its bit number */
 static const char *phase_name(int phase)
 {
-	return phase == PHASE_PRIMARY ? primary_name : xpl_name[phase - 1];
+	if (phase == PHASE_PRIMARY)
+		return primary_name;
+
+	return xpl_phases[phase - 1].name;
 }
 
 /**
@@ -726,12 +730,12 @@ void u_boot_expand_phases(void)
 		menu->lineno = rootmenu.list->lineno;
 
 		/* The options of a phase depend on the phase being enabled */
-		sym = sym_find(xpl_name[i]);
+		sym = sym_find(xpl_phases[i].name);
 		if (sym && phase_sym_defined(sym))
 			menu->dep = expr_alloc_symbol(sym);
 
-		text = xmalloc(strlen(xpl_name[i]) + 20);
-		sprintf(text, "%s phase options", xpl_name[i]);
+		text = xmalloc(strlen(xpl_phases[i].name) + 20);
+		sprintf(text, "%s phase options", xpl_phases[i].name);
 		prop = prop_alloc(P_MENU, NULL);
 		prop->text = text;
 		prop->menu = menu;
