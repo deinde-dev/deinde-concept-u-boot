@@ -6545,7 +6545,8 @@ def do_step(args, dbs):
     """
     try:
         ret = _do_step(args, dbs)
-    except requests.exceptions.ConnectionError as exc:
+    except (requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout) as exc:
         tout.error(f'step failed with connection error: {exc}')
         return 1
 
