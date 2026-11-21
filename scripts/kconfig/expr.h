@@ -125,6 +125,13 @@ struct symbol {
 	 */
 	unsigned int phases;
 
+	/*
+	 * U-Boot: for a symbol with phases, the entry which holds the option
+	 * in each phase, indexed by the bit number in @phases. The option's
+	 * other entries for that phase are combined into it
+	 */
+	struct menu **phase_home;
+
 	/* Dependencies from enclosing menus, choices, and ifs */
 	struct expr_value dir_dep;
 

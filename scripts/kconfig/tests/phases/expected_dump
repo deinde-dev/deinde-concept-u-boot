@@ -62,10 +62,6 @@ config IN_IF
 config BY_ARCH
 	bool
 	prompt "Default set by the architecture"
-
-config BY_ARCH
-	bool
-	depends on ARCH_X
 	default y if ARCH_X
 
 menu "TPL phase options"
@@ -80,11 +76,7 @@ config TPL_SERIAL
 	bool
 	depends on TPL && TPL_DM
 	prompt "Serial" if TPL && TPL_DM
-
-config TPL_SERIAL
-	bool
-	depends on TPL
-	default y if TPL
+	default y if TPL && TPL_DM
 
 config TPL_MAX_SIZE
 	hex
@@ -117,10 +109,6 @@ config TPL_BY_ARCH
 	bool
 	depends on TPL
 	prompt "Default set by the architecture" if TPL
-
-config TPL_BY_ARCH
-	bool
-	depends on TPL && ARCH_X
 	default y if TPL && ARCH_X
 
 endmenu
@@ -143,11 +131,7 @@ config SPL_SERIAL
 	depends on SPL && SPL_DM
 	prompt "Serial" if SPL && SPL_DM
 	select SPL_PRINTF if SPL && SPL_DM
-
-config SPL_SERIAL
-	bool
-	depends on SPL
-	default y if SPL
+	default y if SPL && SPL_DM
 
 config SPL_MAX_SIZE
 	hex
@@ -180,10 +164,6 @@ config SPL_BY_ARCH
 	bool
 	depends on SPL
 	prompt "Default set by the architecture" if SPL
-
-config SPL_BY_ARCH
-	bool
-	depends on SPL && ARCH_X
 	default y if SPL && ARCH_X
 
 endmenu

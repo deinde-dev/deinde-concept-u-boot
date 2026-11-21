@@ -309,14 +309,81 @@ static struct menu *phase_alloc_menu(struct menu *org, int phase)
 	return menu;
 }
 
+/**
+ * phase_outer_dep() - Get the dependencies which an entry has from outside
+ *
+ * @menu: Phased entry to check
+ * @phase: Bit number of the phase to translate for
+ * Return: dependencies of the menus and 'if' blocks around the entry, NULL if
+ *	there are none
+ */
+static struct expr *phase_outer_dep(const struct menu *menu, int phase)
+{
+	struct expr *dep = NULL;
+	struct menu *parent;
+
+	for (parent = menu->parent; parent; parent = parent->parent) {
+		phase_cur = parent;
+		dep = expr_alloc_and(phase_xlate_expr(parent->dep, phase), dep);
+	}
+
+	return dep;
+}
+
+/**
+ * phase_add_entry() - Add what a phased entry has to the entry for a phase
+ *
+ * @menu: Entry for the phase, to add to
+ * @org: Phased entry to copy from
+ * @phase: Bit number of the phase
+ * @home: true if @menu takes the place of @org in the menu tree
+ */
+static void phase_add_entry(struct menu *menu, struct menu *org, int phase,
+			    bool home)
+{
+	struct property *prop, *copy;
+	struct expr *outer = NULL;
+
+	/*
+	 * A 'depends on' applies to the whole option, but the menus and 'if'
+	 * blocks around this entry only apply to what the entry adds
+	 */
+	if (!home) {
+		outer = phase_outer_dep(org, phase);
+		phase_cur = org;
+		menu->dep = expr_alloc_and(menu->dep,
+					   phase_xlate_expr(org->dep, phase));
+		if (!menu->help)
+			menu->help = org->help;
+	}
+	for (prop = org->sym->prop; prop; prop = prop->next) {
+		if (prop->menu != org || (!home && prop->type == P_SYMBOL))
+			continue;
+		copy = phase_copy_prop(prop, menu->sym, menu, phase);
+		if (!copy)
+			continue;
+		if (outer)
+			copy->visible.expr = expr_alloc_and(copy->visible.expr,
+							    expr_copy(outer));
+		if (prop == org->prompt) {
+			if (menu->prompt)
+				menu_warn(org, "prompt redefined");
+			else
+				menu->prompt = copy;
+		}
+	}
+	expr_free(outer);
+}
+
 /*
- * Create the entry for one phase's symbol, from a phased entry. For the
- * primary phase the symbol is that of the entry itself
+ * Create the entry for one phase's symbol, from the entry which holds the
+ * option in that phase, combining the option's other entries for the phase
+ * into it. For the primary phase the symbol is that of the entry itself
  */
 static struct menu *phase_clone_entry(struct menu *org, int phase)
 {
 	struct symbol *base = org->sym;
-	struct property *prop, *copy;
+	struct property *prop;
 	struct symbol *sym;
 	struct menu *menu;
 
@@ -334,12 +401,13 @@ static struct menu *phase_clone_entry(struct menu *org, int phase)
 
 	menu = phase_alloc_menu(org, phase);
 	menu->sym = sym;
+
+	/* Each entry has a P_SYMBOL property; the copies are not for a phase */
 	for (prop = base->prop; prop; prop = prop->next) {
-		if (prop->menu != org)
-			continue;
-		copy = phase_copy_prop(prop, sym, menu, phase);
-		if (prop == org->prompt)
-			menu->prompt = copy;
+		if (prop->type == P_SYMBOL &&
+		    (prop->menu->phases & PHASE_BIT(phase)))
+			phase_add_entry(menu, prop->menu, phase,
+					prop->menu == org);
 	}
 
 	return menu;
@@ -386,7 +454,8 @@ static struct menu *phase_clone_list(struct menu *list, struct menu *parent,
 	for (org = list; org; org = org->next) {
 		menu = NULL;
 		if (org->sym) {
-			if (org->phases & PHASE_BIT(phase))
+			if (org->sym->phase_home &&
+			    org->sym->phase_home[phase] == org)
 				menu = phase_clone_entry(org, phase);
 		} else if (org->phases & PHASE_BIT(phase)) {
 			menu = phase_clone_menu(org, phase);
@@ -399,6 +468,32 @@ static struct menu *phase_clone_list(struct menu *list, struct menu *parent,
 	}
 
 	return head;
+}
+
+/**
+ * phase_set_home() - Choose the entry which holds an option in each phase
+ *
+ * Where an option has several entries for a phase, they are combined into
+ * one. It takes the place of the first entry which has a prompt, or the first
+ * of all if none has, so that entry decides where the option appears.
+ *
+ * @menu: Phased entry to consider
+ */
+static void phase_set_home(struct menu *menu)
+{
+	struct symbol *sym = menu->sym;
+	struct menu *home;
+	int phase;
+
+	if (!sym->phase_home)
+		sym->phase_home = xcalloc(MAX_XPLS + 1, sizeof(struct menu *));
+	for (phase = 0; phase <= num_phases; phase++) {
+		if (!(menu->phases & PHASE_BIT(phase)))
+			continue;
+		home = sym->phase_home[phase];
+		if (!home || (!home->prompt && menu->prompt))
+			sym->phase_home[phase] = menu;
+	}
 }
 
 /**
@@ -416,9 +511,10 @@ static unsigned int phase_collect(struct menu *list)
 	struct menu *menu;
 
 	for (menu = list; menu; menu = menu->next) {
-		if (menu->sym) {
+		if (menu->sym && menu->phases) {
 			menu->sym->phases |= menu->phases;
 			mask |= menu->phases;
+			phase_set_home(menu);
 		}
 		if (menu->list) {
 			inside = phase_collect(menu->list);
@@ -434,9 +530,10 @@ static unsigned int phase_collect(struct menu *list)
 /**
  * phase_fix_primary() - Update the phased entries for the primary phase
  *
- * Replace each entry with a copy which is translated for the primary phase,
- * since it may mention options which are not in that phase. Remove an entry
- * which does not include the primary phase.
+ * Replace the entry which holds each option with a copy which is translated
+ * for the primary phase, since it may mention options which are not in that
+ * phase. Remove the other entries, which are combined into it, along with any
+ * which do not include the primary phase.
  *
  * @listp: Pointer to the first entry in the list to update
  */
@@ -452,7 +549,7 @@ static void phase_fix_primary(struct menu **listp)
 			listp = &org->next;
 			continue;
 		}
-		if (!(org->phases & PHASE_BIT(PHASE_PRIMARY))) {
+		if (org->sym->phase_home[PHASE_PRIMARY] != org) {
 			*listp = org->next;
 			continue;
 		}

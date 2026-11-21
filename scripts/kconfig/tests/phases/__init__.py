@@ -14,6 +14,8 @@ This checks that:
 - 'depends on' and 'select' use the symbol for the phase
 - a twin which is written out by hand is used where there is one
 - an option whose only twin is for another phase is off
+- several entries for an option are combined
+- an 'if' block around a later entry applies only to what it adds
 - an option can be left out of the primary phase
 - an option for the primary phase only is left out of the others
 - enclosing menus and 'if' blocks are translated too
