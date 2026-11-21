@@ -198,6 +198,12 @@ def test_ut(ut_ubman, ut_subtest):
         # ut cmd cmd_test_version_base prints the sign-on message on purpose.
         with ut_ubman.disable_check('main_signon'):
             output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
+    elif ut_subtest in ('dm dm_test_lwip_net_loop',
+                        'dm dm_test_lwip_tftp_protocol',
+                        'dm dm_test_tftp_download_only'):
+        # An '## Error: ...' message is expected.
+        with ut_ubman.disable_check('error_notification'):
+            output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
     else:
         output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
     assert output.endswith('failures: 0')

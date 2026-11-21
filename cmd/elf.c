@@ -148,23 +148,23 @@ static int do_bootvx(struct getopt_state *gs)
 	 * Check the loadaddr variable.
 	 * If we don't know where the image is then we're done.
 	 */
-	if (argc < 2)
-		addr = image_load_addr;
-	else
-		addr = hextoul(argv[1], NULL);
-
-#if defined(CONFIG_CMD_NET) && !defined(CONFIG_NET_LWIP)
-	/*
-	 * Check to see if we need to tftp the image ourselves
-	 * before starting
-	 */
+	addr = image_load_addr;
 	if ((argc == 2) && (strcmp(argv[1], "tftp") == 0)) {
-		if (net_loop(TFTPGET) <= 0)
+#if defined(CONFIG_CMD_TFTPBOOT)
+		/* VxWorks, not bootm(), owns the downloaded image. */
+		addr = env_get_hex("loadaddr", image_load_addr);
+		if (tftpb_run(addr, NULL) || !net_boot_file_size)
 			return 1;
+		addr = image_load_addr;
 		printf("Automatic boot of VxWorks image at address 0x%08lx ...\n",
-			addr);
-	}
+				addr);
+#else
+		puts("TFTP support is disabled\n");
+		return CMD_RET_FAILURE;
 #endif
+	} else if (argc == 2) {
+		addr = hextoul(argv[1], NULL);
+	}
 
 	/*
 	 * This should equate to
@@ -359,6 +359,7 @@ U_BOOT_CMD_GETOPT(
 U_BOOT_CMD_NOOPTS(
 	bootvx, 2, 0, do_bootvx,
 	"Boot vxWorks from an ELF image",
-	" [address] - load address of vxWorks ELF image."
+	" [address] - load address of vxWorks ELF image.\n"
+	"bootvx tftp - download the image using TFTP before booting"
 );
 #endif

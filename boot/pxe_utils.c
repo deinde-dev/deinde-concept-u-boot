@@ -10,6 +10,7 @@
 #include <bootm.h>
 #include <command.h>
 #include <dm.h>
+#include <efi_loader.h>
 #include <env.h>
 #include <extension_board.h>
 #include <image.h>
@@ -681,8 +682,23 @@ static int label_run_boot(struct pxe_context *ctx, struct pxe_label *label,
 	 */
 	fmt = genimg_get_format_comp(buf);
 
-	if (IS_ENABLED(CONFIG_LIB_BOOTM) &&
-	    (fmt == IMAGE_FORMAT_FIT || fmt == IMAGE_FORMAT_LEGACY)) {
+	/* Run PE-COFF images as EFI applications */
+	if (IS_ENABLED(CONFIG_CMD_BOOTEFI) &&
+	    efi_check_pe(buf, kern_size, NULL) == EFI_SUCCESS) {
+		void *fdt = EFI_FDT_USE_INTERNAL;
+		efi_status_t efi_ret;
+
+		log_debug("using bootefi\n");
+		if (conf_fdt)
+			fdt = map_sysmem(conf_fdt, 0);
+
+		efi_ret = efi_binary_run(buf, kern_size, fdt, NULL, 0);
+		if (efi_ret != EFI_SUCCESS) {
+			log_err("efi_binary_run failed (ret=%lu)\n", efi_ret);
+			ret = -EINVAL;
+		}
+	} else if (IS_ENABLED(CONFIG_LIB_BOOTM) &&
+		   (fmt == IMAGE_FORMAT_FIT || fmt == IMAGE_FORMAT_LEGACY)) {
 		int states;
 
 		states = ctx->restart ? BOOTM_STATE_RESTART : BOOTM_STATE_START;

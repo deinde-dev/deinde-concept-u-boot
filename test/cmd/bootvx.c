@@ -251,6 +251,8 @@ static int cmd_test_bootvx_opt(struct unit_test_state *uts)
 	ut_assert_nextline_empty();
 	ut_assert_nextline("Usage:");
 	ut_assert_nextline("bootvx %s", help);
+	ut_assert_nextline("bootvx tftp - download the image using TFTP before "
+			   "booting");
 	ut_assert_console_end();
 
 	return 0;

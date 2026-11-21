@@ -134,6 +134,9 @@ typedef void sandbox_eth_free_pkt_hand_f(struct udevice *dev, int len);
  * recv_packet_buffer - buffers of the packet returned as received
  * recv_packet_length - lengths of the packet returned as received
  * recv_packets - number of packets returned
+ * start_count - number of calls to the driver's start operation
+ * stop_count - number of calls to the driver's stop operation
+ * restart_wrap - inject an Ethernet rotation wrap on start
  * tx_handler - function to generate responses to sent packets
  * rx_handler - function to queue a packet when none is waiting, or NULL
  * free_pkt_handler - function called after releasing a received packet
@@ -148,6 +151,9 @@ struct eth_sandbox_priv {
 	uchar * recv_packet_buffer[PKTBUFSRX];
 	int recv_packet_length[PKTBUFSRX];
 	int recv_packets;
+	unsigned int start_count;
+	unsigned int stop_count;
+	bool restart_wrap;
 	sandbox_eth_tx_hand_f *tx_handler;
 	sandbox_eth_rx_hand_f *rx_handler;
 	sandbox_eth_free_pkt_hand_f *free_pkt_handler;
