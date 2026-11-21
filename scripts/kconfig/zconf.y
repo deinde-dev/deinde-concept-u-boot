@@ -643,6 +643,63 @@ static void print_quoted_string(FILE *out, const char *str)
 	putc('"', out);
 }
 
+static void dump_expr_helper(void *data, struct symbol *sym, const char *str)
+{
+	FILE *out = data;
+
+	/* Show a string in quotes, as it is written in the Kconfig file */
+	if (sym && (sym->flags & SYMBOL_CONST) && sym != &symbol_yes &&
+	    sym != &symbol_mod && sym != &symbol_no)
+		print_quoted_string(out, str);
+	else
+		fputs(str, out);
+}
+
+static void dump_expr(struct expr *e, FILE *out)
+{
+	expr_print(e, dump_expr_helper, out, E_NONE);
+}
+
+/* Print a condition, if there is one, and end the line */
+static void print_cond(FILE *out, struct expr *cond)
+{
+	if (!expr_is_yes(cond)) {
+		fputs(" if ", out);
+		dump_expr(cond, out);
+	}
+	fputc('\n', out);
+}
+
+static void print_depends(FILE *out, struct expr *dep)
+{
+	if (!expr_is_yes(dep)) {
+		fputs("\tdepends on ", out);
+		dump_expr(dep, out);
+		fputc('\n', out);
+	}
+}
+
+static void print_help(FILE *out, const char *help)
+{
+	int len = strlen(help);
+
+	while (len && help[len - 1] == '\n')
+		len--;
+	fputs("\thelp\n", out);
+	while (len) {
+		const char *eol = memchr(help, '\n', len);
+		int linelen = eol ? eol - help : len;
+
+		if (linelen)
+			fprintf(out, "\t  %.*s", linelen, help);
+		fputc('\n', out);
+		if (!eol)
+			break;
+		help += linelen + 1;
+		len -= linelen + 1;
+	}
+}
+
 static void print_symbol(FILE *out, struct menu *menu)
 {
 	struct symbol *sym = menu->sym;
@@ -650,26 +707,27 @@ static void print_symbol(FILE *out, struct menu *menu)
 
 	if (sym_is_choice(sym))
 		fprintf(out, "\nchoice\n");
+	else if (menu->prompt && menu->prompt->type == P_MENU)
+		fprintf(out, "\nmenuconfig %s\n", sym->name);
 	else
 		fprintf(out, "\nconfig %s\n", sym->name);
 	switch (sym->type) {
 	case S_BOOLEAN:
-		fputs("  bool\n", out);
+		fputs("\tbool\n", out);
 		break;
 	case S_TRISTATE:
-		fputs("  tristate\n", out);
+		fputs("\ttristate\n", out);
 		break;
 	case S_STRING:
-		fputs("  string\n", out);
+		fputs("\tstring\n", out);
 		break;
 	case S_INT:
-		fputs("  integer\n", out);
+		fputs("\tint\n", out);
 		break;
 	case S_HEX:
-		fputs("  hex\n", out);
+		fputs("\thex\n", out);
 		break;
 	default:
-		fputs("  ???\n", out);
 		break;
 	}
 	for (prop = sym->prop; prop; prop = prop->next) {
@@ -677,61 +735,41 @@ static void print_symbol(FILE *out, struct menu *menu)
 			continue;
 		switch (prop->type) {
 		case P_PROMPT:
-			fputs("  prompt ", out);
+		case P_MENU:
+			fputs("\tprompt ", out);
 			print_quoted_string(out, prop->text);
-			if (!expr_is_yes(prop->visible.expr)) {
-				fputs(" if ", out);
-				expr_fprint(prop->visible.expr, out);
-			}
-			fputc('\n', out);
+			print_cond(out, prop->visible.expr);
 			break;
 		case P_DEFAULT:
-			fputs( "  default ", out);
-			expr_fprint(prop->expr, out);
-			if (!expr_is_yes(prop->visible.expr)) {
-				fputs(" if ", out);
-				expr_fprint(prop->visible.expr, out);
-			}
-			fputc('\n', out);
+			fputs("\tdefault ", out);
+			dump_expr(prop->expr, out);
+			print_cond(out, prop->visible.expr);
 			break;
 		case P_CHOICE:
-			fputs("  #choice value\n", out);
+		case P_SYMBOL:
 			break;
 		case P_SELECT:
-			fputs( "  select ", out);
-			expr_fprint(prop->expr, out);
+			fputs("\tselect ", out);
+			dump_expr(prop->expr, out);
 			fputc('\n', out);
 			break;
 		case P_IMPLY:
-			fputs( "  imply ", out);
-			expr_fprint(prop->expr, out);
+			fputs("\timply ", out);
+			dump_expr(prop->expr, out);
 			fputc('\n', out);
 			break;
 		case P_RANGE:
-			fputs( "  range ", out);
-			expr_fprint(prop->expr, out);
-			fputc('\n', out);
-			break;
-		case P_MENU:
-			fputs( "  menu ", out);
-			print_quoted_string(out, prop->text);
-			fputc('\n', out);
-			break;
-		case P_SYMBOL:
-			fputs( "  symbol ", out);
-			fprintf(out, "%s\n", prop->sym->name);
+			fprintf(out, "\trange %s %s\n",
+				prop->expr->left.sym->name,
+				prop->expr->right.sym->name);
 			break;
 		default:
-			fprintf(out, "  unknown prop %d!\n", prop->type);
+			fprintf(out, "\tunknown prop %d!\n", prop->type);
 			break;
 		}
 	}
-	if (menu->help) {
-		int len = strlen(menu->help);
-		while (menu->help[--len] == '\n')
-			menu->help[len] = 0;
-		fprintf(out, "  help\n%s\n", menu->help);
-	}
+	if (menu->help)
+		print_help(out, menu->help);
 }
 
 void zconfdump(FILE *out)
@@ -759,11 +797,7 @@ void zconfdump(FILE *out)
 			default:
 				;
 			}
-			if (!expr_is_yes(prop->visible.expr)) {
-				fputs("  depends ", out);
-				expr_fprint(prop->visible.expr, out);
-				fputc('\n', out);
-			}
+			print_depends(out, prop->visible.expr);
 		}
 
 		if (menu->list)
@@ -771,7 +805,10 @@ void zconfdump(FILE *out)
 		else if (menu->next)
 			menu = menu->next;
 		else while ((menu = menu->parent)) {
-			if (menu->prompt && menu->prompt->type == P_MENU)
+			if (menu->sym && sym_is_choice(menu->sym))
+				fputs("\nendchoice\n", out);
+			else if (!menu->sym && menu != &rootmenu &&
+				 menu->prompt && menu->prompt->type == P_MENU)
 				fputs("\nendmenu\n", out);
 			if (menu->next) {
 				menu = menu->next;
