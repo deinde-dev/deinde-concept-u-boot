@@ -1,0 +1,30 @@
+config SPL
+	bool "Enable SPL"
+
+config TPL
+	bool "Enable TPL"
+
+config PLAIN
+	bool "Same in every phase"
+
+config ALSO_PLAIN
+	bool "Also the same in every phase"
+
+config HAS_TWIN
+	bool "Has a twin written out by hand"
+
+config SPL_HAS_TWIN
+	bool "Twin for SPL"
+
+config NET
+	bool "Networking"
+	phases all
+	select PLAIN
+	imply PLAIN
+	select PPL_ALSO_PLAIN
+	select HAS_TWIN
+
+config PRIMARY_NET
+	bool "Networking in the primary phase"
+	phases ppl
+	select PLAIN

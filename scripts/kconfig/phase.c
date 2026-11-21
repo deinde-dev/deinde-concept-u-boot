@@ -260,6 +260,40 @@ static struct expr *phase_xlate_expr(const struct expr *org, int phase)
 }
 
 /**
+ * phase_check_select() - Warn about selecting an option with a single symbol
+ *
+ * If an xPL phase's version of an option selects one which is the same in
+ * every phase, enabling the option in that phase enables the other one in
+ * every phase. Warn about this, unless it is written with the prefix of the
+ * primary phase, e.g. PPL_FOO, which shows that it is intended.
+ *
+ * @prop: Select or imply property of a phased entry
+ * @xlate: Symbol which it selects in this phase
+ * @phase: Bit number of the phase, which is not the primary phase
+ */
+static void phase_check_select(const struct property *prop,
+			       const struct symbol *xlate, int phase)
+{
+	const struct symbol *target = prop->expr->left.sym;
+	struct menu *org = prop->menu;
+	int first;
+
+	if (xlate != target)
+		return;
+
+	/* Show the warning once, for the first xPL phase of the entry */
+	for (first = 1; !(org->phases & PHASE_BIT(first)); first++)
+		;
+	if (phase != first)
+		return;
+	menu_warn(org,
+		  "'%s' %s '%s', which is the same in every phase: use '%s_%s' if this is intended",
+		  org->sym->name,
+		  prop->type == P_SELECT ? "selects" : "implies", target->name,
+		  primary_name, target->name);
+}
+
+/**
  * phase_copy_prop() - Copy a property to a symbol, translating it for a phase
  *
  * @prop: Property to copy
@@ -284,10 +318,13 @@ static struct property *phase_copy_prop(const struct property *prop,
 							   phase));
 	} else {
 		expr = phase_xlate_expr(prop->expr, phase);
-		if ((prop->type == P_SELECT || prop->type == P_IMPLY) &&
-		    expr->left.sym == &symbol_no) {
-			expr_free(expr);
-			return NULL;
+		if (prop->type == P_SELECT || prop->type == P_IMPLY) {
+			if (expr->left.sym == &symbol_no) {
+				expr_free(expr);
+				return NULL;
+			}
+			if (phase != PHASE_PRIMARY)
+				phase_check_select(prop, expr->left.sym, phase);
 		}
 	}
 

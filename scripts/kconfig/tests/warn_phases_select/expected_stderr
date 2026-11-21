@@ -1,0 +1,2 @@
+Kconfig:19:warning: 'NET' selects 'PLAIN', which is the same in every phase: use 'PPL_PLAIN' if this is intended
+Kconfig:19:warning: 'NET' implies 'PLAIN', which is the same in every phase: use 'PPL_PLAIN' if this is intended
