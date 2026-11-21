@@ -1519,10 +1519,11 @@ static int u_boot_read_phases(const char *fname)
 		xpl_name[count++] = xstrdup(name);
 	}
 	fclose(f);
-
-	/* Until scripts/xpl_phases has a primary phase, use the usual name */
-	if (!primary_name)
-		primary_name = "PPL";
+	if (!primary_name) {
+		fprintf(stderr, "%s: No primary phase: mark one with 'primary'\n",
+			fname);
+		return 1;
+	}
 	num_phases = count;
 	xpl_name[count] = "TOOLS";
 	phases_read = true;
