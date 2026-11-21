@@ -24,7 +24,7 @@ class TestReadPhases(unittest.TestCase):
                       encoding='utf-8') as outf:
                 outf.write('# comment\n\ntpl\tbootph-pre-sram\n'
                            'mpl  bootph-monitor\nspl\tbootph-pre-ram\n'
-                           'rpl\t-\n')
+                           'rpl\t-\tresident\n')
             self.assertEqual(('tpl', 'mpl', 'spl', 'rpl'),
                              xpl.read_phases(srcdir))
 

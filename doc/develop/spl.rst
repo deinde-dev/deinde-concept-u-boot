@@ -129,11 +129,17 @@ the phase's Kconfig options, so TPL has options such as ``CONFIG_TPL_SERIAL``,
 and ``CONFIG_TPL`` enables the phase. When it finishes, a phase moves on to the
 next enabled phase in the list, with U-Boot proper coming after the last one.
 
-The last line is for U-Boot proper, which is marked ``primary`` and has ``-``
-for its tag. It is not an xPL phase, so does not appear in the files below.
-Its options have no prefix, but its name is used where one is needed, e.g.
-``CONFIG_PPL_TEXT_BASE`` gives the text base of U-Boot proper in the
-configuration of every phase.
+A line may end with flags. ``primary`` marks U-Boot proper, on the last line,
+which has ``-`` for its tag. It is not an xPL phase, so does not appear in the
+files below. Its options have no prefix, but its name is used where one is
+needed, e.g. ``CONFIG_PPL_TEXT_BASE`` gives the text base of U-Boot proper in
+the configuration of every phase.
+
+``resident`` marks a phase which is loaded alongside the phase after it and
+stays in memory to provide services to it, such as a secure monitor, rather
+than handing over and being discarded. A resident phase is not part of the
+chain of phases: the phases either side of it move on to each other, while the
+resident phase itself moves on to the next phase which is not resident.
 
 Kconfig reads the list and writes two files from it during the build. Both
 depend only on the list, so they are the same for every board.
