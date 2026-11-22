@@ -37,10 +37,11 @@
 #define ALT_ADDR	(CONFIG_SYS_LOAD_ADDR + 0x18000)
 
 /*
- * The name of the function which logs a failed load, right-aligned in
- * CONFIG_LOGF_FUNC_PAD (20) characters as the log emits it
+ * The names of the functions which log a failure, right-aligned in
+ * CONFIG_LOGF_FUNC_PAD (20) characters as the log emits them
  */
 #define FUNC_LOAD	"             do_load"
+#define FUNC_WRITE	"            fs_write"
 
 /**
  * check_log() - Check the next console line, which the fs layer logs
@@ -83,6 +84,41 @@ static int make_file(struct unit_test_state *uts, const char *data, uint size)
 	ut_assertok(os_close(fd));
 
 	return 0;
+}
+
+/**
+ * read_file() - Read back the file which the tests write
+ *
+ * @uts: Test state
+ * @buf: Buffer to hold the contents
+ * @size: Number of bytes to read
+ * Return: 0 if OK, 1 on failure
+ */
+static int read_file(struct unit_test_state *uts, char *buf, uint size)
+{
+	int fd;
+
+	fd = os_open(TEST_FILE, OS_O_RDONLY);
+	ut_assert(fd >= 0);
+	ut_asserteq(size, os_read(fd, buf, size));
+	ut_assertok(os_close(fd));
+
+	return 0;
+}
+
+/**
+ * fill_mem() - Put data in memory for a save to write out
+ *
+ * @addr: Address to write to
+ * @data: Data to write
+ * @size: Number of bytes
+ */
+static void fill_mem(ulong addr, const char *data, uint size)
+{
+	void *buf = map_sysmem(addr, size);
+
+	memcpy(buf, data, size);
+	unmap_sysmem(buf);
 }
 
 /**
@@ -339,3 +375,124 @@ static int cmd_test_load_badopt(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_load_badopt, UTF_CONSOLE);
+
+/* a path through a directory which is not there, so a save fails */
+#define BAD_FILE	".cmd_test_fs_nodir/f"
+
+/* the lines of the save usage message which are too long to write inline */
+#define SAVE_USAGE_ARGS \
+	"save <interface> <dev[:part]> <addr> <filename> bytes [pos]"
+#define SAVE_USAGE_PART \
+	"    - Save binary file 'filename' to partition 'part' on device"
+
+/**
+ * check_save_usage() - Check the console holds the save usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_save_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("save - save file to a filesystem");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline(SAVE_USAGE_ARGS);
+	ut_assert_nextline(SAVE_USAGE_PART);
+	ut_assert_nextline("      type 'interface' instance 'dev' from addr 'addr' in memory.");
+	ut_assert_nextline("      'bytes' gives the size to save in bytes and is mandatory.");
+	ut_assert_nextline("      'pos' gives the file byte position to start writing to.");
+	ut_assert_nextline("      If 'pos' is 0 or omitted, the file is written from the start.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that save writes memory to a file and reports what it wrote */
+static int cmd_test_save_base(struct unit_test_state *uts)
+{
+	char buf[DATA_SIZE];
+	long long size;
+
+	fill_mem(LOAD_ADDR, DATA, DATA_SIZE);
+
+	ut_assertok(run_commandf("save sandbox - %lx %s %x", (ulong)LOAD_ADDR,
+				 TEST_FILE, DATA_SIZE));
+	ut_assert_nextlinen("16 bytes written in ");
+	ut_assert_console_end();
+
+	/* the file holds what was in memory and nothing more */
+	ut_assertok(os_get_filesize(TEST_FILE, &size));
+	ut_asserteq(DATA_SIZE, size);
+	ut_assertok(read_file(uts, buf, DATA_SIZE));
+	ut_asserteq_mem(DATA, buf, DATA_SIZE);
+
+	ut_assertok(os_unlink(TEST_FILE));
+
+	return 0;
+}
+CMD_TEST(cmd_test_save_base, UTF_CONSOLE);
+
+/* Test that 'pos' writes part-way into a file which is already there */
+static int cmd_test_save_pos(struct unit_test_state *uts)
+{
+	char buf[DATA_SIZE];
+	long long size;
+
+	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	fill_mem(ALT_ADDR, "XY", 2);
+
+	ut_assertok(run_commandf("save sandbox - %lx %s 2 4", (ulong)ALT_ADDR,
+				 TEST_FILE));
+	ut_assert_nextlinen("2 bytes written in ");
+	ut_assert_console_end();
+
+	/* the two bytes land at offset 4 and the file keeps its length */
+	ut_assertok(os_get_filesize(TEST_FILE, &size));
+	ut_asserteq(DATA_SIZE, size);
+	ut_assertok(read_file(uts, buf, DATA_SIZE));
+	ut_asserteq_mem("0123XY6789abcdef", buf, DATA_SIZE);
+
+	ut_assertok(os_unlink(TEST_FILE));
+
+	return 0;
+}
+CMD_TEST(cmd_test_save_pos, UTF_CONSOLE);
+
+/* Test that save reports a file it cannot write */
+static int cmd_test_save_fail(struct unit_test_state *uts)
+{
+	fill_mem(LOAD_ADDR, DATA, DATA_SIZE);
+
+	ut_asserteq(1, run_commandf("save sandbox - %lx %s %x",
+				    (ulong)LOAD_ADDR, BAD_FILE, DATA_SIZE));
+
+	/* the filesystem reports it, then the fs layer logs it */
+	ut_assert_nextline("** Unable to write file %s **", BAD_FILE);
+	ut_assertok(check_log(uts, FUNC_WRITE,
+			      "** Unable to write file " BAD_FILE " **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_save_fail, UTF_CONSOLE);
+
+/* Test that save shows its usage message when it cannot go on */
+static int cmd_test_save_usage(struct unit_test_state *uts)
+{
+	/* the command has no defaults at all */
+	ut_asserteq(1, run_command("save", 0));
+	ut_assertok(check_save_usage(uts));
+
+	/* 'bytes' must be given, since a file is not written to the end */
+	ut_asserteq(1, run_commandf("save sandbox - %lx %s", (ulong)LOAD_ADDR,
+				    TEST_FILE));
+	ut_assertok(check_save_usage(uts));
+
+	/* and there is nothing to give beyond 'pos' */
+	ut_asserteq(1, run_commandf("save sandbox - %lx %s 2 4 1",
+				    (ulong)LOAD_ADDR, TEST_FILE));
+	ut_assertok(check_save_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_save_usage, UTF_CONSOLE);
