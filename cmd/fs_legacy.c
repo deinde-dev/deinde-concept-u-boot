@@ -40,13 +40,12 @@ U_BOOT_CMD_NOOPTS(
 	"      If 'pos' is 0 or omitted, the file is read from the start."
 );
 
-static int do_save_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_save_wrapper(struct getopt_state *gs)
 {
-	return do_save(argc, argv, FS_TYPE_ANY);
+	return do_save(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	save,	7,	0,	do_save_wrapper,
 	"save file to a filesystem",
 	"<interface> <dev[:part]> <addr> <filename> bytes [pos]\n"

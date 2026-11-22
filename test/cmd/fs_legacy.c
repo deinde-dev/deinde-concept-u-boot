@@ -496,3 +496,28 @@ static int cmd_test_save_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_save_usage, UTF_CONSOLE);
+
+/* Test that save refuses an option, since it has none */
+static int cmd_test_save_badopt(struct unit_test_state *uts)
+{
+	fill_mem(LOAD_ADDR, DATA, DATA_SIZE);
+
+	ut_asserteq(1, run_commandf("save -b sandbox - %lx %s %x",
+				    (ulong)LOAD_ADDR, TEST_FILE, DATA_SIZE));
+	ut_assertok(check_save_usage(uts));
+
+	/*
+	 * A filename which looks like an option is still a filename, so this
+	 * reaches the filesystem, which cannot create the file since its
+	 * directory is not there
+	 */
+	ut_asserteq(1, run_commandf("save sandbox - %lx -b/f %x",
+				    (ulong)LOAD_ADDR, DATA_SIZE));
+	ut_assert_nextline("** Unable to write file -b/f **");
+	ut_assertok(check_log(uts, FUNC_WRITE,
+			      "** Unable to write file -b/f **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_save_badopt, UTF_CONSOLE);
