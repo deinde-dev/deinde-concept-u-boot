@@ -340,11 +340,39 @@ static int check_fit_contents(struct unit_test_state *uts)
 	return 0;
 }
 
+/**
+ * check_no_confs() - Check the message about the missing configurations
+ *
+ * When signatures are supported, iminfo checks the signature of each
+ * configuration before checking the hashes. The test FIT has no
+ * configurations, so iminfo just reports this. The function name is shown
+ * only when CONFIG_LOGF_FUNC is enabled.
+ *
+ * @uts: Test state
+ * Return: 0 if OK, -ve on error
+ */
+static int check_no_confs(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FIT_SIGNATURE))
+		return 0;
+
+	if (IS_ENABLED(CONFIG_LOGF_FUNC))
+		ut_assert_nextline("fit_all_configurations_verify() Missing '/configurations' node: FDT_ERR_NOTFOUND");
+	else
+		ut_assert_nextline("Missing '/configurations' node: FDT_ERR_NOTFOUND");
+
+	return 0;
+}
+
 /* Test 'iminfo' on a FIT, rather than a legacy image */
 static int cmd_test_iminfo_fit(struct unit_test_state *uts)
 {
-	/* without FIT support the command reports an unknown format */
-	if (!IS_ENABLED(CONFIG_FIT))
+	/*
+	 * without FIT support the command reports an unknown format; when
+	 * signatures are required the FIT is rejected as it has none
+	 */
+	if (!IS_ENABLED(CONFIG_FIT) ||
+	    IS_ENABLED(CONFIG_FIT_REQUIRE_CONFIG_SIGS))
 		return -EAGAIN;
 
 	ut_assertok(setup_fit(uts, IMI_ADDR, false));
@@ -354,10 +382,11 @@ static int cmd_test_iminfo_fit(struct unit_test_state *uts)
 	ut_assert_nextline("## Checking Image at %08lx ...", IMI_ADDR);
 	ut_assert_nextline("   FIT image found");
 	ut_assertok(check_fit_contents(uts));
+	ut_assertok(check_no_confs(uts));
 
 	ut_assert_nextline("## Checking hash(es) for FIT Image at %08lx ...",
 			   IMI_ADDR);
-	ut_assert_nextline("   Hash(es) for Image 0 (kernel): crc32+ ");
+	ut_assert_nextline("   Hash(es) for Image 0 (kernel): crc32+ OK");
 	ut_assert_console_end();
 
 	return 0;
@@ -367,8 +396,12 @@ CMD_TEST(cmd_test_iminfo_fit, UTF_CONSOLE);
 /* Test 'iminfo' on a FIT whose payload does not match its hash */
 static int cmd_test_iminfo_fit_bad(struct unit_test_state *uts)
 {
-	/* without FIT support the command reports an unknown format */
-	if (!IS_ENABLED(CONFIG_FIT))
+	/*
+	 * without FIT support the command reports an unknown format; when
+	 * signatures are required the FIT is rejected as it has none
+	 */
+	if (!IS_ENABLED(CONFIG_FIT) ||
+	    IS_ENABLED(CONFIG_FIT_REQUIRE_CONFIG_SIGS))
 		return -EAGAIN;
 
 	ut_assertok(setup_fit(uts, IMI_ADDR, true));
@@ -378,6 +411,7 @@ static int cmd_test_iminfo_fit_bad(struct unit_test_state *uts)
 	ut_assert_nextline("## Checking Image at %08lx ...", IMI_ADDR);
 	ut_assert_nextline("   FIT image found");
 	ut_assertok(check_fit_contents(uts));
+	ut_assertok(check_no_confs(uts));
 	ut_assert_nextline("## Checking hash(es) for FIT Image at %08lx ...",
 			   IMI_ADDR);
 	ut_assert_nextline("   Hash(es) for Image 0 (kernel): crc32 error!");
