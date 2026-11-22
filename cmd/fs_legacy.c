@@ -91,7 +91,7 @@ static int do_mkdir_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
 U_BOOT_CMD(
 	mkdir,	4,	1,	do_mkdir_wrapper,
 	"create a directory",
-	"<interface> [<dev[:part]>] <directory>\n"
+	"<interface> <dev[:part]> <directory>\n"
 	"    - Create a directory 'directory' of partition 'part' on\n"
 	"      device type 'interface' instance 'dev'."
 );
@@ -105,7 +105,7 @@ static int do_rm_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
 U_BOOT_CMD(
 	rm,	4,	1,	do_rm_wrapper,
 	"delete a file",
-	"<interface> [<dev[:part]>] <filename>\n"
+	"<interface> <dev[:part]> <filename>\n"
 	"    - delete a file with the name 'filename' on\n"
 	"      device type 'interface' instance 'dev'."
 );
@@ -144,7 +144,7 @@ static int do_mv_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
 U_BOOT_CMD(
 	mv,	5,	1,	do_mv_wrapper,
 	"rename/move a file/directory",
-	"<interface> [<dev[:part]>] <old_path> <new_path>\n"
+	"<interface> <dev[:part]> <old_path> <new_path>\n"
 	"    - renames/moves a file/directory in 'dev' on 'interface' from\n"
 	"      'old_path' to 'new_path'"
 );
