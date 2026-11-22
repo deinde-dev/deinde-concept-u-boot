@@ -9,13 +9,12 @@
 #include <fs_cmd.h>
 #include <getopt.h>
 
-static int do_size_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_size_wrapper(struct getopt_state *gs)
 {
-	return do_size(argc, argv, FS_TYPE_ANY);
+	return do_size(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	size,	4,	0,	do_size_wrapper,
 	"determine a file's size",
 	"<interface> <dev[:part]> <filename>\n"

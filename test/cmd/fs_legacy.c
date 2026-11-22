@@ -599,3 +599,21 @@ static int cmd_test_size_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_size_usage, UTF_CONSOLE);
+
+/* Test that size refuses an option, since it has none */
+static int cmd_test_size_badopt(struct unit_test_state *uts)
+{
+	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+
+	ut_asserteq(1, run_commandf("size -b sandbox - %s", TEST_FILE));
+	ut_assertok(check_size_usage(uts));
+
+	/* a filename which looks like an option is still a filename */
+	ut_asserteq(1, run_command("size sandbox - -b", 0));
+	ut_assert_console_end();
+
+	ut_assertok(os_unlink(TEST_FILE));
+
+	return 0;
+}
+CMD_TEST(cmd_test_size_badopt, UTF_CONSOLE);
