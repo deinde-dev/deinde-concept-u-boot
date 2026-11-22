@@ -58,3 +58,11 @@ class TestFsLegacy:
     def test_mkdir_fail(self, ubman, fat_image):
         """Check that mkdir reports a directory it cannot create"""
         ubman.run_ut('cmd', 'cmd_test_mkdir_fail', fs_image=fat_image)
+
+    def test_rm_base(self, ubman, fat_image):
+        """Check that rm deletes a file, and an empty directory"""
+        ubman.run_ut('cmd', 'cmd_test_rm_base', fs_image=fat_image)
+
+    def test_rm_fail(self, ubman, fat_image):
+        """Check that rm reports a path it cannot delete"""
+        ubman.run_ut('cmd', 'cmd_test_rm_fail', fs_image=fat_image)

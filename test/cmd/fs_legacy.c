@@ -43,6 +43,7 @@
 #define FUNC_LOAD	"             do_load"
 #define FUNC_WRITE	"            fs_write"
 #define FUNC_MKDIR	"            do_mkdir"
+#define FUNC_REMOVE	"          fat_remove"
 
 /**
  * check_log() - Check the next console line, which the fs layer logs
@@ -1044,3 +1045,130 @@ static int cmd_test_mkdir_badopt(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_mkdir_badopt, UTF_CONSOLE);
+
+/* contents of hello.txt in the image, which the Python side writes */
+#define HELLO		"Hello, world!\n"
+#define HELLO_SIZE	0xe
+
+/* Test that rm deletes a file, and an empty directory */
+static int cmd_test_rm_base_norun(struct unit_test_state *uts)
+{
+	char *old_filesize;
+
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+	ut_assertok(save_env(uts, "filesize", &old_filesize));
+
+	/* the file is there to start with, which the size command shows */
+	ut_assertok(run_command("size host 0 hello.txt", 0));
+	ut_assert_console_end();
+	ut_asserteq(HELLO_SIZE, env_get_hex("filesize", 0));
+
+	/* the command says nothing when it works */
+	ut_assertok(run_command("rm host 0 hello.txt", 0));
+	ut_assert_console_end();
+
+	/* and the file is gone, so even its size cannot be found */
+	ut_asserteq(1, run_command("size host 0 hello.txt", 0));
+	ut_assert_console_end();
+
+	/* an empty directory goes the same way, since FAT has no rmdir */
+	ut_assertok(run_command("ls host 0 empty", 0));
+	ut_assertok(check_empty_dir(uts));
+	ut_assertok(run_command("rm host 0 empty", 0));
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("ls host 0 empty", 0));
+	ut_assert_console_end();
+
+	/* put the image back as it was found, so the test can be repeated */
+	fill_mem(LOAD_ADDR, HELLO, HELLO_SIZE);
+	ut_assertok(run_commandf("save host 0 %lx hello.txt %x",
+				 (ulong)LOAD_ADDR, HELLO_SIZE));
+	ut_assert_nextlinen("14 bytes written in ");
+	ut_assertok(run_command("mkdir host 0 empty", 0));
+	ut_assert_console_end();
+
+	ut_assertok(env_set("filesize", old_filesize));
+	free(old_filesize);
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_rm_base_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that rm reports a path it cannot delete */
+static int cmd_test_rm_fail_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the filesystem reports a file which is not there */
+	ut_asserteq(1, run_command("rm host 0 nothere", 0));
+	ut_assertok(check_log(uts, FUNC_REMOVE,
+			      "nothere: doesn't exist (-2)"));
+	ut_assert_console_end();
+
+	/* a directory is refused while anything is left in it */
+	ut_asserteq(1, run_command("rm host 0 docs", 0));
+	ut_assert_nextline("Error: directory is not empty: 3");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_rm_fail_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that rm reports a filesystem which cannot delete a file */
+static int cmd_test_rm_unsup(struct unit_test_state *uts)
+{
+	/*
+	 * sandboxfs has no unlink operation, so the fs layer refuses it; the
+	 * return value is all there is to see, since nothing reports it
+	 */
+	ut_asserteq(1, run_commandf("rm sandbox - %s", TEST_FILE));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_rm_unsup, UTF_CONSOLE);
+
+/**
+ * check_rm_usage() - Check the console holds the rm usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_rm_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("rm - delete a file");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("rm <interface> <dev[:part]> <filename>");
+	ut_assert_nextline("    - delete a file with the name 'filename' on");
+	ut_assert_nextline("      device type 'interface' instance 'dev'.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that rm shows its usage message when it cannot go on */
+static int cmd_test_rm_usage(struct unit_test_state *uts)
+{
+	/* all three arguments are needed */
+	ut_asserteq(1, run_command("rm", 0));
+	ut_assertok(check_rm_usage(uts));
+
+	ut_asserteq(1, run_commandf("rm sandbox %s", TEST_FILE));
+	ut_assertok(check_rm_usage(uts));
+
+	/* and there is nothing to give beyond the filename */
+	ut_asserteq(1, run_commandf("rm sandbox - %s extra", TEST_FILE));
+	ut_assertok(check_rm_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_rm_usage, UTF_CONSOLE);
