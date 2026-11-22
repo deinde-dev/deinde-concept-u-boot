@@ -79,3 +79,7 @@ class TestErofsls:
     def test_erofsls_usage(self, ubman, erofs_image):
         """Check that erofsls shows its usage message when it cannot go on"""
         ubman.run_ut('cmd', 'cmd_test_erofsls_usage', fs_image=erofs_image)
+
+    def test_erofsls_badopt(self, ubman, erofs_image):
+        """Check that erofsls refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_erofsls_badopt', fs_image=erofs_image)

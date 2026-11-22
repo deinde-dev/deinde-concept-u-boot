@@ -10,16 +10,17 @@
 #include <command.h>
 #include <fs_cmd.h>
 #include <erofs.h>
+#include <getopt.h>
 
-static int do_erofs_ls(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+static int do_erofs_ls(struct getopt_state *gs)
 {
-	return do_ls(argc, argv, FS_TYPE_EROFS);
+	return do_ls(gs->argc, gs->argv, FS_TYPE_EROFS);
 }
 
-U_BOOT_CMD(erofsls, 4, 1, do_erofs_ls,
-	   "List files in directory. Default: root (/).",
-	   "<interface> [<dev[:part]>] [directory]\n"
-	   "    - list files from 'dev' on 'interface' in 'directory'\n"
+U_BOOT_CMD_NOOPTS(erofsls, 4, 1, do_erofs_ls,
+		  "List files in directory. Default: root (/).",
+		  "<interface> [<dev[:part]>] [directory]\n"
+		  "    - list files from 'dev' on 'interface' in 'directory'\n"
 );
 
 static int do_erofs_load(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])

@@ -3226,6 +3226,7 @@ config CMD_CRAMFS
 config CMD_EROFS
 	bool "EROFS command support"
 	select FS_EROFS
+	select GETOPT
 	help
 	  Support for the EROFS fs
 
