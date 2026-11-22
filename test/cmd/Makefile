@@ -90,6 +90,9 @@ endif
 obj-$(CONFIG_CMD_FDT) += fdt.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_FPGA) += fpga.o
+ifdef CONFIG_SANDBOX
+obj-$(CONFIG_CMD_FS_LEGACY) += fs_legacy.o
+endif
 ifdef CONFIG_CMD_VFS
 obj-y += fstypes.o
 else
