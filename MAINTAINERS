@@ -1944,6 +1944,7 @@ M:	Heiko Schocher <hs@nabladev.com>
 S:	Maintained
 T:	git https://git.u-boot-project.org/u-boot/custodians/u-boot-ubi.git
 F:	drivers/mtd/ubi/
+F:	test/dm/ubi.c
 
 U_BOOT_PYLIB
 M:	Simon Glass <sjg@chromium.org>

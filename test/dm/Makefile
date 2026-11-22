@@ -166,6 +166,9 @@ obj-$(CONFIG_TEE) += tee.o
 obj-$(CONFIG_TKEY) += tkey.o
 obj-$(CONFIG_TIMER) += timer.o
 obj-$(CONFIG_TPM_V2) += tpm.o
+ifeq ($(CONFIG_CMD_UBI)$(CONFIG_NAND_SANDBOX),yy)
+obj-y += ubi.o
+endif
 obj-$(CONFIG_DM_USB) += usb.o
 obj-$(CONFIG_VIDEO_SANDBOX_SDL) += video.o
 ifeq ($(CONFIG_VIRTIO_SANDBOX),y)
