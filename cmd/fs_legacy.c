@@ -9,13 +9,12 @@
 #include <fs_cmd.h>
 #include <getopt.h>
 
-static int do_size_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_size_wrapper(struct getopt_state *gs)
 {
-	return do_size(argc, argv, FS_TYPE_ANY);
+	return do_size(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	size,	4,	0,	do_size_wrapper,
 	"determine a file's size",
 	"<interface> <dev[:part]> <filename>\n"
@@ -23,13 +22,12 @@ U_BOOT_CMD(
 	"      determine its size, and store in the 'filesize' variable."
 );
 
-static int do_load_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_load_wrapper(struct getopt_state *gs)
 {
-	return do_load(argc, argv, FS_TYPE_ANY);
+	return do_load(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	load,	7,	0,	do_load_wrapper,
 	"load binary file from a filesystem",
 	"<interface> [<dev[:part]> [<addr> [<filename> [bytes [pos]]]]]\n"
@@ -41,13 +39,12 @@ U_BOOT_CMD(
 	"      If 'pos' is 0 or omitted, the file is read from the start."
 );
 
-static int do_save_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_save_wrapper(struct getopt_state *gs)
 {
-	return do_save(argc, argv, FS_TYPE_ANY);
+	return do_save(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	save,	7,	0,	do_save_wrapper,
 	"save file to a filesystem",
 	"<interface> <dev[:part]> <addr> <filename> bytes [pos]\n"

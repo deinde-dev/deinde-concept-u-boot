@@ -53,7 +53,9 @@ dev
     device number
 
 part
-    partition number, defaults to 0 (whole device)
+    partition number. With no partition given, partition 1 is used, or the
+    whole device if it has no partition table. A partition of 0 means the
+    whole device and *auto* means the first bootable partition.
 
 addr
     load address, defaults to environment variable loadaddr or if loadaddr is
@@ -144,6 +146,8 @@ See also
 * :doc:`sqfsload<sqfsload>` for the SquashFS-only form of this command
 * :doc:`erofsload<erofsload>` for the EROFS-only form of this command
 * :doc:`fstypes<fstypes>` for the filesystem types this command can read
+* :doc:`save<save>` for writing memory back to a file
+* :doc:`size<size>` for finding a file's size without reading it
 * :doc:`iminfo<iminfo>` for checking an image once it has been loaded
 * :doc:`go<go>` for starting an application once it has been loaded
 * :doc:`bmp<bmp>` for showing a BMP image once it has been loaded
