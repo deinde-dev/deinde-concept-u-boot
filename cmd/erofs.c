@@ -10,33 +10,34 @@
 #include <command.h>
 #include <fs_cmd.h>
 #include <erofs.h>
+#include <getopt.h>
 
-static int do_erofs_ls(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+static int do_erofs_ls(struct getopt_state *gs)
 {
-	return do_ls(argc, argv, FS_TYPE_EROFS);
+	return do_ls(gs->argc, gs->argv, FS_TYPE_EROFS);
 }
 
-U_BOOT_CMD(erofsls, 4, 1, do_erofs_ls,
-	   "List files in directory. Default: root (/).",
-	   "<interface> [<dev[:part]>] [directory]\n"
-	   "    - list files from 'dev' on 'interface' in 'directory'\n"
+U_BOOT_CMD_NOOPTS(erofsls, 4, 1, do_erofs_ls,
+		  "List files in directory. Default: root (/).",
+		  "<interface> [<dev[:part]>] [directory]\n"
+		  "    - list files from 'dev' on 'interface' in 'directory'\n"
 );
 
-static int do_erofs_load(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+static int do_erofs_load(struct getopt_state *gs)
 {
-	return do_load(argc, argv, FS_TYPE_EROFS);
+	return do_load(gs->argc, gs->argv, FS_TYPE_EROFS);
 }
 
-U_BOOT_CMD(erofsload, 7, 0, do_erofs_load,
-	   "load binary file from a EROFS filesystem",
-	   "<interface> [<dev[:part]> [<addr> [<filename> [bytes [pos]]]]]\n"
-	   "    - Load binary file 'filename' from 'dev' on 'interface'\n"
-	   "      to address 'addr' from EROFS filesystem.\n"
-	   "      'pos' gives the file position to start loading from.\n"
-	   "      If 'pos' is omitted, 0 is used. 'pos' requires 'bytes'.\n"
-	   "      'bytes' gives the size to load. If 'bytes' is 0 or omitted,\n"
-	   "      the load stops on end of file.\n"
-	   "      If either 'pos' or 'bytes' are not aligned to\n"
-	   "      ARCH_DMA_MINALIGN then a misaligned buffer warning will\n"
-	   "      be printed and performance will suffer for the load."
+U_BOOT_CMD_NOOPTS(erofsload, 7, 0, do_erofs_load,
+		  "load binary file from a EROFS filesystem",
+		  "<interface> [<dev[:part]> [<addr> [<filename> [bytes [pos]]]]]\n"
+		  "    - Load binary file 'filename' from 'dev' on 'interface'\n"
+		  "      to address 'addr' from EROFS filesystem.\n"
+		  "      'pos' gives the file position to start loading from.\n"
+		  "      If 'pos' is omitted, 0 is used. 'pos' requires 'bytes'.\n"
+		  "      'bytes' gives the size to load. If 'bytes' is 0 or omitted,\n"
+		  "      the load stops on end of file.\n"
+		  "      If either 'pos' or 'bytes' are not aligned to\n"
+		  "      ARCH_DMA_MINALIGN then a misaligned buffer warning will\n"
+		  "      be printed and performance will suffer for the load."
 );

@@ -30,7 +30,8 @@ still lists those two.
 A symbolic link naming a directory can be listed, in which case the contents
 of its target are shown. The driver resolves the target from the root of the
 filesystem, so a relative target only works for a link in the root
-directory.
+directory. Only the last component of a path may be a symbolic link: the
+walk stops at a link part-way along one, so such a path cannot be listed.
 
 A path which is not there, or which names something other than a directory,
 is reported through the return value alone: the EROFS driver prints nothing.

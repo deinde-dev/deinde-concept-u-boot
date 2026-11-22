@@ -83,8 +83,8 @@ class FsHelper:
         Args:
             config (u_boot_config): U-Boot configuration
             fs_type (str): File system type: one of ext2, ext3, ext4, vfat,
-                fat12, fat16, fat32, exfat, btrfs, squashfs, fs_generic (which
-                means vfat)
+                fat12, fat16, fat32, exfat, btrfs, erofs, squashfs, fs_generic
+                (which means vfat)
             size_mb (int): Size of file system in MB
             prefix (str): Prefix string of volume's file name
             part_mb (int, optional): Size of partition in MB. If None, defaults
@@ -102,7 +102,7 @@ class FsHelper:
                 master key (via --master-key-file), enabling pre_derived unlock.
         """
         if ('fat' not in fs_type and 'ext' not in fs_type and
-             fs_type not in ['btrfs', 'exfat', 'fs_generic', 'iso',
+             fs_type not in ['btrfs', 'erofs', 'exfat', 'fs_generic', 'iso',
                              'squashfs']):
             raise ValueError(f"Unsupported filesystem type '{fs_type}'")
 
@@ -180,6 +180,10 @@ class FsHelper:
             self._mk_sqfs()
             return
 
+        if self.fs_type == 'erofs':
+            self._mk_erofs()
+            return
+
         mkfs_opt, fs_lnxtype = self._get_fs_args()
         fs_img = self.fs_img
         with open(fs_img, 'wb') as fsi:
@@ -220,6 +224,16 @@ class FsHelper:
         """
         self._do_cleanup = True
         check_call(f'mksquashfs {self.srcdir} {self.fs_img} -noappend',
+                   shell=True, stdout=DEVNULL if self.quiet else None)
+
+    def _mk_erofs(self):
+        """Make an EROFS image, which mkfs.erofs sizes for itself
+
+        EROFS is read-only, so there is nothing to truncate to size_mb
+        beforehand. LZ4 is the compression U-Boot's driver supports.
+        """
+        self._do_cleanup = True
+        check_call(f'mkfs.erofs -zlz4 {self.fs_img} {self.srcdir}',
                    shell=True, stdout=DEVNULL if self.quiet else None)
 
     def _mk_iso(self):

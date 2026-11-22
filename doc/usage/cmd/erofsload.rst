@@ -27,8 +27,12 @@ changed if the file cannot be read.
 
 A path may name a symbolic link, in which case the link is followed. The
 driver resolves the target from the root of the filesystem, so a relative
-target only works for a link in the root directory. A symbolic link part-way
-along a path is not followed: only the last component can be one.
+target only works for a link in the root directory. Only the last component
+of a path may be a symbolic link: the walk stops at a link part-way along
+one, so such a path cannot be read.
+
+A path naming a directory cannot be read either, since a directory holds no
+file data.
 
 Unlike :doc:`sqfsload<sqfsload>`, the EROFS driver can start reading at a
 position other than the beginning of the file, so pos works as the help text
@@ -90,6 +94,14 @@ A symbolic link naming a file is followed::
 
     => erofsload host 0 1000000 symfile
     7812 bytes read in 1 ms (7.5 MiB/s)
+
+A link part-way along a path is not, and a directory holds no file data, so
+neither of these can be read::
+
+    => erofsload host 0 1000000 symdir/subdir-file
+                 do_load() Failed to load 'symdir/subdir-file'
+    => erofsload host 0 1000000 subdir
+                 do_load() Failed to load 'subdir'
 
 With no filename, bootfile is used, and with no address, loadaddr::
 

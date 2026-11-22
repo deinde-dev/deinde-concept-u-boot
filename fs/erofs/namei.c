@@ -190,6 +190,13 @@ int erofs_namei(struct nameidata *nd, const char *name, unsigned int len)
 	if (ret)
 		return ret;
 
+	/*
+	 * Only a directory holds dirents, so stop here rather than reading
+	 * whatever a file or a symbolic link holds as if it were one
+	 */
+	if (!S_ISDIR(vi.i_mode))
+		return -ENOTDIR;
+
 	offset = 0;
 	while (offset < vi.i_size) {
 		erofs_off_t maxsize = min_t(erofs_off_t,

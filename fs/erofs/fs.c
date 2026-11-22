@@ -238,6 +238,10 @@ int erofs_read(const char *filename, void *buf, loff_t offset, loff_t len,
 			return err;
 	}
 
+	/* a directory holds dirents, which are not file data */
+	if (S_ISDIR(vi.i_mode))
+		return -EISDIR;
+
 	if (!len)
 		len = vi.i_size;
 
