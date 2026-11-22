@@ -1028,3 +1028,19 @@ static int cmd_test_mkdir_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_mkdir_usage, UTF_CONSOLE);
+
+/* Test that mkdir refuses an option, since it has none */
+static int cmd_test_mkdir_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("mkdir -b sandbox - foo", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	/* a directory which looks like an option is still a directory */
+	ut_asserteq(1, run_command("mkdir sandbox - -b", 0));
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"-b\" **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mkdir_badopt, UTF_CONSOLE);

@@ -82,13 +82,12 @@ U_BOOT_CMD(
 	"      device type 'interface' instance 'dev'."
 );
 
-static int do_mkdir_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_mkdir_wrapper(struct getopt_state *gs)
 {
-	return do_mkdir(argc, argv, FS_TYPE_ANY);
+	return do_mkdir(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mkdir,	4,	1,	do_mkdir_wrapper,
 	"create a directory",
 	"<interface> <dev[:part]> <directory>\n"
