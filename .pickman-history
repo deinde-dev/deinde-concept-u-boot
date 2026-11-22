@@ -109737,3 +109737,60 @@ The branch is ready for pushing and has not been merged anywhere.
 
 ---
 
+## 2026-11-21: us/main
+
+Branch: cherry-df477e482e94
+
+Commits:
+- df477e482e94 airoha: an7583: add missed definition of CFG_MAX_MEM_MAPPED
+- ba04ce9bf891 bootstd: rauc: Initialise desc in distro_rauc_scan_parts()
+- c41bafb348c3 bootstd: rauc: Fix leak of the active slot name
+- ffc23ed61795 bootstd: rauc: Fix overflow of the BOOT_x_LEFT name buffer
+- 20b5083334c6 bootstd: rauc: Free the boot script of a failed boot attempt
+- 046d25230db1 test: boot: Restore the bootdev order if the RAUC test fails
+- acf2c9b7952f test: boot: Test booting a RAUC bootflow twice
+- 48dd34a34ebf bootstd: rauc: Only set the RAUC variables for a RAUC device
+- 4ca14703dc38 bootstd: rauc: Optionally find the partitions by name
+- 3cf09c8b5033 bootstd: rauc: Optionally boot with a built-in command
+- 17defa32cbe0 test: fs_helper: Support GPT in DiskHelper
+- 7107800ed761 test: boot: Test finding the RAUC partitions by name
+- a44a9004c1cd test: boot: Test the RAUC built-in boot command
+- 67ede89686e1 Merge patch series "bootstd: rauc: Fixes, partition names and built-in boot command"
+
+### Conversation log
+Six of 14 picks are in and building; I'm resolving a conflict in the seventh (the target uses mmc16 for the RAUC test rather than mmc10), then continuing.
+
+Eight of 14 picks are done; the two RAUC tests pass in sandbox with the mmc16 adaptation (the image-setup test failed only on a later sudo step unrelated to RAUC). Continuing with the remaining six.
+
+Resolving the twelfth pick (the partition-names test), which needed a new mmc18 device and a port to this tree's `test/py/img/rauc.py`; now building and running the RAUC tests.
+
+Just a re-application of already-picked content; resolve the merge commit as empty by keeping HEAD.
+
+All 14 commits are cherry-picked onto `cherry-df477e482e94` (based on ci/master), and the final sandbox build is clean with no warnings or errors. The branch is ready to push and has not been merged anywhere.
+
+## Fix-ups
+
+Nine commits applied cleanly with identical stats. The other five needed changes, each recorded as a `[pickman]` note in the commit message except the merge:
+
+| Commit | Fix-up |
+|---|---|
+| 046d25230db1 Restore the bootdev order | Conflict: this tree uses mmc16 for the RAUC test, not mmc10. Converted `CONFIG_IS_ENABLED()`. |
+| acf2c9b7952f Test booting twice | Conflicts in three files. `CONFIG_ENV_FAT_DEVICE_AND_PART` is `"10:1"` (mmc16) rather than `"a:1"`. The boot-script change went into `test/py/img/rauc.py`, where this tree keeps `setup_rauc_image()`, instead of `test_ut.py`. Converted `CONFIG_IS_ENABLED()`. |
+| 17defa32cbe0 GPT in DiskHelper | Conflict: kept this tree's `fsi.partition_mb`. |
+| 7107800ed761 Find partitions by name | Conflicts in three files. mmc13 is taken by LUKS here, so the GPT image is a new **mmc18** (alias and node added to `test.dts`). The image changes are ported to `rauc.py`. Converted `CONFIG_IS_ENABLED()`. |
+| a44a9004c1cd Built-in boot command | Conflict only from missing context (`bootflow_bls_prefix()` is not in this tree); content is identical. |
+| 67ede89686e1 Merge | Kept as an empty commit, since its content is already in the 12 series commits. |
+
+## Concerning deltas
+
+- **7107800ed761**: the file set differs from the original (adds `test/py/img/rauc.py`, 146+/13- against 137+/15-). This is the port described above, not a mis-pick.
+- **17defa32cbe0**: the new GPT support in `DiskHelper` is unused in this tree, because `rauc.py` builds its own sfdisk spec rather than using `DiskHelper`. I added the GPT layout directly to that spec; say if you would rather `rauc.py` be rewritten on top of `DiskHelper`.
+
+## Tests
+
+The five RAUC tests pass in sandbox: `bootflow_rauc`, `_boot_twice`, `_part_names`, `_part_names_mbr` and `_bootcmd`.
+
+In the wider bootstd run, 123 passed and 11 failed: `test_ut_dm_init_bootstd`, nine LUKS tests and `bootflow_cmd_info_encrypted`. The init test fails at a `sudo` password prompt, which this session cannot answer. I did not check whether the other ten fail on ci/master as well; they are all encrypted-disk tests, so I expect they depend on the images that the init step could not create.
+
+---
+
