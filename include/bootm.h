@@ -76,7 +76,9 @@ struct bootm_info {
 	const char *conf_fdt;
 	bool boot_progress;
 	struct bootm_headers *images;
+#if IS_ENABLED(CONFIG_IMAGEMAP)
 	struct udevice *imagemap;
+#endif
 	const char *cmd_name;
 	int argc;
 	char *const *argv;
@@ -109,6 +111,35 @@ struct bootm_info {
 enum {
 	BOOTM_STRLEN	= 2 * sizeof(long) + 1,
 };
+
+/**
+ * bootm_info_imagemap() - Get the storage loader a boot was asked to use
+ *
+ * @bmi: Boot info
+ * Return: the imagemap device, or NULL to boot an image already in RAM
+ */
+static inline struct udevice *bootm_info_imagemap(struct bootm_info *bmi)
+{
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
+	return bmi->imagemap;
+#else
+	return NULL;
+#endif
+}
+
+/**
+ * bootm_info_set_imagemap() - Record the storage loader a boot should use
+ *
+ * @bmi: Boot info
+ * @imagemap: The imagemap device, or NULL for an image already in RAM
+ */
+static inline void bootm_info_set_imagemap(struct bootm_info *bmi,
+					   struct udevice *imagemap)
+{
+#if !defined(USE_HOSTCC) && IS_ENABLED(CONFIG_IMAGEMAP)
+	bmi->imagemap = imagemap;
+#endif
+}
 
 /**
  * bootm_set_addr_img() - Set the address of an image

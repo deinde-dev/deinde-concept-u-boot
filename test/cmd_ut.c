@@ -66,6 +66,7 @@ SUITE_DECL(font);
 SUITE_DECL(fs);
 SUITE_DECL(hush);
 SUITE_DECL(image_fdt);
+SUITE_DECL(imagemap);
 SUITE_DECL(lib);
 SUITE_DECL(loadm);
 SUITE_DECL(log);
@@ -77,7 +78,6 @@ SUITE_DECL(pci_mps);
 SUITE_DECL(pxe);
 SUITE_DECL(seama);
 SUITE_DECL(setexpr);
-SUITE_DECL(imagemap);
 SUITE_DECL(upl);
 
 static struct suite suites[] = {
@@ -100,6 +100,7 @@ static struct suite suites[] = {
 	SUITE(fs, "filesystem tests"),
 	SUITE(hush, "hush behaviour"),
 	SUITE(image_fdt, "image fdt parsing"),
+	SUITE(imagemap, "imagemap on-demand storage loading"),
 	SUITE(lib, "library functions"),
 	SUITE(loadm, "loadm command parameters and loading memory blob"),
 	SUITE(log, "logging functions"),
@@ -111,7 +112,6 @@ static struct suite suites[] = {
 	SUITE(pxe, "PXE/extlinux parser tests"),
 	SUITE(seama, "seama command parameters loading and decoding"),
 	SUITE(setexpr, "setexpr command"),
-	SUITE(imagemap, "imagemap on-demand storage loading"),
 	SUITE(upl, "Universal payload support"),
 };
 

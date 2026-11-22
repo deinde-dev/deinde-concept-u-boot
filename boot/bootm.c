@@ -149,14 +149,15 @@ static int boot_get_kernel(const char *addr_fit, ulong os_size_in,
 
 	/* check image type, for FIT images get FIT kernel node */
 	*os_data = *os_len = 0;
-	if (IS_ENABLED(CONFIG_IMAGEMAP) && images->imagemap) {
+	if (bootm_imagemap(images)) {
 		/*
 		 * Storage path: read enough bytes to detect the image
 		 * format. genimg_get_kernel_addr_fit() above still
 		 * parsed any #config / :subimage suffix so the FIT
 		 * selection variables are populated.
 		 */
-		buf = imagemap_map(images->imagemap, 0, 64);
+		buf = imagemap_map(bootm_imagemap(images), 0,
+				   sizeof(struct legacy_img_hdr));
 		if (IS_ERR(buf)) {
 			puts("Cannot read image header from storage\n");
 			return PTR_ERR(buf);
@@ -212,14 +213,14 @@ static int boot_get_kernel(const char *addr_fit, ulong os_size_in,
 #endif
 #if IS_ENABLED(CONFIG_FIT)
 	case IMAGE_FORMAT_FIT:
-		if (IS_ENABLED(CONFIG_IMAGEMAP) && images->imagemap) {
+		if (bootm_imagemap(images)) {
 			/*
 			 * Extend the mapping to cover the full FIT
 			 * FDT structure so all metadata is accessible.
 			 */
 			size_t fdt_sz = fdt_totalsize(buf);
 
-			buf = imagemap_map(images->imagemap, 0, fdt_sz);
+			buf = imagemap_map(bootm_imagemap(images), 0, fdt_sz);
 			if (IS_ERR(buf)) {
 				puts("Cannot read FIT header from storage\n");
 				return PTR_ERR(buf);
@@ -288,7 +289,7 @@ static int boot_get_kernel(const char *addr_fit, ulong os_size_in,
 	return 0;
 }
 
-static int bootm_start(void)
+static int bootm_start(struct udevice *imagemap)
 {
 	/*
 	 * Free dm-verity allocations from a prior boot attempt before
@@ -299,6 +300,7 @@ static int bootm_start(void)
 	fit_verity_free(&images);
 	memset((void *)&images, 0, sizeof(images));
 	images.verify = env_get_yesno("verify");
+	bootm_set_imagemap(&images, imagemap);
 
 	bootstage_mark_name(BOOTSTAGE_ID_BOOTM_START, "bootm_start");
 	images.state = BOOTM_STATE_START;
@@ -1250,6 +1252,24 @@ unmap_image:
 	return ret;
 }
 
+/**
+ * bootm_imagemap_cleanup() - release the on-demand storage loader
+ * @images: Boot images being used
+ *
+ * Tears down the imagemap device and clears the pointer, but only when one
+ * was in use. The two call sites (the OS-GO path and the error path) share
+ * this so the release logic lives in one place.
+ */
+static void bootm_imagemap_cleanup(struct bootm_headers *images)
+{
+	struct udevice *imagemap = bootm_imagemap(images);
+
+	if (imagemap) {
+		imagemap_cleanup(imagemap);
+		bootm_set_imagemap(images, NULL);
+	}
+}
+
 int bootm_run_states(struct bootm_info *bmi, int states)
 {
 	struct bootm_headers *images = bmi->images;
@@ -1264,13 +1284,7 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	 */
 	if (states & BOOTM_STATE_START) {
 		log_debug("start\n");
-		ret = bootm_start();
-		/*
-		 * bootm_start() zeroes the global images struct. Restore
-		 * the loader pointer so the storage-backed path works.
-		 */
-		if (IS_ENABLED(CONFIG_IMAGEMAP) && bmi->imagemap)
-			images->imagemap = bmi->imagemap;
+		ret = bootm_start(bootm_info_imagemap(bmi));
 	}
 
 	if (states & BOOTM_STATE_RESTART) {
@@ -1281,7 +1295,7 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	if (!ret && (states & BOOTM_STATE_PRE_LOAD)) {
 		log_debug("pre_load\n");
 		/* Pre-load verification is not applicable to storage boot */
-		if (!IS_ENABLED(CONFIG_IMAGEMAP) || !images->imagemap)
+		if (!bootm_imagemap(images))
 			ret = bootm_pre_load(bmi->addr_img);
 	}
 
@@ -1293,7 +1307,7 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	if (!ret && (states & BOOTM_STATE_FINDOTHER)) {
 		ulong img_addr;
 
-		if (IS_ENABLED(CONFIG_IMAGEMAP) && images->imagemap)
+		if (bootm_imagemap(images))
 			img_addr = images->os.start;
 		else
 			img_addr = bmi->addr_img ? hextoul(bmi->addr_img, NULL)
@@ -1425,10 +1439,7 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	if (!ret && (states & BOOTM_STATE_OS_GO)) {
 		log_debug("go\n");
 		/* Release storage backend before jumping - no return expected */
-		if (IS_ENABLED(CONFIG_IMAGEMAP) && images->imagemap) {
-			imagemap_cleanup(images->imagemap);
-			images->imagemap = NULL;
-		}
+		bootm_imagemap_cleanup(images);
 
 		ret = boot_selected_os(BOOTM_STATE_OS_GO, bmi, boot_fn);
 	}
@@ -1436,10 +1447,7 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	/* Deal with any fallout */
 err:
 	/* Clean up imagemap on error (not reached on successful boot) */
-	if (IS_ENABLED(CONFIG_IMAGEMAP) && images->imagemap) {
-		imagemap_cleanup(images->imagemap);
-		images->imagemap = NULL;
-	}
+	bootm_imagemap_cleanup(images);
 
 	if (ret == BOOTM_ERR_UNIMPLEMENTED) {
 		bootstage_error(BOOTSTAGE_ID_DECOMP_UNIMPL);
@@ -1455,10 +1463,7 @@ err:
 	 * BOOTM_ERR_RESET (e.g. -EPERM) without meaning that
 	 */
 err_release:
-	if (IS_ENABLED(CONFIG_IMAGEMAP) && images->imagemap) {
-		imagemap_cleanup(images->imagemap);
-		images->imagemap = NULL;
-	}
+	bootm_imagemap_cleanup(images);
 
 	return ret;
 }
