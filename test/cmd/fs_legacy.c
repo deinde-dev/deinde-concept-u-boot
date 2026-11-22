@@ -521,3 +521,81 @@ static int cmd_test_save_badopt(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_save_badopt, UTF_CONSOLE);
+
+/**
+ * check_size_usage() - Check the console holds the size usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_size_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("size - determine a file's size");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("size <interface> <dev[:part]> <filename>");
+	ut_assert_nextline("    - Find file 'filename' from 'dev' on 'interface'");
+	ut_assert_nextline("      determine its size, and store in the 'filesize' variable.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that size reports a file's size in the filesize variable */
+static int cmd_test_size_base(struct unit_test_state *uts)
+{
+	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+
+	/* the command's only output is the variable it sets */
+	ut_assertok(run_commandf("size sandbox - %s", TEST_FILE));
+	ut_assert_console_end();
+	ut_asserteq(DATA_SIZE, env_get_hex("filesize", 0));
+
+	/* a shorter file is reported as such, so nothing is cached */
+	ut_assertok(make_file(uts, DATA, 4));
+	ut_assertok(run_commandf("size sandbox - %s", TEST_FILE));
+	ut_assert_console_end();
+	ut_asserteq(4, env_get_hex("filesize", 0));
+
+	ut_assertok(os_unlink(TEST_FILE));
+
+	return 0;
+}
+CMD_TEST(cmd_test_size_base, UTF_CONSOLE);
+
+/* Test that a file which is not there leaves filesize alone */
+static int cmd_test_size_missing(struct unit_test_state *uts)
+{
+	char *old_filesize;
+
+	ut_assertok(save_env(uts, "filesize", &old_filesize));
+	ut_assertok(env_set("filesize", "sentinel"));
+
+	ut_asserteq(1, run_commandf("size sandbox - %s", TEST_FILE));
+	ut_assert_console_end();
+	ut_asserteq_str("sentinel", env_get("filesize"));
+
+	ut_assertok(env_set("filesize", old_filesize));
+	free(old_filesize);
+
+	return 0;
+}
+CMD_TEST(cmd_test_size_missing, UTF_CONSOLE);
+
+/* Test that size shows its usage message when it cannot go on */
+static int cmd_test_size_usage(struct unit_test_state *uts)
+{
+	/* all three arguments are needed */
+	ut_asserteq(1, run_command("size", 0));
+	ut_assertok(check_size_usage(uts));
+
+	ut_asserteq(1, run_command("size sandbox -", 0));
+	ut_assertok(check_size_usage(uts));
+
+	/* and there is nothing to give beyond the filename */
+	ut_asserteq(1, run_commandf("size sandbox - %s extra", TEST_FILE));
+	ut_assertok(check_size_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_size_usage, UTF_CONSOLE);
