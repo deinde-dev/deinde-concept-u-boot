@@ -109998,3 +109998,63 @@ The branch is ready to push and hasn't been merged anywhere.
 
 ---
 
+## 2026-11-22: us/main
+
+Branch: cherry-1c5267bfef2d
+
+Commits:
+- 1c5267bfef2d arm64: dts: imx: Switch Data Modul i.MX8M eDM SBC to OF_UPSTREAM
+- 8f91e2bb8c10 serial: lpuart: add debug UART support
+- eee7d1fe794f imx9: soc: read the SoC information after relocation with SKIP_EARLY_DM
+- d6ee9ef21f80 board: toradex: tdx-cfg-block: fix carrier config block buffer over-read
+- 815b4c041b1d board: toradex: smarc-imx8mp: fix always-false phandle check
+- e4d14f32857e board: toradex: aquila-am69: initialize ret in spl_board_init()
+- 9e5e54fb6d81 board: toradex: apalis_imx6: fix do_fuse argv[1] NULL deref
+- cab7f14b8b49 board: toradex: colibri_imx6: fix do_fuse argv[1] NULL deref
+- eaa187e6873b board: toradex: apalis-imx8: report detected SoC variant in board_name
+- a9df70c66f56 board: toradex: colibri-imx8x: report detected SoC variant in board_name
+- bb2fb5e304d5 board: toradex: colibri_imx7: un-nest board_late_init from CONFIG_USB_EHCI_MX7
+- 44582944034e configs: verdin-imx8mm: remove empty #if/#endif block
+- 6a1425c8bfd2 board: toradex: apalis_imx6: remove dead ldo_mode_set()
+- 7531f11aa21a board: toradex: colibri_imx6: remove dead ldo_mode_set()
+- 681fcf7192cb board: toradex: apalis_imx6: drop dead TDX_APALIS_IMX6_V1_0 Kconfig option
+- d22d64674181 board: toradex: common: fix stale #endif comments in tdx-common.c
+- e628d16e2be9 board: toradex: apalis_imx6: fix stale #endif comment in board_late_init()
+- c26b629e58d0 configs: colibri_imx7: add missing defined() in EMMC #elif
+- 597cbc388fb9 Merge tag 'u-boot-imx-main-20261114' of https://git.u-boot-project.org/u-boot/custodians/u-boot-imx
+
+### Conversation log
+Start with the first pick.
+
+Now a loop for the remaining regular commits, stopping on any problem.
+
+Picks 1–4 are done. I'm now handling a conflict in the aquila-am69 fix: the file it changes doesn't exist on ci/master.
+
+The aquila-am69 board isn't in this tree at all, so there's nothing to change. I'll keep this as an empty commit with a note.
+
+Here the local tree turns board_fix_fdt() into an event spy. I'll keep the spy line and add the #endif after it.
+
+Now the merge commit.
+
+The merge commit's changes are already applied by the individual picks, so the conflicts are the same three files as before. I'll keep the versions already on the branch.
+
+All 19 commits are in place. Running the final sandbox build, plus a build of colibri_imx7, which has a conflict resolution that sandbox doesn't compile.
+
+All 19 commits are on branch `cherry-1c5267bfef2d` (based on ci/master) and it's ready to push. The final sandbox build passes with no warnings or errors.
+
+**Fix-ups (each noted with a `[pickman]` line in the commit message):**
+- **`8f91e2bb8c10` serial: lpuart: add debug UART support**: this conflicted because ci/master had already changed `CONFIG_IS_ENABLED(CLK)` to `IS_ENABLED(CONFIG_CLK)` in the code the patch moves. I dropped the old copy and kept the patch's new layout. `split-check` then converted `CONFIG_IS_ENABLED(CLK)` and `CONFIG_VAL(DEBUG_UART_BASE)` (twice) to the per-phase form, and I amended both notes in.
+- **`e4d14f32857e` aquila-am69: initialize ret in spl_board_init()**: `board/toradex/aquila-am69` doesn't exist on ci/master, so there was nothing to change. I kept it as an empty commit with a note saying so.
+- **`bb2fb5e304d5` colibri_imx7: un-nest board_late_init**: this tree's `colibri_fix_fdt()` is registered with `EVENT_SPY_FULL()`. I kept that line and put the new `#endif /* CONFIG_USB_EHCI_MX7 */` right after it, and checked that the `#if`/`#endif` pairs still match.
+- **`597cbc388fb9` merge commit**: it conflicted only on the three files above, whose changes were already applied by the individual picks. I kept the branch's versions, so it is an empty commit carrying the original merge message.
+
+**Deltas:** every commit's file list and line counts match the original, apart from the empty aquila-am69 commit.
+
+**Extra builds:** sandbox doesn't compile either board-specific fix-up, so I also built two boards:
+- **colibri_imx7** (for the conflict fix) built, with one dtc warning about node and property names in `imx7d-pico-pi-u-boot.dtsi`. I didn't touch that file, and none of these commits changed it.
+- **imx93_11x11_evk** (for the LPUART change) compiled. binman printed "Some images are invalid", which is most likely missing firmware blobs rather than a problem with this code.
+
+None of the commits touch the Makefile, so the version lines are unchanged.
+
+---
+
