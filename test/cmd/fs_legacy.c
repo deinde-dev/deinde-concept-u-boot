@@ -44,6 +44,7 @@
 #define FUNC_WRITE	"            fs_write"
 #define FUNC_MKDIR	"            do_mkdir"
 #define FUNC_REMOVE	"          fat_remove"
+#define FUNC_LN		"               fs_ln"
 
 /**
  * check_log() - Check the next console line, which the fs layer logs
@@ -1306,3 +1307,116 @@ static int cmd_test_mv_badopt(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_mv_badopt, UTF_CONSOLE);
+
+/* name of the symbolic link which the ln tests create */
+#define LINK_NAME	"mylink"
+
+/* Test that ln creates a symbolic link to a file */
+static int cmd_test_ln_base_norun(struct unit_test_state *uts)
+{
+	char *old_filesize;
+
+	if (!IS_ENABLED(CONFIG_EXT4_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+	ut_assertok(save_env(uts, "filesize", &old_filesize));
+
+	/* the command says nothing when it works */
+	ut_assertok(run_commandf("ln host 0 hello.txt %s", LINK_NAME));
+	ut_assert_console_end();
+
+	/* the link leads to the file, so its size is the file's */
+	ut_assertok(run_commandf("size host 0 %s", LINK_NAME));
+	ut_assert_console_end();
+	ut_asserteq(HELLO_SIZE, env_get_hex("filesize", 0));
+
+	/*
+	 * Creating the link again replaces it, which the filesystem reports.
+	 * The link stays in the image, since the ext4 driver has no unlink
+	 * operation to take it out again, so this test has an image of its own
+	 */
+	ut_assertok(run_commandf("ln host 0 hello.txt %s", LINK_NAME));
+	ut_assert_nextline("file found, deleting");
+	ut_assert_console_end();
+
+	ut_assertok(env_set("filesize", old_filesize));
+	free(old_filesize);
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_ln_base_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that ln reports a link it cannot create */
+static int cmd_test_ln_fail_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_EXT4_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the filesystem reports it, then the fs layer logs it */
+	ut_asserteq(1, run_command("ln host 0 hello.txt nodir/link", 0));
+	ut_assert_nextline("Invalid path");
+	ut_assertok(check_log(uts, FUNC_LN,
+			      "** Unable to create link hello.txt -> nodir/link **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_ln_fail_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that ln reports a filesystem which cannot create a link */
+static int cmd_test_ln_unsup(struct unit_test_state *uts)
+{
+	/* sandboxfs has no ln operation, so the fs layer refuses it */
+	ut_asserteq(1, run_commandf("ln sandbox - %s %s", TEST_FILE,
+				    LINK_NAME));
+	ut_assertok(check_log(uts, FUNC_LN,
+			      "** Unable to create link " TEST_FILE " -> "
+			      LINK_NAME " **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_ln_unsup, UTF_CONSOLE);
+
+/**
+ * check_ln_usage() - Check the console holds the ln usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_ln_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("ln - Create a symbolic link");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("ln <interface> <dev[:part]> target linkname");
+	ut_assert_nextline("    - create a symbolic link to 'target' with the name 'linkname' on");
+	ut_assert_nextline("      device type 'interface' instance 'dev'.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that ln shows its usage message when it cannot go on */
+static int cmd_test_ln_usage(struct unit_test_state *uts)
+{
+	/* all four arguments are needed */
+	ut_asserteq(1, run_command("ln", 0));
+	ut_assertok(check_ln_usage(uts));
+
+	ut_asserteq(1, run_commandf("ln sandbox - %s", TEST_FILE));
+	ut_assertok(check_ln_usage(uts));
+
+	/* and there is nothing to give beyond the link name */
+	ut_asserteq(1, run_commandf("ln sandbox - %s %s extra", TEST_FILE,
+				    LINK_NAME));
+	ut_assertok(check_ln_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ln_usage, UTF_CONSOLE);
