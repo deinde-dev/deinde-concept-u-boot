@@ -1420,3 +1420,21 @@ static int cmd_test_ln_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_ln_usage, UTF_CONSOLE);
+
+/* Test that ln refuses an option, since it has none */
+static int cmd_test_ln_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_commandf("ln -b sandbox - %s %s", TEST_FILE,
+				    LINK_NAME));
+	ut_assertok(check_ln_usage(uts));
+
+	/* a target which looks like an option is still a target */
+	ut_asserteq(1, run_commandf("ln sandbox - -b %s", LINK_NAME));
+	ut_assertok(check_log(uts, FUNC_LN,
+			      "** Unable to create link -b -> " LINK_NAME
+			      " **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_ln_badopt, UTF_CONSOLE);

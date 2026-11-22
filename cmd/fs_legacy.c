@@ -68,13 +68,12 @@ U_BOOT_CMD_NOOPTS(
 	"      device type 'interface' instance 'dev'."
 );
 
-static int do_ln_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_ln_wrapper(struct getopt_state *gs)
 {
-	return do_ln(argc, argv, FS_TYPE_ANY);
+	return do_ln(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	ln,	5,	1,	do_ln_wrapper,
 	"Create a symbolic link",
 	"<interface> <dev[:part]> target linkname\n"
