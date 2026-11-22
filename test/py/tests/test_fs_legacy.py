@@ -66,3 +66,11 @@ class TestFsLegacy:
     def test_rm_fail(self, ubman, fat_image):
         """Check that rm reports a path it cannot delete"""
         ubman.run_ut('cmd', 'cmd_test_rm_fail', fs_image=fat_image)
+
+    def test_mv_base(self, ubman, fat_image):
+        """Check that mv renames a file, and moves one into a directory"""
+        ubman.run_ut('cmd', 'cmd_test_mv_base', fs_image=fat_image)
+
+    def test_mv_fail(self, ubman, fat_image):
+        """Check that mv reports a file it cannot move"""
+        ubman.run_ut('cmd', 'cmd_test_mv_fail', fs_image=fat_image)
