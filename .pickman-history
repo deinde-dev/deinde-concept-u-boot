@@ -109832,3 +109832,61 @@ The rebase moved the local `cherry-df477e482e94` as well, so I reset it to its o
 
 ---
 
+## 2026-11-22: us/main
+
+Branch: cherry-0cedee4c4726
+
+Commits:
+- 0cedee4c4726 mkimage: define log_err and log_info
+- d5f33a55fced image-fit-sig: Optionally require signatures
+- 6fa516eabd30 test: vboot: handle CONFIG_FIT_REQUIRE_CONFIG_SIGS in test_vboot
+- 2187b46feadf iminfo: also verify signatures
+- 954ca9ae3932 test: vboot: refactor run_bootm
+- 11859bbfbd64 test: vboot: add iminfo checks
+- ff8a9bc41e4e Merge patch series "Improve FIT signature handling"
+
+### Conversation log
+Two of seven picked so far; the second needed a conflict fix and the split-config conversion, which I'm amending in now before building.
+
+Three of seven are in and building cleanly; the fourth (iminfo signature verification) has hit a conflict in boot/image-fit.c, which I'm looking at now.
+
+Six commits are in; the merge commit pick conflicts only because its content is already applied (with my adaptations), so I'm resolving it to our side and keeping it as an empty commit.
+
+The vboot failures were just a stale test binary — after rebuilding, all 37 pass. One last check: building sandbox_noinst, since the series enables the new option in its defconfig.
+
+All 7 commits are cherry-picked onto `cherry-0cedee4c4726` (based on ci/master), and the branch is ready to push; nothing was merged elsewhere.
+
+## Build result
+- **Sandbox build:** `buildman -L --board sandbox -w -o /tmp/pickman` is ok after every pick and for the final build, with no warnings or errors.
+- **Extra checks:** `sandbox_noinst` also builds (it gains `CONFIG_FIT_REQUIRE_CONFIG_SIGS=y`), and `um py -B sandbox test_vboot` gives 37 passed on sandbox. I did not run the tests on `sandbox_noinst`, so the new require-signatures path is build-tested only.
+
+## Commits and fix-ups
+
+| Commit | Original | Result |
+|---|---|---|
+| `dd0331ce7eaa` mkimage: define log_err and log_info | `0cedee4c4726` | Clean |
+| `694bd22f2809` image-fit-sig: Optionally require signatures | `d5f33a55fced` | Conflict in `boot/image-fit-sig.c`; split-check conversion |
+| `91976a4a5c84` test: vboot: handle CONFIG_FIT_REQUIRE_CONFIG_SIGS in test_vboot | `6fa516eabd30` | Conflict in `test/py/tests/test_vboot.py` |
+| `d8be2e33176d` iminfo: also verify signatures | `2187b46feadf` | Conflict in `boot/image-fit.c`; split-check conversion |
+| `fbc858c7e481` test: vboot: refactor run_bootm | `954ca9ae3932` | Clean |
+| `9b8d8b2e2205` test: vboot: add iminfo checks | `11859bbfbd64` | Conflict in `test/py/tests/test_vboot.py` |
+| `3a62b56aff9b` Merge patch series "Improve FIT signature handling" | `ff8a9bc41e4e` | Kept as an empty commit |
+
+- **`694bd22f2809`:** the target's `fit_get_name()` takes two arguments, so I kept that form with the new `log_err()`. Split-check converted two `CONFIG_IS_ENABLED(FIT_REQUIRE_CONFIG_SIGS)` uses to `IS_ENABLED(CONFIG_FIT_REQUIRE_CONFIG_SIGS)`.
+- **`91976a4a5c84` and `9b8d8b2e2205`:** the target's test carries an extra `sig_algo` parameter in the `.its` file names; I kept it while taking the upstream logic.
+- **`d8be2e33176d`:**
+  - I kept the target's `fdt_next_node()` loop in `fit_all_image_verify()` and applied the "OK\n" change inside it.
+  - I used the two-argument `fit_get_name()` in the new `fit_all_configurations_verify()`.
+  - Split-check converted three macros, in `boot/image-fit.c`, `cmd/bootm.c` and `include/image.h`.
+- **`3a62b56aff9b`:** the merge pick conflicted in four files only because its content is already applied by the previous picks; I resolved to our side.
+
+Each fixed-up commit has a `[pickman]` note at the end of its message. Split-check reported nothing it could not convert and added nothing to `scripts/conf_nospl`.
+
+## Deltas
+None concerning: every non-merge commit matches its original's file list and line counts exactly.
+
+## For your attention
+The series adds `SPL_FIT_REQUIRE_CONFIG_SIGS` with `select FIT_REQUIRE_CONFIG_SIGS`, taken unchanged from upstream. With per-phase configs you may want to check that this does what you intend.
+
+---
+
