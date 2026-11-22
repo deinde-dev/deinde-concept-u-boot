@@ -73,7 +73,7 @@ obj-$(CONFIG_COREBOOT_SYSINFO) += coreboot.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_EDITENV) += editenv.o
 ifdef CONFIG_SANDBOX
-obj-$(CONFIG_CMD_EROFS) += erofsls.o
+obj-$(CONFIG_CMD_EROFS) += erofsload.o erofsls.o
 endif
 obj-$(CONFIG_CMD_ETHSW) += ethsw.o
 obj-$(CONFIG_CMD_EVENT) += event.o
