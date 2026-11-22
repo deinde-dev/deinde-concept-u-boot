@@ -42,6 +42,7 @@
  */
 #define FUNC_LOAD	"             do_load"
 #define FUNC_WRITE	"            fs_write"
+#define FUNC_MKDIR	"            do_mkdir"
 
 /**
  * check_log() - Check the next console line, which the fs layer logs
@@ -866,3 +867,164 @@ static int cmd_test_ls_badopt(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_ls_badopt, UTF_CONSOLE);
+
+/*
+ * The commands which change a filesystem need one which can be written to,
+ * so their tests are manual: the Python side makes a FAT image and passes its
+ * path in; see test/py/tests/test_fs_legacy.py
+ */
+#define ARG_IMAGE	0	/* fs_image: path to the filesystem image */
+
+/* name of the directory which the mkdir tests create */
+#define NEW_DIR		"newdir"
+
+/**
+ * bind_image() - Attach the image which the Python side made
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int bind_image(struct unit_test_state *uts)
+{
+	const char *fs_image = ut_str(ARG_IMAGE);
+
+	ut_assertnonnull(fs_image);
+	ut_assertok(run_commandf("host bind 0 %s", fs_image));
+	console_record_reset();
+
+	return 0;
+}
+
+/**
+ * check_empty_dir() - Check a listing which shows an empty directory
+ *
+ * A directory with nothing in it still holds its own entry and its parent's,
+ * which a generic listing shows with a trailing slash.
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_empty_dir(struct unit_test_state *uts)
+{
+	ut_assert_nextline("            ./");
+	ut_assert_nextline("            ../");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("0 file(s), 2 dir(s)");
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that mkdir creates a directory, which is then empty */
+static int cmd_test_mkdir_base_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the command says nothing when it works */
+	ut_assertok(run_commandf("mkdir host 0 %s", NEW_DIR));
+	ut_assert_console_end();
+
+	ut_assertok(run_commandf("ls host 0 %s", NEW_DIR));
+	ut_assertok(check_empty_dir(uts));
+
+	/* a directory can be created within it, naming a partition this time */
+	ut_assertok(run_commandf("mkdir host 0:0 %s/deep", NEW_DIR));
+	ut_assert_console_end();
+
+	ut_assertok(run_commandf("ls host 0 %s/deep", NEW_DIR));
+	ut_assertok(check_empty_dir(uts));
+
+	/*
+	 * Put the image back as it was found, so that the test can be run
+	 * again on the same image. On FAT the rm command removes an empty
+	 * directory as well as a file
+	 */
+	ut_assertok(run_commandf("rm host 0 %s/deep", NEW_DIR));
+	ut_assertok(run_commandf("rm host 0 %s", NEW_DIR));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_mkdir_base_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that mkdir reports a directory it cannot create */
+static int cmd_test_mkdir_fail_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the filesystem reports it, then the command logs it */
+	ut_asserteq(1, run_command("mkdir host 0 docs", 0));
+	ut_assert_nextline("docs: already exists");
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"docs\" **"));
+	ut_assert_console_end();
+
+	/* only the last part of the path is created, so a/b must exist */
+	ut_asserteq(1, run_command("mkdir host 0 a/b/c", 0));
+	ut_assert_nextline("a/b: doesn't exist (-2)");
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"a/b/c\" **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_mkdir_fail_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that mkdir reports a filesystem which cannot create a directory */
+static int cmd_test_mkdir_unsup(struct unit_test_state *uts)
+{
+	/* sandboxfs has no mkdir operation, so the fs layer refuses it */
+	ut_asserteq(1, run_command("mkdir sandbox - foo", 0));
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"foo\" **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mkdir_unsup, UTF_CONSOLE);
+
+/**
+ * check_mkdir_usage() - Check the console holds the mkdir usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_mkdir_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("mkdir - create a directory");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("mkdir <interface> <dev[:part]> <directory>");
+	ut_assert_nextline("    - Create a directory 'directory' of partition 'part' on");
+	ut_assert_nextline("      device type 'interface' instance 'dev'.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that mkdir shows its usage message when it cannot go on */
+static int cmd_test_mkdir_usage(struct unit_test_state *uts)
+{
+	/* all three arguments are needed */
+	ut_asserteq(1, run_command("mkdir", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	ut_asserteq(1, run_command("mkdir sandbox foo", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	/* and there is nothing to give beyond the directory */
+	ut_asserteq(1, run_command("mkdir sandbox - foo bar", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_mkdir_usage, UTF_CONSOLE);
