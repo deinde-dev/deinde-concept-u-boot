@@ -848,3 +848,21 @@ static int cmd_test_ls_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_ls_usage, UTF_CONSOLE);
+
+/* Test that ls refuses an option, since it has none */
+static int cmd_test_ls_badopt(struct unit_test_state *uts)
+{
+	ut_assertok(make_ls_dir(uts));
+
+	ut_asserteq(1, run_commandf("ls -b sandbox - %s", LS_DIR));
+	ut_assertok(check_ls_usage(uts));
+
+	/* a directory which looks like an option is still a directory */
+	ut_asserteq(1, run_command("ls sandbox - -b", 0));
+	ut_assert_console_end();
+
+	ut_assertok(remove_ls_dir(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ls_badopt, UTF_CONSOLE);
