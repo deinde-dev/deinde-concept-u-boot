@@ -109890,3 +109890,54 @@ The series adds `SPL_FIT_REQUIRE_CONFIG_SIGS` with `select FIT_REQUIRE_CONFIG_SI
 
 ---
 
+### Pipeline fix: 2026-11-22 (attempt 1)
+
+Branch: cherry-0cedee4c4726
+
+Failed jobs:
+- sandbox test.py (test.py)
+- sandbox with clang test.py (test.py)
+- sandbox64 with clang test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- sandbox64 test.py (test.py)
+- sandbox64_lwip test.py (test.py)
+- qemu_arm64 test.py (test.py)
+- qemu_arm test.py (test.py)
+- qemu-x86_64_nospl test.py (test.py)
+- qemu-riscv64 test.py (test.py)
+- qemu-riscv64_smode test.py (test.py)
+- qemu-riscv64_smode_acpi test.py (test.py)
+- qemu-riscv32 test.py (test.py)
+- qemu-riscv64_spl test.py (test.py)
+- qemu-riscv32_spl test.py (test.py)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Diagnosing: the failures are the concept-only `test/cmd/iminfo.c` FIT tests, whose expected output changed with the "iminfo: also verify signatures" commit. Checking details now.
+
+Rebase done. Now building the affected boards and running the related sandbox tests.
+
+I've fixed the failures by updating the `iminfo` FIT tests to match the new output. The fix is on local branch `cherry-0cedee4c4726-fix1` (not pushed); both iminfo FIT tests now pass on sandbox and sandbox64.
+
+**Responsible commit:** `d8be2e33176d` "iminfo: also verify signatures" (cherry-pick of upstream `2187b46feadf`).
+
+**Root cause:** All 17 jobs failed on the same two unit tests, `cmd_test_iminfo_fit` and `cmd_test_iminfo_fit_bad`, in `test/cmd/iminfo.c`. That test file exists only in our tree, not upstream, so the cherry-pick didn't update it. The commit changes what `iminfo` prints in two ways:
+- **"OK" after the hash line:** `fit_all_image_verify()` now prints "OK\n" instead of "\n". The test expected `crc32+ ` but got `crc32+ OK`. This hit every board, including the qemu ones.
+- **A new message when signatures are supported:** `fit_all_configurations_verify()` checks configuration signatures first. The test's FIT has no `/configurations` node, so it prints `Missing '/configurations' node: FDT_ERR_NOTFOUND`. On sandbox the line also has a `fit_all_configurations_verify()` prefix, because `CONFIG_LOGF_FUNC` is enabled there.
+
+**Fix:** I amended `d8be2e33176d` (now `676b901cfb06`) and added a `[pickman]` note to its message. The changes, all in `test/cmd/iminfo.c`:
+- The success case now expects `crc32+ OK`.
+- A new helper, `check_no_confs()`, expects the missing-configurations line only when `CONFIG_FIT_SIGNATURE` is enabled, with the function-name prefix only when `CONFIG_LOGF_FUNC` is enabled. Both FIT tests call it.
+- Both FIT tests are skipped when `CONFIG_FIT_REQUIRE_CONFIG_SIGS` is enabled (e.g. `sandbox_noinst`), because there `iminfo` rejects a FIT with no configurations. Nothing in CI hit this yet, but it would fail.
+
+The commits after it rebased cleanly; the empty merge commit and the pickman record commit are still there.
+
+**Verification:**
+- `um py -B sandbox "iminfo or test_vboot"`: 46 passed.
+- buildman covered 23 boards. Three of them, `qemu-riscv64`, `qemu-x86_64_nospl` and `qemu_arm64_lwip`, failed for local reasons only: the i386 and aarch64 `ar` tools aren't installed, and the OpenSBI blob is missing. The rest show only the usual dtc warnings.
+
+I didn't run `make check`/`make qcheck` locally. The only failures in those two jobs were these same two tests.
+
+---
+
