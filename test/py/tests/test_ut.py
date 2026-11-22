@@ -94,7 +94,9 @@ def test_ut_dm_init_bootstd(u_boot_config, u_boot_log):
     setup_cros_image(u_boot_config, u_boot_log)
     setup_android_image(u_boot_config, u_boot_log)
     setup_efi_image(u_boot_config)
-    setup_rauc_image(u_boot_config, u_boot_log)
+    setup_rauc_image(u_boot_config, u_boot_log, 16)
+    setup_rauc_image(u_boot_config, u_boot_log, 18,
+                     ('boot_a', 'root_a', 'boot_b', 'root_b'))
     setup_ubuntu_image(u_boot_config, u_boot_log, 3, 'flash', '25.04')
     setup_localboot_image(u_boot_config, u_boot_log)
     setup_vbe_image(u_boot_config, u_boot_log)

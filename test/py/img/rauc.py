@@ -9,28 +9,45 @@ import utils
 import fs_helper
 
 
-def setup_rauc_image(config, log):
+# GPT partition-type GUIDs for the FAT and Linux partitions
+GPT_FAT = 'EBD0A0A2-B9E5-4433-87C0-68B6B72699C7'
+GPT_LINUX = '0FC63DAF-8483-4772-8E79-3D69D8477DE4'
+
+
+def setup_rauc_image(config, log, mmc_dev, part_names=None):
     """Create a 40MB disk image with an A/B RAUC system on it
 
     Args:
         config (ArbitraryAttributeContainer): Configuration
         log (multiplexed_log.Logfile): Log to write to
+        mmc_dev (int): MMC device number, e.g. 16
+        part_names (tuple of str): GPT names of the boot A, root A, boot B
+            and root B partitions, or None to use MBR
     """
-    mmc_dev = 16
     fname = os.path.join(config.source_dir, f'mmc{mmc_dev}.img')
     mnt = config.persistent_data_dir
 
-    spec = 'type=c, size=8M, start=1M, bootable\n' \
-           'type=83, size=10M\n' \
-           'type=c, size=8M, bootable\n' \
-           'type=83, size=10M'
+    if part_names:
+        boot_a, root_a, boot_b, root_b = part_names
+        boot = f'type={GPT_FAT}, size=8M, attrs=LegacyBIOSBootable'
+        root = f'type={GPT_LINUX}, size=10M'
+        spec = 'label: gpt\n' \
+               f'{boot}, start=1M, name={boot_a}\n' \
+               f'{root}, name={root_a}\n' \
+               f'{boot}, name={boot_b}\n' \
+               f'{root}, name={root_b}'
+    else:
+        spec = 'type=c, size=8M, start=1M, bootable\n' \
+               'type=83, size=10M\n' \
+               'type=c, size=8M, bootable\n' \
+               'type=83, size=10M'
 
     utils.run_and_log_no_ubman(log, f'qemu-img create {fname} 40M')
     utils.run_and_log_no_ubman(
         log, ['sh', '-c', f'printf "{spec}" | sfdisk {fname}'])
 
-    # Generate boot script
-    script = '# dummy boot script'
+    # Generate boot script, which runs a command set by the test
+    script = 'run rauc_test_script'
     bootdir = os.path.join(mnt, 'boot')
     utils.run_and_log_no_ubman(log, f'mkdir -p {bootdir}')
     cmd_fname = os.path.join(bootdir, 'boot.cmd')
