@@ -109941,3 +109941,60 @@ I didn't run `make check`/`make qcheck` locally. The only failures in those two 
 
 ---
 
+## 2026-11-22: us/main
+
+Branch: cherry-6487c50b8a40
+
+Commits:
+- 6487c50b8a40 .gitlab-ci.yml: remove Simon's lab from CI
+- 7ea6248eb07a arm: renesas: Switch all R-Car systems to LWIP based network stack
+- f9e40e59ff39 arm64: renesas: Switch to GZIP compressed DTs on Renesas R-Car Gen3 Salvator-X(S)
+- dd102402be9a arm64: dts: renesas: Sort I2C4 node in R-Car M3-W/M3-W+/M3-N U-Boot extra DT
+- ccbea39324e9 arm64: dts: renesas: Use soc phandle in R-Car M3-W/M3-W+/M3-N U-Boot extra DT
+- 3fc5e7bbb1de arm64: dts: renesas: Remove unused IPMMU nodes from R-Car H3/M3-W/M3-W+/M3-N
+- d1aff700e80d Merge branch 'main' of https://git.u-boot-project.org/u-boot/custodians/u-boot-sh
+
+### Conversation log
+The first pick conflicts, so I'll check whether these commits are already in ci/master.
+
+Not all are applied, so I'll resolve the conflict.
+
+Next, I'll clean up the leftover "# Conflicts" lines in the message.
+
+All five picked cleanly with matching deltas, and split-check changed nothing. Now I'll check the merge commit against da97f68e03dd.
+
+da97f68e03dd is a pick of a different merge (c9a9dedf) with a different message, so d1aff700 has not been applied. I'll cherry-pick it.
+
+The merge is empty as expected, because its content is the five commits just picked. I'll commit it as an empty commit.
+
+All 7 commits are present. The changes only touch R-Car configs and DTs, which don't affect sandbox, so I'm running a single sandbox build at the end.
+
+The sandbox build passes. As an extra check, I'll build the Salvator-X board, since its defconfig and DTs changed.
+
+The Salvator-X build fails a size check. I'll see whether it also fails on ci/master.
+
+I've cherry-picked all 7 commits onto `cherry-6487c50b8a40` (from ci/master), and the sandbox build passes with no warnings or errors. One commit needed a decision from you: the first one is empty because I kept this tree's CI file.
+
+```
+34d8c47a8b53 Merge branch 'main' of .../u-boot-sh   (empty, as expected)
+95ade15b1153 arm64: dts: renesas: Remove unused IPMMU nodes from R-Car H3/M3-W/M3-W+/M3-N
+b328a196221b arm64: dts: renesas: Use soc phandle in R-Car M3-W/M3-W+/M3-N U-Boot extra DT
+6069b938059e arm64: dts: renesas: Sort I2C4 node in R-Car M3-W/M3-W+/M3-N U-Boot extra DT
+0674f2cf3804 arm64: renesas: Switch to GZIP compressed DTs on Renesas R-Car Gen3 Salvator-X(S)
+8cb7746e8fb4 arm: renesas: Switch all R-Car systems to LWIP based network stack
+d269e505a569 .gitlab-ci.yml: remove Simon's lab from CI   (empty, see below)
+```
+
+**Fix-ups:**
+- **6487c50b8a40 (remove Simon's lab from CI):** this conflicted. Upstream drops the `sjg-lab` jobs because your lab wasn't moved to their new GitLab setup. This tree's `.gitlab-ci.yml` is quite different (it has `sjg-lab-slow`, merge-request rules and release stages), and your lab CI jobs still run from it. I kept this tree's version, so the commit is empty, with the note "[Keep this tree's .gitlab-ci.yml since its lab is still in use; empty commit]". If you do want the lab jobs removed, this commit needs redoing by hand.
+- **d1aff700e80d (merge):** this was not already applied. da97f68e03dd has the same subject but was picked from a different merge (c9a9dedf) and has a different message. The merge came out empty because its changes are the five commits just picked.
+- The other five picked cleanly. Each one changed the same files and line counts as the original, and `pickman split-check` found nothing to convert.
+
+**Concerning deltas:** none.
+
+**Extra check:** the board these commits change, `rcar3_salvator-x`, fails to build: `u-boot-nodtb.bin` is 0xc98 bytes over its 1 MiB limit. ci/master already fails the same board's size check (on `u-boot.img`, 0xc06 bytes over), so these picks didn't cause it.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
