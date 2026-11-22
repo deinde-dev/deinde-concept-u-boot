@@ -109794,3 +109794,41 @@ In the wider bootstd run, 123 passed and 11 failed: `test_ut_dm_init_bootstd`, n
 
 ---
 
+### Pipeline fix: 2026-11-21 (attempt 1)
+
+Branch: cherry-df477e482e94
+
+Failed jobs:
+- sandbox64 with clang test.py (test.py)
+- sandbox_flattree test.py (test.py)
+- sandbox64 test.py (test.py)
+- sandbox64_lwip test.py (test.py)
+- qemu-riscv32 test.py (test.py)
+- Check make qcheck (test.py)
+- Check make check (test.py)
+
+### Conversation log
+Builds pass; now running the two failing RAUC tests on sandbox_flattree and sandbox64 to confirm the fix.
+
+The RAUC failures are fixed on local branch `cherry-df477e482e94-fix1` (not pushed); the qemu-riscv32 failure is a timing flake and I made no change for it.
+
+## RAUC failures (six of the seven jobs)
+
+- **Responsible commit:** `d90d616199f8` "test: boot: Test booting a RAUC bootflow twice" (cherry-pick of `acf2c9b7952f`).
+- **Root cause:** the commit sets `CONFIG_ENV_FAT_DEVICE_AND_PART="10:1"` only in `sandbox_defconfig`. That is enough upstream, where only `sandbox_defconfig` enables `BOOTMETH_RAUC`. In this tree `BOOTMETH_RAUC` defaults to y with `BOOTSTD_FULL`, so `sandbox64`, `sandbox64_lwip` and `sandbox_flattree` also run the tests, with an empty device string. Saving the environment then fails with `** No device specified **`, which breaks `bootflow_rauc_boot_twice` and `bootflow_rauc_bootcmd`.
+- **Fix:** I amended that commit to add `default "10:1" if SANDBOX` to `ENV_FAT_DEVICE_AND_PART` in `env/Kconfig`, and dropped the now-redundant line from `configs/sandbox_defconfig`. A `[pickman]` note is appended to the commit message.
+
+## qemu-riscv32
+
+The only failure is `cmd_test_cyclic_base`: "cyclic function cyclic_demo took too long: 21152us vs 5000us max". This is a timing overrun under QEMU on a loaded runner and none of the picked commits touch cyclic code. A retry of the job should clear it.
+
+## Verification
+
+- `um build sandbox` builds, and `buildman -o /tmp/pickman sandbox sandbox64 sandbox64_lwip sandbox_flattree qemu-riscv32` completed all 12 boards it matched.
+- The five `bootflow_rauc` tests pass on `sandbox`, `sandbox64` and `sandbox_flattree`.
+- I did not run the tests on `sandbox64_lwip` or the clang build, nor the full `make check` / `make qcheck`.
+
+The rebase moved the local `cherry-df477e482e94` as well, so I reset it to its original head `62710206c6b6`; only the `-fix1` branch carries the fix.
+
+---
+
