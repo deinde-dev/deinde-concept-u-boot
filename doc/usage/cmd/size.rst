@@ -18,7 +18,7 @@ Description
 -----------
 
 The size command determines the size of a file and sets the environment
-variable filesize to this value.
+variable filesize to this value, in hexadecimal.
 
 If the command fails, the filesize environment variable is not changed.
 
@@ -34,7 +34,8 @@ path
 Legacy form
 ~~~~~~~~~~~
 
-The second form accesses a block device directly without mounting.
+The second form is used when the VFS is not enabled and accesses a block
+device directly without mounting.
 
 interface
     interface for accessing the block device (mmc, sata, scsi, usb, ....)
@@ -43,7 +44,9 @@ dev
     device number
 
 part
-    partition number, defaults to 1
+    partition number. With no partition given, partition 1 is used, or the
+    whole device if it has no partition table. A partition of 0 means the
+    whole device and *auto* means the first bootable partition.
 
 filename
     path to file
@@ -68,7 +71,7 @@ Configuration
 -------------
 
 The VFS form is available when CONFIG_CMD_VFS=y. The legacy form is
-available when CONFIG_CMD_FS_GENERIC=y.
+available when CONFIG_CMD_FS_LEGACY=y.
 
 Return value
 ------------
@@ -85,4 +88,5 @@ See also
 * :doc:`ext2load<ext2load>` for reading a file, which also sets filesize
 * :doc:`fstypes<fstypes>` for the filesystem types this command can read
 * :doc:`load<load>` for reading a file into memory, which also sets filesize
+* :doc:`save<save>` for writing memory out to a file
 * :doc:`mount<mount>` for making a filesystem available to the VFS form
