@@ -172,8 +172,8 @@ struct symbol {
 #define SYMBOL_ALLNOCONFIG_Y 0x200000
 
 /*
- * U-Boot: Marks an xPL symbol, i.e. one that starts with one of the strings in
- * xpl_name[]
+ * U-Boot: Marks an xPL symbol, i.e. one that starts with one of the names in
+ * xpl_phases[]
  */
 #define SYMBOL_XPL		0x400000
 

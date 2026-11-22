@@ -9,6 +9,7 @@
  */
 #define XPL_FOR_EACH_PHASE(x) \
 	x(TPL, tpl), \
+	x(RPL, rpl), \
 	x(SPL, spl)
 
 /*
@@ -17,6 +18,7 @@
  */
 #define XPL_PHASE_CASES(x) \
 	case PHASE_TPL: x(TPL, tpl); break; \
+	case PHASE_RPL: x(RPL, rpl); break; \
 	case PHASE_SPL: x(SPL, spl); break
 
 /*
@@ -29,6 +31,16 @@
 #define XPL_AUTOCONF		<generated/autoconf_tpl.h>
 #define XPL_PREV_PHASE \
 	(PHASE_NONE)
+#define XPL_NEXT_PHASE \
+	(IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
+	 PHASE_BOARD_F)
+#elif defined(CONFIG_RPL_BUILD)
+#define XPL_PHASE		PHASE_RPL
+#define XPL_PHASE_NAME		"RPL"
+#define XPL_AUTOCONF		<generated/autoconf_rpl.h>
+#define XPL_PREV_PHASE \
+	(IS_ENABLED(CONFIG_TPL) ? PHASE_TPL : \
+	 PHASE_NONE)
 #define XPL_NEXT_PHASE \
 	(IS_ENABLED(CONFIG_SPL) ? PHASE_SPL : \
 	 PHASE_BOARD_F)

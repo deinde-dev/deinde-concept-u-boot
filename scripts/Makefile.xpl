@@ -28,7 +28,8 @@ XPL_NAME := $(obj)
 XPL_BIN := u-boot-$(XPL_NAME)
 
 -include include/config/xpl.conf
-ifeq ($(XPL_UPPER_$(XPL_NAME)),)
+XPL_UPPER := $(XPL_UPPER_$(XPL_NAME))
+ifeq ($(XPL_UPPER),)
 $(error Unknown xPL phase '$(XPL_NAME)': see scripts/xpl_phases)
 endif
 
@@ -38,7 +39,7 @@ endif
 UBOOTINCLUDE := -I$(obj)/include $(UBOOTINCLUDE)
 
 KBUILD_CPPFLAGS += -DCONFIG_XPL_BUILD
-KBUILD_CPPFLAGS += -DCONFIG_$(XPL_UPPER_$(XPL_NAME))_BUILD
+KBUILD_CPPFLAGS += -DCONFIG_$(XPL_UPPER)_BUILD
 
 export XPL_NAME
 
@@ -47,14 +48,9 @@ export XPL_NAME
 XPL_ :=
 PHASE_ :=
 
-ifeq ($(obj)$(CONFIG_SUPPORT_SPL),spl)
-$(error You cannot build SPL without enabling CONFIG_SUPPORT_SPL)
-endif
-ifeq ($(obj)$(CONFIG_SUPPORT_TPL),tpl)
-$(error You cannot build TPL without enabling CONFIG_SUPPORT_TPL)
-endif
-ifeq ($(obj)$(CONFIG_SUPPORT_VPL),vpl)
-$(error You cannot build VPL without enabling CONFIG_SUPPORT_VPL)
+# Each phase has an option which says whether the board supports it
+ifeq ($(CONFIG_SUPPORT_$(XPL_UPPER)),)
+$(error You cannot build $(XPL_UPPER) without enabling CONFIG_SUPPORT_$(XPL_UPPER))
 endif
 
 include $(srctree)/config.mk

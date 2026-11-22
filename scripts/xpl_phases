@@ -8,14 +8,20 @@
 #   name	Name of the phase, which is also the name of its build directory
 #		and, in upper case, the prefix of its Kconfig options, so 'tpl'
 #		builds in tpl/ and uses options such as CONFIG_TPL_SERIAL
-#   tag		Devicetree property which marks the nodes the phase needs
-#   primary	Marks the primary phase, U-Boot proper, whose options have no
-#		prefix. Its name is used where an option needs a prefix, e.g.
-#		CONFIG_PPL_TEXT_BASE as seen by another phase. It has no tag
+#   tag		Devicetree property which marks the nodes the phase needs, or
+#		'-' if the phase has no devicetree
+#   flags	Optional words which describe the phase:
+#		primary: the primary phase, U-Boot proper, whose options have
+#		no prefix. Its name is used where an option needs a prefix,
+#		e.g. CONFIG_PPL_TEXT_BASE as seen by another phase. Its tag is
+#		'-'
+#		resident: the phase is loaded alongside the next one and stays
+#		in memory to provide services to it, e.g. a secure monitor,
+#		rather than handing over and being discarded
 #
 # A phase is enabled by the Kconfig option with its upper-case name, e.g.
 # CONFIG_TPL. When it runs, a phase moves on to the next enabled phase in this
-# list, with U-Boot proper coming after the last one.
+# list which is not resident, with U-Boot proper coming after the last one.
 
 tpl	bootph-pre-sram
 vpl	bootph-verify

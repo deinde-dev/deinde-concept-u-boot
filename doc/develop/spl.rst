@@ -123,17 +123,23 @@ Describing the phases
 
 The xPL phases are listed in ``scripts/xpl_phases``, in the order in which
 they run. Each line gives the name of a phase, such as ``tpl``, and the
-devicetree tag which marks the nodes it needs, such as ``bootph-pre-sram``. The
-upper-case name is the prefix of the phase's Kconfig options, so TPL has
-options such as ``CONFIG_TPL_SERIAL``, and ``CONFIG_TPL`` enables the phase.
-When it finishes, a phase moves on to the next enabled phase in the list, with
-U-Boot proper coming after the last one.
+devicetree tag which marks the nodes it needs, such as ``bootph-pre-sram``, or
+``-`` for a phase which has no devicetree. The upper-case name is the prefix of
+the phase's Kconfig options, so TPL has options such as ``CONFIG_TPL_SERIAL``,
+and ``CONFIG_TPL`` enables the phase. When it finishes, a phase moves on to the
+next enabled phase in the list, with U-Boot proper coming after the last one.
 
-The last line is for U-Boot proper, which is marked ``primary`` and has ``-``
-for its tag. It is not an xPL phase, so does not appear in the files below.
-Its options have no prefix, but its name is used where one is needed, e.g.
-``CONFIG_PPL_TEXT_BASE`` gives the text base of U-Boot proper in the
-configuration of every phase.
+A line may end with flags. ``primary`` marks U-Boot proper, on the last line,
+which has ``-`` for its tag. It is not an xPL phase, so does not appear in the
+files below. Its options have no prefix, but its name is used where one is
+needed, e.g. ``CONFIG_PPL_TEXT_BASE`` gives the text base of U-Boot proper in
+the configuration of every phase.
+
+``resident`` marks a phase which is loaded alongside the phase after it and
+stays in memory to provide services to it, such as a secure monitor, rather
+than handing over and being discarded. A resident phase is not part of the
+chain of phases: the phases either side of it move on to each other, while the
+resident phase itself moves on to the next phase which is not resident.
 
 Kconfig reads the list and writes two files from it during the build. Both
 depend only on the list, so they are the same for every board.
@@ -236,8 +242,8 @@ example::
 In a Makefile, ``$(XPL_PHASES)`` gives the lower-case names of the phases, in
 order. For each phase, ``$(XPL_UPPER_<phase>)`` gives its upper-case name and
 ``$(XPL_TAG_<phase>)`` its devicetree tag, e.g. ``$(XPL_TAG_tpl)`` is
-``bootph-pre-sram``. While building a phase, ``$(XPL_NAME)`` is its
-lower-case name.
+``bootph-pre-sram``. The tag is empty for a phase which has no devicetree.
+While building a phase, ``$(XPL_NAME)`` is its lower-case name.
 
 Python tools can call ``read_phases()`` in ``u_boot_pylib.xpl`` to get the
 phases of a source tree. A tree without ``scripts/xpl_phases``, such as
@@ -247,8 +253,11 @@ To add a phase:
 
 #. Add a line to ``scripts/xpl_phases``, at the point where the phase runs
 #. Add a Kconfig option named after the phase which enables it, such as
-   ``CONFIG_TPL``, along with the phase's versions of the options it uses,
-   such as its text base and linker script
+   ``CONFIG_TPL``, and one which a board or SoC selects to say that it
+   supports the phase, such as ``CONFIG_SUPPORT_TPL``
+#. Add the phase's versions of the options it uses, such as its text base and
+   linker script. If it has a ``SIZE_LIMIT`` option, such as
+   ``CONFIG_TPL_SIZE_LIMIT``, the build checks the size of its image
 #. Check ``xpl_phase()`` in code which needs to behave differently in the new
    phase (see below)
 

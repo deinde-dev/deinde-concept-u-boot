@@ -23,8 +23,10 @@ class TestReadPhases(unittest.TestCase):
             with open(os.path.join(srcdir, 'scripts', 'xpl_phases'), 'w',
                       encoding='utf-8') as outf:
                 outf.write('# comment\n\ntpl\tbootph-pre-sram\n'
-                           'mpl  bootph-monitor\nspl\tbootph-pre-ram\n')
-            self.assertEqual(('tpl', 'mpl', 'spl'), xpl.read_phases(srcdir))
+                           'mpl  bootph-monitor\nspl\tbootph-pre-ram\n'
+                           'rpl\t-\tresident\n')
+            self.assertEqual(('tpl', 'mpl', 'spl', 'rpl'),
+                             xpl.read_phases(srcdir))
 
     def test_parse(self):
         """The phases are parsed from text, e.g. read from a git commit"""
@@ -55,4 +57,9 @@ class TestReadPhases(unittest.TestCase):
         """The phases in this source tree"""
         srcdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               '..', '..')
-        self.assertEqual(('tpl', 'vpl', 'spl'), xpl.read_phases(srcdir))
+        phases = xpl.read_phases(srcdir)
+
+        # Check for the phase which every tree has, so that adding a phase
+        # does not need a change here
+        self.assertIn('spl', phases)
+        self.assertEqual(len(phases), len(set(phases)))

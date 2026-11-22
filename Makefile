@@ -1182,23 +1182,20 @@ else
 BOARD_SIZE_CHECK =
 endif
 
+# The limit for SPL depends on other options too, so a tool works it out
 ifneq ($(CONFIG_SPL_SIZE_LIMIT),0x0)
 SPL_SIZE_CHECK = @$(call size_check,$@,$$(tools/spl_size_limit))
 else
 SPL_SIZE_CHECK =
 endif
 
-ifneq ($(CONFIG_TPL_SIZE_LIMIT),0x0)
-TPL_SIZE_CHECK = @$(call size_check,$@,$(CONFIG_TPL_SIZE_LIMIT))
-else
-TPL_SIZE_CHECK =
-endif
-
-ifneq ($(CONFIG_VPL_SIZE_LIMIT),0x0)
-VPL_SIZE_CHECK = @$(call size_check,$@,$(CONFIG_VPL_SIZE_LIMIT))
-else
-VPL_SIZE_CHECK =
-endif
+# Check the image of an xPL phase against CONFIG_<phase>_SIZE_LIMIT, unless
+# that is zero or not defined
+# Args:
+#   $1: Name of the phase in upper case, e.g. TPL
+xpl_size_limit = $(filter-out 0x0,$(CONFIG_$(1)_SIZE_LIMIT))
+xpl_size_check = $(or $($(1)_SIZE_CHECK),$(if $(call xpl_size_limit,$(1)),\
+	@$(call size_check,$@,$(call xpl_size_limit,$(1)))))
 
 # Statically apply RELA-style relocations (currently arm64 only)
 # This is useful for arm64 where static relocation needs to be performed on
@@ -1745,6 +1742,13 @@ binman_dtb = ./u-boot.dtb
 endif
 endif
 
+# Arguments which tell binman about an xPL phase
+# Args:
+#   $1: Name of the phase, e.g. tpl
+#   $2: Name of the phase in upper case, e.g. TPL
+binman_xpl_args = -a $(1)-bss-pad=$(if $(CONFIG_$(2)_SEPARATE_BSS),,1) \
+	-a $(1)-dtb=$(CONFIG_$(2)_OF_REAL)
+
 quiet_cmd_binman = BINMAN  $@
 cmd_binman = $(BINMAN) $(if $(BINMAN_DEBUG),-D) \
 		$(foreach f,$(BINMAN_TOOLPATHS),--toolpath $(f)) \
@@ -1765,12 +1769,8 @@ cmd_binman = $(BINMAN) $(if $(BINMAN_DEBUG),-D) \
 		-a default-dt=$(default_dt) \
 		-a scp-path=$(SCP) \
 		-a rockchip-tpl-path=$(ROCKCHIP_TPL) \
-		-a spl-bss-pad=$(if $(CONFIG_SPL_SEPARATE_BSS),,1) \
-		-a tpl-bss-pad=$(if $(CONFIG_TPL_SEPARATE_BSS),,1) \
-		-a vpl-bss-pad=$(if $(CONFIG_VPL_SEPARATE_BSS),,1) \
-		-a spl-dtb=$(CONFIG_SPL_OF_REAL) \
-		-a tpl-dtb=$(CONFIG_TPL_OF_REAL) \
-		-a vpl-dtb=$(CONFIG_VPL_OF_REAL) \
+		$(foreach p,$(XPL_PHASES), \
+			$(call binman_xpl_args,$(p),$(XPL_UPPER_$(p)))) \
 		-a pre-load-key-path=${PRE_LOAD_KEY_PATH} \
 		-a of-spl-remove-props=$(CONFIG_OF_SPL_REMOVE_PROPS) \
 		$(BINMAN_$(@F))
@@ -2642,7 +2642,7 @@ u-boot.lds: $(LDSCRIPT) prepare FORCE
 define xpl_phase_rules
 $(1)/u-boot-$(1).bin: $(1)/u-boot-$(1)
 	@:
-	$$($(XPL_UPPER_$(1))_SIZE_CHECK)
+	$$(call xpl_size_check,$(XPL_UPPER_$(1)))
 
 $(1)/u-boot-$(1): tools prepare $$(if $$(CONFIG_$(XPL_UPPER_$(1))_OF_CONTROL),dts/dt.dtb)
 	$$(Q)$$(MAKE) obj=$(1) -f $$(srctree)/scripts/Makefile.xpl all
