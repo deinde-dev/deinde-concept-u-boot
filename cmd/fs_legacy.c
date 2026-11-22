@@ -23,13 +23,12 @@ U_BOOT_CMD(
 	"      determine its size, and store in the 'filesize' variable."
 );
 
-static int do_load_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_load_wrapper(struct getopt_state *gs)
 {
-	return do_load(argc, argv, FS_TYPE_ANY);
+	return do_load(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	load,	7,	0,	do_load_wrapper,
 	"load binary file from a filesystem",
 	"<interface> [<dev[:part]> [<addr> [<filename> [bytes [pos]]]]]\n"

@@ -319,3 +319,23 @@ static int cmd_test_load_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_load_usage, UTF_CONSOLE);
+
+/* Test that load refuses an option, since it has none */
+static int cmd_test_load_badopt(struct unit_test_state *uts)
+{
+	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+
+	ut_asserteq(1, run_commandf("load -b sandbox - %lx %s",
+				    (ulong)LOAD_ADDR, TEST_FILE));
+	ut_assertok(check_load_usage(uts));
+
+	/* a filename which looks like an option is still a filename */
+	ut_asserteq(1, run_commandf("load sandbox - %lx -b", (ulong)LOAD_ADDR));
+	ut_assertok(check_log(uts, FUNC_LOAD, "Failed to load '-b'"));
+	ut_assert_console_end();
+
+	ut_assertok(os_unlink(TEST_FILE));
+
+	return 0;
+}
+CMD_TEST(cmd_test_load_badopt, UTF_CONSOLE);
