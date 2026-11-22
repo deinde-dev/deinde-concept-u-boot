@@ -133,13 +133,12 @@ U_BOOT_CMD_NOOPTS(
 	"List supported filesystem types", ""
 );
 
-static int do_mv_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_mv_wrapper(struct getopt_state *gs)
 {
-	return do_mv(argc, argv, FS_TYPE_ANY);
+	return do_mv(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mv,	5,	1,	do_mv_wrapper,
 	"rename/move a file/directory",
 	"<interface> <dev[:part]> <old_path> <new_path>\n"

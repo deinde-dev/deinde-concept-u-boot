@@ -1292,3 +1292,17 @@ static int cmd_test_mv_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_mv_usage, UTF_CONSOLE);
+
+/* Test that mv refuses an option, since it has none */
+static int cmd_test_mv_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_commandf("mv -b sandbox - %s other", TEST_FILE));
+	ut_assertok(check_mv_usage(uts));
+
+	/* a path which looks like an option is still a path */
+	ut_asserteq(1, run_command("mv sandbox - -b -c", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mv_badopt, UTF_CONSOLE);
