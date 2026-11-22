@@ -1172,3 +1172,17 @@ static int cmd_test_rm_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_rm_usage, UTF_CONSOLE);
+
+/* Test that rm refuses an option, since it has none */
+static int cmd_test_rm_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_commandf("rm -b sandbox - %s", TEST_FILE));
+	ut_assertok(check_rm_usage(uts));
+
+	/* a filename which looks like an option is still a filename */
+	ut_asserteq(1, run_command("rm sandbox - -b", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_rm_badopt, UTF_CONSOLE);

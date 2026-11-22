@@ -95,13 +95,12 @@ U_BOOT_CMD_NOOPTS(
 	"      device type 'interface' instance 'dev'."
 );
 
-static int do_rm_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_rm_wrapper(struct getopt_state *gs)
 {
-	return do_rm(argc, argv, FS_TYPE_ANY);
+	return do_rm(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	rm,	4,	1,	do_rm_wrapper,
 	"delete a file",
 	"<interface> <dev[:part]> <filename>\n"
