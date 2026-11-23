@@ -1499,6 +1499,16 @@ static int dm_test_vfs_df(struct unit_test_state *uts)
 	ut_assert_nextline("Error: -2: No such file or directory");
 	ut_assert_console_end();
 
+	/* df has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("df -x", 0));
+	ut_assert_nextline("df - show filesystem usage");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("df [<path>]");
+	ut_assert_nextline(
+		"    - Show usage for the filesystem at 'path', or all mounts");
+	ut_assert_console_end();
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 

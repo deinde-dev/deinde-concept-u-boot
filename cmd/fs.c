@@ -651,14 +651,16 @@ static void print_df_one(const char *name, struct fs_statfs *stats)
 	printf("\n");
 }
 
-static int do_df(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_df(struct getopt_state *gs)
 {
 	struct fs_statfs stats;
+	const char *path;
 	int ret;
 
-	if (argc >= 2) {
+	path = getopt_pop(gs);
+	if (path) {
 		/* Single filesystem */
-		ret = vfs_statfs(argv[1], &stats);
+		ret = vfs_statfs(path, &stats);
 		if (ret) {
 			printf("Error: %dE\n", ret);
 			return CMD_RET_FAILURE;
@@ -666,7 +668,7 @@ static int do_df(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		printf("%-16s %6s %10s %10s %10s  %s\n",
 		       "Filesystem", "Blksz", "Total", "Used", "Free",
 		       "Size");
-		print_df_one(argv[1], &stats);
+		print_df_one(path, &stats);
 	} else {
 		/* All mounts */
 		ret = vfs_init();
@@ -682,7 +684,7 @@ static int do_df(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	df,	2,	1,	do_df,
 	"show filesystem usage",
 	"[<path>]\n"
