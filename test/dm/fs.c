@@ -540,6 +540,15 @@ static int dm_test_vfs_cd(struct unit_test_state *uts)
 	ut_assertok(run_command("cd /host", 0));
 	ut_assert_console_end();
 
+	/* a relative path moves down from the current directory */
+	ut_assertok(run_command("cd doc", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("pwd", 0));
+	ut_assert_nextline("/host/doc");
+	ut_assert_console_end();
+	ut_assertok(run_command("cd ..", 0));
+	ut_assert_console_end();
+
 	/* 'cat Kbuild' should resolve to /host/Kbuild */
 	ut_assertok(run_command("cat Kbuild", 0));
 	ut_assert_skip_to_linen("# SPDX");
@@ -577,6 +586,51 @@ static int dm_test_vfs_cd(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_vfs_cd, UTF_SCAN_FDT);
+
+/* Test the paths which cd refuses */
+static int dm_test_vfs_cd_err(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("cd /host", 0));
+	ut_assert_console_end();
+
+	/* a path with no filesystem mounted behind it */
+	ut_asserteq(1, run_command("cd /nowhere", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* a directory which is not there, within a mounted filesystem */
+	ut_asserteq(1, run_command("cd nowhere", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* a regular file is not a directory */
+	ut_asserteq(1, run_command("cd /host/README", 0));
+	ut_assert_nextline("Error: -20: Not a directory");
+	ut_assert_console_end();
+
+	/* the working directory survives all of them */
+	ut_assertok(run_command("pwd", 0));
+	ut_assert_nextline("/host");
+	ut_assert_console_end();
+
+	/* with no argument cd returns to the root */
+	ut_assertok(run_command("cd", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("pwd", 0));
+	ut_assert_nextline("/");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_cd_err, UTF_SCAN_FDT);
 
 /* Test multi-component path resolution (files in subdirectories) */
 static int dm_test_vfs_path(struct unit_test_state *uts)
