@@ -208,15 +208,14 @@ U_BOOT_CMD_NOOPTS_COMPLETE(
 	vfs_cmd_complete
 );
 
-static int do_pwd(struct cmd_tbl *cmdtp, int flag, int argc,
-		  char *const argv[])
+static int do_pwd(struct getopt_state *gs)
 {
 	printf("%s\n", vfs_getcwd());
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	pwd,	1,	1,	do_pwd,
 	"print working directory",
 	"\n    - Print the current VFS working directory"

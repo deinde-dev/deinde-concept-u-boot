@@ -577,6 +577,12 @@ static int dm_test_vfs_cd(struct unit_test_state *uts)
 	ut_assert_nextline("/host");
 	ut_assert_console_end();
 
+	/* pwd takes no arguments, so one shows the usage message */
+	ut_asserteq(1, run_command("pwd -x", 0));
+	ut_assert_nextline("pwd - print working directory");
+	ut_assert_skip_to_line("    - Print the current VFS working directory");
+	ut_assert_console_end();
+
 	/* cd back to root and umount */
 	ut_assertok(run_command("cd /", 0));
 	ut_assert_console_end();
