@@ -587,10 +587,13 @@ static int dm_test_vfs_umount_all(struct unit_test_state *uts)
 
 	ut_assertok(run_command("mount hostfs /host", 0));
 	ut_assert_console_end();
+	ut_assertok(run_command("mount hostfs /other", 0));
+	ut_assert_console_end();
 
-	/* Verify mount is there */
+	/* Verify both mounts are there */
 	ut_assertok(run_command("ls /", 0));
 	ut_assert_nextline("DIR %10u host", 0);
+	ut_assert_nextline("DIR %10u other", 0);
 	ut_assert_console_end();
 
 	/* Unmount all */
@@ -605,6 +608,50 @@ static int dm_test_vfs_umount_all(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_vfs_umount_all, UTF_SCAN_FDT);
+
+/* Test the failures which the umount command reports */
+static int dm_test_vfs_umount_err(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	/* the command needs a mount point, or -a */
+	ut_asserteq(1, run_command("umount", 0));
+	ut_assert_nextline("umount - unmount a filesystem");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("umount <mountpoint> | -a");
+	ut_assert_nextline(
+		"    - Unmount the filesystem at 'mountpoint', or all (-a)");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	/* a path inside the filesystem is not a mount point */
+	ut_asserteq(1, run_command("umount /host/doc", 0));
+	ut_assert_nextline("umount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* nor is the root */
+	ut_asserteq(1, run_command("umount /", 0));
+	ut_assert_nextline("umount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	/* the same mount point a second time */
+	ut_asserteq(1, run_command("umount /host", 0));
+	ut_assert_nextline("umount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* -a with nothing mounted is not a failure */
+	ut_assertok(run_command("umount -a", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_umount_err, UTF_SCAN_FDT);
 
 /* Test cd and pwd commands */
 static int dm_test_vfs_cd(struct unit_test_state *uts)
