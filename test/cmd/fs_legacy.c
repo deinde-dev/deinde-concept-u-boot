@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Tests for the load, save and size commands
+ * Tests for the legacy filesystem commands
  *
  * These commands work with any filesystem, so the tests use sandbox's own
  * 'sandbox' filesystem, which reads and writes files of the host U-Boot is
@@ -42,6 +42,9 @@
  */
 #define FUNC_LOAD	"             do_load"
 #define FUNC_WRITE	"            fs_write"
+#define FUNC_MKDIR	"            do_mkdir"
+#define FUNC_REMOVE	"          fat_remove"
+#define FUNC_LN		"               fs_ln"
 
 /**
  * check_log() - Check the next console line, which the fs layer logs
@@ -67,18 +70,20 @@ static int check_log(struct unit_test_state *uts, const char *func,
 }
 
 /**
- * make_file() - Write the file which the tests work on
+ * make_file() - Write a file which the tests work on
  *
  * @uts: Test state
+ * @fname: Name of the file to write
  * @data: Contents for the file
  * @size: Number of bytes to write
  * Return: 0 if OK, 1 on failure
  */
-static int make_file(struct unit_test_state *uts, const char *data, uint size)
+static int make_file(struct unit_test_state *uts, const char *fname,
+		     const char *data, uint size)
 {
 	int fd;
 
-	fd = os_open(TEST_FILE, OS_O_WRONLY | OS_O_CREAT | OS_O_TRUNC);
+	fd = os_open(fname, OS_O_WRONLY | OS_O_CREAT | OS_O_TRUNC);
 	ut_assert(fd >= 0);
 	ut_asserteq(size, os_write(fd, data, size));
 	ut_assertok(os_close(fd));
@@ -193,7 +198,7 @@ static int cmd_test_load_base(struct unit_test_state *uts)
 {
 	u8 *buf;
 
-	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, DATA_SIZE));
 	buf = clear_mem(LOAD_ADDR, DATA_SIZE);
 
 	ut_assertok(run_commandf("load sandbox - %lx %s", (ulong)LOAD_ADDR,
@@ -218,7 +223,7 @@ static int cmd_test_load_part(struct unit_test_state *uts)
 {
 	u8 *buf;
 
-	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, DATA_SIZE));
 	buf = clear_mem(LOAD_ADDR, DATA_SIZE);
 
 	/* the first five bytes are '01234' */
@@ -275,7 +280,7 @@ static int cmd_test_load_default(struct unit_test_state *uts)
 	char *old_bootfile, *old_loadaddr;
 	u8 *buf;
 
-	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, DATA_SIZE));
 	buf = clear_mem(ALT_ADDR, DATA_SIZE);
 
 	/* other tests use these, so put them back afterwards */
@@ -359,7 +364,7 @@ CMD_TEST(cmd_test_load_usage, UTF_CONSOLE);
 /* Test that load refuses an option, since it has none */
 static int cmd_test_load_badopt(struct unit_test_state *uts)
 {
-	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, DATA_SIZE));
 
 	ut_asserteq(1, run_commandf("load -b sandbox - %lx %s",
 				    (ulong)LOAD_ADDR, TEST_FILE));
@@ -438,7 +443,7 @@ static int cmd_test_save_pos(struct unit_test_state *uts)
 	char buf[DATA_SIZE];
 	long long size;
 
-	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, DATA_SIZE));
 	fill_mem(ALT_ADDR, "XY", 2);
 
 	ut_assertok(run_commandf("save sandbox - %lx %s 2 4", (ulong)ALT_ADDR,
@@ -544,7 +549,7 @@ static int check_size_usage(struct unit_test_state *uts)
 /* Test that size reports a file's size in the filesize variable */
 static int cmd_test_size_base(struct unit_test_state *uts)
 {
-	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, DATA_SIZE));
 
 	/* the command's only output is the variable it sets */
 	ut_assertok(run_commandf("size sandbox - %s", TEST_FILE));
@@ -552,7 +557,7 @@ static int cmd_test_size_base(struct unit_test_state *uts)
 	ut_asserteq(DATA_SIZE, env_get_hex("filesize", 0));
 
 	/* a shorter file is reported as such, so nothing is cached */
-	ut_assertok(make_file(uts, DATA, 4));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, 4));
 	ut_assertok(run_commandf("size sandbox - %s", TEST_FILE));
 	ut_assert_console_end();
 	ut_asserteq(4, env_get_hex("filesize", 0));
@@ -603,7 +608,7 @@ CMD_TEST(cmd_test_size_usage, UTF_CONSOLE);
 /* Test that size refuses an option, since it has none */
 static int cmd_test_size_badopt(struct unit_test_state *uts)
 {
-	ut_assertok(make_file(uts, DATA, DATA_SIZE));
+	ut_assertok(make_file(uts, TEST_FILE, DATA, DATA_SIZE));
 
 	ut_asserteq(1, run_commandf("size -b sandbox - %s", TEST_FILE));
 	ut_assertok(check_size_usage(uts));
@@ -617,3 +622,819 @@ static int cmd_test_size_badopt(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_size_badopt, UTF_CONSOLE);
+
+/*
+ * The directory which the ls tests list, with a file, a sub-directory and a
+ * symbolic link in it. It is a dot-directory, as the file above is
+ */
+#define LS_DIR		".cmd_test_fs_dir"
+#define LS_FILE		LS_DIR "/hello.txt"
+#define LS_SUBDIR	LS_DIR "/sub"
+#define LS_LINK		LS_DIR "/link"
+
+/* number of characters of a listing line taken by the type and the size */
+#define LS_NAME_POS	15
+
+/* enough for a listing line, which holds a name of up to 255 characters */
+#define MAX_LINE	280
+
+/**
+ * struct ls_entry - an entry which a listing is expected to hold
+ *
+ * @type: Type of the entry, as sandboxfs prints it
+ * @size: Expected size, or -1 not to check it
+ * @name: Name of the entry
+ */
+struct ls_entry {
+	const char *type;
+	long size;
+	const char *name;
+};
+
+/**
+ * check_ls() - Check a listing holds exactly the expected entries
+ *
+ * sandboxfs lists a directory in the order the host holds it, which is
+ * neither alphabetical nor something the host promises, so the lines are
+ * matched without regard to the order they arrive in. The size of a
+ * directory, and of a symbolic link, is the host filesystem's business, so an
+ * entry can ask for its size not to be checked.
+ *
+ * @uts: Test state
+ * @exp: Expected entries
+ * @count: Number of expected entries
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_ls(struct unit_test_state *uts, const struct ls_entry *exp,
+		    int count)
+{
+	bool seen[8];
+	int i;
+
+	ut_assert(count <= (int)ARRAY_SIZE(seen));
+	memset(seen, '\0', sizeof(seen));
+
+	for (i = 0; i < count; i++) {
+		char line[MAX_LINE];
+		int which;
+
+		ut_assert(console_record_readline(line, sizeof(line)) >= 0);
+		for (which = 0; which < count; which++) {
+			const struct ls_entry *ent = &exp[which];
+			char want[MAX_LINE];
+
+			if (seen[which])
+				continue;
+			if (ent->size < 0) {
+				if (strncmp(line, ent->type, 3) ||
+				    strcmp(line + LS_NAME_POS, ent->name))
+					continue;
+			} else {
+				snprintf(want, sizeof(want), "%s %10ld %s",
+					 ent->type, ent->size, ent->name);
+				if (strcmp(line, want))
+					continue;
+			}
+			break;
+		}
+		ut_assertf(which < count, "unexpected line '%s'", line);
+		seen[which] = true;
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/**
+ * make_ls_dir() - Create the directory which the ls tests list
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int make_ls_dir(struct unit_test_state *uts)
+{
+	/*
+	 * A test which stops part-way leaves the directory behind, so take it
+	 * out first, ignoring whatever is not there
+	 */
+	os_unlink(LS_LINK);
+	os_rmdir(LS_SUBDIR);
+	os_unlink(LS_FILE);
+	os_rmdir(LS_DIR);
+
+	ut_assertok(os_mkdir(LS_DIR, 0755));
+	ut_assertok(make_file(uts, LS_FILE, DATA, DATA_SIZE));
+	ut_assertok(os_mkdir(LS_SUBDIR, 0755));
+	ut_assertok(os_symlink("hello.txt", LS_LINK));
+
+	return 0;
+}
+
+/**
+ * remove_ls_dir() - Remove the directory which the ls tests list
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int remove_ls_dir(struct unit_test_state *uts)
+{
+	ut_assertok(os_unlink(LS_LINK));
+	ut_assertok(os_rmdir(LS_SUBDIR));
+	ut_assertok(os_unlink(LS_FILE));
+	ut_assertok(os_rmdir(LS_DIR));
+
+	return 0;
+}
+
+/* Test that ls lists a directory, with the type and size of each entry */
+static int cmd_test_ls_base(struct unit_test_state *uts)
+{
+	static const struct ls_entry dir[] = {
+		{ "DIR", -1, "." },
+		{ "DIR", -1, ".." },
+		{ "DIR", -1, "sub" },
+		{ "SYM", -1, "link" },
+		{ "   ", DATA_SIZE, "hello.txt" },
+	};
+	static const struct ls_entry sub[] = {
+		{ "DIR", -1, "." },
+		{ "DIR", -1, ".." },
+	};
+
+	ut_assertok(make_ls_dir(uts));
+
+	ut_assertok(run_commandf("ls sandbox - %s", LS_DIR));
+	ut_assertok(check_ls(uts, dir, ARRAY_SIZE(dir)));
+
+	/* the device can be given as a partition, which sandboxfs ignores */
+	ut_assertok(run_commandf("ls sandbox 0:0 %s", LS_DIR));
+	ut_assertok(check_ls(uts, dir, ARRAY_SIZE(dir)));
+
+	/* a directory with nothing in it still holds . and .. */
+	ut_assertok(run_commandf("ls sandbox - %s", LS_SUBDIR));
+	ut_assertok(check_ls(uts, sub, ARRAY_SIZE(sub)));
+
+	ut_assertok(remove_ls_dir(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ls_base, UTF_CONSOLE);
+
+/* Test that ls lists the root directory when none is given */
+static int cmd_test_ls_default(struct unit_test_state *uts)
+{
+	/*
+	 * The default is '/', which for sandboxfs is the root of the host's
+	 * own filesystem, so there is nothing to assert on but the success of
+	 * the command
+	 */
+	ut_assertok(run_command("ls sandbox -", 0));
+	console_record_reset();
+
+	return 0;
+}
+CMD_TEST(cmd_test_ls_default, UTF_CONSOLE);
+
+/* Test that ls reports a directory it cannot list */
+static int cmd_test_ls_missing(struct unit_test_state *uts)
+{
+	ut_assertok(make_ls_dir(uts));
+
+	/* the return value is all there is to tell this from an empty listing */
+	ut_asserteq(1, run_commandf("ls sandbox - %s/nodir", LS_DIR));
+	ut_assert_console_end();
+
+	/* a file is not a directory, so it cannot be listed either */
+	ut_asserteq(1, run_commandf("ls sandbox - %s", LS_FILE));
+	ut_assert_console_end();
+
+	ut_assertok(remove_ls_dir(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ls_missing, UTF_CONSOLE);
+
+/* the lines of the ls usage message which are too long to write inline */
+#define LS_USAGE_PART \
+	"    - List files in directory 'directory' of partition 'part' on"
+
+/**
+ * check_ls_usage() - Check the console holds the ls usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_ls_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("ls - list files in a directory (default /)");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("ls <interface> [<dev[:part]> [directory]]");
+	ut_assert_nextline(LS_USAGE_PART);
+	ut_assert_nextline("      device type 'interface' instance 'dev'.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that ls shows its usage message when it cannot go on */
+static int cmd_test_ls_usage(struct unit_test_state *uts)
+{
+	/* the interface is the one argument which has no default */
+	ut_asserteq(1, run_command("ls", 0));
+	ut_assertok(check_ls_usage(uts));
+
+	/* and there is nothing to give beyond the directory */
+	ut_asserteq(1, run_commandf("ls sandbox - %s extra", LS_DIR));
+	ut_assertok(check_ls_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ls_usage, UTF_CONSOLE);
+
+/* Test that ls refuses an option, since it has none */
+static int cmd_test_ls_badopt(struct unit_test_state *uts)
+{
+	ut_assertok(make_ls_dir(uts));
+
+	ut_asserteq(1, run_commandf("ls -b sandbox - %s", LS_DIR));
+	ut_assertok(check_ls_usage(uts));
+
+	/* a directory which looks like an option is still a directory */
+	ut_asserteq(1, run_command("ls sandbox - -b", 0));
+	ut_assert_console_end();
+
+	ut_assertok(remove_ls_dir(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ls_badopt, UTF_CONSOLE);
+
+/*
+ * The commands which change a filesystem need one which can be written to,
+ * so their tests are manual: the Python side makes a FAT image and passes its
+ * path in; see test/py/tests/test_fs_legacy.py
+ */
+#define ARG_IMAGE	0	/* fs_image: path to the filesystem image */
+
+/* name of the directory which the mkdir tests create */
+#define NEW_DIR		"newdir"
+
+/**
+ * bind_image() - Attach the image which the Python side made
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int bind_image(struct unit_test_state *uts)
+{
+	const char *fs_image = ut_str(ARG_IMAGE);
+
+	ut_assertnonnull(fs_image);
+	ut_assertok(run_commandf("host bind 0 %s", fs_image));
+	console_record_reset();
+
+	return 0;
+}
+
+/**
+ * check_empty_dir() - Check a listing which shows an empty directory
+ *
+ * A directory with nothing in it still holds its own entry and its parent's,
+ * which a generic listing shows with a trailing slash.
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_empty_dir(struct unit_test_state *uts)
+{
+	ut_assert_nextline("            ./");
+	ut_assert_nextline("            ../");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("0 file(s), 2 dir(s)");
+	ut_assert_nextline_empty();
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that mkdir creates a directory, which is then empty */
+static int cmd_test_mkdir_base_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the command says nothing when it works */
+	ut_assertok(run_commandf("mkdir host 0 %s", NEW_DIR));
+	ut_assert_console_end();
+
+	ut_assertok(run_commandf("ls host 0 %s", NEW_DIR));
+	ut_assertok(check_empty_dir(uts));
+
+	/* a directory can be created within it, naming a partition this time */
+	ut_assertok(run_commandf("mkdir host 0:0 %s/deep", NEW_DIR));
+	ut_assert_console_end();
+
+	ut_assertok(run_commandf("ls host 0 %s/deep", NEW_DIR));
+	ut_assertok(check_empty_dir(uts));
+
+	/*
+	 * Put the image back as it was found, so that the test can be run
+	 * again on the same image. On FAT the rm command removes an empty
+	 * directory as well as a file
+	 */
+	ut_assertok(run_commandf("rm host 0 %s/deep", NEW_DIR));
+	ut_assertok(run_commandf("rm host 0 %s", NEW_DIR));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_mkdir_base_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that mkdir reports a directory it cannot create */
+static int cmd_test_mkdir_fail_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the filesystem reports it, then the command logs it */
+	ut_asserteq(1, run_command("mkdir host 0 docs", 0));
+	ut_assert_nextline("docs: already exists");
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"docs\" **"));
+	ut_assert_console_end();
+
+	/* only the last part of the path is created, so a/b must exist */
+	ut_asserteq(1, run_command("mkdir host 0 a/b/c", 0));
+	ut_assert_nextline("a/b: doesn't exist (-2)");
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"a/b/c\" **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_mkdir_fail_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that mkdir reports a filesystem which cannot create a directory */
+static int cmd_test_mkdir_unsup(struct unit_test_state *uts)
+{
+	/* sandboxfs has no mkdir operation, so the fs layer refuses it */
+	ut_asserteq(1, run_command("mkdir sandbox - foo", 0));
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"foo\" **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mkdir_unsup, UTF_CONSOLE);
+
+/**
+ * check_mkdir_usage() - Check the console holds the mkdir usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_mkdir_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("mkdir - create a directory");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("mkdir <interface> <dev[:part]> <directory>");
+	ut_assert_nextline("    - Create a directory 'directory' of partition 'part' on");
+	ut_assert_nextline("      device type 'interface' instance 'dev'.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that mkdir shows its usage message when it cannot go on */
+static int cmd_test_mkdir_usage(struct unit_test_state *uts)
+{
+	/* all three arguments are needed */
+	ut_asserteq(1, run_command("mkdir", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	ut_asserteq(1, run_command("mkdir sandbox foo", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	/* and there is nothing to give beyond the directory */
+	ut_asserteq(1, run_command("mkdir sandbox - foo bar", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_mkdir_usage, UTF_CONSOLE);
+
+/* Test that mkdir refuses an option, since it has none */
+static int cmd_test_mkdir_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("mkdir -b sandbox - foo", 0));
+	ut_assertok(check_mkdir_usage(uts));
+
+	/* a directory which looks like an option is still a directory */
+	ut_asserteq(1, run_command("mkdir sandbox - -b", 0));
+	ut_assertok(check_log(uts, FUNC_MKDIR,
+			      "** Unable to create a directory \"-b\" **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mkdir_badopt, UTF_CONSOLE);
+
+/* contents of hello.txt in the image, which the Python side writes */
+#define HELLO		"Hello, world!\n"
+#define HELLO_SIZE	0xe
+
+/* Test that rm deletes a file, and an empty directory */
+static int cmd_test_rm_base_norun(struct unit_test_state *uts)
+{
+	char *old_filesize;
+
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+	ut_assertok(save_env(uts, "filesize", &old_filesize));
+
+	/* the file is there to start with, which the size command shows */
+	ut_assertok(run_command("size host 0 hello.txt", 0));
+	ut_assert_console_end();
+	ut_asserteq(HELLO_SIZE, env_get_hex("filesize", 0));
+
+	/* the command says nothing when it works */
+	ut_assertok(run_command("rm host 0 hello.txt", 0));
+	ut_assert_console_end();
+
+	/* and the file is gone, so even its size cannot be found */
+	ut_asserteq(1, run_command("size host 0 hello.txt", 0));
+	ut_assert_console_end();
+
+	/* an empty directory goes the same way, since FAT has no rmdir */
+	ut_assertok(run_command("ls host 0 empty", 0));
+	ut_assertok(check_empty_dir(uts));
+	ut_assertok(run_command("rm host 0 empty", 0));
+	ut_assert_console_end();
+	ut_asserteq(1, run_command("ls host 0 empty", 0));
+	ut_assert_console_end();
+
+	/* put the image back as it was found, so the test can be repeated */
+	fill_mem(LOAD_ADDR, HELLO, HELLO_SIZE);
+	ut_assertok(run_commandf("save host 0 %lx hello.txt %x",
+				 (ulong)LOAD_ADDR, HELLO_SIZE));
+	ut_assert_nextlinen("14 bytes written in ");
+	ut_assertok(run_command("mkdir host 0 empty", 0));
+	ut_assert_console_end();
+
+	ut_assertok(env_set("filesize", old_filesize));
+	free(old_filesize);
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_rm_base_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that rm reports a path it cannot delete */
+static int cmd_test_rm_fail_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FAT_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the filesystem reports a file which is not there */
+	ut_asserteq(1, run_command("rm host 0 nothere", 0));
+	ut_assertok(check_log(uts, FUNC_REMOVE,
+			      "nothere: doesn't exist (-2)"));
+	ut_assert_console_end();
+
+	/* a directory is refused while anything is left in it */
+	ut_asserteq(1, run_command("rm host 0 docs", 0));
+	ut_assert_nextline("Error: directory is not empty: 3");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_rm_fail_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that rm reports a filesystem which cannot delete a file */
+static int cmd_test_rm_unsup(struct unit_test_state *uts)
+{
+	/*
+	 * sandboxfs has no unlink operation, so the fs layer refuses it; the
+	 * return value is all there is to see, since nothing reports it
+	 */
+	ut_asserteq(1, run_commandf("rm sandbox - %s", TEST_FILE));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_rm_unsup, UTF_CONSOLE);
+
+/**
+ * check_rm_usage() - Check the console holds the rm usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_rm_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("rm - delete a file");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("rm <interface> <dev[:part]> <filename>");
+	ut_assert_nextline("    - delete a file with the name 'filename' on");
+	ut_assert_nextline("      device type 'interface' instance 'dev'.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that rm shows its usage message when it cannot go on */
+static int cmd_test_rm_usage(struct unit_test_state *uts)
+{
+	/* all three arguments are needed */
+	ut_asserteq(1, run_command("rm", 0));
+	ut_assertok(check_rm_usage(uts));
+
+	ut_asserteq(1, run_commandf("rm sandbox %s", TEST_FILE));
+	ut_assertok(check_rm_usage(uts));
+
+	/* and there is nothing to give beyond the filename */
+	ut_asserteq(1, run_commandf("rm sandbox - %s extra", TEST_FILE));
+	ut_assertok(check_rm_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_rm_usage, UTF_CONSOLE);
+
+/* Test that rm refuses an option, since it has none */
+static int cmd_test_rm_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_commandf("rm -b sandbox - %s", TEST_FILE));
+	ut_assertok(check_rm_usage(uts));
+
+	/* a filename which looks like an option is still a filename */
+	ut_asserteq(1, run_command("rm sandbox - -b", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_rm_badopt, UTF_CONSOLE);
+
+/* Test that mv renames a file, and moves one into a directory */
+static int cmd_test_mv_base_norun(struct unit_test_state *uts)
+{
+	char *old_filesize;
+
+	if (!IS_ENABLED(CONFIG_FAT_RENAME))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+	ut_assertok(save_env(uts, "filesize", &old_filesize));
+
+	/* the command says nothing when it works */
+	ut_assertok(run_command("mv host 0 hello.txt greeting.txt", 0));
+	ut_assert_console_end();
+
+	/* the file is there under its new name and gone under the old one */
+	ut_assertok(run_command("size host 0 greeting.txt", 0));
+	ut_assert_console_end();
+	ut_asserteq(HELLO_SIZE, env_get_hex("filesize", 0));
+	ut_asserteq(1, run_command("size host 0 hello.txt", 0));
+	ut_assert_console_end();
+
+	/* a destination which is a directory keeps the name of the file */
+	ut_assertok(run_command("mv host 0 greeting.txt docs", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("size host 0 docs/greeting.txt", 0));
+	ut_assert_console_end();
+	ut_asserteq(HELLO_SIZE, env_get_hex("filesize", 0));
+
+	/* put the image back as it was found, so the test can be repeated */
+	ut_assertok(run_command("mv host 0 docs/greeting.txt hello.txt", 0));
+	ut_assert_console_end();
+
+	ut_assertok(env_set("filesize", old_filesize));
+	free(old_filesize);
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_mv_base_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that mv reports a file it cannot move */
+static int cmd_test_mv_fail_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_FAT_RENAME))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* nothing reports a source file which is not there */
+	ut_asserteq(1, run_command("mv host 0 nothere there", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_mv_fail_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that mv reports a filesystem which cannot move a file */
+static int cmd_test_mv_unsup(struct unit_test_state *uts)
+{
+	/* sandboxfs has no rename operation, and nothing reports that */
+	ut_asserteq(1, run_commandf("mv sandbox - %s other", TEST_FILE));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mv_unsup, UTF_CONSOLE);
+
+/**
+ * check_mv_usage() - Check the console holds the mv usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_mv_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("mv - rename/move a file/directory");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("mv <interface> <dev[:part]> <old_path> <new_path>");
+	ut_assert_nextline("    - renames/moves a file/directory in 'dev' on 'interface' from");
+	ut_assert_nextline("      'old_path' to 'new_path'");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that mv shows its usage message when it cannot go on */
+static int cmd_test_mv_usage(struct unit_test_state *uts)
+{
+	/* all four arguments are needed */
+	ut_asserteq(1, run_command("mv", 0));
+	ut_assertok(check_mv_usage(uts));
+
+	ut_asserteq(1, run_commandf("mv sandbox - %s", TEST_FILE));
+	ut_assertok(check_mv_usage(uts));
+
+	/* and there is nothing to give beyond the new name */
+	ut_asserteq(1, run_commandf("mv sandbox - %s other extra", TEST_FILE));
+	ut_assertok(check_mv_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_mv_usage, UTF_CONSOLE);
+
+/* Test that mv refuses an option, since it has none */
+static int cmd_test_mv_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_commandf("mv -b sandbox - %s other", TEST_FILE));
+	ut_assertok(check_mv_usage(uts));
+
+	/* a path which looks like an option is still a path */
+	ut_asserteq(1, run_command("mv sandbox - -b -c", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mv_badopt, UTF_CONSOLE);
+
+/* name of the symbolic link which the ln tests create */
+#define LINK_NAME	"mylink"
+
+/* Test that ln creates a symbolic link to a file */
+static int cmd_test_ln_base_norun(struct unit_test_state *uts)
+{
+	char *old_filesize;
+
+	if (!IS_ENABLED(CONFIG_EXT4_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+	ut_assertok(save_env(uts, "filesize", &old_filesize));
+
+	/* the command says nothing when it works */
+	ut_assertok(run_commandf("ln host 0 hello.txt %s", LINK_NAME));
+	ut_assert_console_end();
+
+	/* the link leads to the file, so its size is the file's */
+	ut_assertok(run_commandf("size host 0 %s", LINK_NAME));
+	ut_assert_console_end();
+	ut_asserteq(HELLO_SIZE, env_get_hex("filesize", 0));
+
+	/*
+	 * Creating the link again replaces it, which the filesystem reports.
+	 * The link stays in the image, since the ext4 driver has no unlink
+	 * operation to take it out again, so this test has an image of its own
+	 */
+	ut_assertok(run_commandf("ln host 0 hello.txt %s", LINK_NAME));
+	ut_assert_nextline("file found, deleting");
+	ut_assert_console_end();
+
+	ut_assertok(env_set("filesize", old_filesize));
+	free(old_filesize);
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_ln_base_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that ln reports a link it cannot create */
+static int cmd_test_ln_fail_norun(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_EXT4_WRITE))
+		return -EAGAIN;
+
+	ut_assertok(bind_image(uts));
+
+	/* the filesystem reports it, then the fs layer logs it */
+	ut_asserteq(1, run_command("ln host 0 hello.txt nodir/link", 0));
+	ut_assert_nextline("Invalid path");
+	ut_assertok(check_log(uts, FUNC_LN,
+			      "** Unable to create link hello.txt -> nodir/link **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_ln_fail_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });
+
+/* Test that ln reports a filesystem which cannot create a link */
+static int cmd_test_ln_unsup(struct unit_test_state *uts)
+{
+	/* sandboxfs has no ln operation, so the fs layer refuses it */
+	ut_asserteq(1, run_commandf("ln sandbox - %s %s", TEST_FILE,
+				    LINK_NAME));
+	ut_assertok(check_log(uts, FUNC_LN,
+			      "** Unable to create link " TEST_FILE " -> "
+			      LINK_NAME " **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_ln_unsup, UTF_CONSOLE);
+
+/**
+ * check_ln_usage() - Check the console holds the ln usage message
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_ln_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("ln - Create a symbolic link");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("ln <interface> <dev[:part]> target linkname");
+	ut_assert_nextline("    - create a symbolic link to 'target' with the name 'linkname' on");
+	ut_assert_nextline("      device type 'interface' instance 'dev'.");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test that ln shows its usage message when it cannot go on */
+static int cmd_test_ln_usage(struct unit_test_state *uts)
+{
+	/* all four arguments are needed */
+	ut_asserteq(1, run_command("ln", 0));
+	ut_assertok(check_ln_usage(uts));
+
+	ut_asserteq(1, run_commandf("ln sandbox - %s", TEST_FILE));
+	ut_assertok(check_ln_usage(uts));
+
+	/* and there is nothing to give beyond the link name */
+	ut_asserteq(1, run_commandf("ln sandbox - %s %s extra", TEST_FILE,
+				    LINK_NAME));
+	ut_assertok(check_ln_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_ln_usage, UTF_CONSOLE);
+
+/* Test that ln refuses an option, since it has none */
+static int cmd_test_ln_badopt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_commandf("ln -b sandbox - %s %s", TEST_FILE,
+				    LINK_NAME));
+	ut_assertok(check_ln_usage(uts));
+
+	/* a target which looks like an option is still a target */
+	ut_asserteq(1, run_commandf("ln sandbox - -b %s", LINK_NAME));
+	ut_assertok(check_log(uts, FUNC_LN,
+			      "** Unable to create link -b -> " LINK_NAME
+			      " **"));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_ln_badopt, UTF_CONSOLE);

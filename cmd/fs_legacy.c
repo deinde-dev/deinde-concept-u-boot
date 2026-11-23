@@ -55,13 +55,12 @@ U_BOOT_CMD_NOOPTS(
 	"      If 'pos' is 0 or omitted, the file is written from the start."
 );
 
-static int do_ls_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_ls_wrapper(struct getopt_state *gs)
 {
-	return do_ls(argc, argv, FS_TYPE_ANY);
+	return do_ls(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	ls,	4,	1,	do_ls_wrapper,
 	"list files in a directory (default /)",
 	"<interface> [<dev[:part]> [directory]]\n"
@@ -69,13 +68,12 @@ U_BOOT_CMD(
 	"      device type 'interface' instance 'dev'."
 );
 
-static int do_ln_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_ln_wrapper(struct getopt_state *gs)
 {
-	return do_ln(argc, argv, FS_TYPE_ANY);
+	return do_ln(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	ln,	5,	1,	do_ln_wrapper,
 	"Create a symbolic link",
 	"<interface> <dev[:part]> target linkname\n"
@@ -83,30 +81,28 @@ U_BOOT_CMD(
 	"      device type 'interface' instance 'dev'."
 );
 
-static int do_mkdir_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_mkdir_wrapper(struct getopt_state *gs)
 {
-	return do_mkdir(argc, argv, FS_TYPE_ANY);
+	return do_mkdir(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mkdir,	4,	1,	do_mkdir_wrapper,
 	"create a directory",
-	"<interface> [<dev[:part]>] <directory>\n"
+	"<interface> <dev[:part]> <directory>\n"
 	"    - Create a directory 'directory' of partition 'part' on\n"
 	"      device type 'interface' instance 'dev'."
 );
 
-static int do_rm_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_rm_wrapper(struct getopt_state *gs)
 {
-	return do_rm(argc, argv, FS_TYPE_ANY);
+	return do_rm(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	rm,	4,	1,	do_rm_wrapper,
 	"delete a file",
-	"<interface> [<dev[:part]>] <filename>\n"
+	"<interface> <dev[:part]> <filename>\n"
 	"    - delete a file with the name 'filename' on\n"
 	"      device type 'interface' instance 'dev'."
 );
@@ -136,16 +132,15 @@ U_BOOT_CMD_NOOPTS(
 	"List supported filesystem types", ""
 );
 
-static int do_mv_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_mv_wrapper(struct getopt_state *gs)
 {
-	return do_mv(argc, argv, FS_TYPE_ANY);
+	return do_mv(gs->argc, gs->argv, FS_TYPE_ANY);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	mv,	5,	1,	do_mv_wrapper,
 	"rename/move a file/directory",
-	"<interface> [<dev[:part]>] <old_path> <new_path>\n"
+	"<interface> <dev[:part]> <old_path> <new_path>\n"
 	"    - renames/moves a file/directory in 'dev' on 'interface' from\n"
 	"      'old_path' to 'new_path'"
 );
