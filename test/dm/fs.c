@@ -467,6 +467,14 @@ static int dm_test_vfs_cwd(struct unit_test_state *uts)
 	/* cwd should be unchanged */
 	ut_asserteq_str("/", vfs_getcwd());
 
+	/* a missing directory within a mounted filesystem fails too */
+	ut_asserteq(-ENOENT, vfs_chdir("/host/nowhere"));
+	ut_asserteq_str("/", vfs_getcwd());
+
+	/* so does a regular file */
+	ut_asserteq(-ENOTDIR, vfs_chdir("/host/README"));
+	ut_asserteq_str("/", vfs_getcwd());
+
 	ut_assertok(vfs_umount_path(vfs, "/host"));
 
 	return 0;
@@ -532,6 +540,15 @@ static int dm_test_vfs_cd(struct unit_test_state *uts)
 	ut_assertok(run_command("cd /host", 0));
 	ut_assert_console_end();
 
+	/* a relative path moves down from the current directory */
+	ut_assertok(run_command("cd doc", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("pwd", 0));
+	ut_assert_nextline("/host/doc");
+	ut_assert_console_end();
+	ut_assertok(run_command("cd ..", 0));
+	ut_assert_console_end();
+
 	/* 'cat Kbuild' should resolve to /host/Kbuild */
 	ut_assertok(run_command("cat Kbuild", 0));
 	ut_assert_skip_to_linen("# SPDX");
@@ -560,6 +577,12 @@ static int dm_test_vfs_cd(struct unit_test_state *uts)
 	ut_assert_nextline("/host");
 	ut_assert_console_end();
 
+	/* pwd takes no arguments, so one shows the usage message */
+	ut_asserteq(1, run_command("pwd -x", 0));
+	ut_assert_nextline("pwd - print working directory");
+	ut_assert_skip_to_line("    - Print the current VFS working directory");
+	ut_assert_console_end();
+
 	/* cd back to root and umount */
 	ut_assertok(run_command("cd /", 0));
 	ut_assert_console_end();
@@ -569,6 +592,60 @@ static int dm_test_vfs_cd(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_vfs_cd, UTF_SCAN_FDT);
+
+/* Test the paths which cd refuses */
+static int dm_test_vfs_cd_err(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("cd /host", 0));
+	ut_assert_console_end();
+
+	/* a path with no filesystem mounted behind it */
+	ut_asserteq(1, run_command("cd /nowhere", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* a directory which is not there, within a mounted filesystem */
+	ut_asserteq(1, run_command("cd nowhere", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* a regular file is not a directory */
+	ut_asserteq(1, run_command("cd /host/README", 0));
+	ut_assert_nextline("Error: -20: Not a directory");
+	ut_assert_console_end();
+
+	/* the working directory survives all of them */
+	ut_assertok(run_command("pwd", 0));
+	ut_assert_nextline("/host");
+	ut_assert_console_end();
+
+	/* with no argument cd returns to the root */
+	ut_assertok(run_command("cd", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("pwd", 0));
+	ut_assert_nextline("/");
+	ut_assert_console_end();
+
+	/* cd has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("cd -x", 0));
+	ut_assert_nextline("cd - change working directory");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("cd [<path>]");
+	ut_assert_nextline("    - Change to 'path' in the VFS (default /)");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_cd_err, UTF_SCAN_FDT);
 
 /* Test multi-component path resolution (files in subdirectories) */
 static int dm_test_vfs_path(struct unit_test_state *uts)
@@ -1091,6 +1168,69 @@ static int dm_test_vfs_tree(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_tree, UTF_SCAN_FDT);
 
+#define TREE_DIR	"/host/.tree_test"
+
+/* Test the tree command on a directory of its own */
+static int dm_test_vfs_tree_dirs(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	/* clear up after a run which stopped part-way, then build the tree */
+	ut_assertok(run_command("rm -rf " TREE_DIR, 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("mkdir -p " TREE_DIR "/a/b/c", 0));
+	ut_assert_console_end();
+
+	/* the directory named and the two levels below it, but no more */
+	ut_assertok(run_command("tree " TREE_DIR, 0));
+	ut_assert_nextline(TREE_DIR);
+	ut_assert_nextline("    a/");
+	ut_assert_nextline("        b/");
+	ut_assert_console_end();
+
+	/* a relative path is resolved against the working directory */
+	ut_assertok(run_command("cd " TREE_DIR, 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("tree a", 0));
+	ut_assert_nextline(TREE_DIR "/a");
+	ut_assert_nextline("    b/");
+	ut_assert_nextline("        c/");
+	ut_assert_console_end();
+	ut_assertok(run_command("cd /", 0));
+	ut_assert_console_end();
+
+	/* a path which is not there */
+	ut_asserteq(1, run_command("tree /host/nowhere", 0));
+	ut_assert_nextline("/host/nowhere");
+	ut_assert_nextline("tree failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* a path which is not a directory */
+	ut_asserteq(1, run_command("tree /host/README", 0));
+	ut_assert_nextline("/host/README");
+	ut_assert_nextline("tree failed: -20: Not a directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm -r " TREE_DIR, 0));
+	ut_assert_console_end();
+
+	/* tree has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("tree -x", 0));
+	ut_assert_nextline("tree - list directory tree");
+	ut_assert_skip_to_line(
+		"    - Recursively list directory tree (max 3 levels deep)");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_tree_dirs, UTF_SCAN_FDT);
+
 /* Test 'test -f' and 'test -d' with VFS paths */
 static int dm_test_vfs_test(struct unit_test_state *uts)
 {
@@ -1265,7 +1405,8 @@ static int dm_test_vfs_stat(struct unit_test_state *uts)
 
 	/* stat non-existent file */
 	ut_asserteq(1, run_command("stat /host/does-not-exist", 0));
-	console_record_reset_enable();
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
 
 	/* stat a mount point and the root */
 	ut_assertok(run_command("stat /host", 0));
@@ -1281,7 +1422,22 @@ static int dm_test_vfs_stat(struct unit_test_state *uts)
 	console_record_reset_enable();
 
 	ut_asserteq(1, run_command("stat /does-not-exist", 0));
-	console_record_reset_enable();
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* stat has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("stat -x", 0));
+	ut_assert_nextline("stat - display file status");
+	ut_assert_skip_to_line(
+		"    - Show type, size and timestamps of a file or directory");
+	ut_assert_console_end();
+
+	/* and it needs a path */
+	ut_asserteq(1, run_command("stat", 0));
+	ut_assert_nextline("stat - display file status");
+	ut_assert_skip_to_line(
+		"    - Show type, size and timestamps of a file or directory");
+	ut_assert_console_end();
 
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();

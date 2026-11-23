@@ -188,22 +188,19 @@ U_BOOT_CMD_COMPLETE(
 	vfs_cmd_complete
 );
 
-static int do_cd(struct cmd_tbl *cmdtp, int flag, int argc,
-		 char *const argv[])
+static int do_cd(struct getopt_state *gs)
 {
-	const char *path = argc >= 2 ? argv[1] : "/";
+	const char *path = gs->argc >= 2 ? gs->argv[1] : "/";
 	int ret;
 
 	ret = vfs_chdir(path);
-	if (ret) {
-		printf("Error: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Error: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_NOOPTS_COMPLETE(
 	cd,	2,	1,	do_cd,
 	"change working directory",
 	"[<path>]\n"
@@ -211,15 +208,14 @@ U_BOOT_CMD_COMPLETE(
 	vfs_cmd_complete
 );
 
-static int do_pwd(struct cmd_tbl *cmdtp, int flag, int argc,
-		  char *const argv[])
+static int do_pwd(struct getopt_state *gs)
 {
 	printf("%s\n", vfs_getcwd());
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	pwd,	1,	1,	do_pwd,
 	"print working directory",
 	"\n    - Print the current VFS working directory"
@@ -563,10 +559,9 @@ static int do_tree_recurse(const char *path, int depth, int max_depth)
 	return 0;
 }
 
-static int do_tree(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_tree(struct getopt_state *gs)
 {
-	const char *path = argc >= 2 ? argv[1] : NULL;
+	const char *path = getopt_pop(gs);
 	char resolved[FILE_MAX_PATH_LEN];
 	int ret;
 
@@ -589,15 +584,13 @@ static int do_tree(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	printf("%s\n", path);
 	ret = do_tree_recurse(path, 1, 3);
-	if (ret) {
-		printf("tree failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "tree failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_NOOPTS_COMPLETE(
 	tree,	2,	1,	do_tree,
 	"list directory tree",
 	"[<path>]\n"
@@ -684,20 +677,19 @@ static const char *fs_type_name(unsigned int type)
 	}
 }
 
-static int do_stat(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_stat(struct getopt_state *gs)
 {
 	struct fs_dirent dent;
+	const char *path;
 	int ret;
 
-	if (argc < 2)
+	path = getopt_pop(gs);
+	if (!path)
 		return CMD_RET_USAGE;
 
-	ret = vfs_stat(argv[1], &dent);
-	if (ret) {
-		printf("Error: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	ret = vfs_stat(path, &dent);
+	if (ret)
+		return cmd_fail(ret, "Error: %dE\n", ret);
 
 	printf("  File: %s\n", dent.name);
 	printf("  Size: %llu\n", dent.size);
@@ -706,7 +698,7 @@ static int do_stat(struct cmd_tbl *cmdtp, int flag, int argc,
 		char target[FILE_MAX_PATH_LEN];
 		int len;
 
-		len = vfs_readlink(argv[1], target, sizeof(target));
+		len = vfs_readlink(path, target, sizeof(target));
 		if (len >= 0)
 			printf("  Link: %s\n", target);
 	}
@@ -732,7 +724,7 @@ static int do_stat(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_NOOPTS_COMPLETE(
 	stat,	2,	1,	do_stat,
 	"display file status",
 	"<path>\n"

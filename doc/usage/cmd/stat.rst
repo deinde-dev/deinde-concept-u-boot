@@ -16,9 +16,15 @@ Synopsis
 Description
 -----------
 
-The stat command displays metadata about a file or directory in the VFS,
-including its name, size, type and timestamps (modification, access and
-creation times where available).
+The stat command displays metadata about a file or directory in the VFS:
+its name, its size in bytes and its type, which is a regular file, a
+directory, a symbolic link or unknown. For a symbolic link a ``Link:``
+line gives the target as well.
+
+Where the filesystem records times, three more lines follow, labelled
+``Modify``, ``Access`` and ``Birth``, each giving a date and time in the
+form ``YYYY-MM-DD HH:MM:SS``. FAT and ext4 provide them; the host
+filesystem which sandbox uses does not, so the example below has none.
 
 The filesystem must be mounted first using ``mount``.
 
@@ -33,14 +39,20 @@ Example
     => mount hostfs /host
     => stat /host/README
       File: README
-      Size: 84732
+      Size: 74783
       Type: regular file
-    Modify: 2025-03-15 10:30:00
-    Access: 2025-03-23 08:15:22
-    => stat /host/cmd
-      File: cmd
+    => stat /host/doc
+      File: doc
       Size: 4096
       Type: directory
+    => ln README /host/link
+    => stat /host/link
+      File: link
+      Size: 74783
+      Type: symbolic link
+      Link: README
+    => stat /host/nowhere
+    Error: -2: No such file or directory
 
 Configuration
 -------------
@@ -52,3 +64,12 @@ Return value
 
 The return value $? is set to 0 (true) if the file was found, 1 (false)
 otherwise.
+
+See also
+--------
+
+* :doc:`ls<ls>` for the same information about every file of a directory
+* :doc:`size<size>` for putting a file's size in an environment variable
+  rather than printing it
+* :doc:`ln<ln>` for creating the symbolic links this command reports
+* :doc:`mount<mount>` for making a filesystem available to this command

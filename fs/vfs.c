@@ -149,9 +149,22 @@ int vfs_chdir(const char *path)
 
 	/* Verify the path exists by trying to resolve it */
 	if (strcmp(abs, "/")) {
+		struct fs_dirent dent;
+
 		ret = vfs_find_mount(vfs, abs, &mnt, &subpath);
 		if (ret)
 			return log_msg_ret("vcf", ret);
+
+		/*
+		 * Check the directory itself, since the mount only shows which
+		 * filesystem holds it. A symbolic link may point to a
+		 * directory, so allow one here and let the filesystem follow it
+		 */
+		ret = vfs_stat(abs, &dent);
+		if (ret)
+			return log_msg_ret("vcs", ret);
+		if (dent.type == FS_DT_REG)
+			return log_msg_ret("vcr", -ENOTDIR);
 	}
 
 	len = strlen(abs);
