@@ -15,12 +15,12 @@
 #include <part.h>
 #include <asm/cache.h>
 
-static int do_fat_size(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_fat_size(struct getopt_state *gs)
 {
-	return do_size(argc, argv, FS_TYPE_FAT);
+	return do_size(gs->argc, gs->argv, FS_TYPE_FAT);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fatsize,	4,	0,	do_fat_size,
 	"determine a file's size",
 	"<interface> <dev[:part]> <filename>\n"
@@ -60,32 +60,28 @@ U_BOOT_CMD_NOOPTS(
 	"    - list files from 'dev' on 'interface' in a 'directory'"
 );
 
-static int do_fat_fsinfo(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_fat_fsinfo(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	int dev, part;
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
 
-	if (argc < 2) {
-		printf("usage: fatinfo <interface> [<dev[:part]>]\n");
-		return 0;
-	}
+	if (gs->argc < 2)
+		return CMD_RET_USAGE;
 
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
 	if (part < 0)
 		return 1;
 
 	dev = dev_desc->devnum;
-	if (fat_set_blk_dev(dev_desc, &info) != 0) {
-		printf("\n** Unable to use %s %d:%d for fatinfo **\n",
-			argv[1], dev, part);
-		return 1;
-	}
+	if (fat_set_blk_dev(dev_desc, &info) != 0)
+		return cmd_fail(0, "\n** Unable to use %s %d:%d for fatinfo **\n",
+				argv[1], dev, part);
 	return file_fat_detectfs();
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fatinfo,	3,	1,	do_fat_fsinfo,
 	"print information about filesystem",
 	"<interface> [<dev[:part]>]\n"

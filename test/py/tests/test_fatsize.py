@@ -3,49 +3,70 @@
 # Copyright 2026 Simon Glass <sjg@chromium.org>
 
 """ Tests for the fatsize command
+
+The tests themselves are C code in test/cmd/fatsize.c, since all they need
+from Python is a filesystem image. None of them writes to it, so one image
+serves the whole class.
 """
+
+import os
 
 import pytest
 from tests.fs_helper import FsHelper
 
-@pytest.mark.boardspec('sandbox')
-@pytest.mark.buildconfigspec('cmd_fat')
-@pytest.mark.buildconfigspec('fat_write')
-def test_fatsize_base(ubman):
-    """Check that fatsize reports a file's size in the filesize variable
+# Contents of hello.txt, 14 bytes including the newline
+HELLO = 'Hello, world!\n'
 
-    Args:
-        ubman -- U-Boot console
-    """
-    with FsHelper(ubman.config, 'vfat', 1, 'test_fatsize') as fsh:
-        fsh.mk_fs()
-        ubman.run_command(f'host bind 0 {fsh.fs_img}')
+# Contents of docs/note.txt, 5 bytes including the newline
+NOTE = 'note\n'
 
-        # Create a file of 0x2a bytes to ask about
-        ubman.run_command('mw.b 1000000 61 2a')
-        assert '42 bytes written' in ubman.run_command(
-            'fatwrite host 0 1000000 sized.txt 2a')
-
-        # filesize is set in hex, so 0x2a
-        ubman.run_command('setenv filesize sentinel')
-        ubman.run_command('fatsize host 0 sized.txt')
-        assert '0' == ubman.run_command('echo $?')
-        assert '2a' == ubman.run_command('echo $filesize')
 
 @pytest.mark.boardspec('sandbox')
 @pytest.mark.buildconfigspec('cmd_fat')
-@pytest.mark.buildconfigspec('fat_write')
-def test_fatsize_missing(ubman):
-    """Check that fatsize fails and leaves filesize alone for a missing file
+class TestFatsize:
+    """Tests for the fatsize command"""
 
-    Args:
-        ubman -- U-Boot console
-    """
-    with FsHelper(ubman.config, 'vfat', 1, 'test_fatsize_missing') as fsh:
-        fsh.mk_fs()
-        ubman.run_command(f'host bind 0 {fsh.fs_img}')
+    @pytest.fixture(scope='class')
+    def fat_image(self, u_boot_config):
+        """Create a FAT image holding a file and a directory with a file in it
 
-        ubman.run_command('setenv filesize sentinel')
-        ubman.run_command('fatsize host 0 missing.txt')
-        assert '1' == ubman.run_command('echo $?')
-        assert 'sentinel' == ubman.run_command('echo $filesize')
+        Args:
+            u_boot_config (u_boot_config): U-Boot configuration
+
+        Yields:
+            str: Path to the FAT image
+        """
+        with FsHelper(u_boot_config, 'vfat', 1, 'test_fatsize') as fsh:
+            with open(f'{fsh.srcdir}/hello.txt', 'w',
+                      encoding='ascii') as outf:
+                outf.write(HELLO)
+            os.mkdir(f'{fsh.srcdir}/docs')
+            with open(f'{fsh.srcdir}/docs/note.txt', 'w',
+                      encoding='ascii') as outf:
+                outf.write(NOTE)
+            fsh.mk_fs()
+            yield fsh.fs_img
+
+    def test_fatsize_base(self, ubman, fat_image):
+        """Check that fatsize reports a file's size in hex, in filesize"""
+        ubman.run_ut('cmd', 'cmd_test_fatsize_base', fs_image=fat_image)
+
+    def test_fatsize_dir(self, ubman, fat_image):
+        """Check that a directory is reported as zero bytes"""
+        ubman.run_ut('cmd', 'cmd_test_fatsize_dir', fs_image=fat_image)
+
+    def test_fatsize_missing(self, ubman, fat_image):
+        """Check that a missing file fails and leaves filesize alone"""
+        ubman.run_ut('cmd', 'cmd_test_fatsize_missing', fs_image=fat_image)
+
+    def test_fatsize_baddev(self, ubman, fat_image):
+        """Check that fatsize complains about a device which is not there"""
+        ubman.run_ut('cmd', 'cmd_test_fatsize_baddev', fs_image=fat_image)
+
+    def test_fatsize_usage(self, ubman, fat_image):
+        """Check that fatsize shows its usage message when it cannot go on"""
+        ubman.run_ut('cmd', 'cmd_test_fatsize_usage', fs_image=fat_image)
+
+    def test_fatsize_badopt(self, ubman, fat_image):
+        """Check that fatsize refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_fatsize_badopt', fs_image=fat_image)

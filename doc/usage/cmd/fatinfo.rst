@@ -11,41 +11,67 @@ Synopsis
 
 ::
 
-    fatinfo <interface> <dev[:part]>
+    fatinfo <interface> [<dev[:part]>]
 
 Description
 -----------
 
-The fatinfo command displays information about a FAT partition.
+The fatinfo command displays information about a FAT partition: the interface
+and device it sits on, the device's own description, and the FAT type and
+volume label read from the boot sector. The filesystem-generic
+:doc:`fsinfo command <fsinfo>` shows the block counts instead.
 
 interface
     interface for accessing the block device (mmc, sata, scsi, usb, ....)
 
 dev
-    device number
+    device number, defaulting to the value of the environment variable
+    bootdevice; without either the command reports that no device is
+    specified
 
 part
-    partition number, defaults to 1
+    partition number, defaulting to the first partition, or to the whole
+    device where there is no partition table
 
 Example
 -------
 
-Here is the output for a partition on a 32 GB SD-Card:
+This uses a 1MB FAT image bound to the sandbox host interface::
 
-::
+    => fatinfo host 0
+    Interface:  host
+      Device 0: Vendor: U-Boot Rev: 1.0 Prod: hostfile
+                Type: Hard Disk
+                Capacity: 1.0 MB = 0.0 GB (2048 x 512)
+    Filesystem: FAT12 "NO NAME    "
 
-    => fatinfo mmc 0:1
-    Interface:  MMC
-      Device 0: Vendor: Man 00001b Snr 97560602 Rev: 13.8 Prod: EB1QT0
-                Type: Removable Hard Disk
-                Capacity: 30528.0 MB = 29.8 GB (62521344 x 512)
-    Filesystem: FAT32 "MYDISK     "
-    =>
+A device which is not there is reported before the filesystem is touched::
+
+    => fatinfo host 1
+    ** Bad device specification host 1 **
+
+A device which holds something other than a FAT filesystem is reported once
+the partition has been found, with the partition the command settled on::
+
+    => host bind 0 ext4.img
+    => fatinfo host 0
+
+    ** Unable to use host 0:0 for fatinfo **
 
 Configuration
 -------------
 
 The fatinfo command is only available if CONFIG_CMD_FAT=y.
+
+Return value
+------------
+
+The return value $? is set to 0 (true) if the information was shown,
+1 (false) otherwise.
+
+A command line which cannot be acted on at all, such as one with no
+interface or with more arguments than the command takes, shows the usage
+message instead.
 
 See also
 --------

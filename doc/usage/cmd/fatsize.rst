@@ -31,10 +31,11 @@ dev
     device number
 
 part
-    partition number, defaults to 0 (whole device)
+    partition number, defaulting to the first partition, or to the whole
+    device where there is no partition table
 
 filename
-    path to file
+    path to file, which may name a directory, reported as 0 bytes
 
 Note that you can use the filesystem-generic :doc:`size command <size>`
 instead.
@@ -56,6 +57,18 @@ A missing file sets the return value but prints nothing::
     => echo $?
     1
 
+A directory succeeds, with a size of zero::
+
+    => fatsize host 0 docs
+    => echo $filesize
+    0
+
+A device which is not there is reported before the filesystem is touched::
+
+    => fatsize host 1 data.bin
+    ** Bad device specification host 1 **
+    Couldn't find partition host 1
+
 Configuration
 -------------
 
@@ -66,6 +79,10 @@ Return value
 
 The return value $? is set to 0 (true) if the size was determined,
 1 (false) otherwise.
+
+A command line which cannot be acted on at all, such as one which leaves
+out the filename or gives more arguments than the command takes, shows the
+usage message instead.
 
 See also
 --------
