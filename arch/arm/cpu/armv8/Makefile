@@ -3,7 +3,9 @@
 # (C) Copyright 2000-2003
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 
-ifndef CONFIG_EFI_APP
+ifdef CONFIG_MON_BUILD
+extra-y	:= mon_start.o
+else ifndef CONFIG_EFI_APP
 extra-y	:= start.o
 endif
 
@@ -23,7 +25,7 @@ obj-y	+= exception_level.o
 endif
 obj-y	+= tlb.o
 obj-y	+= transition.o
-ifndef CONFIG_ARMV8_PSCI
+ifeq ($(CONFIG_ARMV8_PSCI)$(CONFIG_MON_BUILD),)
 obj-y	+= fwcall.o
 endif
 obj-y	+= cpu-dt.o
@@ -44,6 +46,7 @@ endif
 obj-$(CONFIG_FSL_LAYERSCAPE) += fsl-layerscape/
 obj-$(CONFIG_TARGET_HIKEY) += hisilicon/
 obj-$(CONFIG_ARMV8_PSCI) += psci.o
+obj-$(CONFIG_MON_BUILD) += psci.o mon.o
 obj-$(CONFIG_TARGET_BCMNS3) += bcmns3/
 obj-$(CONFIG_XEN) += xen/
 obj-$(CONFIG_ARMV8_CE_SHA1) += sha1_ce_glue.o sha1_ce_core.o

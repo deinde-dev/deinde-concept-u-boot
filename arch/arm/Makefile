@@ -117,6 +117,11 @@ head-y := arch/arm/cpu/arm926ejs/mxs/start.o
 endif
 endif
 
+# MON is a secure monitor rather than a loader, so has its own entry point
+ifeq ($(CONFIG_MON_BUILD),y)
+head-y := arch/arm/cpu/$(CPU)/mon_start.o
+endif
+
 libs-y += arch/arm/cpu/$(CPU)/
 libs-y += arch/arm/cpu/
 libs-y += arch/arm/lib/

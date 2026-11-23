@@ -1,0 +1,116 @@
+menu "MON options"
+	depends on MON
+
+config MON_TEXT_BASE
+	hex "Address that MON is linked and runs at"
+	default 0x40000 if ROCKCHIP_RK3399
+	help
+	  MON runs at a fixed address, which must be out of the way of U-Boot
+	  proper and the OS, since it stays in memory while they run.
+
+config MON_MAX_SIZE
+	hex "Maximum size of MON, including its stacks"
+	default 0x20000
+	help
+	  The build fails if MON, including its BSS and the stack for each
+	  CPU, does not fit in this space from MON_TEXT_BASE
+
+config MON_LDSCRIPT
+	string "Linker script for MON"
+	default "arch/arm/cpu/armv8/u-boot-mon.lds" if ARM64
+	help
+	  Linker script used to link MON
+
+config MON_CPUS
+	int "Number of CPUs which MON supports"
+	default 6 if ROCKCHIP_RK3399
+	default 4
+	help
+	  MON sets aside a stack for each CPU, for use while it handles a
+	  request from that CPU
+
+choice
+	prompt "How MON finds the devices it sets up"
+	default MON_FDT
+	help
+	  MON sets up devices such as the interrupt controller before it
+	  starts U-Boot proper, so it needs to know where they are.
+
+config MON_FDT
+	bool "Devicetree"
+	help
+	  MON has no devicetree of its own, but SPL passes it the address of
+	  the one for U-Boot proper. MON looks up its devices there, using
+	  libfdt.
+
+config MON_BARE
+	bool "Kconfig options"
+	help
+	  MON takes the addresses of its devices from Kconfig options and does
+	  not use a devicetree. This is the smallest build, for use where the
+	  memory available to the monitor is very limited.
+
+endchoice
+
+config MON_SWITCH_TO_EL2
+	bool "Start U-Boot proper at EL2"
+	depends on ARM64
+	default y
+	help
+	  MON normally starts U-Boot proper at EL2 in the non-secure state,
+	  as TF-A's BL31 does, so that only MON runs at EL3.
+
+	  Disable this to have MON start U-Boot proper at EL3 instead. U-Boot
+	  proper then has access to the secure state, which is useful when
+	  working on MON. When U-Boot proper drops to EL2, e.g. to start the
+	  OS, it first puts MON back in charge of EL3, so the OS can use MON
+	  as before.
+
+	  While U-Boot proper runs at EL3 it cannot call MON, so the 'smc'
+	  command and PSCI calls do not work there.
+
+config MON_LIBGENERIC_SUPPORT
+	bool
+	default y if MON_FDT
+	help
+	  MON uses a few of the functions in lib/, such as those of libfdt, so
+	  that directory is built for it.
+
+config MON_OF_LIBFDT
+	bool
+	default y if MON_FDT
+	help
+	  This builds libfdt for MON, so that it can read the devicetree which
+	  SPL passes to it.
+
+config MON_OF_LIBFDT_ASSUME_MASK
+	hex
+	depends on MON_OF_LIBFDT
+	default 0
+	help
+	  This is the mask of conditions which libfdt assumes about the
+	  devicetree in MON. With 0 it assumes nothing, so it checks everything
+	  it reads. See FDT_ASSUME_PERFECT, etc. in libfdt_internal.h
+
+if ARM64
+
+config MON_GICD_BASE
+	hex "Address of the GICv3 distributor"
+	depends on MON_BARE
+	default 0xfee00000 if ROCKCHIP_RK3399
+	help
+	  MON sets up the secure side of the interrupt controller, so that
+	  U-Boot and the OS can use it from the non-secure side. With MON_FDT
+	  this address comes from the devicetree.
+
+config MON_GICR_BASE
+	hex "Address of the GICv3 redistributors"
+	depends on MON_BARE
+	default 0xfef00000 if ROCKCHIP_RK3399
+	help
+	  MON finds the redistributor of each CPU from this address. With
+	  MON_FDT it comes from the devicetree.
+
+endif
+
+endmenu

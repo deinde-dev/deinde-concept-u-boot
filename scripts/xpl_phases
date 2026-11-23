@@ -26,4 +26,5 @@
 tpl	bootph-pre-sram
 vpl	bootph-verify
 spl	bootph-pre-ram
+mon	-		resident
 ppl	-		primary

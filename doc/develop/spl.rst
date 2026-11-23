@@ -93,8 +93,8 @@ CONFIG_TPL_CLK for the TPL build, etc.
 U-Boot Boot Phases
 ------------------
 
-U-Boot goes through the following boot phases where TPL, VPL, SPL are optional.
-While many boards use SPL, fewer use TPL.
+U-Boot goes through the following boot phases where TPL, VPL, SPL and MON are
+optional. While many boards use SPL, fewer use TPL.
 
 TPL
    Very early init, as tiny as possible. This loads SPL (or VPL if enabled).
@@ -107,6 +107,16 @@ VPL
 SPL
    Secondary program loader. Sets up SDRAM and loads U-Boot proper. It may also
    load other firmware components.
+
+MON
+   Secure monitor, which SPL loads alongside U-Boot proper and which stays in
+   memory while U-Boot and the OS run. On ARMv8 it runs at EL3, taking the
+   place of TF-A's BL31: SPL starts it as it would BL31, then it starts U-Boot
+   proper at EL2 and handles PSCI calls. It is marked ``resident`` in
+   ``scripts/xpl_phases`` and has no devicetree of its own: SPL passes it the
+   one for U-Boot proper, which it uses to find the interrupt controller.
+   With ``CONFIG_MON_BARE`` it takes the addresses from Kconfig instead and
+   does not use a devicetree, which makes it smaller. See :doc:`mon`.
 
 U-Boot
    U-Boot proper, containing the command line and boot logic.
@@ -251,6 +261,9 @@ mainline U-Boot, gives the original three phases.
 
 To add a phase:
 
+#. Choose a name which no Kconfig option already uses as a prefix, since an
+   option such as ``CONFIG_MON_FOO`` is taken to be the MON phase's version of
+   ``CONFIG_FOO``. Check with ``git grep -E 'config MON_' -- '*Kconfig*'``
 #. Add a line to ``scripts/xpl_phases``, at the point where the phase runs
 #. Add a Kconfig option named after the phase which enables it, such as
    ``CONFIG_TPL``, and one which a board or SoC selects to say that it

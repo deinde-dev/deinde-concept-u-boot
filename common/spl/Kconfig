@@ -7,6 +7,9 @@ config SUPPORT_TPL
 config SUPPORT_VPL
 	bool
 
+config SUPPORT_MON
+	bool
+
 config SPL_DFU_NO_RESET
 	bool
 
@@ -1707,7 +1710,7 @@ config SPL_ATF_LOAD_IMAGE_V2
 
 config SPL_ATF_NO_PLATFORM_PARAM
 	bool "Pass no platform parameter"
-	depends on SPL_ATF
+	depends on SPL_ATF && !MON_FDT
 	help
 	  While we expect to call a pointer to a valid FDT (or NULL)
 	  as the platform parameter to an ATF, some ATF versions are
@@ -1718,6 +1721,8 @@ config SPL_ATF_NO_PLATFORM_PARAM
 	  always pass NULL for the platform parameter.
 
 	  If your ATF is affected, say Y.
+
+	  This is not available with MON_FDT, where MON needs the devicetree.
 
 config SPL_AM33XX_ENABLE_RTC32K_OSC
 	bool "Enable the RTC32K OSC on AM33xx based platforms"
@@ -1801,3 +1806,16 @@ config VPL
 	  say Y.
 
 source "common/spl/Kconfig.vpl"
+
+config MON
+	depends on SUPPORT_MON && SPL && !COMPILE_TEST
+	bool "Enable MON, the secure monitor"
+	help
+	  MON is the secure monitor. It is a resident phase: SPL loads it
+	  alongside U-Boot proper and it stays in memory afterwards, providing
+	  services to U-Boot and the OS. On ARMv8 it runs at EL3, in place of
+	  TF-A's BL31, then starts U-Boot proper at EL2.
+
+	  If you want to build MON as well as the normal image and SPL, say Y.
+
+source "common/spl/Kconfig.mon"
