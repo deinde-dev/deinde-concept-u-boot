@@ -179,7 +179,6 @@
 			};
 
 			aldo1 {
-				regulator-name = "vdd_1v8_mmc";
 				bootph-pre-ram;
 			};
 		};

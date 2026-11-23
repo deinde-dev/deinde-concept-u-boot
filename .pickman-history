@@ -110285,3 +110285,65 @@ The branch is rebased onto ci/master and the review comment is addressed: VBE st
 
 ---
 
+## 2026-11-23: us/main
+
+Branch: cherry-cfc62cc2890b
+
+Commits:
+- cfc62cc2890b configs: k1: enable SPL_MMC_IO_VOLTAGE
+- e07305ad2636 spacemit: k1: do not force the SD I/O rail to 1.8 V in SPL
+- f0c22effafb3 mmc: k1: let the SPL read SD cards more than one block at a time
+- 3e9ab282be08 mmc: k1: do not assert the shared AXI reset on probe failure
+- f54076a7979b gpio: spacemit: cache pinctrl dev
+- 26a75ef02a87 gpio: spacemit: propagate GPIO bias flag
+- e7cc804442a6 spacemit: k1: fix SD Card Detection for MusePi Pro
+- 76e0d868ef47 board: spacemit: k1: Add the M1 Jupiter's product name
+- c1565deaa907 MAINTAINERS: spacemit: k1: drop Huan Zhou
+- 83b0cb0675f5 MAINTAINERS: spacemit: k1: add Hung-Chun Tseng as reviewer
+- 7ab69cf07732 MAINTAINERS: update email for Yixun Lan
+- d28d5f816286 configs: spacemit_k1: Enable onboard USB hub support
+- 04b254b74840 riscv: dts: spacemit: k3: override reserved status of mimsic and maplic
+- b77730ecf6b0 riscv: dts: spacemit: k3: Drop guest properties from M-level IMSIC
+- 6a8ea4096ab5 configs: spacemit: k3: enable CONFIG_BOOTSTD_FULL
+- ffdf122644c9 riscv: dts: spacemit: k3: adopt com260/pico-itx 8gb memory override
+- fd64f94c4404 Merge tag 'spacemit-main-20261118' of https://git.u-boot-project.org/u-boot/custodians/u-boot-spacemit
+
+### Conversation log
+The first pick went in cleanly and builds. The second one, e07305ad2636, conflicts in three files, so I'm looking at those now.
+
+I've resolved the e07305ad2636 conflicts. The MusePi Pro dtsi doesn't exist here, so I dropped that part, and the bananapi-f3 dtsi has no comment block to update. Committing it now with a note.
+
+The note on e07305ad2636 got duplicated, so I'm fixing the message before going on.
+
+The MusePi Pro dtsi doesn't exist in this tree, so e7cc804442a6 has nothing to change. I'm keeping it as an empty commit with a note.
+
+I wrote the wrong full hash into the cherry-picked line for e7cc804442a6, so I'll fix that. First, 76e0d868ef47 conflicts in spl.c:
+
+The k1_board_map table this commit adds to comes from 6f8c134610b9, which isn't in ci/master. Checking whether it came in another way:
+
+I created that commit with -m, so the author is wrong. Fixing that, then the e7cc804442a6 hash:
+
+Here the target's version of the line has a typo ('@@'), and the line gets removed either way. Taking the incoming side:
+
+Both sides add lines in the same place, so I'll keep both and check the order with savedefconfig:
+
+USB_ONBOARD_HUB is in the right place. The other differences are already in ci/master, except one: savedefconfig drops CONFIG_SPL_MMC_IO_VOLTAGE, which the first commit added. Checking why:
+
+The merged branch contains exactly the 16 commits, so the merge has nothing extra to apply. Resolving it as an empty merge record:
+
+All 17 commits are on the `cherry-cfc62cc2890b` branch, which is based on ci/master and ready to push. The sandbox build passed after every pick and at the end, with no warnings or errors. `pickman split-check` found nothing to convert in any commit.
+
+Ten commits applied cleanly with the same files and line counts as the originals. The rest needed fix-ups, each noted at the end of its commit message:
+
+- **e07305ad2636 (SD I/O rail):** The MusePi Pro dtsi (`k1-musepi-pro-u-boot.dtsi`) isn't in this tree, so I dropped that part. The bananapi-f3 dtsi here doesn't have the comment the original rewrites, so I left it out. What remains removes `set_vdd_mmc()`, the "vdd_1v8_mmc" name and the doc line: 20 deleted lines against 6 added and 28 deleted in the original.
+- **e7cc804442a6 (MusePi Pro SD card detection):** This is an empty commit, because it only touches the missing MusePi Pro dtsi.
+- **76e0d868ef47 (M1 Jupiter product name):** This is also empty. It adds one entry to the `k1_board_map` table from 6f8c134610b9, and an earlier pick kept that commit empty because the multi-DTB matching it fixes isn't in this tree.
+- **c1565deaa907 (drop Huan Zhou):** The conflict was only that this tree's copy of the line has a stray '@' in the email address. The line is removed as intended.
+- **d28d5f816286 (onboard USB hub):** The conflict was with this tree's USB gadget options. I kept both, and savedefconfig confirms `CONFIG_USB_ONBOARD_HUB` is in the right place.
+- **fd64f94c4404 (merge):** It is kept as an empty commit. Its merged branch is exactly the 16 commits above, so it has nothing extra to apply.
+
+One thing to check:
+- **cfc62cc2890b (`SPL_MMC_IO_VOLTAGE`):** It applied cleanly but does nothing here. The option depends on `CONFIG_SPL_MMC`, which an earlier pick left disabled for K1 on purpose because binding the SD/eMMC controllers overflows the SPL heap. As a result, `savedefconfig` drops the line. I left it in, but you may want to make this commit empty instead.
+
+---
+
