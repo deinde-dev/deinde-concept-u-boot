@@ -67,10 +67,8 @@ static int do_fat_fsinfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
 
-	if (argc < 2) {
-		printf("usage: fatinfo <interface> [<dev[:part]>]\n");
-		return 0;
-	}
+	if (argc < 2)
+		return CMD_RET_USAGE;
 
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
 	if (part < 0)
