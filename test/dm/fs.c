@@ -1342,7 +1342,8 @@ static int dm_test_vfs_stat(struct unit_test_state *uts)
 
 	/* stat non-existent file */
 	ut_asserteq(1, run_command("stat /host/does-not-exist", 0));
-	console_record_reset_enable();
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
 
 	/* stat a mount point and the root */
 	ut_assertok(run_command("stat /host", 0));
@@ -1358,7 +1359,8 @@ static int dm_test_vfs_stat(struct unit_test_state *uts)
 	console_record_reset_enable();
 
 	ut_asserteq(1, run_command("stat /does-not-exist", 0));
-	console_record_reset_enable();
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
 
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
