@@ -584,10 +584,8 @@ static int do_tree(struct getopt_state *gs)
 
 	printf("%s\n", path);
 	ret = do_tree_recurse(path, 1, 3);
-	if (ret) {
-		printf("tree failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "tree failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
