@@ -345,6 +345,7 @@ static int colibri_fix_fdt(void *ctx, struct event *event)
 	return 0;
 }
 EVENT_SPY_FULL(EVT_FT_FIXUP_F, colibri_fix_fdt);
+#endif /* CONFIG_USB_EHCI_MX7 */
 
 #if defined(CONFIG_BOARD_LATE_INIT)
 int board_late_init(void)
@@ -372,5 +373,3 @@ int board_late_init(void)
 	return 0;
 }
 #endif /* CONFIG_BOARD_LATE_INIT */
-
-#endif /* CONFIG_USB_EHCI_MX7 */
