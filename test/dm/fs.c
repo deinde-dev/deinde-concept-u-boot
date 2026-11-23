@@ -1168,6 +1168,62 @@ static int dm_test_vfs_tree(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_tree, UTF_SCAN_FDT);
 
+#define TREE_DIR	"/host/.tree_test"
+
+/* Test the tree command on a directory of its own */
+static int dm_test_vfs_tree_dirs(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	/* clear up after a run which stopped part-way, then build the tree */
+	ut_assertok(run_command("rm -rf " TREE_DIR, 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("mkdir -p " TREE_DIR "/a/b/c", 0));
+	ut_assert_console_end();
+
+	/* the directory named and the two levels below it, but no more */
+	ut_assertok(run_command("tree " TREE_DIR, 0));
+	ut_assert_nextline(TREE_DIR);
+	ut_assert_nextline("    a/");
+	ut_assert_nextline("        b/");
+	ut_assert_console_end();
+
+	/* a relative path is resolved against the working directory */
+	ut_assertok(run_command("cd " TREE_DIR, 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("tree a", 0));
+	ut_assert_nextline(TREE_DIR "/a");
+	ut_assert_nextline("    b/");
+	ut_assert_nextline("        c/");
+	ut_assert_console_end();
+	ut_assertok(run_command("cd /", 0));
+	ut_assert_console_end();
+
+	/* a path which is not there */
+	ut_asserteq(1, run_command("tree /host/nowhere", 0));
+	ut_assert_nextline("/host/nowhere");
+	ut_assert_nextline("tree failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* a path which is not a directory */
+	ut_asserteq(1, run_command("tree /host/README", 0));
+	ut_assert_nextline("/host/README");
+	ut_assert_nextline("tree failed: -20: Not a directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("rm -r " TREE_DIR, 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_tree_dirs, UTF_SCAN_FDT);
+
 /* Test 'test -f' and 'test -d' with VFS paths */
 static int dm_test_vfs_test(struct unit_test_state *uts)
 {
