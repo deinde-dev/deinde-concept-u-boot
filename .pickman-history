@@ -110126,3 +110126,97 @@ The branch is ready to push and has not been merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-23 (attempt 1)
+
+Branch: cherry-89c37e22cf57
+
+Failed jobs:
+- build all platforms 5/6 (world_build)
+- build all platforms 4/6 (world_build)
+- efi-aarch64 (sjg-lab)
+- vbe (sjg-lab)
+
+### Conversation log
+Checking the "disable VBE by default" commit, which looks like the cause of the missing crc8 in VPL.
+
+Narrowing down which boards are affected by the "disable VBE by default" Kconfig change.
+
+Buildman is building from the working tree, so I'll prepare the fix in a separate worktree to avoid disturbing it.
+
+The resulting configs match the pre-commit configs exactly. I'll keep only the three added lines and drop the unrelated savedefconfig reordering.
+
+Fix is ready. While the shard builds run, checking the efi-aarch64 timeout.
+
+Checking older efi-aarch64 runs in GitLab to see whether that test normally passes.
+
+Other MRs pass efi-aarch64, but this MR failed it twice, so it looks like a real regression. Fetching the full job trace.
+
+The efi-aarch64 failure is a real crash: a Synchronous Exception while the extlinux bootmeth scans efi_media_1, which passing MRs don't hit. Looking at which of the dropped configs could cause it.
+
+Build at HEAD is fine. Mapping the crash address against the image to find the faulting function.
+
+I'm going to reproduce the efi-aarch64 crash locally in QEMU, using the lab's firmware and root disk in snapshot mode so they aren't modified.
+
+Still getting the QEMU boot working (the UEFI shell needs carriage returns rather than newlines).
+
+Now Ubuntu boots straight from the root disk, so I'm setting bootindex to make the U-Boot disk boot first.
+
+The shard builds have finished. Checking their results first.
+
+The lab image is a superfloppy with a startup.nsh, so I'll copy that layout.
+
+Reproduced the crash locally in QEMU with the exact CI build. Next I'll test HEAD and HEAD with VBE re-enabled to confirm the cause.
+
+Re-enabling BOOTMETH_VBE stops the crash. Now finding which of the options it pulls in actually matters.
+
+The crash happens whenever BOOTMETH_VBE (and so BOOTMETH_GLOBAL) is off, whatever EXPO is set to. I'll dump memory at the faulting PC and match it against the binary to find the function.
+
+The crash is in alist_add_placeholder() with a bad list pointer. Finding the caller in the extlinux/bootflow path.
+
+x0 here is &priv->ctxs, so this looks like a NULL priv, meaning the bootmeth was never probed. Checking bootmeth_setup_iter_order() for the !BOOTMETH_GLOBAL path.
+
+Testing the probe fix on HEAD in QEMU before applying it to the branch.
+
+The crash is gone. Checking what happens after the kernel starts, since the script timed out waiting for Linux output.
+
+That's the U-Boot pager waiting for SPACE (my harness, not a bug; the VBE build does the same). I'll handle the prompt and confirm Linux comes up.
+
+Linux boots with the fix. Applying both fixes to the "disable VBE by default" commit (HEAD~4) on the real branch.
+
+Rebase done. Building sandbox and running the bootstd/bootflow tests.
+
+An mcheck error appears in bootstd_images. Checking whether it happens without my change too.
+
+The mcheck error also happens on the original branch, so my change didn't cause it. Running the remaining bootstd tests individually to compare.
+
+My grep used the wrong case. Running the bootstd unit tests properly through the pytest harness, which sets up the disk images they need.
+
+Three of the four failures still happen on the rebased branch, and all come from one commit: d661b68a465d "disable VBE by default" (b167d8f01ded before the rebase). I fixed it there and left the result on `cherry-89c37e22cf57-fix1` (not pushed). The fourth failure, efi-aarch64, also comes from that commit, but through a NULL pointer crash in this tree's code rather than a config problem.
+
+**1. Build failures: vbe, build all platforms 4/6 and 5/6**
+- **Cause:** the commit stops BOOTMETH_VBE defaulting to y. That silently turns off all VBE options on the two VBE boards, rk3399-generic-ddr3 (shard 4 and the vbe lab job) and rockpro64-vbe-rk3399 (shard 5). VPL_CRC8 goes off with them, but VPL_RELOC_LOADER still calls `crc8()`, so the VPL link fails.
+- **Second problem:** the commit changes TPL_BOOTMETH_VBE to `depends on TPL && VBE`, but no `VBE` symbol exists, so TPL VBE can never be turned on. Upstream has the same typo.
+- **Confirmed on the rebased branch:** I rebuilt shards 4/6 and 5/6 in full. Those two boards were the only failures. Comparing the configs of all 1561 boards before and after the commit found no other board that loses something it needs.
+- **Fix:**
+  - Change the dependency to `TPL && BOOTMETH_VBE`.
+  - Add `CONFIG_BOOTMETH_VBE`, `CONFIG_VPL_BOOTMETH_VBE` and `CONFIG_TPL_BOOTMETH_VBE` to both defconfigs.
+  - Both boards' configs now exactly match what they were before the commit.
+
+**2. efi-aarch64 lab failure: `test_distro_arm_app_extlinux`**
+- **Not flaky:** the job log shows a "Synchronous Exception" during `bootmeth order extlinux; boot`. This MR failed the same way on both runs, while other MRs passed that day. I reproduced the crash locally in QEMU with the lab's firmware and disk.
+- **Cause:** the crash is in `alist_add_placeholder()` because extlinux's private data is NULL. `bootmeth_order` records the bootmeth devices without probing them. `bootmeth_setup_iter_order()` only probes them inside an `IS_ENABLED(CONFIG_BOOTMETH_GLOBAL)` block, and that block also stopped at the first global bootmeth. BOOTMETH_GLOBAL used to come in through BOOTMETH_VBE, so efi-arm_app64 never hit this until VBE was turned off.
+- **Fix in `boot/bootmeth-uclass.c`:** probe every bootmeth in the explicit order regardless of BOOTMETH_GLOBAL, and only check the global flag when that option is on.
+- **Result:** in QEMU the extlinux bootflow now boots Ubuntu to "Booting Linux on physical CPU".
+
+All of this is amended into the VBE commit, with a `[pickman]` note at the end of its message.
+
+**Checks**
+- `um build sandbox` is clean, and the bootstd/bootmeth unit tests pass.
+- 10 LUKS tests fail locally because the mmc11 encrypted test disk won't probe. That points to this machine's test setup rather than this change.
+- The buildman command you gave reports "No matching boards found", because those terms aren't board names. I built the affected boards by name instead: rk3399-generic-ddr3, rockpro64-vbe-rk3399, efi-arm_app64, generic-rk3399, sandbox and sandbox_vpl/spl, 13 boards in all. None had errors, only the usual missing-blob and dtc warnings.
+- I couldn't run the vbe lab test itself locally, only the build.
+
+**Decision for you:** the bootmeth probe fix is a C code change inside a cherry-picked upstream commit. If you'd rather keep that commit a clean pick, it could go in a separate commit just before it.
+
+---
+
