@@ -395,6 +395,85 @@ static int dm_test_vfs_mount(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_mount, UTF_SCAN_FDT);
 
+/* Test the mount command with the filesystem type given */
+static int dm_test_vfs_mount_type(struct unit_test_state *uts)
+{
+	struct udevice *dev, *blk;
+	struct blk_desc *desc;
+	char fname[256];
+
+	ut_assertok(vfs_init());
+
+	ut_assertok(os_persistent_file(fname, sizeof(fname), "2MB.ext2.img"));
+	ut_assertok(host_create_device("mnttest", true, DEFAULT_BLKSZ, &dev));
+	ut_assertok(host_attach_file(dev, fname));
+	ut_assertok(blk_get_from_parent(dev, &blk));
+	ut_assertok(device_probe(blk));
+	desc = dev_get_uclass_plat(blk);
+
+	/* with nothing mounted the list is empty */
+	ut_assertok(run_command("mount", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_commandf("mount -t ext4 host %x:0 /mnt", desc->devnum));
+	ut_assert_console_end();
+
+	/* the list names the device which the mount created */
+	ut_assertok(run_command("mount", 0));
+	ut_assert_nextlinen("%-20s ext4_fs.", "/mnt");
+	ut_assert_console_end();
+
+	/* a type with no driver behind it */
+	ut_asserteq(1, run_commandf("mount -t nosuch host %x:0 /other",
+				    desc->devnum));
+	ut_assert_nextline("mount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* the type is needed when the option is given */
+	ut_asserteq(1, run_commandf("mount -t ext4 host %x:0", desc->devnum));
+	ut_assert_nextline("mount failed: -22: Invalid argument");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /mnt", 0));
+	ut_assert_console_end();
+
+	ut_assertok(host_detach_file(dev));
+	ut_assertok(device_unbind(dev));
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_mount_type, UTF_SCAN_FDT);
+
+/* Test the failures which the mount command reports */
+static int dm_test_vfs_mount_err(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	/* a mount point which is in use already */
+	ut_asserteq(1, run_command("mount hostfs /host", 0));
+	ut_assert_nextline("mount failed: -16: Device or resource busy");
+	ut_assert_console_end();
+
+	/* a device which is not there */
+	ut_asserteq(1, run_command("mount nodev /other", 0));
+	ut_assert_nextline("mount failed: -19: No such device");
+	ut_assert_console_end();
+
+	/* a device with no mount point */
+	ut_asserteq(1, run_command("mount hostfs", 0));
+	ut_assert_nextline("mount failed: -22: Invalid argument");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_mount_err, UTF_SCAN_FDT);
+
 /* Test the VFS layer using the 'fs' command */
 static int dm_test_vfs_cmd(struct unit_test_state *uts)
 {
@@ -1266,6 +1345,13 @@ DM_TEST(dm_test_vfs_test, UTF_SCAN_FDT);
 static int dm_test_vfs_fstab(struct unit_test_state *uts)
 {
 	ut_assertok(vfs_init());
+
+	/* with no 'fstab' variable there is nothing to mount */
+	env_set("fstab", NULL);
+	ut_asserteq(1, run_command("mount -a", 0));
+	ut_assert_nextline("No 'fstab' environment variable set");
+	ut_assert_nextline("mount failed: -2: No such file or directory");
+	ut_assert_console_end();
 
 	env_set("fstab", "hostfs /host");
 	ut_assertok(run_command("mount -a", 0));
