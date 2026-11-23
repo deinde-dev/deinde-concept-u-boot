@@ -22,6 +22,10 @@
 
 #define READ_SIZE	0x20
 
+/* Header which the df command prints above its listing */
+#define DF_HEADER	\
+	"Filesystem        Blksz      Total       Used       Free  Size"
+
 /* Test basic filesystem access */
 static int dm_test_fs_base(struct unit_test_state *uts)
 {
@@ -1465,15 +1469,38 @@ static int dm_test_vfs_df(struct unit_test_state *uts)
 	ut_assert_console_end();
 
 	ut_assertok(run_command("df /df", 0));
-	ut_assert_nextlinen("Filesystem");
+	ut_assert_nextline(DF_HEADER);
 	ut_assert_nextlinen("/df");
 	ut_assert_console_end();
 
 	/* df with no args should list all mounts */
 	ut_assertok(run_command("df", 0));
-	ut_assert_nextlinen("Filesystem");
+	ut_assert_nextline(DF_HEADER);
 	ut_assert_skip_to_linen("/df");
 	console_record_reset_enable();
+
+	/* a filesystem which does not report its usage shows dashes */
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("df", 0));
+	ut_assert_nextline(DF_HEADER);
+	ut_assert_nextlinen("/df");
+	ut_assert_nextline("%-16s %6s %10s %10s %10s", "/host", "-", "-", "-",
+			   "-");
+	ut_assert_console_end();
+
+	/* naming that filesystem fails, since it has no statfs function */
+	ut_asserteq(1, run_command("df /host", 0));
+	ut_assert_nextline("Error: -38: Function not implemented");
+	ut_assert_console_end();
+
+	/* so does a path with no filesystem mounted behind it */
+	ut_asserteq(1, run_command("df /nowhere", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
 
 	ut_assertok(run_command("umount /df", 0));
 	ut_assert_console_end();
