@@ -661,10 +661,8 @@ static int do_df(struct getopt_state *gs)
 	if (path) {
 		/* Single filesystem */
 		ret = vfs_statfs(path, &stats);
-		if (ret) {
-			printf("Error: %dE\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "Error: %dE\n", ret);
 		printf("%-16s %6s %10s %10s %10s  %s\n",
 		       "Filesystem", "Blksz", "Total", "Used", "Free",
 		       "Size");
