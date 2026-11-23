@@ -1362,6 +1362,20 @@ static int dm_test_vfs_stat(struct unit_test_state *uts)
 	ut_assert_nextline("Error: -2: No such file or directory");
 	ut_assert_console_end();
 
+	/* stat has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("stat -x", 0));
+	ut_assert_nextline("stat - display file status");
+	ut_assert_skip_to_line(
+		"    - Show type, size and timestamps of a file or directory");
+	ut_assert_console_end();
+
+	/* and it needs a path */
+	ut_asserteq(1, run_command("stat", 0));
+	ut_assert_nextline("stat - display file status");
+	ut_assert_skip_to_line(
+		"    - Show type, size and timestamps of a file or directory");
+	ut_assert_console_end();
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 

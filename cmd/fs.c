@@ -680,16 +680,17 @@ static const char *fs_type_name(unsigned int type)
 	}
 }
 
-static int do_stat(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_stat(struct getopt_state *gs)
 {
 	struct fs_dirent dent;
+	const char *path;
 	int ret;
 
-	if (argc < 2)
+	path = getopt_pop(gs);
+	if (!path)
 		return CMD_RET_USAGE;
 
-	ret = vfs_stat(argv[1], &dent);
+	ret = vfs_stat(path, &dent);
 	if (ret) {
 		printf("Error: %dE\n", ret);
 		return CMD_RET_FAILURE;
@@ -702,7 +703,7 @@ static int do_stat(struct cmd_tbl *cmdtp, int flag, int argc,
 		char target[FILE_MAX_PATH_LEN];
 		int len;
 
-		len = vfs_readlink(argv[1], target, sizeof(target));
+		len = vfs_readlink(path, target, sizeof(target));
 		if (len >= 0)
 			printf("  Link: %s\n", target);
 	}
@@ -728,7 +729,7 @@ static int do_stat(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_NOOPTS_COMPLETE(
 	stat,	2,	1,	do_stat,
 	"display file status",
 	"<path>\n"
