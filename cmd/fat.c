@@ -75,11 +75,9 @@ static int do_fat_fsinfo(struct getopt_state *gs)
 		return 1;
 
 	dev = dev_desc->devnum;
-	if (fat_set_blk_dev(dev_desc, &info) != 0) {
-		printf("\n** Unable to use %s %d:%d for fatinfo **\n",
-			argv[1], dev, part);
-		return 1;
-	}
+	if (fat_set_blk_dev(dev_desc, &info) != 0)
+		return cmd_fail(0, "\n** Unable to use %s %d:%d for fatinfo **\n",
+				argv[1], dev, part);
 	return file_fat_detectfs();
 }
 
