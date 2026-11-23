@@ -467,6 +467,14 @@ static int dm_test_vfs_cwd(struct unit_test_state *uts)
 	/* cwd should be unchanged */
 	ut_asserteq_str("/", vfs_getcwd());
 
+	/* a missing directory within a mounted filesystem fails too */
+	ut_asserteq(-ENOENT, vfs_chdir("/host/nowhere"));
+	ut_asserteq_str("/", vfs_getcwd());
+
+	/* so does a regular file */
+	ut_asserteq(-ENOTDIR, vfs_chdir("/host/README"));
+	ut_asserteq_str("/", vfs_getcwd());
+
 	ut_assertok(vfs_umount_path(vfs, "/host"));
 
 	return 0;
