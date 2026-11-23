@@ -155,3 +155,26 @@ static int cmd_test_fatinfo_usage_norun(struct unit_test_state *uts)
 }
 CMD_TEST_ARGS(cmd_test_fatinfo_usage_norun, UTF_CONSOLE | UTF_MANUAL,
 	      { "fs_image", UT_ARG_STR }, { "raw_image", UT_ARG_STR });
+
+/* Test that fatinfo refuses an option, since it has none */
+static int cmd_test_fatinfo_badopt_norun(struct unit_test_state *uts)
+{
+	ut_assertok(bind_image(uts, ARG_IMAGE));
+
+	ut_asserteq(1, run_command("fatinfo -x host", 0));
+	ut_assert_skip_to_line(USAGE_LAST);
+	ut_assert_console_end();
+
+	/*
+	 * a device which looks like an option is still a device; the message
+	 * comes from blk_get_device_by_str() as well as from its caller
+	 */
+	ut_asserteq(1, run_command("fatinfo host -x", 0));
+	ut_assert_nextline("** Bad device specification host -x **");
+	ut_assert_nextline("** Bad device specification host -x **");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_fatinfo_badopt_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR }, { "raw_image", UT_ARG_STR });

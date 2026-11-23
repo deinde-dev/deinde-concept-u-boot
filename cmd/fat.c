@@ -60,14 +60,14 @@ U_BOOT_CMD_NOOPTS(
 	"    - list files from 'dev' on 'interface' in a 'directory'"
 );
 
-static int do_fat_fsinfo(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_fat_fsinfo(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	int dev, part;
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
 
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
@@ -83,7 +83,7 @@ static int do_fat_fsinfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	return file_fat_detectfs();
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fatinfo,	3,	1,	do_fat_fsinfo,
 	"print information about filesystem",
 	"<interface> [<dev[:part]>]\n"

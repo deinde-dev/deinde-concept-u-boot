@@ -83,3 +83,8 @@ class TestFatinfo:
         """Check that fatinfo shows its usage message when it cannot go on"""
         ubman.run_ut('cmd', 'cmd_test_fatinfo_usage', fs_image=fat_image,
                      raw_image=raw_image)
+
+    def test_fatinfo_badopt(self, ubman, fat_image, raw_image):
+        """Check that fatinfo refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_fatinfo_badopt', fs_image=fat_image,
+                     raw_image=raw_image)
