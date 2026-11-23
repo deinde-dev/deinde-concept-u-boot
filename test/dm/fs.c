@@ -467,6 +467,22 @@ static int dm_test_vfs_mount_err(struct unit_test_state *uts)
 	ut_assert_nextline("mount failed: -22: Invalid argument");
 	ut_assert_console_end();
 
+	/* an option the command does not have shows the usage message */
+	ut_asserteq(1, run_command("mount -z", 0));
+	ut_assert_nextline("mount - mount a filesystem");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_skip_to_line(
+		"    - Mount everything listed in the 'fstab' variable");
+	ut_assert_console_end();
+
+	/* -t without a type does the same */
+	ut_asserteq(1, run_command("mount -t", 0));
+	ut_assert_nextline("mount - mount a filesystem");
+	ut_assert_skip_to_line(
+		"    - Mount everything listed in the 'fstab' variable");
+	ut_assert_console_end();
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 
