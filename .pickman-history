@@ -110058,3 +110058,32 @@ None of the commits touch the Makefile, so the version lines are unchanged.
 
 ---
 
+## 2026-11-23: us/main
+
+Branch: cherry-4717c012abb3
+
+Commits:
+- 4717c012abb3 tools: mkimage: Simplify fit_pre_load_data() data types
+- e139a77788b6 tools: mkimage: Fix discarded const qualifier warning
+- 83b1ec64ede9 Merge patch series "tools: mkimage: Simplify fit_pre_load_data() data types"
+
+### Conversation log
+The merge commit's changes are already in the first two picks, so it comes out empty. Committing it as an empty commit to keep the history.
+
+All 3 commits are now on the `cherry-4717c012abb3` branch, based on `ci/master`, and the sandbox build passes with no warnings or errors.
+
+| Original | Picked | Subject |
+|---|---|---|
+| 4717c012abb3 | f9a6856b3eab | tools: mkimage: Simplify fit_pre_load_data() data types |
+| e139a77788b6 | 3e27adc18cee | tools: mkimage: Fix discarded const qualifier warning |
+| 83b1ec64ede9 | b1e7560a3d4a | Merge patch series "tools: mkimage: Simplify fit_pre_load_data() data types" |
+
+- **Conflicts and fix-ups:** none. Both regular commits applied cleanly to `tools/image-host.c`.
+- **Split-check:** `pickman split-check` changed nothing for any of the three commits.
+- **Deltas:** both picked commits match their originals exactly (12 lines added and 15 removed, then 1 and 1).
+- **Merge commit:** it came out empty because its changes are already in the two picks before it. I kept it as an empty commit with the original message and the "cherry picked from" line.
+
+The sandbox build ran after each pick and again at the end. The branch is ready to push and hasn't been merged anywhere.
+
+---
+
