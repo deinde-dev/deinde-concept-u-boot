@@ -194,10 +194,8 @@ static int do_cd(struct getopt_state *gs)
 	int ret;
 
 	ret = vfs_chdir(path);
-	if (ret) {
-		printf("Error: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Error: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
