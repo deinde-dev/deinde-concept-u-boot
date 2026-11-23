@@ -66,3 +66,7 @@ class TestFatsize:
     def test_fatsize_usage(self, ubman, fat_image):
         """Check that fatsize shows its usage message when it cannot go on"""
         ubman.run_ut('cmd', 'cmd_test_fatsize_usage', fs_image=fat_image)
+
+    def test_fatsize_badopt(self, ubman, fat_image):
+        """Check that fatsize refuses an option, since it has none"""
+        ubman.run_ut('cmd', 'cmd_test_fatsize_badopt', fs_image=fat_image)

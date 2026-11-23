@@ -197,3 +197,31 @@ static int cmd_test_fatsize_usage_norun(struct unit_test_state *uts)
 }
 CMD_TEST_ARGS(cmd_test_fatsize_usage_norun, UTF_CONSOLE | UTF_MANUAL,
 	      { "fs_image", UT_ARG_STR });
+
+/* Test that fatsize refuses an option, since it has none */
+static int cmd_test_fatsize_badopt_norun(struct unit_test_state *uts)
+{
+	char saved[MAX_SIZE];
+
+	ut_assertok(bind_image(uts, saved, sizeof(saved)));
+
+	ut_asserteq(1, run_command("fatsize -l host 0", 0));
+	ut_assert_skip_to_line(USAGE_LAST);
+	ut_assert_console_end();
+
+	/*
+	 * a device which looks like an option is still a device; the message
+	 * comes from blk_get_device_by_str() as well as from its caller
+	 */
+	ut_asserteq(1, run_command("fatsize host -l hello.txt", 0));
+	ut_assert_nextline("** Bad device specification host -l **");
+	ut_assert_nextline("** Bad device specification host -l **");
+	ut_assert_nextline("Couldn't find partition host -l");
+	ut_assert_console_end();
+
+	ut_assertok(put_filesize(uts, saved));
+
+	return 0;
+}
+CMD_TEST_ARGS(cmd_test_fatsize_badopt_norun, UTF_CONSOLE | UTF_MANUAL,
+	      { "fs_image", UT_ARG_STR });

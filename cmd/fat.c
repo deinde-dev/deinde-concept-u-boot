@@ -15,12 +15,12 @@
 #include <part.h>
 #include <asm/cache.h>
 
-static int do_fat_size(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_fat_size(struct getopt_state *gs)
 {
-	return do_size(argc, argv, FS_TYPE_FAT);
+	return do_size(gs->argc, gs->argv, FS_TYPE_FAT);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	fatsize,	4,	0,	do_fat_size,
 	"determine a file's size",
 	"<interface> <dev[:part]> <filename>\n"
