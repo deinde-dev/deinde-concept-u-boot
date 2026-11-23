@@ -200,10 +200,8 @@ static int do_umount(struct getopt_state *gs)
 
 		ret = umount_handler(path);
 	}
-	if (ret) {
-		printf("umount failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "umount failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
