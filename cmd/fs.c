@@ -47,12 +47,12 @@ static int mount_handler(int argc, char *const argv[])
 
 		if (!fstab) {
 			printf("No 'fstab' environment variable set\n");
-			return CMD_RET_FAILURE;
+			return -ENOENT;
 		}
 
 		buf = strdup(fstab);
 		if (!buf)
-			return CMD_RET_FAILURE;
+			return -ENOMEM;
 
 		for (entry = buf; entry; entry = next) {
 			next = strchr(entry, ';');
@@ -69,7 +69,7 @@ static int mount_handler(int argc, char *const argv[])
 		}
 
 		free(buf);
-		return CMD_RET_SUCCESS;
+		return 0;
 	}
 
 	/* mount -t <type> <interface> <dev:part> <mountpoint> */
