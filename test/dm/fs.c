@@ -22,6 +22,10 @@
 
 #define READ_SIZE	0x20
 
+/* Header which the df command prints above its listing */
+#define DF_HEADER	\
+	"Filesystem        Blksz      Total       Used       Free  Size"
+
 /* Test basic filesystem access */
 static int dm_test_fs_base(struct unit_test_state *uts)
 {
@@ -395,6 +399,101 @@ static int dm_test_vfs_mount(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_vfs_mount, UTF_SCAN_FDT);
 
+/* Test the mount command with the filesystem type given */
+static int dm_test_vfs_mount_type(struct unit_test_state *uts)
+{
+	struct udevice *dev, *blk;
+	struct blk_desc *desc;
+	char fname[256];
+
+	ut_assertok(vfs_init());
+
+	ut_assertok(os_persistent_file(fname, sizeof(fname), "2MB.ext2.img"));
+	ut_assertok(host_create_device("mnttest", true, DEFAULT_BLKSZ, &dev));
+	ut_assertok(host_attach_file(dev, fname));
+	ut_assertok(blk_get_from_parent(dev, &blk));
+	ut_assertok(device_probe(blk));
+	desc = dev_get_uclass_plat(blk);
+
+	/* with nothing mounted the list is empty */
+	ut_assertok(run_command("mount", 0));
+	ut_assert_console_end();
+
+	ut_assertok(run_commandf("mount -t ext4 host %x:0 /mnt", desc->devnum));
+	ut_assert_console_end();
+
+	/* the list names the device which the mount created */
+	ut_assertok(run_command("mount", 0));
+	ut_assert_nextlinen("%-20s ext4_fs.", "/mnt");
+	ut_assert_console_end();
+
+	/* a type with no driver behind it */
+	ut_asserteq(1, run_commandf("mount -t nosuch host %x:0 /other",
+				    desc->devnum));
+	ut_assert_nextline("mount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* the type is needed when the option is given */
+	ut_asserteq(1, run_commandf("mount -t ext4 host %x:0", desc->devnum));
+	ut_assert_nextline("mount failed: -22: Invalid argument");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /mnt", 0));
+	ut_assert_console_end();
+
+	ut_assertok(host_detach_file(dev));
+	ut_assertok(device_unbind(dev));
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_mount_type, UTF_SCAN_FDT);
+
+/* Test the failures which the mount command reports */
+static int dm_test_vfs_mount_err(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	/* a mount point which is in use already */
+	ut_asserteq(1, run_command("mount hostfs /host", 0));
+	ut_assert_nextline("mount failed: -16: Device or resource busy");
+	ut_assert_console_end();
+
+	/* a device which is not there */
+	ut_asserteq(1, run_command("mount nodev /other", 0));
+	ut_assert_nextline("mount failed: -19: No such device");
+	ut_assert_console_end();
+
+	/* a device with no mount point */
+	ut_asserteq(1, run_command("mount hostfs", 0));
+	ut_assert_nextline("mount failed: -22: Invalid argument");
+	ut_assert_console_end();
+
+	/* an option the command does not have shows the usage message */
+	ut_asserteq(1, run_command("mount -z", 0));
+	ut_assert_nextline("mount - mount a filesystem");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_skip_to_line(
+		"    - Mount everything listed in the 'fstab' variable");
+	ut_assert_console_end();
+
+	/* -t without a type does the same */
+	ut_asserteq(1, run_command("mount -t", 0));
+	ut_assert_nextline("mount - mount a filesystem");
+	ut_assert_skip_to_line(
+		"    - Mount everything listed in the 'fstab' variable");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_mount_err, UTF_SCAN_FDT);
+
 /* Test the VFS layer using the 'fs' command */
 static int dm_test_vfs_cmd(struct unit_test_state *uts)
 {
@@ -492,10 +591,13 @@ static int dm_test_vfs_umount_all(struct unit_test_state *uts)
 
 	ut_assertok(run_command("mount hostfs /host", 0));
 	ut_assert_console_end();
+	ut_assertok(run_command("mount hostfs /other", 0));
+	ut_assert_console_end();
 
-	/* Verify mount is there */
+	/* Verify both mounts are there */
 	ut_assertok(run_command("ls /", 0));
 	ut_assert_nextline("DIR %10u host", 0);
+	ut_assert_nextline("DIR %10u other", 0);
 	ut_assert_console_end();
 
 	/* Unmount all */
@@ -510,6 +612,60 @@ static int dm_test_vfs_umount_all(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_vfs_umount_all, UTF_SCAN_FDT);
+
+/* Test the failures which the umount command reports */
+static int dm_test_vfs_umount_err(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	/* the command needs a mount point, or -a */
+	ut_asserteq(1, run_command("umount", 0));
+	ut_assert_nextline("umount - unmount a filesystem");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("umount <mountpoint> | -a");
+	ut_assert_nextline(
+		"    - Unmount the filesystem at 'mountpoint', or all (-a)");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	/* a path inside the filesystem is not a mount point */
+	ut_asserteq(1, run_command("umount /host/doc", 0));
+	ut_assert_nextline("umount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* nor is the root */
+	ut_asserteq(1, run_command("umount /", 0));
+	ut_assert_nextline("umount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
+
+	/* the same mount point a second time */
+	ut_asserteq(1, run_command("umount /host", 0));
+	ut_assert_nextline("umount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* -a with nothing mounted is not a failure */
+	ut_assertok(run_command("umount -a", 0));
+	ut_assert_console_end();
+
+	/* an option the command does not have shows the usage message */
+	ut_asserteq(1, run_command("umount -z", 0));
+	ut_assert_nextline("umount - unmount a filesystem");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("umount <mountpoint> | -a");
+	ut_assert_nextline(
+		"    - Unmount the filesystem at 'mountpoint', or all (-a)");
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_umount_err, UTF_SCAN_FDT);
 
 /* Test cd and pwd commands */
 static int dm_test_vfs_cd(struct unit_test_state *uts)
@@ -1267,6 +1423,13 @@ static int dm_test_vfs_fstab(struct unit_test_state *uts)
 {
 	ut_assertok(vfs_init());
 
+	/* with no 'fstab' variable there is nothing to mount */
+	env_set("fstab", NULL);
+	ut_asserteq(1, run_command("mount -a", 0));
+	ut_assert_nextline("No 'fstab' environment variable set");
+	ut_assert_nextline("mount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
 	env_set("fstab", "hostfs /host");
 	ut_assertok(run_command("mount -a", 0));
 	ut_assert_console_end();
@@ -1306,15 +1469,48 @@ static int dm_test_vfs_df(struct unit_test_state *uts)
 	ut_assert_console_end();
 
 	ut_assertok(run_command("df /df", 0));
-	ut_assert_nextlinen("Filesystem");
+	ut_assert_nextline(DF_HEADER);
 	ut_assert_nextlinen("/df");
 	ut_assert_console_end();
 
 	/* df with no args should list all mounts */
 	ut_assertok(run_command("df", 0));
-	ut_assert_nextlinen("Filesystem");
+	ut_assert_nextline(DF_HEADER);
 	ut_assert_skip_to_linen("/df");
 	console_record_reset_enable();
+
+	/* a filesystem which does not report its usage shows dashes */
+	ut_assertok(run_command("mount hostfs /host", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("df", 0));
+	ut_assert_nextline(DF_HEADER);
+	ut_assert_nextlinen("/df");
+	ut_assert_nextline("%-16s %6s %10s %10s %10s", "/host", "-", "-", "-",
+			   "-");
+	ut_assert_console_end();
+
+	/* naming that filesystem fails, since it has no statfs function */
+	ut_asserteq(1, run_command("df /host", 0));
+	ut_assert_nextline("Error: -38: Function not implemented");
+	ut_assert_console_end();
+
+	/* so does a path with no filesystem mounted behind it */
+	ut_asserteq(1, run_command("df /nowhere", 0));
+	ut_assert_nextline("Error: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* df has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("df -x", 0));
+	ut_assert_nextline("df - show filesystem usage");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("df [<path>]");
+	ut_assert_nextline(
+		"    - Show usage for the filesystem at 'path', or all mounts");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("umount /host", 0));
+	ut_assert_console_end();
 
 	ut_assertok(run_command("umount /df", 0));
 	ut_assert_console_end();

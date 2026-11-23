@@ -25,7 +25,8 @@
 int do_load(int argc, char *const argv[], int fstype);
 int do_fs_types(void);
 
-static int mount_handler(int argc, char *const argv[])
+static int mount_handler(bool all, const char *type, int argc,
+			 char *const argv[])
 {
 	struct udevice *vfs, *fsdev, *dir, *mnt;
 	const char *subpath;
@@ -35,24 +36,19 @@ static int mount_handler(int argc, char *const argv[])
 	if (!vfs)
 		return -ENXIO;
 
-	if (argc < 2) {
-		vfs_print_mounts();
-		return 0;
-	}
-
 	/* mount -a: process entries from 'fstab' env variable */
-	if (!strcmp(argv[1], "-a")) {
+	if (all) {
 		const char *fstab = env_get("fstab");
 		char *buf, *entry, *next;
 
 		if (!fstab) {
-			printf("No 'fstab' environment variable set\n");
-			return CMD_RET_FAILURE;
+			cmd_err("No 'fstab' environment variable set\n");
+			return -ENOENT;
 		}
 
 		buf = strdup(fstab);
 		if (!buf)
-			return CMD_RET_FAILURE;
+			return -ENOMEM;
 
 		for (entry = buf; entry; entry = next) {
 			next = strchr(entry, ';');
@@ -69,76 +65,93 @@ static int mount_handler(int argc, char *const argv[])
 		}
 
 		free(buf);
-		return CMD_RET_SUCCESS;
+		return 0;
 	}
 
 	/* mount -t <type> <interface> <dev:part> <mountpoint> */
-	if (!strcmp(argv[1], "-t")) {
+	if (type) {
 		struct disk_partition info;
 		struct blk_desc *desc;
 
-		if (argc < 6)
+		if (argc < 3)
 			return -EINVAL;
 
-		ret = blk_get_device_part_str(argv[3], argv[4], &desc,
+		ret = blk_get_device_part_str(argv[0], argv[1], &desc,
 					      &info, 1);
 		if (ret < 0)
 			return ret;
 		part_num = ret;
 
-		return fs_mount_blkdev(argv[2], desc, part_num, &info,
-				       argv[5]);
+		return fs_mount_blkdev(type, desc, part_num, &info, argv[2]);
+	}
+
+	if (!argc) {
+		vfs_print_mounts();
+		return 0;
 	}
 
 	/* mount <iface> <dev:part> <mountpoint> - auto-detect type */
-	if (argc == 4) {
+	if (argc == 3) {
 		struct disk_partition info;
 		struct blk_desc *desc;
 
-		ret = blk_get_device_part_str(argv[1], argv[2], &desc,
+		ret = blk_get_device_part_str(argv[0], argv[1], &desc,
 					      &info, 1);
 		if (ret < 0)
 			return ret;
 		part_num = ret;
 
-		return fs_mount_blkdev_auto(desc, part_num, &info, argv[3]);
+		return fs_mount_blkdev_auto(desc, part_num, &info, argv[2]);
 	}
 
 	/* mount <dev> <mountpoint> - mount an existing UCLASS_FS device */
-	if (argc < 3)
+	if (argc < 2)
 		return -EINVAL;
 
 	/* Check if already mounted */
-	ret = vfs_find_mount(vfs, argv[2], &mnt, &subpath);
+	ret = vfs_find_mount(vfs, argv[1], &mnt, &subpath);
 	if (!ret && mnt && !*subpath)
 		return -EBUSY;
 
-	ret = uclass_get_device_by_name(UCLASS_FS, argv[1], &fsdev);
+	ret = uclass_get_device_by_name(UCLASS_FS, argv[0], &fsdev);
 	if (ret)
 		return ret;
 
-	ret = vfs_resolve(vfs, argv[2], &dir);
+	ret = vfs_resolve(vfs, argv[1], &dir);
 	if (ret)
 		return ret;
 
 	return vfs_mount(vfs, dir, fsdev);
 }
 
-static int do_mount(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_mount(struct getopt_state *gs)
 {
-	int ret;
+	const char *type = NULL;
+	bool all = false;
+	int opt, ret;
 
-	ret = mount_handler(argc, argv);
-	if (ret) {
-		printf("mount failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
+	while ((opt = getopt(gs, "+at:")) > 0) {
+		switch (opt) {
+		case 'a':
+			all = true;
+			break;
+		case 't':
+			type = gs->arg;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
+
+	ret = mount_handler(all, type, gs->argc - gs->index,
+			    gs->argv + gs->index);
+	if (ret)
+		return cmd_fail(ret, "mount failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_GETOPT(
 	mount,	6,	1,	do_mount,
 	"mount a filesystem",
 	"[<dev> <mountpoint>]\n"
@@ -146,7 +159,9 @@ U_BOOT_CMD(
 	"mount <iface> <dev:part> <mountpoint>\n"
 	"    - Auto-detect and mount a filesystem\n"
 	"mount -t <type> <iface> <dev:part> <mountpoint>\n"
-	"    - Mount a specific filesystem type"
+	"    - Mount a specific filesystem type\n"
+	"mount -a\n"
+	"    - Mount everything listed in the 'fstab' variable"
 );
 
 static int umount_handler(const char *path)
@@ -160,27 +175,38 @@ static int umount_handler(const char *path)
 	return vfs_umount_path(vfs, path);
 }
 
-static int do_umount(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+static int do_umount(struct getopt_state *gs)
 {
-	int ret;
+	bool all = false;
+	int opt, ret;
 
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
-	if (!strcmp(argv[1], "-a"))
-		ret = vfs_umount_all();
-	else
-		ret = umount_handler(argv[1]);
-	if (ret) {
-		printf("umount failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
+	while ((opt = getopt(gs, "+a")) > 0) {
+		switch (opt) {
+		case 'a':
+			all = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
+
+	if (all) {
+		ret = vfs_umount_all();
+	} else {
+		const char *path = getopt_pop(gs);
+
+		if (!path)
+			return CMD_RET_USAGE;
+
+		ret = umount_handler(path);
+	}
+	if (ret)
+		return cmd_fail(ret, "umount failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_GETOPT_COMPLETE(
 	umount,	2,	1,	do_umount,
 	"unmount a filesystem",
 	"<mountpoint> | -a\n"
@@ -625,22 +651,22 @@ static void print_df_one(const char *name, struct fs_statfs *stats)
 	printf("\n");
 }
 
-static int do_df(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_df(struct getopt_state *gs)
 {
 	struct fs_statfs stats;
+	const char *path;
 	int ret;
 
-	if (argc >= 2) {
+	path = getopt_pop(gs);
+	if (path) {
 		/* Single filesystem */
-		ret = vfs_statfs(argv[1], &stats);
-		if (ret) {
-			printf("Error: %dE\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		ret = vfs_statfs(path, &stats);
+		if (ret)
+			return cmd_fail(ret, "Error: %dE\n", ret);
 		printf("%-16s %6s %10s %10s %10s  %s\n",
 		       "Filesystem", "Blksz", "Total", "Used", "Free",
 		       "Size");
-		print_df_one(argv[1], &stats);
+		print_df_one(path, &stats);
 	} else {
 		/* All mounts */
 		ret = vfs_init();
@@ -656,7 +682,7 @@ static int do_df(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	df,	2,	1,	do_df,
 	"show filesystem usage",
 	"[<path>]\n"
