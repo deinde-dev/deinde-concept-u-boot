@@ -254,6 +254,20 @@ void __noreturn mon_main(void *params, const void *blob)
 	while (!bl33 || ret)
 		;
 
+	if (!IS_ENABLED(CONFIG_MON_SWITCH_TO_EL2)) {
+		void (*entry)(ulong arg0, ulong arg1, ulong arg2, ulong arg3);
+
+		/*
+		 * Stay at EL3. U-Boot proper takes over the exception vectors
+		 * and calls the entry point at MON_RECLAIM_ADDR to give them
+		 * back before it starts the OS
+		 */
+		entry = (void *)bl33->pc;
+		entry(bl33->args.arg0, 0, 0, 0);
+		while (1)
+			;
+	}
+
 	/* This starts EL2 with exceptions masked, which is what SPL asks for */
 	armv8_switch_to_el2(bl33->args.arg0, 0, 0, 0, bl33->pc, ES_TO_AARCH64);
 }

@@ -52,6 +52,23 @@ config MON_BARE
 
 endchoice
 
+config MON_SWITCH_TO_EL2
+	bool "Start U-Boot proper at EL2"
+	depends on ARM64
+	default y
+	help
+	  MON normally starts U-Boot proper at EL2 in the non-secure state,
+	  as TF-A's BL31 does, so that only MON runs at EL3.
+
+	  Disable this to have MON start U-Boot proper at EL3 instead. U-Boot
+	  proper then has access to the secure state, which is useful when
+	  working on MON. When U-Boot proper drops to EL2, e.g. to start the
+	  OS, it first puts MON back in charge of EL3, so the OS can use MON
+	  as before.
+
+	  While U-Boot proper runs at EL3 it cannot call MON, so the 'smc'
+	  command and PSCI calls do not work there.
+
 config MON_LIBGENERIC_SUPPORT
 	bool
 	default y if MON_FDT

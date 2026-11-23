@@ -9,6 +9,7 @@
 #define __ASM_ARM_MACRO_H__
 
 #ifdef CONFIG_ARM64
+#include <asm/mon.h>
 #include <asm/system.h>
 #endif
 
@@ -179,6 +180,16 @@ lr	.req	x30
 	mrs	\tmp, vbar_el3
 	msr	vbar_el2, \tmp		/* Migrate VBAR */
 
+#if defined(CONFIG_MON) && !defined(CONFIG_MON_SWITCH_TO_EL2) && \
+	!defined(CONFIG_MON_BUILD)
+	/*
+	 * MON started U-Boot proper at EL3, which then installed its own
+	 * vectors. Put MON back in charge of EL3 before leaving it
+	 */
+	ldr	\tmp, =(MON_RECLAIM_ADDR)
+	blr	\tmp
+#endif
+
 	/* Check switch to AArch64 EL2 or AArch32 Hypervisor mode */
 	cmp	\flag, #ES_TO_AARCH32
 	b.eq	1f
@@ -188,7 +199,7 @@ lr	.req	x30
 	 * RES1 (Bits[5:4]) | Non-secure EL0/EL1.
 	 * and the SMD depends on requirements.
 	 */
-#if defined(CONFIG_ARMV8_PSCI) || defined(CONFIG_MON_BUILD)
+#if defined(CONFIG_ARMV8_PSCI) || defined(CONFIG_MON)
 	ldr	\tmp, =(SCR_EL3_RW_AARCH64 | SCR_EL3_HCE_EN |\
 			SCR_EL3_RES1 | SCR_EL3_NS_EN)
 #else
