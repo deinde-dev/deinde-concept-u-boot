@@ -625,6 +625,15 @@ static int dm_test_vfs_cd_err(struct unit_test_state *uts)
 	ut_assert_nextline("/");
 	ut_assert_console_end();
 
+	/* cd has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("cd -x", 0));
+	ut_assert_nextline("cd - change working directory");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("cd [<path>]");
+	ut_assert_nextline("    - Change to 'path' in the VFS (default /)");
+	ut_assert_console_end();
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 

@@ -188,10 +188,9 @@ U_BOOT_CMD_COMPLETE(
 	vfs_cmd_complete
 );
 
-static int do_cd(struct cmd_tbl *cmdtp, int flag, int argc,
-		 char *const argv[])
+static int do_cd(struct getopt_state *gs)
 {
-	const char *path = argc >= 2 ? argv[1] : "/";
+	const char *path = gs->argc >= 2 ? gs->argv[1] : "/";
 	int ret;
 
 	ret = vfs_chdir(path);
@@ -203,7 +202,7 @@ static int do_cd(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_NOOPTS_COMPLETE(
 	cd,	2,	1,	do_cd,
 	"change working directory",
 	"[<path>]\n"
