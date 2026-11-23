@@ -559,10 +559,9 @@ static int do_tree_recurse(const char *path, int depth, int max_depth)
 	return 0;
 }
 
-static int do_tree(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_tree(struct getopt_state *gs)
 {
-	const char *path = argc >= 2 ? argv[1] : NULL;
+	const char *path = getopt_pop(gs);
 	char resolved[FILE_MAX_PATH_LEN];
 	int ret;
 
@@ -593,7 +592,7 @@ static int do_tree(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_NOOPTS_COMPLETE(
 	tree,	2,	1,	do_tree,
 	"list directory tree",
 	"[<path>]\n"

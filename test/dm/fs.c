@@ -1217,6 +1217,13 @@ static int dm_test_vfs_tree_dirs(struct unit_test_state *uts)
 	ut_assertok(run_command("rm -r " TREE_DIR, 0));
 	ut_assert_console_end();
 
+	/* tree has no options, so one shows the usage message */
+	ut_asserteq(1, run_command("tree -x", 0));
+	ut_assert_nextline("tree - list directory tree");
+	ut_assert_skip_to_line(
+		"    - Recursively list directory tree (max 3 levels deep)");
+	ut_assert_console_end();
+
 	ut_assertok(run_command("umount /host", 0));
 	ut_assert_console_end();
 
