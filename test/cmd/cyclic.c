@@ -83,12 +83,43 @@ static int drop_demo(struct unit_test_state *uts)
 	return 0;
 }
 
+/**
+ * run_demo() - Run the demo sub-command and check what it reports
+ *
+ * A cyclic function shows a warning the first time it takes too long, which
+ * the demo function does when the host is busy, e.g. with QEMU. It first runs
+ * at the next call to schedule(), so the warning can land anywhere in the
+ * output which the test checks. Hold off the cyclic functions while the
+ * command runs, then mark the demo function as having shown its warning
+ *
+ * @uts: Test state
+ * @time_ms: Cycle time to give the command, in ms
+ * @delay_us: Delay to give the command, in us
+ * Return: 0 if OK, other value on error
+ */
+static int run_demo(struct unit_test_state *uts, uint time_ms, uint delay_us)
+{
+	struct cyclic_info *cyclic;
+	int ret;
+
+	gd->flags |= GD_FLG_CYCLIC_RUNNING;
+	ret = run_commandf("cyclic demo %d %d", time_ms, delay_us);
+	if (!ret && !hlist_empty(&gd->cyclic_list)) {
+		cyclic = hlist_entry(gd->cyclic_list.first, struct cyclic_info,
+				     list);
+		cyclic->already_warned = true;
+	}
+	gd->flags &= ~GD_FLG_CYCLIC_RUNNING;
+	ut_assertok(ret);
+	ut_assert_nextline(DEMO_MSG, time_ms);
+
+	return 0;
+}
+
 /* Test registering the demo function and the list which then shows it */
 static int cmd_test_cyclic_base(struct unit_test_state *uts)
 {
-	ut_assertok(run_commandf("cyclic demo %d %d", DEMO_TIME_MS,
-				 DEMO_DELAY_US));
-	ut_assert_nextline(DEMO_MSG, DEMO_TIME_MS);
+	ut_assertok(run_demo(uts, DEMO_TIME_MS, DEMO_DELAY_US));
 	ut_assert_console_end();
 
 	/*
@@ -109,11 +140,8 @@ CMD_TEST(cmd_test_cyclic_base, UTF_CONSOLE);
 static int cmd_test_cyclic_list(struct unit_test_state *uts)
 {
 	/* each demo registers a function of its own, with its own cycle time */
-	ut_assertok(run_command("cyclic demo 50 2", 0));
-	ut_assert_nextline(DEMO_MSG, 50);
-
-	ut_assertok(run_command("cyclic demo 60 2", 0));
-	ut_assert_nextline(DEMO_MSG, 60);
+	ut_assertok(run_demo(uts, 50, 2));
+	ut_assertok(run_demo(uts, 60, 2));
 	ut_assert_console_end();
 
 	/* so the list has a line for each of them */
