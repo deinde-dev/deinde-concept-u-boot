@@ -110085,5 +110085,203 @@ All 3 commits are now on the `cherry-4717c012abb3` branch, based on `ci/master`,
 
 The sandbox build ran after each pick and again at the end. The branch is ready to push and hasn't been merged anywhere.
 
+## 2026-11-23: us/main
+
+Branch: cherry-89c37e22cf57
+
+Commits:
+- 89c37e22cf57 Revert "optee: rpmb: select the RPMB partition per request"
+- a119a26e0115 Update maintainers and get_maintainer.ignore
+- f8cc5a5b9c2d sandbox: Take over maintainership
+- 6877c99910fc google: Take over maintainership of coral/link/samus/panther
+- b58f914d7990 mtd: rawnand: nand_base: fix pr_warn text
+- 2f83ef8a7dd4 disable VBE by default
+- 3020578a97ad bloblist: align the used size before adding a record
+- afdf96402c68 bloblist: move to version 2 of the transfer list header
+- 00884e7d404a Merge patch series "bloblist: fixes for transfer lists from TF-A v2.15"
+
+### Conversation log
+Resolving a conflict in MAINTAINERS (BUILDMAN section) for the second commit.
+
+Four commits done; now checking/building the fifth and picking "disable VBE by default".
+
+Seven picks done and building; now picking the bloblist v2 header commit.
+
+All 9 commits are on branch `cherry-89c37e22cf57` (based on ci/master), and the sandbox build passes at every step and at the end with no warnings or errors.
+
+**Fix-up:**
+- **Update maintainers and get_maintainer.ignore (`5455243781bf`):** there was a conflict in the BUILDMAN entry of `MAINTAINERS`. This tree lists Simon as maintainer plus a `W: https://github.com/deinde-dev/buildman` line. I followed upstream and replaced Simon with `S: Orphan`, but kept this tree's `W:` line. I added a note line about this to the commit message. The line counts still match the original (17 added, 34 removed).
+
+**Other results:**
+- The other 8 picks applied cleanly, and their changed files and line counts match the originals exactly.
+- `pickman split-check` changed nothing in any of the commits.
+- The merge commit `baa929ce1c66` (bloblist fixes for TF-A v2.15) is empty, as expected, since its two patches were picked just before it.
+- The 18 bloblist unit tests pass on the final build, including the new used-size alignment test and the version test.
+
+**Things worth reviewing:**
+- **disable VBE by default (`b93c88f1df97`):** the change to `TPL_BOOTMETH_VBE` is now `depends on TPL && VBE`, but there is no `CONFIG_VBE` symbol in this tree or in us/main. That means `TPL_BOOTMETH_VBE` can no longer be enabled anywhere. The bug comes from upstream, not from the pick, and `sandbox_vpl_defconfig` already turns this option off, so nothing breaks here.
+- **This tree's MAINTAINERS entries:** the ULIB and W1 COMMAND entries only exist in this tree and still list Simon. The upstream commit doesn't touch them, so I left them alone.
+
+The branch is ready to push and has not been merged anywhere.
+
+---
+
+### Pipeline fix: 2026-11-23 (attempt 1)
+
+Branch: cherry-89c37e22cf57
+
+Failed jobs:
+- build all platforms 5/6 (world_build)
+- build all platforms 4/6 (world_build)
+- efi-aarch64 (sjg-lab)
+- vbe (sjg-lab)
+
+### Conversation log
+Checking the "disable VBE by default" commit, which looks like the cause of the missing crc8 in VPL.
+
+Narrowing down which boards are affected by the "disable VBE by default" Kconfig change.
+
+Buildman is building from the working tree, so I'll prepare the fix in a separate worktree to avoid disturbing it.
+
+The resulting configs match the pre-commit configs exactly. I'll keep only the three added lines and drop the unrelated savedefconfig reordering.
+
+Fix is ready. While the shard builds run, checking the efi-aarch64 timeout.
+
+Checking older efi-aarch64 runs in GitLab to see whether that test normally passes.
+
+Other MRs pass efi-aarch64, but this MR failed it twice, so it looks like a real regression. Fetching the full job trace.
+
+The efi-aarch64 failure is a real crash: a Synchronous Exception while the extlinux bootmeth scans efi_media_1, which passing MRs don't hit. Looking at which of the dropped configs could cause it.
+
+Build at HEAD is fine. Mapping the crash address against the image to find the faulting function.
+
+I'm going to reproduce the efi-aarch64 crash locally in QEMU, using the lab's firmware and root disk in snapshot mode so they aren't modified.
+
+Still getting the QEMU boot working (the UEFI shell needs carriage returns rather than newlines).
+
+Now Ubuntu boots straight from the root disk, so I'm setting bootindex to make the U-Boot disk boot first.
+
+The shard builds have finished. Checking their results first.
+
+The lab image is a superfloppy with a startup.nsh, so I'll copy that layout.
+
+Reproduced the crash locally in QEMU with the exact CI build. Next I'll test HEAD and HEAD with VBE re-enabled to confirm the cause.
+
+Re-enabling BOOTMETH_VBE stops the crash. Now finding which of the options it pulls in actually matters.
+
+The crash happens whenever BOOTMETH_VBE (and so BOOTMETH_GLOBAL) is off, whatever EXPO is set to. I'll dump memory at the faulting PC and match it against the binary to find the function.
+
+The crash is in alist_add_placeholder() with a bad list pointer. Finding the caller in the extlinux/bootflow path.
+
+x0 here is &priv->ctxs, so this looks like a NULL priv, meaning the bootmeth was never probed. Checking bootmeth_setup_iter_order() for the !BOOTMETH_GLOBAL path.
+
+Testing the probe fix on HEAD in QEMU before applying it to the branch.
+
+The crash is gone. Checking what happens after the kernel starts, since the script timed out waiting for Linux output.
+
+That's the U-Boot pager waiting for SPACE (my harness, not a bug; the VBE build does the same). I'll handle the prompt and confirm Linux comes up.
+
+Linux boots with the fix. Applying both fixes to the "disable VBE by default" commit (HEAD~4) on the real branch.
+
+Rebase done. Building sandbox and running the bootstd/bootflow tests.
+
+An mcheck error appears in bootstd_images. Checking whether it happens without my change too.
+
+The mcheck error also happens on the original branch, so my change didn't cause it. Running the remaining bootstd tests individually to compare.
+
+My grep used the wrong case. Running the bootstd unit tests properly through the pytest harness, which sets up the disk images they need.
+
+Three of the four failures still happen on the rebased branch, and all come from one commit: d661b68a465d "disable VBE by default" (b167d8f01ded before the rebase). I fixed it there and left the result on `cherry-89c37e22cf57-fix1` (not pushed). The fourth failure, efi-aarch64, also comes from that commit, but through a NULL pointer crash in this tree's code rather than a config problem.
+
+**1. Build failures: vbe, build all platforms 4/6 and 5/6**
+- **Cause:** the commit stops BOOTMETH_VBE defaulting to y. That silently turns off all VBE options on the two VBE boards, rk3399-generic-ddr3 (shard 4 and the vbe lab job) and rockpro64-vbe-rk3399 (shard 5). VPL_CRC8 goes off with them, but VPL_RELOC_LOADER still calls `crc8()`, so the VPL link fails.
+- **Second problem:** the commit changes TPL_BOOTMETH_VBE to `depends on TPL && VBE`, but no `VBE` symbol exists, so TPL VBE can never be turned on. Upstream has the same typo.
+- **Confirmed on the rebased branch:** I rebuilt shards 4/6 and 5/6 in full. Those two boards were the only failures. Comparing the configs of all 1561 boards before and after the commit found no other board that loses something it needs.
+- **Fix:**
+  - Change the dependency to `TPL && BOOTMETH_VBE`.
+  - Add `CONFIG_BOOTMETH_VBE`, `CONFIG_VPL_BOOTMETH_VBE` and `CONFIG_TPL_BOOTMETH_VBE` to both defconfigs.
+  - Both boards' configs now exactly match what they were before the commit.
+
+**2. efi-aarch64 lab failure: `test_distro_arm_app_extlinux`**
+- **Not flaky:** the job log shows a "Synchronous Exception" during `bootmeth order extlinux; boot`. This MR failed the same way on both runs, while other MRs passed that day. I reproduced the crash locally in QEMU with the lab's firmware and disk.
+- **Cause:** the crash is in `alist_add_placeholder()` because extlinux's private data is NULL. `bootmeth_order` records the bootmeth devices without probing them. `bootmeth_setup_iter_order()` only probes them inside an `IS_ENABLED(CONFIG_BOOTMETH_GLOBAL)` block, and that block also stopped at the first global bootmeth. BOOTMETH_GLOBAL used to come in through BOOTMETH_VBE, so efi-arm_app64 never hit this until VBE was turned off.
+- **Fix in `boot/bootmeth-uclass.c`:** probe every bootmeth in the explicit order regardless of BOOTMETH_GLOBAL, and only check the global flag when that option is on.
+- **Result:** in QEMU the extlinux bootflow now boots Ubuntu to "Booting Linux on physical CPU".
+
+All of this is amended into the VBE commit, with a `[pickman]` note at the end of its message.
+
+**Checks**
+- `um build sandbox` is clean, and the bootstd/bootmeth unit tests pass.
+- 10 LUKS tests fail locally because the mmc11 encrypted test disk won't probe. That points to this machine's test setup rather than this change.
+- The buildman command you gave reports "No matching boards found", because those terms aren't board names. I built the affected boards by name instead: rk3399-generic-ddr3, rockpro64-vbe-rk3399, efi-arm_app64, generic-rk3399, sandbox and sandbox_vpl/spl, 13 boards in all. None had errors, only the usual missing-blob and dtc warnings.
+- I couldn't run the vbe lab test itself locally, only the build.
+
+**Decision for you:** the bootmeth probe fix is a C code change inside a cherry-picked upstream commit. If you'd rather keep that commit a clean pick, it could go in a separate commit just before it.
+
+---
+
+### Review: 2026-11-23
+
+Branch: cherry-89c37e22cf57
+
+Comments addressed:
+- [sjg]: pickman: We should keep VBE enabled by default for this tree...
+
+### Conversation log
+Now rebase onto ci/master first.
+
+The assertion failed but the chain continued, committing conflict markers. Resetting and redoing properly.
+
+The assertion tripped on unrelated '=====' lines already in the file. Resolving with line-exact matching:
+
+Deltas match (only the history file's shared header differs). Now addressing the review: editing the VBE commit.
+
+Checking whether the TPL dependency change affects any board now that VBE defaults are back:
+
+Committing the amendment, then comparing configs for all boards before/after this commit to check the TPL dependency change.
+
+These boards have no FIT and no TPL_BOOTSTD, so TPL VBE could never have worked on them. Building them in both trees to confirm their binaries don't change:
+
+TPL sizes are identical. Checking that the 101 exit codes are only the usual warnings and are the same in both trees:
+
+The six TPL images are unchanged and no other board's config changes in a way that matters. Now building sandbox at every commit on the branch:
+
+The rc in that loop came from the git log pipeline, not from buildman. Rerunning so it captures the right exit code:
+
+Every commit builds cleanly. Now the final build in the main tree, the bootstd/VBE tests, and creating the -v2 branch:
+
+Those tests need the disk images that the pytest harness creates. Running them through test/py instead:
+
+The 10 LUKS failures are the known local mmc11 setup problem. bootflow_extlinux_localboot wasn't in the earlier list, so checking whether ci/master also fails it:
+
+ci/master fails the same tests, so they come from this machine and not from the branch. Cleaning up the temporary worktrees:
+
+The branch is rebased onto ci/master and the review comment is addressed: VBE stays enabled by default. Sandbox builds cleanly at every commit, and the result is on `cherry-89c37e22cf57-v2` (checked out, not pushed). The rebase also moved the local `cherry-89c37e22cf57` ref to the same commits.
+
+**Rebase**
+- The only conflict was in `.pickman-history`, where ci/master had added the cherry-4717c012abb3 entry. I kept both entries, with this MR's entry after it.
+- My first try at resolving it committed conflict markers. I reset to the original branch and redid it; the final file has no markers.
+- All 9 picked commits have the same changed files and line counts as before the rebase. The history commit shows 39 lines added instead of 41 because the two entries now share a heading line.
+- `buildman -L --board sandbox -w -o /tmp/pickman` passes at each of the 11 commits and on the final branch.
+
+**Review change: "disable VBE by default" (now `9f267cdba12f`)**
+- `BOOTMETH_VBE`, `VPL_BOOTMETH_VBE` and `TPL_BOOTMETH_VBE` are back to a plain `default y`.
+- I removed the three VBE lines added to the `rk3399-generic-ddr3` and `rockpro64-vbe-rk3399` defconfigs. With VBE on by default they do nothing.
+- I removed the `boot/bootmeth-uclass.c` probe fix from this commit. It was only there because turning VBE off also turned off `BOOTMETH_GLOBAL`, which crashed the efi-aarch64 test. With VBE back on, that can't happen.
+- I kept the rest of upstream's changes, plus the fix to the TPL dependency (`TPL && BOOTMETH_VBE` instead of upstream's `TPL && VBE`, a symbol that doesn't exist).
+- The commit now changes 3 lines added and 2 removed in `boot/Kconfig` and `lib/Kconfig`. I updated its `[pickman]` note to match.
+
+**Checks**
+- **Configs:** I compared the configs of all 1561 boards before and after this commit. Only two things change:
+  - `VPL_LZMA` turns off on 605 boards, all without VPL, so it has no effect.
+  - `TPL_BOOTMETH_VBE` turns off on 6 boards: chromebook_coral, chromebook_samus_tpl, chromebook_brya, rock-pi-n8-rk3288, mk808 and vyasa-rk3288. None has FIT, so TPL VBE could never have worked on them. I built all six before and after, and their TPL images have the same sizes and symbols.
+- **Earlier CI failures:** no other board's config changes, including the two VBE boards and efi-arm_app64. So the vbe, build 4/6 and 5/6 and efi-aarch64 failures should not come back.
+- **Tests:** 143 bootstd, bloblist and VBE tests pass. 11 fail: the 10 LUKS tests and `bootflow_extlinux_localboot`. A ci/master build fails the same way here, so the cause is this machine's test setup.
+
+**Decision for you:** the probe fix in `bootmeth_setup_iter_order()` is still a real bug in this tree. Any board without `BOOTMETH_GLOBAL` that runs `bootmeth order` gets a NULL pointer crash. It is on the old `cherry-89c37e22cf57-fix1` branch if you want to send it as its own patch.
+
+**Suggested reply for the MR:**
+> Done. "disable VBE by default" now keeps `default y` for BOOTMETH_VBE, VPL_BOOTMETH_VBE and TPL_BOOTMETH_VBE. What's left of the upstream change is the VPL dependency clean-ups, plus the TPL_BOOTMETH_VBE dependency corrected from 'VBE' to 'BOOTMETH_VBE'. Since VBE stays on, I dropped the rk3399 VBE defconfig additions and the bootmeth-uclass.c probe fix from this commit. That fix is still valid for boards without BOOTMETH_GLOBAL, so it can go in as a separate patch if wanted. Comparing all 1561 board configs against the tree before this commit: only VPL_LZMA changes (on boards without VPL), and TPL_BOOTMETH_VBE goes off on six non-FIT boards whose TPL images are unchanged. I also rebased onto ci/master, and sandbox builds at every commit.
+
 ---
 
