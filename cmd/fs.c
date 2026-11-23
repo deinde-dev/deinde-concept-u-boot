@@ -691,10 +691,8 @@ static int do_stat(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = vfs_stat(path, &dent);
-	if (ret) {
-		printf("Error: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Error: %dE\n", ret);
 
 	printf("  File: %s\n", dent.name);
 	printf("  Size: %llu\n", dent.size);
