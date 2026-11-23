@@ -42,7 +42,7 @@ static int mount_handler(bool all, const char *type, int argc,
 		char *buf, *entry, *next;
 
 		if (!fstab) {
-			printf("No 'fstab' environment variable set\n");
+			cmd_err("No 'fstab' environment variable set\n");
 			return -ENOENT;
 		}
 
@@ -145,10 +145,8 @@ static int do_mount(struct getopt_state *gs)
 
 	ret = mount_handler(all, type, gs->argc - gs->index,
 			    gs->argv + gs->index);
-	if (ret) {
-		printf("mount failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "mount failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
