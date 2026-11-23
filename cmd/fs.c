@@ -175,18 +175,31 @@ static int umount_handler(const char *path)
 	return vfs_umount_path(vfs, path);
 }
 
-static int do_umount(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+static int do_umount(struct getopt_state *gs)
 {
-	int ret;
+	bool all = false;
+	int opt, ret;
 
-	if (argc < 2)
-		return CMD_RET_USAGE;
+	while ((opt = getopt(gs, "+a")) > 0) {
+		switch (opt) {
+		case 'a':
+			all = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
 
-	if (!strcmp(argv[1], "-a"))
+	if (all) {
 		ret = vfs_umount_all();
-	else
-		ret = umount_handler(argv[1]);
+	} else {
+		const char *path = getopt_pop(gs);
+
+		if (!path)
+			return CMD_RET_USAGE;
+
+		ret = umount_handler(path);
+	}
 	if (ret) {
 		printf("umount failed: %dE\n", ret);
 		return CMD_RET_FAILURE;
@@ -195,7 +208,7 @@ static int do_umount(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_GETOPT_COMPLETE(
 	umount,	2,	1,	do_umount,
 	"unmount a filesystem",
 	"<mountpoint> | -a\n"

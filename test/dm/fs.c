@@ -649,6 +649,16 @@ static int dm_test_vfs_umount_err(struct unit_test_state *uts)
 	ut_assertok(run_command("umount -a", 0));
 	ut_assert_console_end();
 
+	/* an option the command does not have shows the usage message */
+	ut_asserteq(1, run_command("umount -z", 0));
+	ut_assert_nextline("umount - unmount a filesystem");
+	ut_assert_nextline("%s", "");
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("umount <mountpoint> | -a");
+	ut_assert_nextline(
+		"    - Unmount the filesystem at 'mountpoint', or all (-a)");
+	ut_assert_console_end();
+
 	return 0;
 }
 DM_TEST(dm_test_vfs_umount_err, UTF_SCAN_FDT);
