@@ -728,6 +728,8 @@ static phys_addr_t _lmb_alloc_base(phys_size_t size, ulong align,
 			if (base < lmbbase)
 				base = -1;
 			base = min(base, max_addr);
+			if (base - lmbbase < size)
+				continue;
 			base = ALIGN_DOWN(base - size, align);
 		} else {
 			continue;
