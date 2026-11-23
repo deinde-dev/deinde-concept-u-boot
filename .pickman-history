@@ -110085,5 +110085,44 @@ All 3 commits are now on the `cherry-4717c012abb3` branch, based on `ci/master`,
 
 The sandbox build ran after each pick and again at the end. The branch is ready to push and hasn't been merged anywhere.
 
+## 2026-11-23: us/main
+
+Branch: cherry-89c37e22cf57
+
+Commits:
+- 89c37e22cf57 Revert "optee: rpmb: select the RPMB partition per request"
+- a119a26e0115 Update maintainers and get_maintainer.ignore
+- f8cc5a5b9c2d sandbox: Take over maintainership
+- 6877c99910fc google: Take over maintainership of coral/link/samus/panther
+- b58f914d7990 mtd: rawnand: nand_base: fix pr_warn text
+- 2f83ef8a7dd4 disable VBE by default
+- 3020578a97ad bloblist: align the used size before adding a record
+- afdf96402c68 bloblist: move to version 2 of the transfer list header
+- 00884e7d404a Merge patch series "bloblist: fixes for transfer lists from TF-A v2.15"
+
+### Conversation log
+Resolving a conflict in MAINTAINERS (BUILDMAN section) for the second commit.
+
+Four commits done; now checking/building the fifth and picking "disable VBE by default".
+
+Seven picks done and building; now picking the bloblist v2 header commit.
+
+All 9 commits are on branch `cherry-89c37e22cf57` (based on ci/master), and the sandbox build passes at every step and at the end with no warnings or errors.
+
+**Fix-up:**
+- **Update maintainers and get_maintainer.ignore (`5455243781bf`):** there was a conflict in the BUILDMAN entry of `MAINTAINERS`. This tree lists Simon as maintainer plus a `W: https://github.com/deinde-dev/buildman` line. I followed upstream and replaced Simon with `S: Orphan`, but kept this tree's `W:` line. I added a note line about this to the commit message. The line counts still match the original (17 added, 34 removed).
+
+**Other results:**
+- The other 8 picks applied cleanly, and their changed files and line counts match the originals exactly.
+- `pickman split-check` changed nothing in any of the commits.
+- The merge commit `baa929ce1c66` (bloblist fixes for TF-A v2.15) is empty, as expected, since its two patches were picked just before it.
+- The 18 bloblist unit tests pass on the final build, including the new used-size alignment test and the version test.
+
+**Things worth reviewing:**
+- **disable VBE by default (`b93c88f1df97`):** the change to `TPL_BOOTMETH_VBE` is now `depends on TPL && VBE`, but there is no `CONFIG_VBE` symbol in this tree or in us/main. That means `TPL_BOOTMETH_VBE` can no longer be enabled anywhere. The bug comes from upstream, not from the pick, and `sandbox_vpl_defconfig` already turns this option off, so nothing breaks here.
+- **This tree's MAINTAINERS entries:** the ULIB and W1 COMMAND entries only exist in this tree and still list Simon. The upstream commit doesn't touch them, so I left them alone.
+
+The branch is ready to push and has not been merged anywhere.
+
 ---
 
