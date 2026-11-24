@@ -137,3 +137,51 @@ The regular expression engine supports these features:
 
 For extracting the parts matching a capture group and/or performing
 substitutions, including back references, see :doc:`setexpr`.
+
+Example
+-------
+
+Compare two numbers, reading the result from the shell's ``$?`` variable::
+
+    => test 3 -gt 2; echo $?
+    0
+    => test 3 -gt 4; echo $?
+    1
+
+The same expression written with the ``[`` alias, which needs the closing
+``]`` as an argument of its own::
+
+    => [ 3 -gt 2 ]; echo $?
+    0
+    => [ 3 -gt 2; echo $?
+    [: missing terminating ]
+    1
+
+Ask about files in the VFS::
+
+    => mount hostfs /host
+    => test -f /host/README; echo $?
+    0
+    => test -d /host/cmd; echo $?
+    0
+    => test -e /host/nosuch; echo $?
+    1
+
+Return value
+------------
+
+The return value $? is 0 if the expression is true and 1 if it is false. An
+empty expression is false, as is a single argument which is an empty string.
+
+An expression the command cannot work out is reported as true: the scan stops
+at the first argument which is not an operator, or at an operator with too few
+arguments left, and what has been evaluated so far is discarded. So
+``test abc -q abd`` and ``test abc =`` both give 0.
+
+See also
+--------
+
+* :doc:`true<true>` for a command which always succeeds
+* :doc:`false<false>` for a command which always fails
+* :doc:`itest<itest>` for comparing memory contents as well as values
+* :doc:`setexpr<setexpr>` for using the parts matched by a regular expression
