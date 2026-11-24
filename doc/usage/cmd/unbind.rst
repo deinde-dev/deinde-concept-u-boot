@@ -21,6 +21,11 @@ Description
 The unbind command is used to unbind a device from a driver. This makes the
 device unavailable in U-Boot.
 
+The first two forms unbind a single device, named either by its device-tree
+node path or by its device class and sequence number. The third form unbinds
+those children of the named device which use a particular driver, leaving the
+device itself bound.
+
 node path
     path of the device's device-tree node
 
@@ -31,14 +36,14 @@ seq
     sequence number of the device in the device class
 
 driver
-    device driver name
+    name of the driver whose child devices are to be unbound
 
 Example
 -------
 
 Given a system with a real time clock device with device path */pl031@9010000*
-and using driver rtc-pl031 unbinding and binding of the device is demonstrated
-using the three alternative unbind syntaxes.
+and using driver rtc-pl031 the device is unbound first by its node path and
+then by its class and sequence number.
 
 .. code-block::
 
@@ -84,13 +89,50 @@ using the three alternative unbind syntaxes.
     ...
      rtc           0  [   ]   rtc-pl031             |-- pl031@9010000
     => unbind rtc 0
-    => bind /pl031@9010000 rtc-pl031
-    => unbind rtc 0 rtc-pl031
+
+The third form removes children rather than the device it names. On the
+sandbox board *bind-test-child2* has no children until one is bound to it:
+
+.. code-block::
+
+    => bind simple_bus 1 simple_bus
+    => dm tree
+     Class     Seq    Probed  Driver                Name
+    -----------------------------------------------------------
+     root          0  [ + ]   root_driver           root_driver
+    ...
+     simple_bus    0  [   ]   simple_bus            |-- bind-test
+     phy           0  [   ]   phy_sandbox           |   |-- bind-test-child1
+     simple_bus    1  [   ]   simple_bus            |   `-- bind-test-child2
+     simple_bus   13  [   ]   simple_bus            |       `-- simple_bus
+    ...
+    => unbind simple_bus 1 simple_bus
+    => dm tree
+     Class     Seq    Probed  Driver                Name
+    -----------------------------------------------------------
+     root          0  [ + ]   root_driver           root_driver
+    ...
+     simple_bus    0  [   ]   simple_bus            |-- bind-test
+     phy           0  [   ]   phy_sandbox           |   |-- bind-test-child1
+     simple_bus    1  [   ]   simple_bus            |   `-- bind-test-child2
+    ...
+
+*bind-test-child2* is still bound, since the command removes its child and
+not the device named on the command line.
 
 Configuration
 -------------
 
 The unbind command is only available if CONFIG_CMD_BIND=y.
+
+Return value
+------------
+
+The return value $? is 0 (true) if the command succeeds. It is 1 (false) if
+the node path or the device class is not known, if no device is bound at the
+given node path, if no device has the given sequence number, if no driver has
+the given name, or if the device cannot be removed. Unbinding the children of
+a device which has none is not an error.
 
 See also
 --------

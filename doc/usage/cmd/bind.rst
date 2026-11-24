@@ -20,7 +20,7 @@ Description
 The bind command is used to bind a device to a driver. This makes the
 device available in U-Boot.
 
-While binding to a *node path* typically provides a working device
+While binding to a *node path* typically provides a working device,
 binding by parent node and driver may lead to a device that is only
 partially initialized.
 
@@ -88,7 +88,7 @@ using the two alternative bind syntaxes.
      rtc           0  [   ]   rtc-pl031             |-- pl031@9010000
     => date
     Date: 2023-06-22 (Thursday)    Time: 15:14:51
-    => unbind rtc 0 rtc-pl031
+    => unbind /pl031@9010000
     => bind root 0 rtc-pl031
     => date
     Date: 1980-08-19 (Tuesday)    Time: 14:45:30
@@ -99,6 +99,14 @@ Configuration
 -------------
 
 The bind command is only available if CONFIG_CMD_BIND=y.
+
+Return value
+------------
+
+The return value $? is 0 (true) if the command succeeds. It is 1 (false) if
+the node path or the device class is not known, if no device has the given
+sequence number, if no driver has the given name, or if the device cannot be
+bound.
 
 See also
 --------
