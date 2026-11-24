@@ -72,6 +72,7 @@ config PINMUX
 
 config PINCONF
 	bool "Support pin configuration controllers"
+	phases ppl spl
 	depends on PINCTRL_GENERIC
 	help
 	  This option enables pin configuration through the generic pinctrl
@@ -99,13 +100,6 @@ config PINCTRL_NOMADIK
 	help
 	  Enable pin multiplexing and configuration support for the Nomadik
 	  GPIO blocks in the ST-Ericsson DB8500.
-
-config SPL_PINCONF
-	bool "Support pin configuration controllers in SPL"
-	depends on SPL_PINCTRL_GENERIC
-	help
-	  This option is an SPL-variant of the PINCONF option.
-	  See the help of PINCONF for details.
 
 config SPL_PINCONF_RECURSIVE
 	bool "Support recursive binding for pin configuration nodes in SPL"
