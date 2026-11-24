@@ -69,8 +69,9 @@ stages:
   - test_suites
   - test.py
   - sage-lab
-  - sjg-lab
+  # The slow jobs come first so that the lab runner picks them up first
   - sjg-lab-slow
+  - sjg-lab
   - world_build
   - version_bump
   - release
