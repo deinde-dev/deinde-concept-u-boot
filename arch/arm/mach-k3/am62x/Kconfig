@@ -13,6 +13,7 @@ config TARGET_AM625_A53_EVM
 	bool "TI K3 based AM625 EVM running on A53"
 	select ARM64
 	select BINMAN
+	select TOOLS_MKEFICAPSULE
 	select OF_SYSTEM_SETUP
 	imply TI_COMMON_CMD_OPTIONS
 	imply TI_I2C_BOARD_DETECT
