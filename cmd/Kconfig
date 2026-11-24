@@ -23,6 +23,7 @@ if CMDLINE
 
 config HUSH_PARSER
 	bool "Use hush shell"
+	select GETOPT
 	help
 	  This option enables the "hush" shell (from Busybox) as command line
 	  interpreter, thus enabling powerful command line syntax like
