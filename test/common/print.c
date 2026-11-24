@@ -257,6 +257,7 @@ COMMON_TEST(print_display_buffer, UTF_CONSOLE);
 
 static int print_hexdump_line(struct unit_test_state *uts)
 {
+	int len = HEXDUMP_MAX_BUF_LENGTH(0x10);
 	u8 *linebuf;
 	u8 *buf;
 	int i;
@@ -270,11 +271,16 @@ static int print_hexdump_line(struct unit_test_state *uts)
 	linebuf = calloc(1, BUF_SIZE);
 	ut_assertnonnull(buf);
 	memset(linebuf, '\xff', BUF_SIZE);
-	ut_asserteq(-ENOSPC, hexdump_line(0, buf, 1, 0x10, 0, linebuf, 75));
+	ut_asserteq(-ENOSPC, hexdump_line(0, buf, 1, 0x10, 0, linebuf, len - 1));
 	ut_asserteq(0xff, linebuf[0]);
-	ut_asserteq(0x10, hexdump_line(0, buf, 1, 0x10, 0, linebuf, 76));
-	ut_asserteq('\0', linebuf[75]);
-	ut_asserteq(0xff, linebuf[76]);
+
+	/*
+	 * an address which takes every digit makes the longest line, so it must
+	 * fit in the buffer with nothing to spare
+	 */
+	ut_asserteq(0x10, hexdump_line(~0UL, buf, 1, 0x10, 0, linebuf, len));
+	ut_asserteq('\0', linebuf[len - 1]);
+	ut_asserteq(0xff, linebuf[len]);
 
 	free(linebuf);
 	free(buf);
