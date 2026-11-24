@@ -17,7 +17,7 @@ static int cmd_test_meminfo(struct unit_test_state *uts)
 	ut_assertok(run_command("meminfo", 0));
 	ut_assert_nextlinen("DRAM:  ");
 
-	if (!IS_ENABLED(CMD_MEMINFO_MAP))
+	if (!IS_ENABLED(CONFIG_CMD_MEMINFO_MAP))
 		return 0;
 
 	ut_assert_nextline_empty();
