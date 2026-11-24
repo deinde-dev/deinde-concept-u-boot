@@ -6,6 +6,7 @@ menu "Multifunction device drivers"
 
 config MISC
 	bool "Enable Driver Model for Misc drivers"
+	phases all
 	depends on DM
 	help
 	  Enable driver model for miscellaneous devices. This class is
@@ -13,25 +14,9 @@ config MISC
 	  set of generic read, write and ioctl methods may be used to
 	  access the device.
 
-config SPL_MISC
-	bool "Enable Driver Model for Misc drivers in SPL"
-	depends on SPL_DM
-	default MISC
-	help
-	  Enable driver model for miscellaneous devices. This class is
-	  used only for those do not fit other more general classes. A
-	  set of generic read, write and ioctl methods may be used to
-	  access the device.
-
-config TPL_MISC
-	bool "Enable Driver Model for Misc drivers in TPL"
-	depends on TPL_DM
-	default MISC
-	help
-	  Enable driver model for miscellaneous devices. This class is
-	  used only for those do not fit other more general classes. A
-	  set of generic read, write and ioctl methods may be used to
-	  access the device.
+config MISC
+	phases !ppl
+	default PPL_MISC
 
 config TKEY
 	bool "TKey security token support"
@@ -43,16 +28,6 @@ config TKEY
 	  This provides a common interface for TKey operations including
 	  reading device information, getting the unique device identifier
 	  (UDI), and communicating with the device.
-
-config VPL_MISC
-	bool "Enable Driver Model for Misc drivers in VPL"
-	depends on VPL_DM
-	default MISC
-	help
-	  Enable driver model for miscellaneous devices. This class is
-	  used only for those do not fit other more general classes. A
-	  set of generic read, write and ioctl methods may be used to
-	  access the device.
 
 config NVMEM
 	bool "NVMEM support"
