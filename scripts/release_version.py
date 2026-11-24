@@ -24,7 +24,13 @@ from typing import Tuple, NamedTuple
 
 
 class ReleaseInfo(NamedTuple):
-    """Information about a calculated release"""
+    """Information about a calculated release
+
+    Note that is_dead_period is True on every day which has no release, so
+    this includes the days between the RCs. In that case year and month give
+    the next final release and weeks_until_final is the time until then,
+    rounded up
+    """
     is_final: bool
     version: str
     year: int
