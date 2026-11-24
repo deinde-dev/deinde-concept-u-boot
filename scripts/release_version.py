@@ -171,9 +171,17 @@ def calculate_info(curdate: datetime.date = None) -> ReleaseInfo:
     )
 
 
-def generate_schedule():
-    """Generate the next release schedule section"""
-    curdate = datetime.date.today()
+def generate_schedule(curdate: datetime.date = None):
+    """Generate the next release schedule section
+
+    Args:
+        curdate: Date to calculate from (defaults to today)
+
+    Returns:
+        Text of the 'Next Release' section, in reStructuredText
+    """
+    if curdate is None:
+        curdate = datetime.date.today()
     info = calculate_info(curdate)
 
     if info.is_dead_period:
@@ -192,10 +200,10 @@ def generate_schedule():
     # Calculate the schedule for the target release
     final_date = get_first_monday(target_year, target_month)
 
-    # Calculate RC dates
-    rc3_date = final_date - datetime.timedelta(weeks=6)
+    # Calculate RC dates: these must match calculate_info()
+    rc1_date = final_date - datetime.timedelta(weeks=6)
     rc2_date = final_date - datetime.timedelta(weeks=4)
-    rc1_date = final_date - datetime.timedelta(weeks=2)
+    rc3_date = final_date - datetime.timedelta(weeks=2)
 
     schedule_text = f'''Next Release
 ------------
@@ -205,9 +213,9 @@ on {final_date.strftime('%A, %B %d, %Y')}.
 
 Release candidate schedule:
 
-* **{target_year}.{target_month:02d}-rc3**: {rc3_date.strftime('%a %d-%b-%Y')}
-* **{target_year}.{target_month:02d}-rc2**: {rc2_date.strftime('%a %d-%b-%Y')}
 * **{target_year}.{target_month:02d}-rc1**: {rc1_date.strftime('%a %d-%b-%Y')}
+* **{target_year}.{target_month:02d}-rc2**: {rc2_date.strftime('%a %d-%b-%Y')}
+* **{target_year}.{target_month:02d}-rc3**: {rc3_date.strftime('%a %d-%b-%Y')}
 * **{target_year}.{target_month:02d}** (Final): {final_date.strftime('%a %d-%b-%Y')}
 
 '''

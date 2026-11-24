@@ -414,6 +414,52 @@ Release History
         self.assertIn('-rc1', schedule)
         self.assertIn('Mon ', schedule)
 
+    def check_schedule(self, curdate, expect):
+        """Check the releases listed in a schedule
+
+        Args:
+            curdate (datetime.date): Date to generate the schedule on
+            expect (list of str): Expected list items, in order
+        """
+        schedule = generate_schedule(curdate)
+        items = [line for line in schedule.splitlines()
+                 if line.startswith('* ')]
+        self.assertEqual(expect, items)
+
+        # Each release must be the one which is made on its date
+        for item in items:
+            name, date_str = item[2:].split(': ')
+            date = datetime.datetime.strptime(date_str, '%a %d-%b-%Y').date()
+            version = name.replace(' (Final)', '').strip('*')
+            self.assertEqual(version, calculate_info(date).version)
+
+    def test_generate_schedule_dates(self):
+        """Test that the schedule has the right date for each release"""
+        expect = [
+            '* **2026.12-rc1**: Mon 26-Oct-2026',
+            '* **2026.12-rc2**: Mon 09-Nov-2026',
+            '* **2026.12-rc3**: Mon 23-Nov-2026',
+            '* **2026.12** (Final): Mon 07-Dec-2026',
+        ]
+
+        # On the day of each RC and on days in between
+        self.check_schedule(datetime.date(2026, 10, 26), expect)
+        self.check_schedule(datetime.date(2026, 11, 23), expect)
+        self.check_schedule(datetime.date(2026, 11, 24), expect)
+        self.check_schedule(datetime.date(2026, 12, 6), expect)
+
+        schedule = generate_schedule(datetime.date(2026, 11, 23))
+        self.assertIn('scheduled for **2026.12**\n'
+                      'on Monday, December 07, 2026.', schedule)
+
+        # On the day of the final, the schedule is for the next cycle
+        self.check_schedule(datetime.date(2026, 12, 7), [
+            '* **2027.02-rc1**: Mon 21-Dec-2026',
+            '* **2027.02-rc2**: Mon 04-Jan-2027',
+            '* **2027.02-rc3**: Mon 18-Jan-2027',
+            '* **2027.02** (Final): Mon 01-Feb-2027',
+        ])
+
 
     def test_update_docs_with_next_release_section(self):
         """Test documentation update includes Next Release section"""
