@@ -7,7 +7,7 @@
 
 #include <asm/psci.h>
 
-MEMORY { .mon_mem : ORIGIN = IMAGE_TEXT_BASE, LENGTH = IMAGE_MAX_SIZE }
+MEMORY { .mon_mem : ORIGIN = IMAGE_TEXT_BASE, LENGTH = IMAGE_MEM_SIZE }
 
 OUTPUT_FORMAT("elf64-littleaarch64", "elf64-littleaarch64",
 	      "elf64-littleaarch64")
