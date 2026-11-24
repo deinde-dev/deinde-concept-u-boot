@@ -199,6 +199,17 @@ static int cmd_test_read_bad(struct unit_test_state *uts)
 	ut_assert_nextline("read <interface> <dev[:part|#partname]> addr blk# cnt");
 	ut_assert_console_end();
 
+	/*
+	 * The command has no options, so one is refused before it runs. The
+	 * old code read it as the interface name instead
+	 */
+	ut_asserteq(1, run_commandf("read -x mmc 2:1 0x%lx 0", ra));
+	ut_assert_nextline("read - Load binary data from a partition");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("read <interface> <dev[:part|#partname]> addr blk# cnt");
+	ut_assert_console_end();
+
 	/* a device which does not exist */
 	ut_asserteq(1, run_commandf("read mmc 9 0x%lx 0 1", ra));
 	ut_assert_nextline("** Bad device specification mmc 9 **");
@@ -246,6 +257,14 @@ static int cmd_test_write_bad(struct unit_test_state *uts)
 
 	/* all five arguments are required */
 	ut_asserteq(1, run_commandf("write mmc 2:1 0x%lx 0", wa));
+	ut_assert_nextline("write - Store binary data to a partition");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("write <interface> <dev[:part|#partname]> addr blk# cnt");
+	ut_assert_console_end();
+
+	/* an option is refused before the command runs */
+	ut_asserteq(1, run_commandf("write -x mmc 2:1 0x%lx 0", wa));
 	ut_assert_nextline("write - Store binary data to a partition");
 	ut_assert_nextline_empty();
 	ut_assert_nextline("Usage:");

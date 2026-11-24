@@ -1913,6 +1913,7 @@ config CMD_POWEROFF
 
 config CMD_READ
 	bool "read - Read binary data from a partition"
+	select GETOPT
 	help
 	  Provides low-level access to the data in a partition.
 
@@ -2083,6 +2084,7 @@ config CMD_WDT
 
 config CMD_WRITE
 	bool "write - Write binary data to a partition"
+	select GETOPT
 	help
 	  Provides low-level write access to a partition.
 
