@@ -210,6 +210,17 @@ static int cmd_test_md_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_commandf("md.s %lx 4", MD_ADDR));
 	ut_assert_console_end();
 
+	/*
+	 * the command has no options, so one is refused rather than read as an
+	 * address, which is what it meant before the getopt conversion
+	 */
+	ut_asserteq(1, run_command("md -1 4", 0));
+	ut_assert_nextline("md - memory display");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_skip_to_linen("md [.b, .w, .l");
+	ut_assert_console_end();
+
 	return 0;
 }
 CMD_TEST(cmd_test_md_usage, UTF_CONSOLE);

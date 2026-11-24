@@ -63,8 +63,11 @@ static uint search_len;
  *	md{.b, .w, .l, .q} {addr} {len}
  */
 #define DISP_LINE_LEN	16
-static int do_mem_md(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+/*
+ * Display memory. The data size comes from the suffix on argv[0], so the mdc
+ * command can call this with its own argv to do a single display.
+ */
+static int mem_display(int flag, int argc, char *const argv[])
 {
 	ulong	addr, length, bytes;
 	const void *buf;
@@ -112,6 +115,11 @@ static int do_mem_md(struct cmd_tbl *cmdtp, int flag, int argc,
 	dp_last_length = length;
 	dp_last_size = size;
 	return (rc);
+}
+
+static int do_mem_md(struct getopt_state *gs)
+{
+	return mem_display(gs->cmd_flag, gs->argc, gs->argv);
 }
 
 static int do_mem_mm(struct getopt_state *gs)
@@ -200,7 +208,7 @@ static int do_mem_mdc(struct getopt_state *gs)
 	count = dectoul(argv[3], NULL);
 
 	for (;;) {
-		do_mem_md (NULL, 0, 3, argv);
+		mem_display(0, 3, argv);
 
 		/* delay for <count> ms... */
 		for (i=0; i<count; i++)
@@ -1329,7 +1337,7 @@ static int do_random(struct getopt_state *gs)
 #endif
 
 /**************************************************/
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	md,	3,	1,	do_mem_md,
 	"memory display",
 	"[.b, .w, .l" HELP_Q "] address [# of objects]"
