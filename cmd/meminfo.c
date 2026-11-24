@@ -9,6 +9,7 @@
 #include <command.h>
 #include <display_options.h>
 #include <env.h>
+#include <getopt.h>
 #include <lmb.h>
 #include <malloc.h>
 #include <mapmem.h>
@@ -53,8 +54,7 @@ static void show_lmb(const struct lmb *lmb, ulong *uptop)
 	}
 }
 
-static int do_meminfo(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_meminfo(struct getopt_state *gs)
 {
 	ulong upto, stk_bot;
 
@@ -115,7 +115,7 @@ static int do_mem_size(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif /* CONFIG_CMD_MEMSIZE */
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	meminfo,	1,	1,	do_meminfo,
 	"display memory information",
 	""
