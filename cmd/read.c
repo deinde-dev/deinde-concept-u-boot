@@ -46,9 +46,8 @@ static int do_rw(struct getopt_state *gs)
 	}
 
 	if (blk > limit || cnt > limit - blk) {
-		printf("%s out of range\n", argv[0]);
 		unmap_sysmem(ptr);
-		return 1;
+		return cmd_fail(0, "%s out of range\n", argv[0]);
 	}
 
 	/*
@@ -61,10 +60,8 @@ static int do_rw(struct getopt_state *gs)
 		res = blk_dread(dev_desc, offset + blk, cnt, ptr);
 	unmap_sysmem(ptr);
 
-	if (res != cnt) {
-		printf("%s error\n", argv[0]);
-		return 1;
-	}
+	if (res != cnt)
+		return cmd_fail(0, "%s error\n", argv[0]);
 
 	return 0;
 }
