@@ -159,6 +159,7 @@ config CMD_CROS_EC
 
 config CROS_EC
 	bool "Enable Chrome OS EC"
+	phases all
 	help
 	  Enable access to the Chrome OS EC. This is a separate
 	  microcontroller typically available on a SPI bus on Chromebooks. It
@@ -166,35 +167,9 @@ config CROS_EC
 	  control access to the battery and main PMIC depending on the
 	  device. You can use the 'crosec' command to access it.
 
-config SPL_CROS_EC
-	bool "Enable Chrome OS EC in SPL"
-	depends on SPL_MISC
-	help
-	  Enable access to the Chrome OS EC in SPL. This is a separate
-	  microcontroller typically available on a SPI bus on Chromebooks. It
-	  provides access to the keyboard, some internal storage and may
-	  control access to the battery and main PMIC depending on the
-	  device. You can use the 'crosec' command to access it.
-
-config TPL_CROS_EC
-	bool "Enable Chrome OS EC in TPL"
-	depends on TPL_MISC
-	help
-	  Enable access to the Chrome OS EC in TPL. This is a separate
-	  microcontroller typically available on a SPI bus on Chromebooks. It
-	  provides access to the keyboard, some internal storage and may
-	  control access to the battery and main PMIC depending on the
-	  device. You can use the 'crosec' command to access it.
-
-config VPL_CROS_EC
-	bool "Enable Chrome OS EC in VPL"
-	depends on VPL_MISC
-	help
-	  Enable access to the Chrome OS EC in VPL. This is a separate
-	  microcontroller typically available on a SPI bus on Chromebooks. It
-	  provides access to the keyboard, some internal storage and may
-	  control access to the battery and main PMIC depending on the
-	  device. You can use the 'crosec' command to access it.
+config CROS_EC
+	phases !ppl
+	depends on MISC
 
 config CROS_EC_I2C
 	bool "Enable Chrome OS EC I2C driver"
