@@ -110384,3 +110384,38 @@ The branch is ready to push and hasn't been merged anywhere.
 
 ---
 
+## 2026-11-23: us/main
+
+Branch: cherry-338f0d384ed5
+
+Commits:
+- 338f0d384ed5 net: zynq_gem: don't tear down a shared MDIO bus
+- 0d4f94c074a9 net: zynq_gem: plug resource leaks in .probe error path
+- a9663c2c3635 net: zynq_gem: free buffers in .remove
+- f2a3b6ddad69 net: zynq_gem: release the SGMII serdes PHY in .remove
+- 90322247a50f gpio: delay: configure wrapped GPIO as output on first use
+- 9ca5fff06d8c Merge tag 'xilinx-for-v2027.01-rc3' of https://git.u-boot-project.org/u-boot/custodians/u-boot-amd
+
+### Conversation log
+Empty merge as expected; committing it with --allow-empty.
+
+All 6 commits are now on the `cherry-338f0d384ed5` branch, based on `ci/master`, and the sandbox build passes with no warnings or errors.
+
+| Original | New | Subject |
+|---|---|---|
+| 338f0d384ed5 | 24469f1ea7be | net: zynq_gem: don't tear down a shared MDIO bus |
+| 0d4f94c074a9 | 21756319c337 | net: zynq_gem: plug resource leaks in .probe error path |
+| a9663c2c3635 | d5ed5e08f408 | net: zynq_gem: free buffers in .remove |
+| f2a3b6ddad69 | 7fb5c8787ba0 | net: zynq_gem: release the SGMII serdes PHY in .remove |
+| 90322247a50f | 7cb25003cef0 | gpio: delay: configure wrapped GPIO as output on first use |
+| 9ca5fff06d8c | 0f10ba686897 | Merge tag 'xilinx-for-v2027.01-rc3' … (empty commit) |
+
+- **Conflicts:** none. Every commit applied with an auto-merge.
+- **Size of changes:** each picked commit touches the same file with the same line counts as its original.
+- **Phase configs:** `pickman split-check` made no changes to any of the five regular commits, so no fix-ups or notes were needed. The merge commit is empty, as expected, so there was nothing for it to check.
+- **Builds:** the sandbox build passed after each pick. The last build ran just before I recorded the empty merge commit, which doesn't change any code.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
