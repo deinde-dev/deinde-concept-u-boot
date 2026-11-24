@@ -25,7 +25,8 @@ address to the *target* address. If the *target* address points to NOR flash,
 the flash is programmed. When the *target* address points at ordinary memory,
 memmove() is used, so the two regions may overlap.
 
-The number bytes in one chunk is defined by the suffix defaulting to 4 bytes:
+The number of bytes in one chunk is defined by the suffix, defaulting to 4
+bytes:
 
 ====== ==========
 suffix chunk size
@@ -44,14 +45,14 @@ target
         target address, hexadecimal
 
 count
-        number of words to be copied, hexadecimal
+        number of chunks to be copied, hexadecimal
 
 Examples
 --------
 
 The example device has a NOR flash where the lower part of the flash is
 protected. We first copy to RAM, then to unprotected flash. Last we try to
-write to protectd flash.
+write to protected flash.
 
 ::
 
@@ -79,6 +80,13 @@ Configuration
 The cp command is available if CONFIG_CMD_MEMORY=y. Support for 64 bit words
 (cp.q) is only available on 64-bit targets. Copying to flash depends on
 CONFIG_MTD_NOR_FLASH=y.
+
+Return value
+------------
+
+The return value $? is 0 (true) if the copy succeeds. It is 1 (false) if the
+count is zero, if the data size is not one of those listed above, or if
+programming the flash fails.
 
 See also
 --------

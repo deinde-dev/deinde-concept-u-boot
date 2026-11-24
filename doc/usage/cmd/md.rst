@@ -11,7 +11,7 @@ Synopsis
 
 ::
 
-    md <address>[<data_size>] [<length>]
+    md[<data_size>] <address> [<length>]
 
 Description
 -----------
@@ -20,8 +20,9 @@ The md command is used to dump the contents of memory. It uses a standard
 format that includes the address, hex data and ASCII display. It supports
 various data sizes and uses the endianness of the target.
 
-The specified data_size and length become the defaults for future memory
-commands.
+The length becomes the default for a later md command which does not give
+one. The data_size is not remembered in the same way: it comes from the
+suffix each time, defaulting to .l.
 
 address
     start address to display
@@ -39,8 +40,9 @@ data_size
     =========  ===================
 
 length
-    number of values to dump. Defaults to 40 (0d64). Note that this is not
-    the same as the number of bytes, unless .b is used.
+    number of values to dump, which is not the same as the number of bytes
+    unless .b is used. Defaults to the length of the previous md command, or
+    0x40 if there has not been one.
 
 Note that the format of 'md.b' can be emulated from linux with::
 
@@ -98,13 +100,20 @@ Example
     00010070: 0000000000000000 00005596f0e892f3    .............U..
 
 The empty commands cause a 'repeat', so that md shows the next available data
-in the same format as before.
+in the same format as before. A repeat takes no notice of the command line,
+keeping the address, data_size and length of the command before it.
 
+Configuration
+-------------
+
+The md command is available if CONFIG_CMD_MEMORY=y. Support for 64-bit values
+(md.q) is only available on 64-bit targets.
 
 Return value
 ------------
 
-The return value $? is always 0 (true).
+The return value $? is 0 (true), unless the data_size is not one of those
+listed above, in which case it is 1 (false) and nothing is shown.
 
 See also
 --------

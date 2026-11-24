@@ -41,7 +41,8 @@ addr2
     Address of the second memory area.
 
 count
-    Number of bytes to compare (as hexadecimal number).
+    Number of values to compare (as hexadecimal number), which is not the
+    same as the number of bytes unless cmp.b is used.
 
 Example
 -------
@@ -104,8 +105,12 @@ only available on 64-bit targets.
 Return value
 ------------
 
-The return value $? is true (0) if the compared memory areas are equal.
-The reutrn value is false (1) if the compared memory areas differ.
+The return value $? is true (0) if the compared memory areas are equal. The
+return value is false (1) if the compared memory areas differ, or if the data
+size is not one of those listed above.
+
+The command reports how many values it found the same before stopping, which
+is the position of the first difference where there is one.
 
 See also
 --------
