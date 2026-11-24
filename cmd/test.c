@@ -7,6 +7,7 @@
 #include <command.h>
 #include <fs_cmd.h>
 #include <fs_common.h>
+#include <getopt.h>
 #include <vfs.h>
 #include <log.h>
 #include <slre.h>
@@ -70,9 +71,10 @@ const struct {
 #endif
 };
 
-static int do_test(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_test(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
+	int argc = gs->argc;
 	char * const *ap;
 	int i, op, left, adv, expr, last_expr, last_unop, last_binop;
 
@@ -294,17 +296,20 @@ static int do_test(struct cmd_tbl *cmdtp, int flag, int argc,
 #undef true
 #undef false
 
-U_BOOT_CMD(
+U_BOOT_CMD_GETOPT(
 	test,	CONFIG_SYS_MAXARGS,	1,	do_test,
 	"minimal test like /bin/sh",
 	"[args..]"
 );
 
 /*
- * This does not use the U_BOOT_CMD macro as [ can't be used in symbol names
+ * This does not use the U_BOOT_CMD macro as [ can't be used in symbol names.
+ * The cast is what U_BOOT_CMD_GETOPT() does, since ->cmd holds the classic
+ * signature and cmd_invoke() picks the getopt one from CMDF_GETOPT
  */
 ll_entry_declare(struct cmd_tbl, lbracket, cmd) = {
-	"[",	CONFIG_SYS_MAXARGS, CMDF_REPEATABLE, do_test,
+	"[",	CONFIG_SYS_MAXARGS, CMDF_GETOPT | CMDF_REPEATABLE,
+	(int (*)(struct cmd_tbl *, int, int, char *const []))do_test,
 	"alias for 'test'",
 #ifdef CONFIG_SYS_LONGHELP
 	" <test expression> ]"
