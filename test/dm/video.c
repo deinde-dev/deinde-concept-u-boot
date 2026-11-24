@@ -1479,6 +1479,84 @@ static int dm_test_video_cmd(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_video_cmd, UTF_SCAN_PDATA | UTF_SCAN_FDT);
 
+/* Check the usage message shown by the video command */
+static int check_video_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("video - Video commands");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextlinen("video setcursor");
+	ut_assert_nextlinen("video puts");
+	ut_assert_nextlinen("video write");
+	ut_assert_nextlinen("         -p:");
+	ut_assert_nextlinen("video images");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* video commands with missing or invalid arguments */
+static int dm_test_video_cmd_err(struct unit_test_state *uts)
+{
+	struct udevice *dev;
+
+	/*
+	 * probe the video device, since the commands which check their
+	 * arguments after finding the video console need one to be there
+	 */
+	ut_assertok(select_vidconsole(uts, "vidconsole0"));
+	ut_assertok(video_get_nologo(uts, &dev));
+	console_record_reset();
+
+	/* a missing or unknown sub-command shows the usage message */
+	ut_asserteq(1, run_command("video", 0));
+	ut_assertok(check_video_usage(uts));
+
+	ut_asserteq(1, run_command("video nosuch", 0));
+	ut_assertok(check_video_usage(uts));
+
+	/* setcursor needs both a column and a row */
+	ut_asserteq(1, run_command("video setcursor 0", 0));
+	ut_assertok(check_video_usage(uts));
+
+	/* puts needs a string */
+	ut_asserteq(1, run_command("video puts", 0));
+	ut_assertok(check_video_usage(uts));
+
+	/* write needs a string to go with each position */
+	ut_asserteq(1, run_command("video write 1:1", 0));
+	ut_assertok(check_video_usage(uts));
+
+	ut_asserteq(1, run_command("video write 1:1 one 2:2", 0));
+	ut_assertok(check_video_usage(uts));
+
+	/* each position must have a colon in it */
+	ut_asserteq(1, run_command("video write 11 one", 0));
+	ut_assertok(check_video_usage(uts));
+
+	/* an option other than -p is refused */
+	ut_asserteq(1, run_command("video write -q 1:1 one", 0));
+	ut_assertok(check_video_usage(uts));
+
+	/* the separate commands show their own usage message */
+	ut_asserteq(1, run_command("setcurs 10", 0));
+	ut_assert_nextline("setcurs - set cursor position within screen");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("setcurs     <col> <row> in hex characters");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("lcdputs", 0));
+	ut_assert_nextline("lcdputs - print string on video framebuffer");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("lcdputs     <string>");
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_video_cmd_err, UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
+
 /* video images command */
 static int dm_test_video_images(struct unit_test_state *uts)
 {
