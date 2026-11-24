@@ -84,18 +84,43 @@ CMD_TEST(cmd_test_meminfo_usage, UTF_CONSOLE);
 
 /* Test 'memsize' command */
 #ifdef CONFIG_CMD_MEMSIZE
-static int cmd_test_memsize(struct unit_test_state *uts)
+static int cmd_test_memsize_base(struct unit_test_state *uts)
 {
+	ulong mib = gd->ram_size >> 20;
+
 	ut_assertok(run_command("memsize", 0));
-	ut_assert_nextline("256 MiB");
+	ut_assert_nextline("%lu MiB", mib);
 	ut_assert_console_end();
 
+	/* with a name it writes the size to that variable and shows nothing */
 	ut_assertok(run_command("memsize memsz", 0));
-	ut_asserteq_str("256", env_get("memsz"));
+	ut_asserteq(mib, env_get_ulong("memsz", 10, 0));
+	ut_assert_console_end();
+
+	/* a second run overwrites the variable */
+	ut_assertok(env_set("memsz", "nonsense"));
+	ut_assertok(run_command("memsize memsz", 0));
+	ut_asserteq(mib, env_get_ulong("memsz", 10, 0));
+	ut_assert_console_end();
+
+	/* leave the environment as it was found */
+	ut_assertok(env_set("memsz", NULL));
+
+	return 0;
+}
+CMD_TEST(cmd_test_memsize_base, UTF_CONSOLE);
+
+/* Test 'memsize' with too many arguments */
+static int cmd_test_memsize_usage(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("memsize memsz extra", 0));
+	ut_assert_nextlinen("memsize - get detected ram size in MiB");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("memsize [envvar]");
 	ut_assert_console_end();
 
 	return 0;
 }
-
-CMD_TEST(cmd_test_memsize, UTF_CONSOLE);
+CMD_TEST(cmd_test_memsize_usage, UTF_CONSOLE);
 #endif
