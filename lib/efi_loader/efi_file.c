@@ -903,6 +903,7 @@ static efi_status_t EFIAPI efi_file_getinfo(struct efi_file_handle *file,
 	efi_status_t ret = EFI_SUCCESS;
 	u16 *dst;
 	int ofs;
+	efi_uintn_t required_size = 0;
 
 	EFI_ENTRY("%p, %pUs, %p, %p", file, info_type, buffer_size, buffer);
 	ofs = efi_logs_call(EFILP_FILE, EFILF_GETINFO, 2,
@@ -918,14 +919,12 @@ static efi_status_t EFIAPI efi_file_getinfo(struct efi_file_handle *file,
 	if (!guidcmp(info_type, &efi_file_info_guid)) {
 		struct efi_file_info *info = buffer;
 		char *filename = basename(fh);
-		unsigned int required_size;
 		loff_t file_size;
 
 		/* check buffer size: */
 		required_size = sizeof(*info) +
 				2 * (utf8_utf16_strlen(filename) + 1);
 		if (*buffer_size < required_size) {
-			*buffer_size = required_size;
 			ret = EFI_BUFFER_TOO_SMALL;
 			goto error;
 		}
@@ -956,7 +955,6 @@ static efi_status_t EFIAPI efi_file_getinfo(struct efi_file_handle *file,
 	} else if (!guidcmp(info_type, &efi_file_system_info_guid)) {
 		struct efi_file_system_info *info = buffer;
 		struct disk_partition part;
-		efi_uintn_t required_size;
 		int r;
 
 		if (fh->fs->part >= 1)
@@ -969,7 +967,6 @@ static efi_status_t EFIAPI efi_file_getinfo(struct efi_file_handle *file,
 		}
 		required_size = sizeof(*info) + 2;
 		if (*buffer_size < required_size) {
-			*buffer_size = required_size;
 			ret = EFI_BUFFER_TOO_SMALL;
 			goto error;
 		}
@@ -993,8 +990,8 @@ static efi_status_t EFIAPI efi_file_getinfo(struct efi_file_handle *file,
 		 */
 		info->volume_label[0] = 0;
 	} else if (!guidcmp(info_type, &efi_system_volume_label_id)) {
-		if (*buffer_size < 2) {
-			*buffer_size = 2;
+		required_size = 2;
+		if (*buffer_size < required_size) {
 			ret = EFI_BUFFER_TOO_SMALL;
 			goto error;
 		}
@@ -1004,6 +1001,8 @@ static efi_status_t EFIAPI efi_file_getinfo(struct efi_file_handle *file,
 	}
 
 error:
+	if (buffer_size && required_size)
+		*buffer_size = required_size;
 	efi_loge_call(ofs, ret, buffer_size ? (u64)*buffer_size : 0);
 
 	return EFI_EXIT(ret);
