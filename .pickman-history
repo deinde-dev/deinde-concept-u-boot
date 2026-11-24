@@ -110459,3 +110459,62 @@ The branch is ready to push and has not been merged anywhere.
 
 ---
 
+### Pipeline fix: 2026-11-23 (attempt 1)
+
+Branch: cherry-a0e2935a4bde
+
+Failed jobs:
+- build all platforms 4/6 (world_build)
+
+### Conversation log
+Checking the eth-phy commit, since the log tail only shows the build summary and not the actual error.
+
+The code matches the rest of the file. Next I'll check how CI picks the boards for build 4/6.
+
+The job is shard 4/6 of all boards (excluding xtensa), and the error itself was cut off from the log tail. I'm rebuilding that shard locally to find it.
+
+Meanwhile, the quick sandbox check:
+
+It reproduces: 1 board failed. Finding it:
+
+The CMPCPRO board fails in eth-phy-uclass.c. Checking how 'struct uclass_driver' declares pre_remove:
+
+This tree leaves out pre_remove when DM_DEVICE_REMOVE is disabled, so uclass drivers must wrap the hook with dm_remove_ptr(). Checking how that macro handles the unused function:
+
+The macro handles the unused function, so no extra guards are needed. Amending the responsible commit (3be9579aca76, HEAD~3):
+
+That commit has one parent (an empty commit, not a real merge), so the rebase keeps it. Applying the fix:
+
+The clang diagnostics come from the editor not having the U-Boot include paths, so they aren't real errors. Checking the commit message, then rebuilding:
+
+I fixed the failure on local branch cherry-a0e2935a4bde-fix1, which I have not pushed. Shard 4/6 and sandbox both build cleanly with the fix.
+
+**Responsible commit:** 3be9579aca76 "net: eth-phy: release reset GPIO and reset control on device removal" (cherry-pick of af9898a75f15).
+
+**Root cause:** The CI log tail only showed the build summary, so I rebuilt shard 4/6 (260 boards) locally. That reproduced the exit code 100, and the one board that failed was the powerpc CMPCPRO:
+
+```
+drivers/net/eth-phy-uclass.c:212:27: error: excess elements in struct initializer [-Werror]
+  212 |         .pre_remove     = eth_phy_pre_remove,
+```
+
+In this tree, 'struct uclass_driver' only has a real pre_remove function pointer when CONFIG_DM_DEVICE_REMOVE is enabled. Otherwise the field is a placeholder ('struct dm_absent'), and uclass drivers are expected to set it with dm_remove_ptr(). CMPCPRO doesn't enable DM_DEVICE_REMOVE, so assigning the function directly fails to compile. The upstream commit assigns it directly because upstream has no such conditional field.
+
+**Fix:** I amended that commit to use the same pattern as the other uclass drivers here (gpio, mmc, pci, wdt):
+
+```c
+	.pre_remove	= dm_remove_ptr(eth_phy_pre_remove),
+```
+
+I added this note to the commit message:
+`[pickman] Use dm_remove_ptr() for pre_remove since it is absent without DM_DEVICE_REMOVE`
+
+The rebase went through without conflicts. The later commits (tcp, the empty merge commit and the pickman record) are unchanged apart from their new hashes. Compared with the original branch, the only difference is that one line in drivers/net/eth-phy-uclass.c.
+
+**Verification:**
+- `um build sandbox` builds cleanly.
+- I rebuilt the whole CI shard locally with the same flags as CI (`buildman -PEWM -x xtensa --shard 4/6`): all 260 boards build and buildman exits with 0. CMPCPRO passes, and the only remaining warnings are the usual devicetree and missing-blob ones.
+- I didn't run the suggested `buildman 4,6,all,platforms,sandbox`, because that argument doesn't name a board set. The shard rebuild above covers the boards in the failed job instead.
+
+---
+
