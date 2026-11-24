@@ -244,15 +244,19 @@ build all platforms:
         -r tools/buildman/requirements.txt -r tools/dtoc/requirements.txt
         -r board/qualcomm/requirements.txt
         setuptools
+    # Filter out the output which cannot be acted on here (devicetree
+    # warnings, migration warnings and missing blobs), so that errors and
+    # the remaining warnings are easy to find
     - ret=0;
       if read q p < /sys/fs/cgroup/cpu.max 2>/dev/null && [ "$q" != max ]; then
         T="-T $(( (q + p - 1) / p ))";
       fi;
       git config --global --add safe.directory "${CI_PROJECT_DIR}";
       sel="-x xtensa --shard ${CI_NODE_INDEX}/${CI_NODE_TOTAL}";
-      buildman ${T} -o /tmp -PEWM ${sel} || ret=$?;
+      filt="-yY --filter-blob-warnings";
+      buildman ${T} -o /tmp -PEWM ${filt} ${sel} || ret=$?;
       if [[ $ret -ne 0 ]]; then
-        buildman -o /tmp -seP ${sel};
+        buildman -o /tmp -seP ${filt} ${sel};
         exit $ret;
       fi;
 
