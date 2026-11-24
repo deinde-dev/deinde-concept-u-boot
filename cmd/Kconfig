@@ -2955,6 +2955,7 @@ config CMD_VIDCONSOLE
 	bool "lcdputs and setcurs"
 	depends on VIDEO
 	default y
+	select GETOPT
 	help
 	  Enabling this will provide 'setcurs' and 'lcdputs' commands which
 	  support cursor positioning and drawing strings on the video

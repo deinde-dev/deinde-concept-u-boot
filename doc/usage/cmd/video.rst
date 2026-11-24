@@ -74,7 +74,8 @@ video images
 
 List all images that are compiled into U-Boot. This shows the name and size
 of each image that was built from .bmp files in the drivers/video/images
-directory.
+directory. Which images are present depends on the features which are
+enabled, since each is built by the option that uses it.
 
 Examples
 --------
@@ -100,19 +101,29 @@ Write text using pixel coordinates::
 
     => video write -p 0:0 "Top left corner" a0:80 "Pixel position"
 
-List compiled-in images::
+List compiled-in images, here on sandbox::
 
     => video images
     Name                       Size
     -------------------- ----------
-    u_boot                     6932
+    bgrt                      43926
+    canonical                 14258
+    deinde                     6354
+    help                       1782
+    lock                       2454
+    multipass                  4378
+    riscos_arrow               3798
+    settings                   1782
+    tick                        822
 
-    Total images: 1
+    Total images: 9
 
 Configuration
 -------------
 
-The video command is available if CONFIG_CMD_VIDEO=y.
+The video command is available if CONFIG_CMD_VIDCONSOLE=y. The same option
+provides the separate :doc:`setcurs<setcurs>` and :doc:`lcdputs<lcdputs>`
+commands.
 
 Return value
 ------------
@@ -122,6 +133,10 @@ The return value $? is 0 (true) on success, 1 (false) on failure.
 See also
 --------
 
+* :doc:`setcurs<setcurs>` for setting the cursor position without naming a
+  sub-command
+* :doc:`lcdputs<lcdputs>` for writing a string at the cursor position without
+  naming a sub-command
 * :doc:`osd<osd>` for the text overlay drawn on top of the display
 * :doc:`bmp<bmp>` for drawing a BMP image on the display
 * :doc:`2048<2048>` for a game which needs an ANSI terminal rather than a

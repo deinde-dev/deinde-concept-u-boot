@@ -28,7 +28,6 @@ row
     text-row position, so the number of pixels per position depends on the
     font size.
 
-
 Examples
 --------
 
@@ -43,15 +42,17 @@ Move cursor to top left::
 Configuration
 -------------
 
-The setcurs command is available if CONFIG_CMD_VIDEO=y.
-
-See also
---------
-
-* :doc:`video` - video command with subcommands
-* :doc:`lcdputs` - print string on video framebuffer
+The setcurs command is available if CONFIG_CMD_VIDCONSOLE=y.
 
 Return value
 ------------
 
 The return value $? is 0 (true) on success, 1 (false) on failure.
+
+See also
+--------
+
+* :doc:`video<video>` for the same operation as a sub-command, along with the
+  rest of the video-console commands
+* :doc:`lcdputs<lcdputs>` for writing a string at the position this command
+  sets

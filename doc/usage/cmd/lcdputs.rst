@@ -44,15 +44,16 @@ Print multiple lines::
 Configuration
 -------------
 
-The lcdputs command is available if CONFIG_CMD_VIDEO=y.
-
-See also
---------
-
-* :doc:`video` - video command with subcommands
-* :doc:`setcurs` - set cursor position
+The lcdputs command is available if CONFIG_CMD_VIDCONSOLE=y.
 
 Return value
 ------------
 
 The return value $? is 0 (true) on success, 1 (false) on failure.
+
+See also
+--------
+
+* :doc:`video<video>` for the same operation as a sub-command, along with the
+  rest of the video-console commands
+* :doc:`setcurs<setcurs>` for setting the position this command writes at
