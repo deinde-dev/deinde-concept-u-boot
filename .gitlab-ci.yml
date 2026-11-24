@@ -69,8 +69,9 @@ stages:
   - test_suites
   - test.py
   - sage-lab
-  - sjg-lab
+  # The slow jobs come first so that the lab runner picks them up first
   - sjg-lab-slow
+  - sjg-lab
   - world_build
   - version_bump
   - release
@@ -202,10 +203,12 @@ stages:
 .world_build:
   stage: world_build
   dependencies: []
-  # Start as soon as 'sandbox test.py' finishes, rather than waiting for all
-  # the earlier stages, since these builds do not depend on the lab
+  # Start as soon as the first build job finishes, rather than waiting for
+  # all the earlier stages, since these builds do not depend on the lab.
+  # With 'when: always' they run even if an earlier job fails, so waiting
+  # for 'sandbox test.py' would only delay them
   needs:
-    - job: "sandbox test.py"
+    - job: "Build allyesconfig, tools-only and envtools"
       optional: true
   rules:
     - !reference [.only_jobs, rules]
@@ -861,7 +864,6 @@ coreboot test.py:
 
 .sjg_lab_template: &sjg_lab_dfn
   stage: sjg-lab
-  needs: []
   rules:
     - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-sjg]
@@ -877,8 +879,11 @@ coreboot test.py:
       when: manual
       allow_failure: true
   dependencies: []
+  # Start as soon as the first build job finishes. With 'when: always'
+  # these jobs run even if an earlier job fails, so waiting for
+  # 'sandbox test.py' would only delay them
   needs:
-    - job: "sandbox test.py"
+    - job: "Build allyesconfig, tools-only and envtools"
       optional: true
   tags: [ 'lab' ]
   script:
