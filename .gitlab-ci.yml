@@ -202,10 +202,12 @@ stages:
 .world_build:
   stage: world_build
   dependencies: []
-  # Start as soon as 'sandbox test.py' finishes, rather than waiting for all
-  # the earlier stages, since these builds do not depend on the lab
+  # Start as soon as the first build job finishes, rather than waiting for
+  # all the earlier stages, since these builds do not depend on the lab.
+  # With 'when: always' they run even if an earlier job fails, so waiting
+  # for 'sandbox test.py' would only delay them
   needs:
-    - job: "sandbox test.py"
+    - job: "Build allyesconfig, tools-only and envtools"
       optional: true
   rules:
     - !reference [.only_jobs, rules]
@@ -876,8 +878,11 @@ coreboot test.py:
       when: manual
       allow_failure: true
   dependencies: []
+  # Start as soon as the first build job finishes. With 'when: always'
+  # these jobs run even if an earlier job fails, so waiting for
+  # 'sandbox test.py' would only delay them
   needs:
-    - job: "sandbox test.py"
+    - job: "Build allyesconfig, tools-only and envtools"
       optional: true
   tags: [ 'lab' ]
   script:
