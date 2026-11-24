@@ -254,9 +254,10 @@ static int do_mem_mwc(struct getopt_state *gs)
 }
 #endif /* CONFIG_CMD_MX_CYCLIC */
 
-static int do_mem_cmp(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_mem_cmp(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	ulong	addr1, addr2, count, ngood, bytes;
 	int	size;
 	int     rcode = 0;
@@ -1366,7 +1367,7 @@ U_BOOT_CMD_NOOPTS(
 	"[.b, .w, .l" HELP_Q "] source target count"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	cmp,	4,	1,	do_mem_cmp,
 	"memory compare",
 	"[.b, .w, .l" HELP_Q "] addr1 addr2 count"

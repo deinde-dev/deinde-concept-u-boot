@@ -181,6 +181,17 @@ static int cmd_test_cmp_usage(struct unit_test_state *uts)
 	/* so does a string, which only the ms command understands */
 	ut_asserteq(1, run_commandf("cmp.s %lx %lx 2", CMP_ADDR, CMP_DEST));
 	ut_assert_console_end();
+
+	/*
+	 * the command has no options, so one is refused rather than read as an
+	 * address, which is what it meant before the getopt conversion
+	 */
+	ut_asserteq(1, run_commandf("cmp -1 %lx 2", CMP_DEST));
+	ut_assert_nextline("cmp - memory compare");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_skip_to_linen("cmp [.b, .w, .l");
+	ut_assert_console_end();
 	unmap_sysmem(buf);
 
 	return 0;
