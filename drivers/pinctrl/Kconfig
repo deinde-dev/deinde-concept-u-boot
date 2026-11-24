@@ -80,6 +80,7 @@ config PINCONF
 
 config PINCONF_RECURSIVE
 	bool "Support recursive binding for pin configuration nodes"
+	phases ppl spl
 	depends on PINCTRL_FULL
 	default n if ARCH_STM32MP
 	default y
@@ -100,15 +101,6 @@ config PINCTRL_NOMADIK
 	help
 	  Enable pin multiplexing and configuration support for the Nomadik
 	  GPIO blocks in the ST-Ericsson DB8500.
-
-config SPL_PINCONF_RECURSIVE
-	bool "Support recursive binding for pin configuration nodes in SPL"
-	depends on SPL_PINCTRL_FULL
-	default n if ARCH_STM32MP
-	default y
-	help
-	  This option is an SPL-variant of the PINCONF_RECURSIVE option.
-	  See the help of PINCONF_RECURSIVE for details.
 
 if PINCTRL || SPL_PINCTRL
 
