@@ -316,25 +316,23 @@ ll_entry_declare(struct cmd_tbl, lbracket, cmd) = {
 #endif /* CONFIG_SYS_LONGHELP */
 };
 
-static int do_false(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_false(struct getopt_state *gs)
 {
 	return 1;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	false,	CONFIG_SYS_MAXARGS,	1,	do_false,
 	"do nothing, unsuccessfully",
 	NULL
 );
 
-static int do_true(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_true(struct getopt_state *gs)
 {
 	return 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	true,	CONFIG_SYS_MAXARGS,	1,	do_true,
 	"do nothing, successfully",
 	NULL

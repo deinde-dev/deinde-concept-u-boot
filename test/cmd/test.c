@@ -135,19 +135,57 @@ static int cmd_test_true_base(struct unit_test_state *uts)
 {
 	ut_assertok(run_command("true", 0));
 
+	/* an ordinary argument is ignored */
+	ut_assertok(run_command("true extra", 0));
+
 	ut_assert_console_end();
 
 	return 0;
 }
 CMD_TEST(cmd_test_true_base, UTF_CONSOLE);
 
+/* Test that 'true' refuses an option, since it has none */
+static int cmd_test_true_opt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("true -n", 0));
+	ut_assert_nextline("true - do nothing, successfully");
+	ut_assert_nextline_empty();
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP)) {
+		ut_assert_nextline("Usage:");
+		ut_assert_nextline("true - No additional help available.");
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_true_opt, UTF_CONSOLE);
+
 /* Test the 'false' command */
 static int cmd_test_false_base(struct unit_test_state *uts)
 {
 	ut_asserteq(1, run_command("false", 0));
+
+	/* an ordinary argument is ignored */
+	ut_asserteq(1, run_command("false extra", 0));
 
 	ut_assert_console_end();
 
 	return 0;
 }
 CMD_TEST(cmd_test_false_base, UTF_CONSOLE);
+
+/* Test that 'false' refuses an option, since it has none */
+static int cmd_test_false_opt(struct unit_test_state *uts)
+{
+	ut_asserteq(1, run_command("false -n", 0));
+	ut_assert_nextline("false - do nothing, unsuccessfully");
+	ut_assert_nextline_empty();
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP)) {
+		ut_assert_nextline("Usage:");
+		ut_assert_nextline("false - No additional help available.");
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_false_opt, UTF_CONSOLE);
