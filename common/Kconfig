@@ -423,6 +423,7 @@ config LOG_DEFAULT_LEVEL
 
 config LOG_CONSOLE
 	bool "Allow log output to the console"
+	phases all
 	default y
 	help
 	  Enables a log driver which writes log records to the console.
@@ -503,15 +504,6 @@ config SPL_LOG_MAX_LEVEL
 	    8 - debug content
 	    9 - debug hardware I/O
 
-config SPL_LOG_CONSOLE
-	bool "Allow log output to the console in SPL"
-	default y
-	help
-	  Enables a log driver which writes log records to the console.
-	  Generally the console is the serial port or LCD display. Only the
-	  log message is shown - other details like level, category, file and
-	  line number are omitted.
-
 endif
 
 config TPL_LOG
@@ -546,15 +538,6 @@ config TPL_LOG_MAX_LEVEL
 	    8 - debug content
 	    9 - debug hardware I/O
 
-config TPL_LOG_CONSOLE
-	bool "Allow log output to the console in TPL"
-	default y
-	help
-	  Enables a log driver which writes log records to the console.
-	  Generally the console is the serial port or LCD display. Only the
-	  log message is shown - other details like level, category, file and
-	  line number are omitted.
-
 endif
 
 config VPL_LOG
@@ -586,15 +569,6 @@ config VPL_LOG_MAX_LEVEL
 	    7 - debug
 	    8 - debug content
 	    9 - debug hardware I/O
-
-config VPL_LOG_CONSOLE
-	bool "Allow log output to the console in VPL"
-	default y
-	help
-	  Enables a log driver which writes log records to the console.
-	  Generally the console is the serial port or LCD display. Only the
-	  log message is shown - other details like level, category, file and
-	  line number are omitted.
 
 endif
 
