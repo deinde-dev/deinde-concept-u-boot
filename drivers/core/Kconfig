@@ -211,6 +211,7 @@ config REGMAP
 
 config SYSCON
 	bool "Support system controllers"
+	phases all
 	select REGMAP
 	help
 	  Many SoCs have a number of system controllers which are dealt with
@@ -218,35 +219,9 @@ config SYSCON
 	  by this uclass, including accessing registers via regmap and
 	  assigning a unique number to each.
 
-config SPL_SYSCON
-	bool "Support system controllers in SPL"
-	depends on SPL_DM
-	select SPL_REGMAP
-	help
-	  Many SoCs have a number of system controllers which are dealt with
-	  as a group by a single driver. Some common functionality is provided
-	  by this uclass, including accessing registers via regmap and
-	  assigning a unique number to each.
-
-config TPL_SYSCON
-	bool "Support system controllers in TPL"
-	depends on TPL_DM
-	select TPL_REGMAP
-	help
-	  Many SoCs have a number of system controllers which are dealt with
-	  as a group by a single driver. Some common functionality is provided
-	  by this uclass, including accessing registers via regmap and
-	  assigning a unique number to each.
-
-config VPL_SYSCON
-	bool "Support system controllers in VPL"
-	depends on VPL_DM
-	select VPL_REGMAP
-	help
-	  Many SoCs have a number of system controllers which are dealt with
-	  as a group by a single driver. Some common functionality is provided
-	  by this uclass, including accessing registers via regmap and
-	  assigning a unique number to each.
+config SYSCON
+	phases !ppl
+	depends on DM
 
 config DEVRES
 	bool
