@@ -53,6 +53,7 @@ config PINCTRL_GENERIC
 
 config PINMUX
 	bool "Support pin multiplexing controllers"
+	phases ppl spl
 	depends on PINCTRL_GENERIC
 	default y
 	help
@@ -61,6 +62,13 @@ config PINMUX
 	  a single pin can be used for several functions. An SoC pinctrl driver
 	  allows the required function to be selected for each pin.
 	  The driver is typically controlled by the device tree.
+
+	  The pinctrl subsystem can add a substantial overhead to the SPL
+	  image since it typically requires quite a few tables either in the
+	  driver or in the device tree. If this is acceptable and you need
+	  to adjust pin multiplexing in SPL in order to boot into U-Boot,
+	  enable this option for SPL. You will need to enable device tree in
+	  SPL for this to work.
 
 config PINCONF
 	bool "Support pin configuration controllers"
@@ -91,20 +99,6 @@ config PINCTRL_NOMADIK
 	help
 	  Enable pin multiplexing and configuration support for the Nomadik
 	  GPIO blocks in the ST-Ericsson DB8500.
-
-config SPL_PINMUX
-	bool "Support pin multiplexing controllers in SPL"
-	depends on SPL_PINCTRL_GENERIC
-	default y
-	help
-	  This option is an SPL-variant of the PINMUX option.
-	  See the help of PINMUX for details.
-	  The pinctrl subsystem can add a substantial overhead to the SPL
-	  image since it typically requires quite a few tables either in the
-	  driver or in the device tree. If this is acceptable and you need
-	  to adjust pin multiplexing in SPL in order to boot into U-Boot,
-	  enable this option. You will need to enable device tree in SPL
-	  for this to work.
 
 config SPL_PINCONF
 	bool "Support pin configuration controllers in SPL"
