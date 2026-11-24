@@ -5,7 +5,7 @@
 
 obj-$(CONFIG_CMDLINE) += command.o
 ifdef CONFIG_HUSH_PARSER
-obj-$(CONFIG_CONSOLE_RECORD) += test_echo.o
+obj-$(CONFIG_CONSOLE_RECORD) += test.o test_echo.o
 endif
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_HUSH_OLD_PARSER) += showvar.o
