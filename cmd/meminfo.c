@@ -101,13 +101,12 @@ static int do_meminfo(struct getopt_state *gs)
 }
 
 #ifdef CONFIG_CMD_MEMSIZE
-static int do_mem_size(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_mem_size(struct getopt_state *gs)
 {
 	u64 memsize = gd->ram_size / SZ_1M;
 
-	if (argc > 1)
-		return env_set_ulong(argv[1], memsize);
+	if (gs->index < gs->argc)
+		return env_set_ulong(gs->argv[gs->index], memsize);
 	else
 		printf("%lld MiB\n", memsize);
 
@@ -122,7 +121,7 @@ U_BOOT_CMD_NOOPTS(
 );
 
 #ifdef CONFIG_CMD_MEMSIZE
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	memsize,	2,	1,	do_mem_size,
 	"get detected ram size in MiB, optional set env variable with value",
 	"[envvar]"

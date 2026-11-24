@@ -120,6 +120,14 @@ static int cmd_test_memsize_usage(struct unit_test_state *uts)
 	ut_assert_nextline("memsize [envvar]");
 	ut_assert_console_end();
 
+	/* the command takes no options, so one is refused as well */
+	ut_asserteq(1, run_command("memsize -x", 0));
+	ut_assert_nextlinen("memsize - get detected ram size in MiB");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("memsize [envvar]");
+	ut_assert_console_end();
+
 	return 0;
 }
 CMD_TEST(cmd_test_memsize_usage, UTF_CONSOLE);
