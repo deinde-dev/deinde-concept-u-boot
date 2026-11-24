@@ -861,7 +861,6 @@ coreboot test.py:
 
 .sjg_lab_template: &sjg_lab_dfn
   stage: sjg-lab
-  needs: []
   rules:
     - !reference [.only_jobs, rules]
     # Skip if MR description contains [skip-sjg]
