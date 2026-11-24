@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..',
 from release_version import (
     calculate_info, get_first_monday, get_next_even_month,
     update_makefile, ReleaseInfo, update_docs, generate_schedule,
+    get_next_final,
     create_parser, main
 )
 
@@ -69,6 +70,46 @@ class TestReleaseVersion(unittest.TestCase):
         # From November (odd) -> December (even)
         self.assertEqual(
             get_next_even_month(datetime.date(2025, 11, 15)), (2025, 12))
+
+    def test_get_next_final(self):
+        """Test finding the next final release"""
+        # Odd month: the final is next month
+        self.assertEqual((2026, 12),
+                         get_next_final(datetime.date(2026, 11, 24)))
+
+        # Even month, up to the first Monday (07-Dec-26): this month
+        self.assertEqual((2026, 12),
+                         get_next_final(datetime.date(2026, 12, 1)))
+        self.assertEqual((2026, 12),
+                         get_next_final(datetime.date(2026, 12, 7)))
+
+        # After that, the next cycle
+        self.assertEqual((2027, 2),
+                         get_next_final(datetime.date(2026, 12, 8)))
+
+        # Month which starts on a Monday
+        self.assertEqual((2027, 2), get_next_final(datetime.date(2027, 2, 1)))
+        self.assertEqual((2027, 4), get_next_final(datetime.date(2027, 2, 2)))
+
+    def test_before_final_in_even_month(self):
+        """Test the days of an even month before its final release"""
+        # Tue 01-Dec-26 to Sun 06-Dec-26: the final is on Mon 07-Dec-26
+        for day in range(1, 7):
+            info = calculate_info(datetime.date(2026, 12, day))
+            self.assertTrue(info.is_dead_period)
+            self.assertEqual('', info.version)
+            self.assertEqual((2026, 12), (info.year, info.month))
+            self.assertEqual(1, info.weeks_until_final)
+
+        info = calculate_info(datetime.date(2026, 12, 7))
+        self.assertTrue(info.is_final)
+        self.assertEqual('2026.12', info.version)
+
+        # The day after the final belongs to the next cycle
+        info = calculate_info(datetime.date(2026, 12, 8))
+        self.assertTrue(info.is_dead_period)
+        self.assertEqual((2027, 2), (info.year, info.month))
+        self.assertEqual(8, info.weeks_until_final)
 
     def test_final_release_detection(self):
         """Test detection of final release dates"""
@@ -117,9 +158,9 @@ class TestReleaseVersion(unittest.TestCase):
 
     def test_dead_period(self):
         """Test dead period for dates too far from release"""
-        # 01-Dec-24 is 9+ weeks before 03-Feb-25 -
-        # should be dead period
-        release_info = calculate_info(datetime.date(2024, 12, 1))
+        # 03-Dec-24 is the day after the 2024.12 final and 9 weeks before
+        # 03-Feb-25 - should be dead period
+        release_info = calculate_info(datetime.date(2024, 12, 3))
         self.assertFalse(release_info.is_final)
         self.assertTrue(release_info.is_dead_period)
         self.assertEqual(release_info.version, '')
@@ -372,6 +413,52 @@ Release History
         self.assertIn('-rc2', schedule)
         self.assertIn('-rc1', schedule)
         self.assertIn('Mon ', schedule)
+
+    def check_schedule(self, curdate, expect):
+        """Check the releases listed in a schedule
+
+        Args:
+            curdate (datetime.date): Date to generate the schedule on
+            expect (list of str): Expected list items, in order
+        """
+        schedule = generate_schedule(curdate)
+        items = [line for line in schedule.splitlines()
+                 if line.startswith('* ')]
+        self.assertEqual(expect, items)
+
+        # Each release must be the one which is made on its date
+        for item in items:
+            name, date_str = item[2:].split(': ')
+            date = datetime.datetime.strptime(date_str, '%a %d-%b-%Y').date()
+            version = name.replace(' (Final)', '').strip('*')
+            self.assertEqual(version, calculate_info(date).version)
+
+    def test_generate_schedule_dates(self):
+        """Test that the schedule has the right date for each release"""
+        expect = [
+            '* **2026.12-rc1**: Mon 26-Oct-2026',
+            '* **2026.12-rc2**: Mon 09-Nov-2026',
+            '* **2026.12-rc3**: Mon 23-Nov-2026',
+            '* **2026.12** (Final): Mon 07-Dec-2026',
+        ]
+
+        # On the day of each RC and on days in between
+        self.check_schedule(datetime.date(2026, 10, 26), expect)
+        self.check_schedule(datetime.date(2026, 11, 23), expect)
+        self.check_schedule(datetime.date(2026, 11, 24), expect)
+        self.check_schedule(datetime.date(2026, 12, 6), expect)
+
+        schedule = generate_schedule(datetime.date(2026, 11, 23))
+        self.assertIn('scheduled for **2026.12**\n'
+                      'on Monday, December 07, 2026.', schedule)
+
+        # On the day of the final, the schedule is for the next cycle
+        self.check_schedule(datetime.date(2026, 12, 7), [
+            '* **2027.02-rc1**: Mon 21-Dec-2026',
+            '* **2027.02-rc2**: Mon 04-Jan-2027',
+            '* **2027.02-rc3**: Mon 18-Jan-2027',
+            '* **2027.02** (Final): Mon 01-Feb-2027',
+        ])
 
 
     def test_update_docs_with_next_release_section(self):
@@ -1101,9 +1188,9 @@ class TestReleaseVersionScenarios(unittest.TestCase):
         self.assertGreater(info.weeks_until_final, 2)  # More than 2 weeks
                                                         # (would be rc1)
 
-        # 01-Oct-24 (even month) targets Dec 2024 (2 months away),
-        # ~9 weeks -> dead period
-        info = calculate_info(datetime.date(2024, 10, 1))
+        # 08-Oct-24 (even month, after its final) targets Dec 2024
+        # (2 months away), 8 weeks -> dead period
+        info = calculate_info(datetime.date(2024, 10, 8))
         self.assertFalse(info.is_final)
         self.assertTrue(info.is_dead_period)
         self.assertEqual(info.version, '')
@@ -1120,9 +1207,9 @@ class TestReleaseVersionScenarios(unittest.TestCase):
         self.assertEqual(info.rc_number, 1)
         self.assertEqual(info.weeks_until_final, 6)
 
-        # Test extreme case: 01-Aug-24 (even) targets Oct 2024,
-        # ~9+ weeks -> dead period
-        info = calculate_info(datetime.date(2024, 8, 1))
+        # Test extreme case: 06-Aug-24 (even, after its final) targets
+        # Oct 2024, 9 weeks -> dead period
+        info = calculate_info(datetime.date(2024, 8, 6))
         self.assertFalse(info.is_final)
         self.assertTrue(info.is_dead_period)
         self.assertEqual(info.version, '')

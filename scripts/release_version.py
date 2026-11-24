@@ -24,7 +24,13 @@ from typing import Tuple, NamedTuple
 
 
 class ReleaseInfo(NamedTuple):
-    """Information about a calculated release"""
+    """Information about a calculated release
+
+    Note that is_dead_period is True on every day which has no release, so
+    this includes the days between the RCs. In that case year and month give
+    the next final release and weeks_until_final is the time until then,
+    rounded up
+    """
     is_final: bool
     version: str
     year: int
@@ -60,6 +66,24 @@ def get_next_even_month(curdate: datetime.date) -> Tuple[int, int]:
     return year, next_month
 
 
+def get_next_final(curdate: datetime.date) -> Tuple[int, int]:
+    """Get the year and month of the next final release
+
+    This is the current month if it is even-numbered and its release day
+    (the first Monday) has not passed, otherwise the next even-numbered month
+
+    Args:
+        curdate: Date to calculate from
+
+    Returns:
+        Tuple of (year, month) for the next final release
+    """
+    if (curdate.month % 2 == 0 and
+            curdate <= get_first_monday(curdate.year, curdate.month)):
+        return curdate.year, curdate.month
+    return get_next_even_month(curdate)
+
+
 def calculate_info(curdate: datetime.date = None) -> ReleaseInfo:
     """Calculate release information based on the current date
 
@@ -88,7 +112,7 @@ def calculate_info(curdate: datetime.date = None) -> ReleaseInfo:
         )
 
     # This is a release candidate - calculate based on next final release
-    next_year, next_month = get_next_even_month(curdate)
+    next_year, next_month = get_next_final(curdate)
     next_release_date = get_first_monday(next_year, next_month)
 
     # Calculate weeks until next release
@@ -153,9 +177,17 @@ def calculate_info(curdate: datetime.date = None) -> ReleaseInfo:
     )
 
 
-def generate_schedule():
-    """Generate the next release schedule section"""
-    curdate = datetime.date.today()
+def generate_schedule(curdate: datetime.date = None):
+    """Generate the next release schedule section
+
+    Args:
+        curdate: Date to calculate from (defaults to today)
+
+    Returns:
+        Text of the 'Next Release' section, in reStructuredText
+    """
+    if curdate is None:
+        curdate = datetime.date.today()
     info = calculate_info(curdate)
 
     if info.is_dead_period:
@@ -174,10 +206,10 @@ def generate_schedule():
     # Calculate the schedule for the target release
     final_date = get_first_monday(target_year, target_month)
 
-    # Calculate RC dates
-    rc3_date = final_date - datetime.timedelta(weeks=6)
+    # Calculate RC dates: these must match calculate_info()
+    rc1_date = final_date - datetime.timedelta(weeks=6)
     rc2_date = final_date - datetime.timedelta(weeks=4)
-    rc1_date = final_date - datetime.timedelta(weeks=2)
+    rc3_date = final_date - datetime.timedelta(weeks=2)
 
     schedule_text = f'''Next Release
 ------------
@@ -187,9 +219,9 @@ on {final_date.strftime('%A, %B %d, %Y')}.
 
 Release candidate schedule:
 
-* **{target_year}.{target_month:02d}-rc3**: {rc3_date.strftime('%a %d-%b-%Y')}
-* **{target_year}.{target_month:02d}-rc2**: {rc2_date.strftime('%a %d-%b-%Y')}
 * **{target_year}.{target_month:02d}-rc1**: {rc1_date.strftime('%a %d-%b-%Y')}
+* **{target_year}.{target_month:02d}-rc2**: {rc2_date.strftime('%a %d-%b-%Y')}
+* **{target_year}.{target_month:02d}-rc3**: {rc3_date.strftime('%a %d-%b-%Y')}
 * **{target_year}.{target_month:02d}** (Final): {final_date.strftime('%a %d-%b-%Y')}
 
 '''

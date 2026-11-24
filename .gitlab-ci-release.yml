@@ -20,13 +20,18 @@ version:process_release:
       # Sets: IS_FINAL, VERSION, YEAR, MONTH, RC_NUMBER (RCs only),
       # WEEKS_UNTIL_FINAL (RCs only)
       # Or: IS_DEAD_PERIOD, WEEKS_UNTIL_FINAL, NEXT_RELEASE_YEAR,
-      # NEXT_RELEASE_MONTH (dead period)
+      # NEXT_RELEASE_MONTH (any day with no release)
       eval $(python3 scripts/release_version.py)
 
-      # Check if we're in a dead period (too early for any RC)
+      # Check if there is no release today. This is so on most days, whether
+      # between two RCs or before the first RC of the next release
       if [ "$IS_DEAD_PERIOD" = "true" ]; then
-        echo "📅 Dead period: $WEEKS_UNTIL_FINAL weeks until next release cycle begins"
-        echo "Next release will be $NEXT_RELEASE_YEAR.$NEXT_RELEASE_MONTH"
+        NEXT_FINAL="$NEXT_RELEASE_YEAR.$NEXT_RELEASE_MONTH"
+        if [ "$WEEKS_UNTIL_FINAL" = "1" ]; then
+          echo "📅 No release today: $NEXT_FINAL final is due within a week"
+        else
+          echo "📅 No release today: $NEXT_FINAL final is due within $WEEKS_UNTIL_FINAL weeks"
+        fi
         echo "No version bump needed - exiting"
         exit 0
       fi
