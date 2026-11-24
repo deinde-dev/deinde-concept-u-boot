@@ -560,6 +560,9 @@ $(call multi_depend, $(multi-dtb-y), .dtb, -dtbs)
 # dsdt_generated.hex (despite us setting the prefix to .../dsdt_generated.asl.tmp)
 # so must be renamed to dsdt_generated.c for consumption by the build system.
 #
+# The compiler's remarks are only shown with V=1, since much of the ASL comes
+# from other projects and the remarks are about style rather than problems.
+#
 # A Makefile can pass flags to iasl for a particular output file, e.g.
 # ASLFLAGS_dsdt_generated.c := -vw 3150
 ASL_TMP = $(patsubst %.c,%.asl.tmp,$@)
@@ -569,7 +572,7 @@ cmd_acpi_c_asl=         \
 	$(CPP) -x assembler-with-cpp -D__ASSEMBLY__ -D__ACPI__ \
 		-P $(UBOOTINCLUDE) -o $(ASL_TMP) $< && \
 	iasl -p $@ -I $(srctree)/board/$(BOARDDIR) -tc $(ASLFLAGS_$(@F)) \
-		$(ASL_TMP) \
+		$(if $(KBUILD_VERBOSE:1=),-vr) $(ASL_TMP) \
 		$(if $(KBUILD_VERBOSE:1=), >/dev/null) && \
 	mv $(patsubst %.c,%.hex,$@) $@
 
