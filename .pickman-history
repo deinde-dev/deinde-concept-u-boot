@@ -110518,3 +110518,43 @@ The rebase went through without conflicts. The later commits (tcp, the empty mer
 
 ---
 
+## 2026-11-23: us/main
+
+Branch: cherry-a0e2935a4bde
+
+Commits:
+- a0e2935a4bde net: tcp: drop segments with an invalid data offset
+- cf248526dbd1 net: tcp: check option lengths in tcp_parse_options()
+- af9898a75f15 net: eth-phy: release reset GPIO and reset control on device removal
+- ebda987c6ecf net: tcp: account for SYN-ACK payload sequence numbers
+- a38d35237431 Merge tag 'net-20261123' of https://git.u-boot-project.org/u-boot/custodians/u-boot-net
+
+### Conversation log
+Two commits picked and building cleanly; continuing with the third.
+
+The merge commit hit a conflict in eth-phy-uclass.c, probably caused by the config macro change. Looking at it now.
+
+Keeping HEAD's converted version, which leaves the merge empty as expected.
+
+The '# Conflicts' lines stayed in the message, so I'll replace them with a note.
+
+All 5 commits are picked onto the `cherry-a0e2935a4bde` branch, which is based on ci/master. The sandbox build passes after each pick and at the end, with no warnings or errors.
+
+| Pick | Original | Subject |
+|---|---|---|
+| 056ed3f7c44e | a0e2935a4bde | net: tcp: drop segments with an invalid data offset |
+| 2190a9206dee | cf248526dbd1 | net: tcp: check option lengths in tcp_parse_options() |
+| 3be9579aca76 | af9898a75f15 | net: eth-phy: release reset GPIO and reset control on device removal |
+| ae8971224f46 | ebda987c6ecf | net: tcp: account for SYN-ACK payload sequence numbers |
+| 4a4fdcb82821 | a38d35237431 | Merge tag 'net-20261123' (empty) |
+
+**Fix-ups:**
+- **af9898a75f15 (eth-phy):** split-check changed `CONFIG_IS_ENABLED(DM_GPIO)` and `CONFIG_IS_ENABLED(DM_RESET)` in `eth_phy_pre_remove()` to `IS_ENABLED(CONFIG_DM_GPIO)` and `IS_ENABLED(CONFIG_DM_RESET)`. I amended the commit and added the note `[pickman] convert to per-phase config macros`.
+- **a38d35237431 (merge):** this conflicted in `drivers/net/eth-phy-uclass.c`, because the merge brings the old `CONFIG_IS_ENABLED()` form back. I kept this branch's converted version, which leaves the merge empty as expected. I took the leftover `# Conflicts:` lines out of the message and added `[pickman] keep the per-phase config conversion in eth-phy-uclass.c`.
+
+**Deltas:** none are a concern. The four regular picks change exactly the same files and line counts as the originals. split-check changed nothing for the other three commits, and the Makefile version lines were not touched.
+
+The branch is ready to push and has not been merged anywhere.
+
+---
+
