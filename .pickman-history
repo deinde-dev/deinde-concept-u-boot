@@ -110347,3 +110347,40 @@ One thing to check:
 
 ---
 
+## 2026-11-23: us/main
+
+Branch: cherry-5fb4184c6ae7
+
+Commits:
+- 5fb4184c6ae7 pci: pcie-rcar-gen4: Limit Max_Read_Request_Size to 256 Bytes
+- 8fe3f1294033 remoteproc: renesas: Set valid Cortex-R52 BAR flags only in .start callback
+- f741b51964df doc: board: renesas: Document Renesas R-Car Gen4 Cortex-R52 start
+- fbea0272ecf4 remoteproc: renesas: Rename Cortex-R52 specific functions
+- 52cec35d505b remoteproc: renesas: Add Cortex-A76 management suppport
+- 4726f0adcd08 doc: board: renesas: Document Renesas R-Car Gen4 Cortex-A76 start
+- e578056c766d Merge branch 'main' of https://git.u-boot-project.org/u-boot/custodians/u-boot-sh
+
+### Conversation log
+The found commit is a different, earlier merge (from Oct 26, a pick of c9a9dedf). It isn't this one, so I'll go ahead with all the picks.
+
+All 7 commits are on branch `cherry-5fb4184c6ae7`, based on ci/master. The sandbox build passes with no warnings or errors, though sandbox doesn't compile any of the files these commits touch (the R-Car PCIe driver, the Renesas remoteproc driver and the docs). It doesn't check the new code.
+
+| New | Original | Subject |
+|---|---|---|
+| 5f8f107433ed | 5fb4184c6ae7 | pci: pcie-rcar-gen4: Limit Max_Read_Request_Size to 256 Bytes |
+| 88a3f065ab22 | 8fe3f1294033 | remoteproc: renesas: Set valid Cortex-R52 BAR flags only in .start callback |
+| d01d026eba28 | f741b51964df | doc: board: renesas: Document Renesas R-Car Gen4 Cortex-R52 start |
+| 951f56425792 | fbea0272ecf4 | remoteproc: renesas: Rename Cortex-R52 specific functions |
+| 0f39ff5f5b82 | 52cec35d505b | remoteproc: renesas: Add Cortex-A76 management suppport |
+| ec126db862a9 | 4726f0adcd08 | doc: board: renesas: Document Renesas R-Car Gen4 Cortex-A76 start |
+| 65610cd69395 | e578056c766d | Merge branch 'main' of …/u-boot-sh (empty, kept to record the merge) |
+
+- **Already-applied check:** the suggested match, da97f68e03dd, is a pick of a different, earlier merge from the same tree (c9a9dedf, 26 Oct). None of the six regular commits had been picked into ci/master before, so I went ahead with all of them.
+- **Fix-ups:** none. All picks applied cleanly, and `pickman split-check` changed nothing on any commit.
+- **Deltas:** every pick has the same files and line counts as its original.
+- **Build:** I ran one build after all the picks rather than one after each. The intermediate builds would have been identical, since sandbox compiles none of these files.
+
+The branch is ready to push and hasn't been merged anywhere.
+
+---
+
