@@ -58,6 +58,10 @@ video
     needed, if the display is ultimately set to a smaller resolution or colour
     depth than the maximum supported.
 
+trace
+    Memory reserved for the tracing buffer, shown only if ``CONFIG_TRACE`` is
+    enabled. The size of this is set by ``CONFIG_TRACE_BUFFER_SIZE``.
+
 code
     U-Boot's code and Block-Starting Symbol (BSS) region. Before relocation,
     U-Boot copies its code to a high region and sets up a BSS immediately after
@@ -97,6 +101,14 @@ stack
     enforced, so the stack can grow behind that. Images should be loaded lower
     in memory to avoid any conflict.
 
+lmb
+    One line for each region which the logical memory blocks (LMB) allocator
+    has reserved, shown only if ``CONFIG_LMB`` is enabled and listed from the
+    top of memory downwards. The topmost region covers U-Boot itself, so its
+    size is shown as the memory not already reported above. These reservations
+    are made as U-Boot runs, for example by a command which loads an image, so
+    the list depends on what has happened since boot.
+
 free
     Free memory, which is available for loading images. The base address of
     this is ``gd->ram_base`` which is generally set by ``CFG_SYS_SDRAM_BASE``.
@@ -121,6 +133,7 @@ Example
 This example shows output with both ``CONFIG_CMD_MEMINFO`` and
 ``CONFIG_CMD_MEMINFO_MAP`` enabled for aarch64 qemu::
 
+    => meminfo
     DRAM:  8 GiB
     Walking pagetable at 000000023ffe0000, va_bits: 40. Using 4 levels
     [0x0000023ffe1000]                          |  Table |            |               |
@@ -143,28 +156,30 @@ This example shows output with both ``CONFIG_CMD_MEMINFO`` and
     [0x0000023ffe4000]                          |  Table |            |               |
       [0x00008000000000 - 0x00010000000000]     |  Block | PXN UXN    | Device-nGnRnE | Non-shareable
 
-    Region           Base     Size      End      Gap
-    ------------------------------------------------
-    video        23f7e0000   800000 23ffe0000
-    code         23f68a000   156000 23f7e0000        0
-    malloc       23e64a000  1040000 23f68a000        0
-    board_info   23e649f80       78 23e649ff8        8
-    global_data  23e649df0      188 23e649f78        8
-    devicetree   23e549df0   100000 23e649df0        0
-    bloblist     23e547000     2000 23e549000      df0
-    stack        23d546ff0  1000000 23e546ff0       10
-    lmb          23d546ff0        0 23d546ff0        0
-    lmb          23d543000     3ff0 23d546ff0        0
-    free         40000000 23d543000 27d543000 ffffffffc0000000
+    Region                Base          Size           End           Gap
+    --------------------------------------------------------------------
+    video            23f7e0000        800000     23ffe0000
+    code             23f68a000        156000     23f7e0000             0
+    malloc           23e64a000       1040000     23f68a000             0
+    board_info       23e649f80            78     23e649ff8             8
+    global_data      23e649df0           188     23e649f78             8
+    devicetree       23e549df0        100000     23e649df0             0
+    bloblist         23e547000          2000     23e549000           df0
+    stack            23d546ff0       1000000     23e546ff0            10
+    lmb              23d546ff0             0     23d546ff0             0
+    lmb              23d543000          3ff0     23d546ff0             0
+    free              40000000     23d543000     27d543000 ffffffffc0000000
 
 Return value
 ------------
 
-The return value $? is always 0 (true).
+The return value $? is 0 (true) when the command runs. It takes no arguments,
+so given one it shows its usage message and returns 1 (false).
 
 See also
 --------
 
+* :doc:`memsize<memsize>` for the DRAM size on its own, in MiB
 * :doc:`ufetch<ufetch>` for the DRAM size alongside the other board details
 * :doc:`bdinfo<bdinfo>` for the addresses of the regions this command sizes
 * :doc:`bloblist<bloblist>` for what the bloblist region listed here holds

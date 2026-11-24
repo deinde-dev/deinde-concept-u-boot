@@ -1079,6 +1079,7 @@ config MD5SUM_VERIFY
 config CMD_MEMINFO
 	bool "meminfo"
 	default y if SANDBOX || X86
+	select GETOPT
 	help
 	  Display memory information.
 
