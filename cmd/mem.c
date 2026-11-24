@@ -323,9 +323,10 @@ static int do_mem_cmp(struct cmd_tbl *cmdtp, int flag, int argc,
 	return rcode;
 }
 
-static int do_mem_cp(struct cmd_tbl *cmdtp, int flag, int argc,
-		     char *const argv[])
+static int do_mem_cp(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	ulong	addr, dest, count;
 	void	*src, *dst;
 	int	size;
@@ -1361,7 +1362,7 @@ U_BOOT_CMD_NOOPTS(
 	"[.b, .w, .l" HELP_Q "] address value [count]"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	cp,	4,	1,	do_mem_cp,
 	"memory copy",
 	"[.b, .w, .l" HELP_Q "] source target count"

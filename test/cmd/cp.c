@@ -129,6 +129,17 @@ static int cmd_test_cp_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_commandf("cp.x %lx %lx 4", CP_ADDR, CP_DEST));
 	ut_assert_console_end();
 
+	/*
+	 * the command has no options, so one is refused rather than read as an
+	 * address, which is what it meant before the getopt conversion
+	 */
+	ut_asserteq(1, run_commandf("cp -1 %lx 4", CP_DEST));
+	ut_assert_nextline("cp - memory copy");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_skip_to_linen("cp [.b, .w, .l");
+	ut_assert_console_end();
+
 	/* the target is untouched by any of them */
 	ut_asserteq(CP_FILL, buf[0x10]);
 	unmap_sysmem(buf);
