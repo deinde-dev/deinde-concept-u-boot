@@ -79,10 +79,8 @@ static int do_test(struct getopt_state *gs)
 	int i, op, left, adv, expr, last_expr, last_unop, last_binop;
 
 	if (!strcmp(argv[0], "[")) {
-		if (strcmp(argv[argc - 1], "]")) {
-			printf("[: missing terminating ]\n");
-			return 1;
-		}
+		if (strcmp(argv[argc - 1], "]"))
+			return cmd_fail(0, "[: missing terminating ]\n");
 		argc--;
 	}
 
@@ -242,7 +240,8 @@ static int do_test(struct getopt_state *gs)
 			struct slre slre;
 
 			if (slre_compile(&slre, ap[2]) == 0) {
-				printf("Error compiling regex: %s\n", slre.err_str);
+				cmd_err("Error compiling regex: %s\n",
+					slre.err_str);
 				expr = 0;
 				break;
 			}
