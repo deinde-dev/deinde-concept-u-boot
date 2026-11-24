@@ -22,26 +22,26 @@ static int bind_by_class_seq(const char *uclass, int seq,
 
 	drv = lists_driver_lookup_name(drv_name);
 	if (!drv) {
-		printf("Cannot find driver '%s'\n", drv_name);
+		cmd_err("Cannot find driver '%s'\n", drv_name);
 		return -ENOENT;
 	}
 
 	uclass_id = uclass_get_by_name(uclass);
 	if (uclass_id == UCLASS_INVALID) {
-		printf("%s is not a valid uclass\n", uclass);
+		cmd_err("%s is not a valid uclass\n", uclass);
 		return -EINVAL;
 	}
 
 	ret = uclass_find_device_by_seq(uclass_id, seq, &parent);
 	if (!parent || ret) {
-		printf("Cannot find device %d of class %s\n", seq, uclass);
+		cmd_err("Cannot find device %d of class %s\n", seq, uclass);
 		return ret;
 	}
 
 	ret = device_bind_with_driver_data(parent, drv, drv->name, 0,
 					   ofnode_null(), &dev);
 	if (!dev || ret) {
-		printf("Unable to bind. err:%d\n", ret);
+		cmd_err("Unable to bind. err:%d\n", ret);
 		return ret;
 	}
 
@@ -55,13 +55,13 @@ static int find_dev(const char *uclass, int seq, struct udevice **devp)
 
 	uclass_id = uclass_get_by_name(uclass);
 	if (uclass_id == UCLASS_INVALID) {
-		printf("%s is not a valid uclass\n", uclass);
+		cmd_err("%s is not a valid uclass\n", uclass);
 		return -EINVAL;
 	}
 
 	rc = uclass_find_device_by_seq(uclass_id, seq, devp);
 	if (!*devp || rc) {
-		printf("Cannot find device %d of class %s\n", seq, uclass);
+		cmd_err("Cannot find device %d of class %s\n", seq, uclass);
 		return rc;
 	}
 
@@ -79,13 +79,13 @@ static int unbind_by_class_seq(const char *uclass, int seq)
 
 	ret = device_remove(dev, DM_REMOVE_NORMAL);
 	if (ret) {
-		printf("Unable to remove. err:%d\n", ret);
+		cmd_err("Unable to remove. err:%d\n", ret);
 		return ret;
 	}
 
 	ret = device_unbind(dev);
 	if (ret) {
-		printf("Unable to unbind. err:%d\n", ret);
+		cmd_err("Unable to unbind. err:%d\n", ret);
 		return ret;
 	}
 
@@ -101,7 +101,7 @@ static int unbind_child_by_class_seq(const char *uclass, int seq,
 
 	drv = lists_driver_lookup_name(drv_name);
 	if (!drv) {
-		printf("Cannot find driver '%s'\n", drv_name);
+		cmd_err("Cannot find driver '%s'\n", drv_name);
 		return -ENOENT;
 	}
 
@@ -111,11 +111,11 @@ static int unbind_child_by_class_seq(const char *uclass, int seq,
 
 	ret = device_chld_remove(parent, drv, DM_REMOVE_NORMAL);
 	if (ret)
-		printf("Unable to remove all. err:%d\n", ret);
+		cmd_err("Unable to remove all. err:%d\n", ret);
 
 	ret = device_chld_unbind(parent, drv);
 	if (ret)
-		printf("Unable to unbind all. err:%d\n", ret);
+		cmd_err("Unable to unbind all. err:%d\n", ret);
 
 	return ret;
 }
@@ -130,13 +130,13 @@ static int bind_by_node_path(const char *path, const char *drv_name)
 
 	drv = lists_driver_lookup_name(drv_name);
 	if (!drv) {
-		printf("%s is not a valid driver name\n", drv_name);
+		cmd_err("%s is not a valid driver name\n", drv_name);
 		return -ENOENT;
 	}
 
 	ofnode = ofnode_path(path);
 	if (!ofnode_valid(ofnode)) {
-		printf("%s is not a valid node path\n", path);
+		cmd_err("%s is not a valid node path\n", path);
 		return -EINVAL;
 	}
 
@@ -147,7 +147,7 @@ static int bind_by_node_path(const char *path, const char *drv_name)
 	}
 
 	if (!parent) {
-		printf("Cannot find a parent device for node path %s\n", path);
+		cmd_err("Cannot find a parent device for node path %s\n", path);
 		return -ENODEV;
 	}
 
@@ -155,7 +155,7 @@ static int bind_by_node_path(const char *path, const char *drv_name)
 	ret = lists_bind_fdt(parent, ofnode, &dev, drv, false);
 
 	if (!dev || ret) {
-		printf("Unable to bind. err:%d\n", ret);
+		cmd_err("Unable to bind. err:%d\n", ret);
 		return ret;
 	}
 
@@ -170,26 +170,26 @@ static int unbind_by_node_path(const char *path)
 
 	ofnode = ofnode_path(path);
 	if (!ofnode_valid(ofnode)) {
-		printf("%s is not a valid node path\n", path);
+		cmd_err("%s is not a valid node path\n", path);
 		return -EINVAL;
 	}
 
 	ret = device_find_global_by_ofnode(ofnode, &dev);
 
 	if (!dev || ret) {
-		printf("Cannot find a device with path %s\n", path);
+		cmd_err("Cannot find a device with path %s\n", path);
 		return -ENODEV;
 	}
 
 	ret = device_remove(dev, DM_REMOVE_NORMAL);
 	if (ret) {
-		printf("Unable to remove. err:%d\n", ret);
+		cmd_err("Unable to remove. err:%d\n", ret);
 		return ret;
 	}
 
 	ret = device_unbind(dev);
 	if (ret) {
-		printf("Unable to unbind. err:%d\n", ret);
+		cmd_err("Unable to unbind. err:%d\n", ret);
 		return ret;
 	}
 
