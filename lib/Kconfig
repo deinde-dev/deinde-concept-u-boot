@@ -199,32 +199,22 @@ config VPL_PRINTF
 
 config SPRINTF
 	bool
+	phases all
+
+config SPRINTF
+	phases ppl
 	default y
-
-config SPL_SPRINTF
-	bool
-
-config TPL_SPRINTF
-	bool
-
-config VPL_SPRINTF
-	bool
 
 config SSCANF
 	bool
 
 config STRTO
 	bool
+	phases all
+
+config STRTO
+	phases ppl
 	default y
-
-config SPL_STRTO
-	bool
-
-config TPL_STRTO
-	bool
-
-config VPL_STRTO
-	bool
 
 config IMAGE_SPARSE
 	bool
