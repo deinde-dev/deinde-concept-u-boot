@@ -5309,8 +5309,7 @@ def process_single_mr(remote, merge_req, dbs, target, fixing=False):
             return processed + 1
         if not unresolved:
             try:
-                gitlab_api.push_branch(remote, merge_req.source_branch,
-                                       force=True, skip_ci=False)
+                _push_new_version(remote, mr_iid, merge_req.source_branch)
             except command.CommandExc:
                 _push_failed(remote, mr_iid, 'the subtree update')
             return processed + 1
@@ -5883,6 +5882,31 @@ def _job_view(remote, merge_req, dbs):
     return base_id, base.sha, statuses
 
 
+def _push_new_version(remote, mr_iid, branch):
+    """Push a new version of a merge request and run its pipeline
+
+    A pipeline still running on an older version only tests code which is
+    now gone, while sharing the lab's boards with the new pipeline and so
+    slowing both. So cancel any such pipeline once the push is done. The
+    list is taken before the push, so it cannot include the new pipeline.
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request IID
+        branch (str): Branch to push
+
+    Raises:
+        command.CommandExc: if the push fails, in which case nothing is
+            cancelled
+    """
+    busy = gitlab_api.get_busy_pipelines(remote, mr_iid, PIPELINE_BUSY)
+    gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
+    for pipeline_id in busy:
+        if gitlab_api.cancel_pipeline(remote, pipeline_id):
+            tout.info(f'MR !{mr_iid}: cancelled pipeline {pipeline_id}, '
+                      f'which is for an older version')
+
+
 def _push_with_ci(remote, merge_req, dbs):
     """Push a branch, running a pipeline if anything the jobs read changes
 
@@ -5906,7 +5930,7 @@ def _push_with_ci(remote, merge_req, dbs):
     if merge_req.pipeline_status in PIPELINE_DONE:
         view = _job_view(remote, merge_req, dbs)
     if not view or jobs_affected(view[1], run_git(['rev-parse', 'HEAD'])):
-        gitlab_api.push_branch(remote, branch, force=True, skip_ci=False)
+        _push_new_version(remote, merge_req.iid, branch)
         return ''
 
     base_id, base_sha, statuses = view

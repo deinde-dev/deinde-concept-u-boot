@@ -555,6 +555,12 @@ empty. GitLab can process the branch push after the MR exists, which puts a
 skipped pipeline on top of the one which runs, so looking only at the newest
 would start a second full pipeline, sharing the lab's boards with the first.
 
+When pickman pushes a new version of an MR and runs its pipeline, any pipeline
+for the MR which has yet to finish is testing code which is now gone, while
+slowing the new one, so pickman cancels it once the push is done. This happens
+for example when a pipeline fix is pushed and a review comment arrives while
+its pipeline runs.
+
 **Pipelines which are not needed**
 
 A full pipeline runs about 140 jobs and takes one to two hours. When a review
