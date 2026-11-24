@@ -169,6 +169,7 @@ endif
 obj-$(CONFIG_CMD_SEAMA) += seama.o
 ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_AES) += aes.o
+obj-$(CONFIG_CMD_BIND) += bind.o
 obj-$(CONFIG_CMD_BOOTCTL) += bootctl.o
 obj-$(CONFIG_CMD_BOOTI) += booti.o
 obj-$(CONFIG_CMD_BOOTZ) += bootz.o
