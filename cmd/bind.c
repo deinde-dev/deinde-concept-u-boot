@@ -5,6 +5,7 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
 #include <dm/root.h>
@@ -195,9 +196,10 @@ static int unbind_by_node_path(const char *path)
 	return 0;
 }
 
-static int do_bind_unbind(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_bind_unbind(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret = 0;
 	bool bind;
 	bool by_node;
@@ -240,7 +242,7 @@ static int do_bind_unbind(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	bind,	4,	0,	do_bind_unbind,
 	"Bind a device to a driver",
 	"<node path> <driver>\n"
@@ -249,7 +251,7 @@ U_BOOT_CMD(
 	"their path, class, sequence and current driver.\n"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	unbind,	4,	0,	do_bind_unbind,
 	"Unbind a device from a driver",
 	"<node path>\n"

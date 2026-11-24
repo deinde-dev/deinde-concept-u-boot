@@ -226,6 +226,17 @@ static int cmd_test_bind_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("unbind simple_bus", 0));
 	ut_assertok(check_unbind_usage(uts));
 
+	/*
+	 * neither command has an option, so one is refused rather than read
+	 * as a uclass name, which is what it meant before the getopt
+	 * conversion
+	 */
+	ut_asserteq(1, run_command("bind -x " BIND_TEST " simple_bus", 0));
+	ut_assertok(check_bind_usage(uts));
+
+	ut_asserteq(1, run_command("unbind -x " BIND_TEST, 0));
+	ut_assertok(check_unbind_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_bind_usage, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
