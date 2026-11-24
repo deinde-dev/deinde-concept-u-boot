@@ -196,44 +196,18 @@ config DM_DMA
 
 config REGMAP
 	bool
+	phases all
 	depends on DM
+	help
+	  Hardware peripherals tend to have one or more sets of registers
+	  which can be accessed to control the hardware. A register map
+	  models this with a simple read/write interface. It can in principle
+	  support any bus type (I2C, SPI) but so far this only supports
+	  direct memory access.
+
+config REGMAP
+	phases ppl
 	select DEVRES
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
-
-config SPL_REGMAP
-	bool
-	depends on SPL_DM
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
-
-config TPL_REGMAP
-	bool
-	depends on TPL_DM
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
-
-config VPL_REGMAP
-	bool
-	depends on VPL_DM
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
 
 config SYSCON
 	bool "Support system controllers"
