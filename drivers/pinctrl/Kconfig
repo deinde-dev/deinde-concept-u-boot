@@ -6,6 +6,7 @@ menu "Pin controllers"
 
 config PINCTRL
 	bool "Support pin controllers"
+	phases all
 	depends on DM
 	help
 	  This enables the basic support for pinctrl framework.  You may want
@@ -81,27 +82,6 @@ config PINCTRL_NOMADIK
 	help
 	  Enable pin multiplexing and configuration support for the Nomadik
 	  GPIO blocks in the ST-Ericsson DB8500.
-
-config SPL_PINCTRL
-	bool "Support pin controllers in SPL"
-	depends on SPL && SPL_DM
-	help
-	  This option is an SPL-variant of the PINCTRL option.
-	  See the help of PINCTRL for details.
-
-config TPL_PINCTRL
-	bool "Support pin controllers in TPL"
-	depends on TPL && TPL_DM
-	help
-	  This option is an TPL variant of the PINCTRL option.
-	  See the help of PINCTRL for details.
-
-config VPL_PINCTRL
-	bool "Support pin controllers in VPL"
-	depends on VPL && VPL_DM
-	help
-	  This option is an VPL variant of the PINCTRL option.
-	  See the help of PINCTRL for details.
 
 config SPL_PINCTRL_FULL
 	bool "Support full pin controllers in SPL"
