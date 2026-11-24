@@ -182,34 +182,8 @@ config CROS_EC_I2C
 
 config CROS_EC_LPC
 	bool "Enable Chrome OS EC LPC driver"
+	phases all
 	depends on CROS_EC
-	help
-	  Enable I2C access to the Chrome OS EC. This is used on x86
-	  Chromebooks such as link and falco. The keyboard is provided
-	  through a legacy port interface, so on x86 machines the main
-	  function of the EC is power and thermal management.
-
-config SPL_CROS_EC_LPC
-	bool "Enable Chrome OS EC LPC driver in SPL"
-	depends on CROS_EC && SPL_MISC
-	help
-	  Enable I2C access to the Chrome OS EC. This is used on x86
-	  Chromebooks such as link and falco. The keyboard is provided
-	  through a legacy port interface, so on x86 machines the main
-	  function of the EC is power and thermal management.
-
-config TPL_CROS_EC_LPC
-	bool "Enable Chrome OS EC LPC driver in TPL"
-	depends on CROS_EC && TPL_MISC
-	help
-	  Enable I2C access to the Chrome OS EC. This is used on x86
-	  Chromebooks such as link and falco. The keyboard is provided
-	  through a legacy port interface, so on x86 machines the main
-	  function of the EC is power and thermal management.
-
-config VPL_CROS_EC_LPC
-	bool "Enable Chrome OS EC LPC driver in VPL"
-	depends on CROS_EC && VPL_MISC
 	help
 	  Enable I2C access to the Chrome OS EC. This is used on x86
 	  Chromebooks such as link and falco. The keyboard is provided
