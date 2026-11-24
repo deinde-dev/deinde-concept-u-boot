@@ -347,10 +347,8 @@ static int do_mem_cp(struct getopt_state *gs)
 
 	count = hextoul(argv[3], NULL);
 
-	if (count == 0) {
-		puts ("Zero length ???\n");
-		return 1;
-	}
+	if (count == 0)
+		return cmd_fail(0, "Zero length ???\n");
 
 	src = map_sysmem(addr, count * size);
 	dst = map_sysmem(dest, count * size);
