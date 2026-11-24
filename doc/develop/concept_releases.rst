@@ -35,9 +35,9 @@ on Monday, December 07, 2026.
 
 Release candidate schedule:
 
-* **2026.12-rc3**: Mon 26-Oct-2026
+* **2026.12-rc1**: Mon 26-Oct-2026
 * **2026.12-rc2**: Mon 09-Nov-2026
-* **2026.12-rc1**: Mon 23-Nov-2026
+* **2026.12-rc3**: Mon 23-Nov-2026
 * **2026.12** (Final): Mon 07-Dec-2026
 
 Release History
