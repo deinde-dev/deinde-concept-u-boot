@@ -8,17 +8,18 @@
 
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <linker_lists.h>
 #include <video.h>
 #include <video_console.h>
 
-static int do_video_setcursor(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_video_setcursor(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	unsigned int col, row;
 	struct udevice *dev;
 
-	if (argc != 3)
+	if (gs->argc != 3)
 		return CMD_RET_USAGE;
 
 	if (uclass_first_device_err(UCLASS_VIDEO_CONSOLE, &dev))
@@ -30,13 +31,13 @@ static int do_video_setcursor(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_video_puts(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_video_puts(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	int ret;
 
-	if (argc != 2)
+	if (gs->argc != 2)
 		return CMD_RET_USAGE;
 
 	if (uclass_first_device_err(UCLASS_VIDEO_CONSOLE, &dev))
@@ -48,32 +49,37 @@ static int do_video_puts(struct cmd_tbl *cmdtp, int flag, int argc,
 	return ret ? CMD_RET_FAILURE : 0;
 }
 
-static int do_video_write(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_video_write(struct getopt_state *gs)
 {
 	struct vidconsole_priv *priv;
+	char *const *argv = gs->argv;
 	bool use_pixels = false;
+	int argc = gs->argc;
 	struct udevice *dev;
-	int ret, i;
+	int opt, ret, i;
 
-	if (argc < 3)
+	while ((opt = getopt(gs, "+p")) > 0) {
+		switch (opt) {
+		case 'p':
+			use_pixels = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* each position needs a string to go with it */
+	if (argc - gs->index < 2)
 		return CMD_RET_USAGE;
 
 	if (uclass_first_device_err(UCLASS_VIDEO_CONSOLE, &dev))
 		return CMD_RET_FAILURE;
 	priv = dev_get_uclass_priv(dev);
 
-	/* Check for -p flag */
-	if (!strcmp(argv[1], "-p")) {
-		use_pixels = true;
-		argc--;
-		argv++;
-	}
-
-	if (argc < 3 || !(argc % 2))
+	if ((argc - gs->index) % 2)
 		return CMD_RET_USAGE;
 
-	for (i = 1; i < argc; i += 2) {
+	for (i = gs->index; i < argc; i += 2) {
 		uint col, row;
 		char *pos = argv[i];
 		char *colon = strchr(pos, ':');
@@ -101,8 +107,7 @@ static int do_video_write(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_video_images(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_video_images(struct getopt_state *gs)
 {
 	struct video_image *image;
 	int count, i;
@@ -124,13 +129,13 @@ static int do_video_images(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	setcurs, 3,	1,	do_video_setcursor,
 	"set cursor position within screen",
 	"    <col> <row> in hex characters"
 );
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	lcdputs, 2,	1,	do_video_puts,
 	"print string on video framebuffer",
 	"    <string>"
@@ -144,7 +149,8 @@ U_BOOT_LONGHELP(video,
 	"video images                               - List images compiled into U-Boot");
 
 U_BOOT_CMD_WITH_SUBCMDS(video, "Video commands", video_help_text,
-	U_BOOT_SUBCMD_MKENT(setcursor, 3, 1, do_video_setcursor),
-	U_BOOT_SUBCMD_MKENT(puts, 2, 1, do_video_puts),
-	U_BOOT_SUBCMD_MKENT(write, CONFIG_SYS_MAXARGS, 1, do_video_write),
-	U_BOOT_SUBCMD_MKENT(images, 1, 1, do_video_images));
+	U_BOOT_CMD_MKENT_NOOPTS(setcursor, 3, 1, do_video_setcursor, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(puts, 2, 1, do_video_puts, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(write, CONFIG_SYS_MAXARGS, 1, do_video_write,
+				"", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(images, 1, 1, do_video_images, "", ""));

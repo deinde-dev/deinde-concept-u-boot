@@ -1553,6 +1553,14 @@ static int dm_test_video_cmd_err(struct unit_test_state *uts)
 	ut_assert_nextline("lcdputs     <string>");
 	ut_assert_console_end();
 
+	/* a string which looks like an option is refused */
+	ut_asserteq(1, run_command("lcdputs -hello", 0));
+	ut_assert_nextline("lcdputs - print string on video framebuffer");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("lcdputs     <string>");
+	ut_assert_console_end();
+
 	return 0;
 }
 DM_TEST(dm_test_video_cmd_err, UTF_SCAN_PDATA | UTF_SCAN_FDT | UTF_CONSOLE);
