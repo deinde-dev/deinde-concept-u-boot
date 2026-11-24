@@ -136,38 +136,20 @@ config DM_STDIO
 
 config DM_SEQ_ALIAS
 	bool "Support numbered aliases in device tree"
+	phases all
 	depends on DM
+	help
+	  Most boards will have a '/aliases' node containing the path to
+	  numbered devices (e.g. serial0 = &serial0). This feature can be
+	  disabled if it is not required, to save code space.
+
+config DM_SEQ_ALIAS
+	phases ppl vpl
 	default y
-	help
-	  Most boards will have a '/aliases' node containing the path to
-	  numbered devices (e.g. serial0 = &serial0). This feature can be
-	  disabled if it is not required.
 
-config SPL_DM_SEQ_ALIAS
-	bool "Support numbered aliases in device tree in SPL"
-	depends on SPL_DM
-	select SPL_STRTO
-	help
-	  Most boards will have a '/aliases' node containing the path to
-	  numbered devices (e.g. serial0 = &serial0). This feature can be
-	  disabled if it is not required, to save code space in SPL.
-
-config TPL_DM_SEQ_ALIAS
-	bool "Support numbered aliases in device tree in TPL"
-	depends on TPL_DM
-	help
-	  Most boards will have a '/aliases' node containing the path to
-	  numbered devices (e.g. serial0 = &serial0). This feature can be
-	  disabled if it is not required, to save code space in SPL.
-
-config VPL_DM_SEQ_ALIAS
-	bool "Support numbered aliases in device tree in VPL"
-	depends on VPL_DM
-	default y
-	help
-	  Most boards will have a '/aliases' node containing the path to
-	  numbered devices (e.g. serial0 = &serial0). This feature can be
-	  disabled if it is not required, to save code space in VPL.
+config DM_SEQ_ALIAS
+	phases spl
+	select STRTO
 
 config SPL_DM_INLINE_OFNODE
 	bool "Inline some ofnode functions which are seldom used in SPL"
@@ -196,47 +178,22 @@ config DM_DMA
 
 config REGMAP
 	bool
+	phases all
 	depends on DM
+	help
+	  Hardware peripherals tend to have one or more sets of registers
+	  which can be accessed to control the hardware. A register map
+	  models this with a simple read/write interface. It can in principle
+	  support any bus type (I2C, SPI) but so far this only supports
+	  direct memory access.
+
+config REGMAP
+	phases ppl
 	select DEVRES
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
-
-config SPL_REGMAP
-	bool
-	depends on SPL_DM
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
-
-config TPL_REGMAP
-	bool
-	depends on TPL_DM
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
-
-config VPL_REGMAP
-	bool
-	depends on VPL_DM
-	help
-	  Hardware peripherals tend to have one or more sets of registers
-	  which can be accessed to control the hardware. A register map
-	  models this with a simple read/write interface. It can in principle
-	  support any bus type (I2C, SPI) but so far this only supports
-	  direct memory access.
 
 config SYSCON
 	bool "Support system controllers"
+	phases all
 	select REGMAP
 	help
 	  Many SoCs have a number of system controllers which are dealt with
@@ -244,35 +201,9 @@ config SYSCON
 	  by this uclass, including accessing registers via regmap and
 	  assigning a unique number to each.
 
-config SPL_SYSCON
-	bool "Support system controllers in SPL"
-	depends on SPL_DM
-	select SPL_REGMAP
-	help
-	  Many SoCs have a number of system controllers which are dealt with
-	  as a group by a single driver. Some common functionality is provided
-	  by this uclass, including accessing registers via regmap and
-	  assigning a unique number to each.
-
-config TPL_SYSCON
-	bool "Support system controllers in TPL"
-	depends on TPL_DM
-	select TPL_REGMAP
-	help
-	  Many SoCs have a number of system controllers which are dealt with
-	  as a group by a single driver. Some common functionality is provided
-	  by this uclass, including accessing registers via regmap and
-	  assigning a unique number to each.
-
-config VPL_SYSCON
-	bool "Support system controllers in VPL"
-	depends on VPL_DM
-	select VPL_REGMAP
-	help
-	  Many SoCs have a number of system controllers which are dealt with
-	  as a group by a single driver. Some common functionality is provided
-	  by this uclass, including accessing registers via regmap and
-	  assigning a unique number to each.
+config SYSCON
+	phases !ppl
+	depends on DM
 
 config DEVRES
 	bool
@@ -352,60 +283,22 @@ config SPL_SIMPLE_PM_BUS
 
 config OF_TRANSLATE
 	bool "Translate addresses using fdt_translate_address"
+	phases all
 	depends on DM && OF_CONTROL
+	help
+	  If this option is enabled, the reg property will be translated
+	  using the fdt_translate_address() function. This is necessary
+	  on some platforms (e.g. MVEBU) using complex "ranges"
+	  properties in many nodes. As this translation is not handled
+	  correctly in the default simple_bus_translate() function.
+
+	  If this option is not enabled, simple_bus_translate() will be
+	  used for the address translation. This function is faster and
+	  smaller in size than fdt_translate_address().
+
+config OF_TRANSLATE
+	phases ppl
 	default y
-	help
-	  If this option is enabled, the reg property will be translated
-	  using the fdt_translate_address() function. This is necessary
-	  on some platforms (e.g. MVEBU) using complex "ranges"
-	  properties in many nodes. As this translation is not handled
-	  correctly in the default simple_bus_translate() function.
-
-	  If this option is not enabled, simple_bus_translate() will be
-	  used for the address translation. This function is faster and
-	  smaller in size than fdt_translate_address().
-
-config SPL_OF_TRANSLATE
-	bool "Translate addresses using fdt_translate_address in SPL"
-	depends on SPL_DM && SPL_OF_CONTROL
-	help
-	  If this option is enabled, the reg property will be translated
-	  using the fdt_translate_address() function. This is necessary
-	  on some platforms (e.g. MVEBU) using complex "ranges"
-	  properties in many nodes. As this translation is not handled
-	  correctly in the default simple_bus_translate() function.
-
-	  If this option is not enabled, simple_bus_translate() will be
-	  used for the address translation. This function is faster and
-	  smaller in size than fdt_translate_address().
-
-config TPL_OF_TRANSLATE
-	bool "Translate addresses using fdt_translate_address in TPL"
-	depends on TPL_DM && TPL_OF_CONTROL
-	help
-	  If this option is enabled, the reg property will be translated
-	  using the fdt_translate_address() function. This is necessary
-	  on some platforms (e.g. MVEBU) using complex "ranges"
-	  properties in many nodes. As this translation is not handled
-	  correctly in the default simple_bus_translate() function.
-
-	  If this option is not enabled, simple_bus_translate() will be
-	  used for the address translation. This function is faster and
-	  smaller in size than fdt_translate_address()
-
-config VPL_OF_TRANSLATE
-	bool "Translate addresses using fdt_translate_address in SPL"
-	depends on SPL_DM && VPL_OF_CONTROL
-	help
-	  If this option is enabled, the reg property will be translated
-	  using the fdt_translate_address() function. This is necessary
-	  on some platforms (e.g. MVEBU) using complex "ranges"
-	  properties in many nodes. As this translation is not handled
-	  correctly in the default simple_bus_translate() function.
-
-	  If this option is not enabled, simple_bus_translate() will be
-	  used for the address translation. This function is faster and
-	  smaller in size than fdt_translate_address().
 
 config TRANSLATION_OFFSET
 	bool "Platforms specific translation offset"

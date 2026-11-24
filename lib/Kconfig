@@ -199,32 +199,22 @@ config VPL_PRINTF
 
 config SPRINTF
 	bool
+	phases all
+
+config SPRINTF
+	phases ppl
 	default y
-
-config SPL_SPRINTF
-	bool
-
-config TPL_SPRINTF
-	bool
-
-config VPL_SPRINTF
-	bool
 
 config SSCANF
 	bool
 
 config STRTO
 	bool
+	phases all
+
+config STRTO
+	phases ppl
 	default y
-
-config SPL_STRTO
-	bool
-
-config TPL_STRTO
-	bool
-
-config VPL_STRTO
-	bool
 
 config IMAGE_SPARSE
 	bool
@@ -984,6 +974,7 @@ menu "Compression Support"
 
 config LZ4
 	bool "Enable LZ4 decompression support"
+	phases all
 	help
 	  If this option is set, support for LZ4 compressed images
 	  is included. The LZ4 algorithm can run in-place as long as the
@@ -1072,33 +1063,6 @@ config SPL_BZIP2
 	depends on SPL
 	help
 	  This enables support for bzip2 compression algorithm for SPL boot.
-
-config SPL_LZ4
-	bool "Enable LZ4 decompression support in SPL"
-	depends on SPL
-	help
-	  This enables support for the LZ4 decompression algorithm in SPL. LZ4
-	  is a lossless data compression algorithm that is focused on
-	  fast compression and decompression speed. It belongs to the LZ77
-	  family of byte-oriented compression schemes.
-
-config TPL_LZ4
-	bool "Enable LZ4 decompression support in TPL"
-	depends on TPL
-	help
-	  This enables support for the LZ4 decompression algorithm in TPL. LZ4
-	  is a lossless data compression algorithm that is focused on
-	  fast compression and decompression speed. It belongs to the LZ77
-	  family of byte-oriented compression schemes.
-
-config VPL_LZ4
-	bool "Enable LZ4 decompression support in VPL"
-	depends on VPL
-	help
-	  This enables support for the LZ4 decompression algorithm in VPL. LZ4
-	  is a lossless data compression algorithm that is focused on
-	  fast compression and decompression speed. It belongs to the LZ77
-	  family of byte-oriented compression schemes.
 
 config SPL_LZMA
 	bool "Enable LZMA decompression support for SPL build"

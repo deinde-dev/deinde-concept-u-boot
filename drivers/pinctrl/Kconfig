@@ -6,6 +6,7 @@ menu "Pin controllers"
 
 config PINCTRL
 	bool "Support pin controllers"
+	phases all
 	depends on DM
 	help
 	  This enables the basic support for pinctrl framework.  You may want
@@ -13,8 +14,8 @@ config PINCTRL
 
 config PINCTRL_FULL
 	bool "Support full pin controllers"
+	phases all
 	depends on PINCTRL && OF_CONTROL
-	default y
 	help
 	  This provides Linux-compatible device tree interface for the pinctrl
 	  subsystem.  This feature depends on device tree configuration because
@@ -27,8 +28,17 @@ config PINCTRL_FULL
 	  It is totally up to the implementation of each low-level driver.
 	  You can save memory footprint in return for some limitations.
 
+config PINCTRL_FULL
+	phases spl
+	default n if TARGET_STM32F746_DISCO
+
+config PINCTRL_FULL
+	phases ppl spl
+	default y
+
 config PINCTRL_GENERIC
 	bool "Support generic pin controllers"
+	phases ppl spl tpl
 	depends on PINCTRL_FULL
 	default y
 	help
@@ -43,6 +53,7 @@ config PINCTRL_GENERIC
 
 config PINMUX
 	bool "Support pin multiplexing controllers"
+	phases ppl spl
 	depends on PINCTRL_GENERIC
 	default y
 	help
@@ -52,8 +63,16 @@ config PINMUX
 	  allows the required function to be selected for each pin.
 	  The driver is typically controlled by the device tree.
 
+	  The pinctrl subsystem can add a substantial overhead to the SPL
+	  image since it typically requires quite a few tables either in the
+	  driver or in the device tree. If this is acceptable and you need
+	  to adjust pin multiplexing in SPL in order to boot into U-Boot,
+	  enable this option for SPL. You will need to enable device tree in
+	  SPL for this to work.
+
 config PINCONF
 	bool "Support pin configuration controllers"
+	phases ppl spl
 	depends on PINCTRL_GENERIC
 	help
 	  This option enables pin configuration through the generic pinctrl
@@ -61,6 +80,7 @@ config PINCONF
 
 config PINCONF_RECURSIVE
 	bool "Support recursive binding for pin configuration nodes"
+	phases ppl spl
 	depends on PINCTRL_FULL
 	default n if ARCH_STM32MP
 	default y
@@ -81,96 +101,6 @@ config PINCTRL_NOMADIK
 	help
 	  Enable pin multiplexing and configuration support for the Nomadik
 	  GPIO blocks in the ST-Ericsson DB8500.
-
-config SPL_PINCTRL
-	bool "Support pin controllers in SPL"
-	depends on SPL && SPL_DM
-	help
-	  This option is an SPL-variant of the PINCTRL option.
-	  See the help of PINCTRL for details.
-
-config TPL_PINCTRL
-	bool "Support pin controllers in TPL"
-	depends on TPL && TPL_DM
-	help
-	  This option is an TPL variant of the PINCTRL option.
-	  See the help of PINCTRL for details.
-
-config VPL_PINCTRL
-	bool "Support pin controllers in VPL"
-	depends on VPL && VPL_DM
-	help
-	  This option is an VPL variant of the PINCTRL option.
-	  See the help of PINCTRL for details.
-
-config SPL_PINCTRL_FULL
-	bool "Support full pin controllers in SPL"
-	depends on SPL_PINCTRL && SPL_OF_CONTROL
-	default n if TARGET_STM32F746_DISCO
-	default y
-	help
-	  This option is an SPL variant of the PINCTRL_FULL option.
-	  See the help of PINCTRL_FULL for details.
-
-config TPL_PINCTRL_FULL
-	bool "Support full pin controllers in TPL"
-	depends on TPL_PINCTRL && TPL_OF_CONTROL
-	help
-	  This option is a TPL variant of the PINCTRL_FULL option.
-	  See the help of PINCTRL_FULL for details.
-
-config VPL_PINCTRL_FULL
-	bool "Support full pin controllers in VPL"
-	depends on VPL_PINCTRL && VPL_OF_CONTROL
-	help
-	  This option is a VPL variant of the PINCTRL_FULL option.
-	  See the help of PINCTRL_FULL for details.
-
-config SPL_PINCTRL_GENERIC
-	bool "Support generic pin controllers in SPL"
-	depends on SPL_PINCTRL_FULL
-	default y
-	help
-	  This option is an SPL-variant of the PINCTRL_GENERIC option.
-	  See the help of PINCTRL_GENERIC for details.
-
-config TPL_PINCTRL_GENERIC
-	bool "Support generic pin controllers in TPL"
-	depends on TPL_PINCTRL_FULL
-	default y
-	help
-	  This option is a TPL-variant of the PINCTRL_GENERIC option.
-	  See the help of PINCTRL_GENERIC for details.
-
-config SPL_PINMUX
-	bool "Support pin multiplexing controllers in SPL"
-	depends on SPL_PINCTRL_GENERIC
-	default y
-	help
-	  This option is an SPL-variant of the PINMUX option.
-	  See the help of PINMUX for details.
-	  The pinctrl subsystem can add a substantial overhead to the SPL
-	  image since it typically requires quite a few tables either in the
-	  driver or in the device tree. If this is acceptable and you need
-	  to adjust pin multiplexing in SPL in order to boot into U-Boot,
-	  enable this option. You will need to enable device tree in SPL
-	  for this to work.
-
-config SPL_PINCONF
-	bool "Support pin configuration controllers in SPL"
-	depends on SPL_PINCTRL_GENERIC
-	help
-	  This option is an SPL-variant of the PINCONF option.
-	  See the help of PINCONF for details.
-
-config SPL_PINCONF_RECURSIVE
-	bool "Support recursive binding for pin configuration nodes in SPL"
-	depends on SPL_PINCTRL_FULL
-	default n if ARCH_STM32MP
-	default y
-	help
-	  This option is an SPL-variant of the PINCONF_RECURSIVE option.
-	  See the help of PINCONF_RECURSIVE for details.
 
 if PINCTRL || SPL_PINCTRL
 
