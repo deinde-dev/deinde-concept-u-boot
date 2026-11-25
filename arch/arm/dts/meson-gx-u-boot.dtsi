@@ -75,7 +75,7 @@
 					u-boot-nodtb {
 					};
 
-#if CONFIG_IS_ENABLED(FIT_SIGNATURE) && CONFIG_IS_ENABLED(SHA256)
+#if IS_ENABLED(CONFIG_FIT_SIGNATURE) && IS_ENABLED(CONFIG_SHA256)
 					hash {
 						algo = "sha256";
 					};
@@ -97,7 +97,7 @@
 						filename = "bl31.bin";
 					};
 
-#if CONFIG_IS_ENABLED(FIT_SIGNATURE) && CONFIG_IS_ENABLED(SHA256)
+#if IS_ENABLED(CONFIG_FIT_SIGNATURE) && IS_ENABLED(CONFIG_SHA256)
 					hash {
 						algo = "sha256";
 					};
@@ -134,7 +134,7 @@
 					type = "flat_dt";
 					compression = "none";
 
-#if CONFIG_IS_ENABLED(FIT_SIGNATURE) && CONFIG_IS_ENABLED(SHA256)
+#if IS_ENABLED(CONFIG_FIT_SIGNATURE) && IS_ENABLED(CONFIG_SHA256)
 					hash {
 						algo = "sha256";
 					};
