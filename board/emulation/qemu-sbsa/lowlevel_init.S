@@ -14,7 +14,8 @@
 .global save_boot_params
 save_boot_params:
 	/* The firmware provided ATAG/FDT address can be found in r2/x0 */
-	adr	x8, fw_dtb_pointer
+	adrp	x8, fw_dtb_pointer
+	add	x8, x8, :lo12:fw_dtb_pointer
 	str	x0, [x8]
 
 
