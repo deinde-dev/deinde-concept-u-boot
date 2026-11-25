@@ -481,6 +481,30 @@ static int cmd_test_wget_usage(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_wget_usage, UTF_CONSOLE);
 
+/* An option is refused rather than being taken as a path */
+static int cmd_test_wget_badopt(struct unit_test_state *uts)
+{
+	struct wget_ctx ctx = { .uts = uts };
+	struct wget_env env;
+
+	wget_save_env(&env);
+
+	/*
+	 * The server is attached, so a command which asked for a file would
+	 * get one
+	 */
+	ut_assertok(wget_setup(uts, &ctx, true));
+
+	ut_asserteq(1, run_commandf("wget -x " WGET_SERVER_IP ":" WGET_PATH));
+	ut_assertok(check_usage(uts));
+	ut_asserteq(0, ctx.requests);
+
+	ut_assertok(wget_restore(uts, &env));
+
+	return 0;
+}
+CMD_TEST(cmd_test_wget_badopt, UTF_CONSOLE);
+
 static int cmd_test_wget_uri_validate(struct unit_test_state *uts)
 {
 	ut_asserteq(true, wget_validate_uri("http://foo.com/bar.html"));

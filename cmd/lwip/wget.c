@@ -3,27 +3,28 @@
 
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <image.h>
 #include <net.h>
 #include <lwip/altcp_tls.h>
 
-U_BOOT_CMD(wget, 4, 1, do_wget,
-	   "boot image via network using HTTP/HTTPS protocol"
+U_BOOT_CMD_NOOPTS(wget, 4, 1, do_wget,
+		  "boot image via network using HTTP/HTTPS protocol"
 #if defined(CONFIG_WGET_CACERT)
-	   "\nwget cacert - configure wget root certificates"
+		  "\nwget cacert - configure wget root certificates"
 #endif
-	   ,
-	   "[loadAddress] url\n"
-	   "wget [loadAddress] [host:]path\n"
-	   "    - load file"
+		  ,
+		  "[loadAddress] url\n"
+		  "wget [loadAddress] [host:]path\n"
+		  "    - load file"
 #if defined(CONFIG_WGET_CACERT)
-	   "\nwget cacert <address> <length>\n"
-	   "    - provide CA certificates (0 0 to remove current)"
-	   "\nwget cacert none|optional|required\n"
-	   "    - set server certificate verification mode (default: optional)"
+		  "\nwget cacert <address> <length>\n"
+		  "    - provide CA certificates (0 0 to remove current)"
+		  "\nwget cacert none|optional|required\n"
+		  "    - set server certificate verification mode (default: optional)"
 #if defined(CONFIG_WGET_BUILTIN_CACERT)
-	   "\nwget cacert builtin\n"
-	   "    - use the builtin CA certificates"
+		  "\nwget cacert builtin\n"
+		  "    - use the builtin CA certificates"
 #endif
 #endif
 );
@@ -176,8 +177,10 @@ static int parse_legacy_arg(char *arg, char *nurl, size_t rem)
 	return 0;
 }
 
-int do_wget(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+int do_wget(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	char *end;
 	char *url;
 	ulong dst_addr;
