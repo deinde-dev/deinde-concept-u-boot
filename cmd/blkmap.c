@@ -40,20 +40,16 @@ static int do_blkmap_map_linear(struct map_ctx *ctx, int argc,
 	lblknr = dectoul(argv[3], NULL);
 
 	err = blk_get_devnum_by_uclass_idname(argv[1], ldevnum, &ldev);
-	if (err) {
-		printf("Found no device matching \"%s %d\"\n",
-		       argv[1], ldevnum);
-		return CMD_RET_FAILURE;
-	}
+	if (err)
+		return cmd_fail(err, "Found no device matching \"%s %d\"\n",
+				argv[1], ldevnum);
 
 	err = blkmap_map_linear(ctx->dev, ctx->blknr, ctx->blkcnt,
 				ldev, lblknr);
-	if (err) {
-		printf("Unable to map \"%s %d\" at block 0x" LBAF ": %d\n",
-		       argv[1], ldevnum, ctx->blknr, err);
-
-		return CMD_RET_FAILURE;
-	}
+	if (err)
+		return cmd_fail(err,
+				"Unable to map \"%s %d\" at block 0x" LBAF ": %d\n",
+				argv[1], ldevnum, ctx->blknr, err);
 
 	printf("Block 0x" LBAF "+0x" LBAF " mapped to block 0x" LBAF " of \"%s %d\"\n",
 	       ctx->blknr, ctx->blkcnt, lblknr, argv[1], ldevnum);
@@ -76,11 +72,9 @@ static int do_blkmap_map_mem(struct map_ctx *ctx, int argc, char *const argv[])
 
 	err = blkmap_map_pmem(ctx->dev, ctx->blknr, ctx->blkcnt, addr,
 			      preserve);
-	if (err) {
-		printf("Unable to map %#llx at block 0x" LBAF ": %d\n",
-		       (unsigned long long)addr, ctx->blknr, err);
-		return CMD_RET_FAILURE;
-	}
+	if (err)
+		return cmd_fail(err, "Unable to map %#llx at block 0x" LBAF ": %d\n",
+				(unsigned long long)addr, ctx->blknr, err);
 
 	printf("Block 0x" LBAF "+0x" LBAF " mapped to %#llx\n",
 	       ctx->blknr, ctx->blkcnt, (unsigned long long)addr);
@@ -105,10 +99,10 @@ static int do_blkmap_map(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ctx.dev = blkmap_from_label(argv[1]);
-	if (!ctx.dev) {
-		printf("\"%s\" is not the name of any known blkmap\n", argv[1]);
-		return CMD_RET_FAILURE;
-	}
+	if (!ctx.dev)
+		return cmd_fail(0,
+				"\"%s\" is not the name of any known blkmap\n",
+				argv[1]);
 
 	ctx.blknr = hextoul(argv[2], NULL);
 	ctx.blkcnt = hextoul(argv[3], NULL);
@@ -120,7 +114,8 @@ static int do_blkmap_map(struct getopt_state *gs)
 			return handler->fn(&ctx, argc, argv);
 	}
 
-	printf("Unknown map type \"%s\"\n", argv[0]);
+	cmd_err("Unknown map type \"%s\"\n", argv[0]);
+
 	return CMD_RET_USAGE;
 }
 
@@ -135,10 +130,9 @@ static int do_blkmap_create(struct getopt_state *gs)
 	label = gs->argv[1];
 
 	err = blkmap_create(label, NULL);
-	if (err) {
-		printf("Unable to create \"%s\": %d\n", label, err);
-		return CMD_RET_FAILURE;
-	}
+	if (err)
+		return cmd_fail(err, "Unable to create \"%s\": %d\n", label,
+				err);
 
 	printf("Created \"%s\"\n", label);
 	return CMD_RET_SUCCESS;
@@ -156,16 +150,15 @@ static int do_blkmap_destroy(struct getopt_state *gs)
 	label = gs->argv[1];
 
 	dev = blkmap_from_label(label);
-	if (!dev) {
-		printf("\"%s\" is not the name of any known blkmap\n", label);
-		return CMD_RET_FAILURE;
-	}
+	if (!dev)
+		return cmd_fail(0,
+				"\"%s\" is not the name of any known blkmap\n",
+				label);
 
 	err = blkmap_destroy(dev);
-	if (err) {
-		printf("Unable to destroy \"%s\": %d\n", label, err);
-		return CMD_RET_FAILURE;
-	}
+	if (err)
+		return cmd_fail(err, "Unable to destroy \"%s\": %d\n", label,
+				err);
 
 	printf("Destroyed \"%s\"\n", label);
 	return CMD_RET_SUCCESS;
@@ -185,10 +178,10 @@ static int do_blkmap_get(struct getopt_state *gs)
 	label = argv[1];
 
 	dev = blkmap_from_label(label);
-	if (!dev) {
-		printf("\"%s\" is not the name of any known blkmap\n", label);
-		return CMD_RET_FAILURE;
-	}
+	if (!dev)
+		return cmd_fail(0,
+				"\"%s\" is not the name of any known blkmap\n",
+				label);
 
 	if (!strcmp(argv[2], "dev")) {
 		if (argc == 3) {
