@@ -173,14 +173,14 @@ U_BOOT_CMD(
 #endif
 
 #if defined(CONFIG_CMD_WGET)
-static int do_wget(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+static int do_wget(struct getopt_state *gs)
 {
 	wget_info = &default_wget_info;
 
-	return netboot_common(WGET, argc, argv);
+	return netboot_common(WGET, gs->argc, gs->argv);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	wget,   3,      1,      do_wget,
 	"boot image via network using HTTP protocol",
 	"[loadAddress] [[hostIPaddr:]path and image name]"

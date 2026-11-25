@@ -11,7 +11,7 @@ Synopsis
 
 ::
 
-    wget [address] [host:]path
+    wget [address] [[host:]path]
     wget [address] url                  # lwIP only
     wget cacert none|optional|required  # lwIP only
     wget cacert <address> <size>        # lwIP only
@@ -31,18 +31,26 @@ as well as by the lwIP base network stack (CONFIG_NET_LWIP=y). It supports HTTP
 only.
 
 By default the destination port is 80 and the source port is pseudo-random.
-On the legacy nework stack the environment variable *httpdstp* can be used to
+On the legacy network stack the environment variable *httpdstp* can be used to
 set the destination port
 
 address
-    memory address for the data downloaded
+    memory address for the data downloaded, defaults to the value of
+    environment variable *loadaddr*.
 
 host
     IP address (or host name if `CONFIG_DNS` is enabled) of the HTTP
     server, defaults to the value of environment variable *serverip*.
 
 path
-    path of the file to be downloaded.
+    path of the file to be downloaded. On the legacy network stack it
+    defaults to the value of environment variable *bootfile*, so that the
+    command on its own downloads that file; the lwIP stack requires either
+    a path or a URL.
+
+Once the download is complete the environment variables *fileaddr* and
+*filesize* hold the address the data is at and its length in hexadecimal. The
+image is then booted if the environment variable *autostart* is set to *yes*.
 
 New syntax (lwIP only)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -102,8 +110,9 @@ In the example the following steps are executed:
     *** Unhandled DHCP Option in OFFER/ACK: 23
     DHCP client bound to address 192.168.1.105 (210 ms)
     => wget ${loadaddr} 192.168.1.254:/index.html
-    HTTP/1.0 302 Found
+
     Packets received 4, Transfer Successful
+    Bytes transferred = 743 (2e7 hex)
 
 Example with lwIP
 ~~~~~~~~~~~~~~~~~
@@ -172,6 +181,15 @@ https://cacerts.digicert.com/DigiCertTLSRSA4096RootG5.crt.
    # The builtin certificates can be restored at any time
    => wget cacert builtin
 
+Return value
+------------
+
+The return value $? is 0 (true) if the file is downloaded, and 1 (false) if the
+transfer fails, if the server reports anything other than status 200, or if
+more arguments are given than the syntax above allows. Where *autostart* is
+set to *yes* the value is that of the :doc:`bootm<bootm>` command which boots
+the image.
+
 Configuration
 -------------
 
@@ -196,5 +214,7 @@ See also
 --------
 
 * :doc:`bootp<bootp>` for setting up the network before a download
+* :doc:`dhcp<dhcp>` for obtaining an address from a DHCP server first
 * :doc:`dns<dns>` for finding the address of a web server by name
+* :doc:`tftpboot<tftpboot>` for downloading a file over TFTP instead
 * :doc:`tftpput<tftpput>` for sending a file to a server instead

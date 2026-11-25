@@ -105,6 +105,6 @@ int do_dns(struct getopt_state *gs);
 int do_nfs(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
 int do_tftpput(struct getopt_state *gs);
 int do_tftpsrv(struct getopt_state *gs);
-int do_wget(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[]);
+int do_wget(struct getopt_state *gs);
 
 #endif /* __NET_LWIP_H__ */
