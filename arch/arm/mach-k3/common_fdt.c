@@ -114,10 +114,12 @@ int fdt_del_node_path(void *blob, const char *path)
 	return ret;
 }
 
-int fdt_fixup_reserved(void *blob, const char *name,
-		       unsigned int new_address, unsigned int new_size)
+static int fdt_fixup_reserved_memory(void *blob, const char *name,
+				     unsigned int new_address,
+				     unsigned int new_size)
 {
 	int nodeoffset, subnode;
+	int ret;
 	struct fdt_memory carveout = {
 		.start = new_address,
 	};
@@ -127,27 +129,57 @@ int fdt_fixup_reserved(void *blob, const char *name,
 	if (nodeoffset < 0)
 		goto add_carveout;
 
-	/* Find existing matching subnode and update it in place */
+	/* Find existing matching subnode and remove it */
 	fdt_for_each_subnode(subnode, blob, nodeoffset) {
 		const char *node_name;
-		u64 reg[2];
+		fdt_addr_t addr;
+		fdt_size_t size;
 
 		/* Name matching */
 		node_name = fdt_get_name(blob, subnode, NULL);
 		if (!name)
 			return -EINVAL;
 		if (!strncmp(node_name, name, strlen(name))) {
-			/* Update the reg property in place */
-			reg[0] = cpu_to_fdt64(new_address);
-			reg[1] = cpu_to_fdt64(new_size);
-			return fdt_setprop(blob, subnode, "reg", reg, sizeof(reg));
+			/* Read out old size first */
+			addr = fdtdec_get_addr_size_auto_parent(
+				blob, nodeoffset, subnode, "reg", 0, &size,
+				false);
+			if (addr == FDT_ADDR_T_NONE)
+				return -EINVAL;
+			new_size = size;
+
+			/* Delete node */
+			ret = fdt_del_node(blob, subnode);
+			if (ret < 0)
+				return ret;
+
+			/* Only one matching node */
+			break;
 		}
 	}
 
 add_carveout:
 	carveout.end = new_address + new_size - 1;
-	return fdtdec_add_reserved_memory(blob, name, &carveout, NULL, 0, NULL,
+	ret = fdtdec_add_reserved_memory(blob, name, &carveout, NULL, 0, NULL,
 					 FDTDEC_RESERVED_MEMORY_NO_MAP);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+int fdt_fixup_reserved(void *blob)
+{
+	int ret;
+
+	ret = fdt_fixup_reserved_memory(blob, "tfa", CONFIG_K3_ATF_LOAD_ADDR,
+					CONFIG_K3_ATF_RESERVED_SIZE);
+	if (ret)
+		return ret;
+
+	return fdt_fixup_reserved_memory(blob, "optee",
+					 CONFIG_K3_OPTEE_LOAD_ADDR,
+					 CONFIG_K3_OPTEE_RESERVED_SIZE);
 }
 
 static int fdt_fixup_critical_trips(void *blob, int zoneoffset, int maxc)

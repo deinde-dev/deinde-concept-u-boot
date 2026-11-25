@@ -32,8 +32,5 @@ static int fdt_fixup_a53_nodes(void *dt)
 int ft_system_setup(void *blob, struct bd_info *bd)
 {
 	fdt_fixup_a53_nodes(blob);
-	fdt_fixup_reserved(blob, "tfa", CONFIG_K3_ATF_LOAD_ADDR, 0x80000);
-	fdt_fixup_reserved(blob, "optee", CONFIG_K3_OPTEE_LOAD_ADDR, 0x1800000);
-
-	return 0;
+	return fdt_fixup_reserved(blob);
 }
