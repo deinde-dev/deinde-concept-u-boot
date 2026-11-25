@@ -199,6 +199,7 @@ config CMD_ACPI
 	bool "acpi"
 	depends on ACPI
 	default y
+	select GETOPT
 	help
 	  List and dump ACPI tables. ACPI (Advanced Configuration and Power
 	  Interface) is used mostly on x86 for providing information to the

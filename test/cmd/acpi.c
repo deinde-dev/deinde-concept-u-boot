@@ -196,6 +196,34 @@ static int cmd_test_acpi_dump(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_acpi_dump, UTF_CONSOLE);
 
+/* Test the options and arguments which the command refuses */
+static int cmd_test_acpi_usage(struct unit_test_state *uts)
+{
+	ulong start = gd_acpi_start();
+
+	/* an option which the command does not have */
+	ut_asserteq(1, run_command("acpi list -x", 0));
+	ut_assert_nextlinen("acpi - ");
+	console_record_reset();
+
+	if (!IS_ENABLED(CONFIG_CMD_ARG_CHECK))
+		return 0;
+
+	/* an argument which list has no use for */
+	ut_asserteq(1, run_command("acpi list extra", 0));
+	ut_assert_nextlinen("acpi - ");
+	console_record_reset();
+
+	/* set takes no options, so it does not read one as an address */
+	ut_asserteq(1, run_command("acpi set -x", 0));
+	ut_assert_nextlinen("acpi - ");
+	ut_asserteq(start, gd_acpi_start());
+	console_record_reset();
+
+	return 0;
+}
+CMD_TEST(cmd_test_acpi_usage, UTF_CONSOLE);
+
 /* Test the errors which 'acpi dump' reports */
 static int cmd_test_acpi_dump_err(struct unit_test_state *uts)
 {
