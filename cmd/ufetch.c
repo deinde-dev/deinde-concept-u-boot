@@ -95,7 +95,7 @@ static int do_ufetch(struct getopt_state *gs)
 	const char *model, *compatible;
 	char *ipaddr;
 	int n_cmds, n_cpus = 0, compatlen;
-	size_t size = 0;
+	u64 size = 0;
 	ofnode np;
 	bool skip_ascii = false;
 	int opt;
@@ -228,7 +228,7 @@ static int do_ufetch(struct getopt_state *gs)
 			ret = uclass_find_device_by_seq(UCLASS_BLK, line - STORAGE, &dev);
 			if (!ret && dev) {
 				desc = dev_get_uclass_plat(dev);
-				size = desc->lba * desc->blksz;
+				size = (u64)desc->lba * desc->blksz;
 				printf("%4s %d: " RESET, blk_get_uclass_name(desc->uclass_id),
 					desc->devnum);
 				if (size)
