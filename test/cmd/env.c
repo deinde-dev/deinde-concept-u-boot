@@ -288,6 +288,48 @@ static int cmd_test_env_lists(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_env_lists, UTF_CONSOLE);
 
+/* Test that env reports the repeatability of its sub-command */
+static int cmd_test_env_repeat(struct unit_test_state *uts)
+{
+	char *const print_args[] = { "env", "print", "ut_env", NULL };
+	char *const exists_args[] = { "env", "exists", "ut_env", NULL };
+	int repeatable;
+
+	ut_assertok(run_command("setenv ut_env wilma", 0));
+
+	/* 'env print' may be repeated by pressing Enter */
+	repeatable = 1;
+	ut_assertok(cmd_process(0, 3, print_args, &repeatable, NULL));
+	ut_asserteq(1, repeatable);
+	ut_assert_nextline("ut_env=wilma");
+	ut_assert_console_end();
+
+	/*
+	 * 'env exists' may not, so the dispatcher narrows the flag which the
+	 * env command itself carries
+	 */
+	repeatable = 1;
+	ut_assertok(cmd_process(0, 3, exists_args, &repeatable, NULL));
+	ut_asserteq(0, repeatable);
+	ut_assert_console_end();
+
+	/* a repeat of it is refused before the sub-command runs */
+	repeatable = 1;
+	ut_assertok(cmd_process(CMD_FLAG_REPEAT, 3, print_args, &repeatable,
+				NULL));
+	ut_assert_nextline("ut_env=wilma");
+	ut_assert_console_end();
+
+	ut_assertok(cmd_process(CMD_FLAG_REPEAT, 3, exists_args, &repeatable,
+				NULL));
+	ut_assert_console_end();
+
+	ut_assertok(run_command("setenv ut_env", 0));
+
+	return 0;
+}
+CMD_TEST(cmd_test_env_repeat, UTF_CONSOLE);
+
 /* Test that env refuses a sub-command it does not have */
 static int cmd_test_env_subcmd(struct unit_test_state *uts)
 {

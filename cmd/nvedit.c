@@ -1113,7 +1113,8 @@ static struct cmd_tbl cmd_env_sub[] = {
 	U_BOOT_CMD_MKENT_NOOPTS(ask, CONFIG_SYS_MAXARGS, 1, do_env_ask, "",
 				""),
 #endif
-	U_BOOT_CMD_MKENT_GETOPT(default, 1, 0, do_env_default, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(default, CONFIG_SYS_MAXARGS, 0, do_env_default,
+				"", ""),
 	U_BOOT_CMD_MKENT_GETOPT(delete, CONFIG_SYS_MAXARGS, 0, do_env_delete,
 				"", ""),
 #if defined(CONFIG_CMD_EDITENV)
@@ -1126,19 +1127,21 @@ static struct cmd_tbl cmd_env_sub[] = {
 	U_BOOT_CMD_MKENT_NOOPTS(flags, 1, 0, do_env_flags, "", ""),
 #endif
 #if defined(CONFIG_CMD_EXPORTENV)
-	U_BOOT_CMD_MKENT_GETOPT(export, 4, 0, do_env_export, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(export, CONFIG_SYS_MAXARGS, 0, do_env_export,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_GREPENV)
 	U_BOOT_CMD_MKENT_GETOPT(grep, CONFIG_SYS_MAXARGS, 0, do_env_grep, "", ""),
 #endif
 #if defined(CONFIG_CMD_IMPORTENV)
-	U_BOOT_CMD_MKENT_GETOPT(import, 5, 0, do_env_import, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(import, CONFIG_SYS_MAXARGS, 0, do_env_import,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_NVEDIT_INDIRECT)
-	U_BOOT_CMD_MKENT_NOOPTS(indirect, 3, 0, do_env_indirect, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(indirect, 4, 0, do_env_indirect, "", ""),
 #endif
 #if defined(CONFIG_CMD_NVEDIT_INFO)
-	U_BOOT_CMD_MKENT_GETOPT(info, 3, 0, do_env_info, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(info, 4, 0, do_env_info, "", ""),
 #endif
 #if defined(CONFIG_CMD_NVEDIT_LOAD)
 	U_BOOT_CMD_MKENT_NOOPTS(load, 1, 0, do_env_load, "", ""),
@@ -1164,23 +1167,9 @@ static struct cmd_tbl cmd_env_sub[] = {
 #endif
 };
 
-static int do_env(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_env(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
-	/* drop initial "env" arg */
-	argc--;
-	argv++;
-
-	cp = find_cmd_tbl(argv[0], cmd_env_sub, ARRAY_SIZE(cmd_env_sub));
-
-	if (cp)
-		return cmd_invoke(cp, flag, argc, argv);
-
-	return CMD_RET_USAGE;
+	return cmd_dispatch_subcmd(gs, cmd_env_sub, ARRAY_SIZE(cmd_env_sub));
 }
 
 U_BOOT_LONGHELP(env,
@@ -1255,7 +1244,7 @@ U_BOOT_LONGHELP(env,
 #endif
 	"env set [-f] name [arg ...]\n");
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	env, CONFIG_SYS_MAXARGS, 1, do_env,
 	"environment handling commands", env_help_text
 );
