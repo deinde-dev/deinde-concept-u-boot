@@ -1120,6 +1120,11 @@ rockpro64:
     ROLE: rockpro64
   <<: *sjg_lab_dfn
 
+rock2:
+  variables:
+    ROLE: rock2
+  <<: *sjg_lab_dfn
+
 rock3a:
   variables:
     ROLE: rock3a
