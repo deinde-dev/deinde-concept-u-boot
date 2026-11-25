@@ -863,6 +863,32 @@ def split_fix_note(found, changed, need):
     return f"[pickman] {'; '.join(parts)}"
 
 
+def split_amend():
+    """Adapt the commit at HEAD for a split config
+
+    This does what the agent is asked to do after each cherry-pick, for
+    picks which have no agent. Anything which cannot be converted is left
+    for split_note() to report.
+
+    Returns:
+        str: Note added to the end of the commit message, or '' if nothing
+            needs changing
+    """
+    found, need = split_scan('HEAD~1', 'HEAD')
+    changed = split_fix(found, need) if found or need else []
+    if not changed:
+        return ''
+    note = split_fix_note(found, changed, need)
+    msg = run_git(['log', '-1', '--format=%B'])
+    run_git(['add', '--'] + changed)
+
+    # The commit may now change nothing, if the tree already does what it
+    # intends, so keep it, empty, as a record of the pick
+    run_git(['commit', '-q', '--amend', '--allow-empty', '-m',
+             f'{msg}\n\n{note}'])
+    return note
+
+
 def split_note(base, head):
     """Check picked commits against a split config, for the MR description
 
@@ -2949,6 +2975,9 @@ def parked_retry(dbs, parked, branch, dry_run=False):
     parked as a conflict, which says what it is. The commits which apply are
     only recorded as applied once they are in a merge request, by the caller.
 
+    If the tree has a split config, each commit which applies is adapted to
+    it as the agent would do, with split_amend().
+
     Merges are left alone, since a merge carries no change of its own.
 
     Args:
@@ -2973,6 +3002,7 @@ def parked_retry(dbs, parked, branch, dry_run=False):
     if gitutil.branch_exists(name):
         gitutil.delete_branch(name)
     gitutil.create_branch(name, branch)
+    split = not dry_run and uses_split_config(branch)
 
     applied = []
     still = []
@@ -2984,11 +3014,15 @@ def parked_retry(dbs, parked, branch, dry_run=False):
             continue
         try:
             run_git(['cherry-pick', '-x', chash])
-            applied.append(rec)
         except Exception:  # pylint: disable=broad-except
             # Still conflicts, so put it back and move on to the next
             _abort_in_progress()
             still.append(rec)
+            continue
+        applied.append(rec)
+        note = split_amend() if split else ''
+        if note:
+            tout.info(f'  #{rec[0]} {chash[:11]}: {note}')
 
     if applied and not dry_run and not keep_version_ok(branch, name):
         gitutil.checkout_branch(branch)
@@ -3066,11 +3100,14 @@ def do_parked(args, dbs):
         tout.info('Dry run, so nothing was kept')
     elif name:
         tout.info('')
+        note = split_note(args.branch, name)
         if args.push:
             title = f'[pickman] Retry {len(applied)} parked conflict(s)'
             desc = ('These commits were parked as conflicts and apply '
                     'cleanly now that the tree has moved on.\n\n' +
                     '\n'.join(f'- {rec[1][:11]} {rec[2]}' for rec in applied))
+            if note:
+                desc += f'\n\n{note}'
             mr_url = push_mr(args, name, title, desc)
             if not mr_url:
                 tout.error(f'Cannot push {name} or create its merge '

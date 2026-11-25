@@ -1022,6 +1022,9 @@ would apply without keeping anything.
 The retry is a plain cherry-pick, with no agent, so it does not redo the work
 the agent did on a conflict.  An unpushed commit which needed that work
 conflicts again, and is then parked as a conflict, which says what it is.
+When the target has a split config (see `Split Config`_), each commit which
+applies is adapted as ``split-check -f`` would do, with the note it prints added
+to the commit message, and anything left over goes in the MR description.
 
 To have the retry take commits which pickman wrongly recorded as applied,
 e.g. ones which never reached a merge request, set them to 'unpushed' by hand

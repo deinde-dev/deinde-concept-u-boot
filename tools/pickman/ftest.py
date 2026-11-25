@@ -10176,6 +10176,40 @@ class TestParked(unittest.TestCase):
         self.assertEqual(dbs.commit_get('a' * 40)[6], 'applied')
         self.assertEqual(dbs.commit_get('b' * 40)[6], 'conflict')
 
+    def test_retry_split_config(self):
+        """Test that a retry adapts each commit to a split config"""
+        self._add([('a' * 40, 'Now applies'), ('b' * 40, 'Still broken')])
+        self._mock_git({'a' * 40})
+        note = ('### Split config\nStill needs adapting:\n'
+                '- doc/a.rst:1 (not code, so not converted): '
+                'CONFIG_IS_ENABLED() FOO\n')
+        with mock.patch.object(control, 'uses_split_config',
+                               return_value=True), \
+             mock.patch.object(control, 'split_amend', return_value=(
+                 '[pickman] convert to per-phase config macros')) as amend, \
+             mock.patch.object(control, 'split_note',
+                               return_value=note) as split_note, \
+             mock.patch.object(gitlab, 'push_and_create_mr',
+                               return_value=MR_URL) as push:
+            with terminal.capture() as (stdout, _):
+                control.do_pickman(self._args(retry=True, push=True))
+        amend.assert_called_once_with()
+        self.assertIn(f"#1 {'a' * 11}: [pickman] convert to per-phase config "
+                      'macros', stdout.getvalue())
+        split_note.assert_called_once_with('ci/master', 'parked-retry')
+        self.assertTrue(push.call_args[0][4].endswith(
+            f"- {'a' * 11} Now applies\n\n{note}"))
+
+        # A dry run keeps nothing, so adapts nothing
+        self._mock_git({'b' * 40})
+        with mock.patch.object(control, 'uses_split_config',
+                               return_value=True), \
+             mock.patch.object(control, 'split_amend') as amend:
+            with terminal.capture() as (stdout, _):
+                control.do_pickman(self._args(retry=True, dry_run=True))
+        self.assertIn('1 now apply cleanly', stdout.getvalue())
+        amend.assert_not_called()
+
     def test_retry_all_apply(self):
         """Test that clearing the backlog gives a passing exit code"""
         self._add([('a' * 40, 'One'), ('b' * 40, 'Two')])
@@ -13893,6 +13927,73 @@ class TestSplitCheck(unittest.TestCase):
                          tools.read_file('board/a/Kconfig', binary=False))
         self.assertEqual('Uses CONFIG_TEXT_BASE\n',
                          tools.read_file('doc/a.rst', binary=False))
+
+    @staticmethod
+    def _git(*args):
+        """Run git, returning its output"""
+        return subprocess.run(['git'] + list(args), check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def test_parked_retry(self):
+        """Test that a parked commit which now applies is adapted"""
+        self._write('Kconfig', 'config FOO\n\tbool\nconfig SPL_FOO\n\tbool\n'
+                    'config PPL_TEXT_BASE\n\thex\n')
+        self._write('drivers/bar.c', 'int y = IS_ENABLED(CONFIG_FOO);\n')
+        self._write('Makefile', 'VERSION = 2026\nPATCHLEVEL = 01\n')
+        self._commit('rename')
+        self._git('branch', 'target')
+
+        # Upstream, one commit uses the old macro and name, and another
+        # changes to a macro, which leaves it with nothing to do here
+        self._git('checkout', '-q', '-b', 'up')
+        self._write('drivers/foo.c', 'int x = CONFIG_IS_ENABLED(FOO);\n'
+                    'void *p = (void *)CONFIG_TEXT_BASE;\n')
+        self._commit('Add foo')
+        first = self._git('rev-parse', 'HEAD')
+        self._write('drivers/bar.c', 'int y = CONFIG_IS_ENABLED(FOO);\n')
+        self._commit('Use the macro')
+        second = self._git('rev-parse', 'HEAD')
+        self._write('drivers/baz.c', 'int z;\n')
+        self._commit('Add baz')
+        third = self._git('rev-parse', 'HEAD')
+        self._git('checkout', '-q', 'target')
+
+        tout.init(tout.INFO)
+        try:
+            with terminal.capture() as (out, err):
+                applied, still, name = control.parked_retry(
+                    mock.Mock(), [(1, first, 'Add foo'),
+                                  (2, second, 'Use the macro'),
+                                  (3, third, 'Add baz')], 'target')
+        finally:
+            tout.init(tout.WARNING)
+        self.assertEqual('', err.getvalue())
+        self.assertEqual(3, len(applied))
+        self.assertEqual([], still)
+        self.assertEqual('parked-retry', name)
+        self.assertIn(f'#1 {first[:11]}: [pickman] convert to per-phase '
+                      'config macros; use PPL_TEXT_BASE', out.getvalue())
+
+        self.assertEqual('int x = IS_ENABLED(CONFIG_FOO);\n'
+                         'void *p = (void *)CONFIG_PPL_TEXT_BASE;',
+                         self._git('show', 'parked-retry~2:drivers/foo.c'))
+        self.assertEqual(
+            f'Add foo\n\n(cherry picked from commit {first})\n\n'
+            '[pickman] convert to per-phase config macros; use PPL_TEXT_BASE',
+            self._git('log', '-1', '--format=%B', 'parked-retry~2'))
+
+        # The second commit is kept, though it now changes nothing
+        self.assertEqual('', self._git('diff', 'parked-retry~2',
+                                       'parked-retry~1'))
+        self.assertTrue(self._git('log', '-1', '--format=%B',
+                                  'parked-retry~1').endswith(
+            '\n\n[pickman] convert to per-phase config macros'))
+
+        # The third needs nothing, so is left as it is
+        self.assertEqual(f'Add baz\n\n(cherry picked from commit {third})',
+                         self._git('log', '-1', '--format=%B',
+                                   'parked-retry'))
+        self.assertEqual('', control.split_note('target', 'parked-retry'))
 
     def test_no_kconfig(self):
         """Test a tree with no xPL Kconfig options"""
