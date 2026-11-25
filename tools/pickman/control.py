@@ -1385,6 +1385,21 @@ def source_position(dbs, source):
     return pos, via
 
 
+def drift_renamed(branch):
+    """Get the options which a branch's split config renames
+
+    Args:
+        branch (str): Downstream branch to examine
+
+    Return:
+        set of str: Old names of the renamed options, or None if the branch
+            does not have a split config
+    """
+    if not uses_split_config(branch):
+        return None
+    return splitcfg.get_renamed(_grep_kconfig(branch, splitcfg.KCONFIG_DEF))
+
+
 # pylint: disable-next=too-many-locals,too-many-branches
 def drift_collect(dbs, source, branch, deep=False, base=None):
     """Compare the downstream tree with upstream and classify every delta
@@ -1423,6 +1438,10 @@ def drift_collect(dbs, source, branch, deep=False, base=None):
 
     diff = gitutil.diff(base, branch)
     fdiffs = drift.parse_diff(diff)
+
+    # pickman converts each commit it picks into a tree with a split config,
+    # so such a difference from upstream is not drift
+    renamed = drift_renamed(branch)
 
     if deep:
         to_blame = sum(1 for fd in fdiffs if fd.path in down_paths
@@ -1472,7 +1491,8 @@ def drift_collect(dbs, source, branch, deep=False, base=None):
                     skipped += 1
                 continue
             blame = drift_blame(branch, fdiff.path, down_hashes)
-        verdicts[fdiff.path] = drift.classify(fdiff, accepts, blame)
+        verdicts[fdiff.path] = drift.classify(fdiff, accepts, blame,
+                                              renamed)
         if fdiff.path in moved:
             drift_credit_moved(verdicts, fdiff.path, moved[fdiff.path], rng,
                                down_hashes)
@@ -1551,7 +1571,7 @@ def drift_state_counts(info):
         dict: Maps state (WANTED, ACCEPTED, DRIFT) to the number of hunks
     """
     states = {drift.WANTED: 0, drift.ACCEPTED: 0, drift.REORDER: 0,
-              drift.ABSENT: 0, drift.DRIFT: 0}
+              drift.SPLIT: 0, drift.ABSENT: 0, drift.DRIFT: 0}
     for verdicts in info.verdicts.values():
         for vdt in verdicts:
             states[vdt.state] += 1
@@ -2040,6 +2060,20 @@ def drift_show_fingerprints(info):
                       f'+{plus} -{minus}')
 
 
+def drift_show_same(states):
+    """Show how many hunks say the same as upstream, in different words
+
+    Args:
+        states (dict): Hunk counts by state from drift_state_counts()
+    """
+    for state, what in ((drift.REORDER, 'only reorder lines'),
+                        (drift.SPLIT,
+                         'only adapt upstream to the split config')):
+        if states[state]:
+            tout.info(f'  {states[state]} hunk(s) {what}, so they say the '
+                      'same as upstream')
+
+
 def drift_show_report(info, show_list, show_diff):
     """Show what the comparison with upstream found
 
@@ -2061,9 +2095,7 @@ def drift_show_report(info, show_list, show_diff):
               'downstream commits')
     tout.info(f'  {states[drift.ACCEPTED]} hunk(s) accepted by '
               f'{drift.ACCEPT_FILE}')
-    if states[drift.REORDER]:
-        tout.info(f'  {states[drift.REORDER]} hunk(s) only reorder lines, '
-                  'so they say the same as upstream')
+    drift_show_same(states)
     if info.orphans:
         tout.info(f'  {len(info.orphans)} commit(s) picked from a series no '
                   "tracked source has, treated as downstream ('-o' to list)")

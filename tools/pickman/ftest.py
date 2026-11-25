@@ -9130,6 +9130,144 @@ class TestDriftReorder(unittest.TestCase):
         self.assertEqual(drift.build_patch([fdiff], verdicts), '')
 
 
+# Differences which only adapt upstream to a split config, and one which does
+# more than that
+SPLIT_DIFF = '\n'.join([
+    'diff --git a/test/dm/lwip.c b/test/dm/lwip.c',
+    '--- a/test/dm/lwip.c',
+    '+++ b/test/dm/lwip.c',
+    '@@ -1,3 +1,3 @@',
+    ' #include <dm.h>',
+    '-#if CONFIG_IS_ENABLED(NET_LWIP)',
+    '+#if IS_ENABLED(CONFIG_NET_LWIP)',
+    ' #endif',
+    '@@ -20,3 +20,3 @@',
+    ' {',
+    '-\treturn CONFIG_VAL(SYS_MALLOC_LEN);',
+    '+\treturn CONFIG_SYS_MALLOC_LEN + 1;',
+    ' }',
+    '@@ -30,1 +30,1 @@',
+    '-\tulong a = CONFIG_VAL(TEXT_BASE), b = CONFIG_TEXT_BASE;',
+    '+\tulong a = CONFIG_TEXT_BASE, b = CONFIG_PPL_TEXT_BASE;',
+    'diff --git a/drivers/Makefile b/drivers/Makefile',
+    '--- a/drivers/Makefile',
+    '+++ b/drivers/Makefile',
+    '@@ -1,2 +1,2 @@',
+    '-obj-$(CONFIG_$(PHASE_)FOO) += foo.o',
+    '+obj-$(CONFIG_FOO) += foo.o',
+    ' obj-y += bar.o',
+    'diff --git a/configs/c_defconfig b/configs/c_defconfig',
+    '--- a/configs/c_defconfig',
+    '+++ b/configs/c_defconfig',
+    '@@ -1,3 +1,2 @@',
+    ' CONFIG_ARM=y',
+    '-CONFIG_TEXT_BASE=0x1000',
+    ' CONFIG_SPL=y',
+    '@@ -40,2 +39,3 @@',
+    ' CONFIG_NET=y',
+    '+CONFIG_PPL_TEXT_BASE=0x1000',
+    ' CONFIG_USB=y',
+    'diff --git a/board/b/Kconfig b/board/b/Kconfig',
+    '--- a/board/b/Kconfig',
+    '+++ b/board/b/Kconfig',
+    '@@ -1,3 +1,3 @@',
+    '-config TEXT_BASE',
+    '+config PPL_TEXT_BASE',
+    ' \tdefault 0x1000',
+    '@@ -9,2 +9,2 @@',
+    '-\tdefault 0x2000',
+    '+\tdefault 0x3000',
+    'diff --git a/doc/b.rst b/doc/b.rst',
+    '--- a/doc/b.rst',
+    '+++ b/doc/b.rst',
+    '@@ -1 +1 @@',
+    '-Use CONFIG_IS_ENABLED(FOO) here',
+    '+Use IS_ENABLED(CONFIG_FOO) here',
+    '',
+])
+
+
+class TestDriftSplit(unittest.TestCase):
+    """Tests for differences which only adapt upstream to a split config"""
+
+    def setUp(self):
+        """Set up test fixtures"""
+        self.fdiffs = drift.parse_diff(SPLIT_DIFF)
+
+    def _states(self, renamed):
+        """Classify each file, with no blame
+
+        Args:
+            renamed (set of str): Old names of renamed options, or None
+
+        Return:
+            list of list of str: State of each hunk, for each file
+        """
+        return [[vdt.state for vdt in drift.classify(fdiff, [], None,
+                                                     renamed)]
+                for fdiff in self.fdiffs]
+
+    def test_classify_split(self):
+        """Test that only a split-config conversion is classified apart"""
+        split, dft = drift.SPLIT, drift.DRIFT
+        self.assertEqual([[split, dft, split], [split], [split, split],
+                          [split, dft], [dft]],
+                         self._states({'TEXT_BASE'}))
+
+        # Some need the rename
+        self.assertEqual([[split, dft, dft], [split], [dft, dft], [dft, dft],
+                          [dft]], self._states(set()))
+
+        # A tree without a split config has none
+        self.assertEqual([[dft] * 3, [dft], [dft, dft], [dft, dft], [dft]],
+                         self._states(None))
+
+        # A downstream commit which accounts for a hunk still does
+        verdicts = drift.classify(self.fdiffs[0], [], {2: 'abc'}, set())
+        self.assertEqual([(drift.WANTED, 'abc'), (dft, None), (dft, None)],
+                         [(vdt.state, vdt.reason) for vdt in verdicts])
+        verdicts = drift.classify(self.fdiffs[0], [], {}, {'TEXT_BASE'})
+        self.assertEqual([split, dft, split], [vdt.state for vdt in verdicts])
+
+    def test_is_split(self):
+        """Test checking whether hunks only adapt upstream"""
+        lwip = self.fdiffs[0]
+        self.assertTrue(drift.is_split_conversion(lwip.path, lwip.hunks[:1],
+                                                  set()))
+        self.assertFalse(drift.is_split_conversion(lwip.path, lwip.hunks,
+                                                   set()))
+
+        # A hunk which only adds or only removes lines is not a conversion
+        defconfig = self.fdiffs[2]
+        for hunks in defconfig.hunks[:1], defconfig.hunks[1:]:
+            self.assertFalse(drift.is_split_conversion(defconfig.path, hunks,
+                                                       {'TEXT_BASE'}))
+        blank = drift.parse_diff('\n'.join([
+            'diff --git a/a.c b/a.c', '--- a/a.c', '+++ b/a.c',
+            '@@ -1,1 +1,2 @@', ' int a;', '+', '']))[0]
+        self.assertFalse(drift.is_split_conversion('a.c', blank.hunks, set()))
+
+        # A savedefconfig may move a renamed option
+        moved = drift.parse_diff('\n'.join([
+            'diff --git a/configs/d_defconfig b/configs/d_defconfig',
+            '--- a/configs/d_defconfig', '+++ b/configs/d_defconfig',
+            '@@ -1,2 +1,2 @@', '-CONFIG_TEXT_BASE=0x1000', '-CONFIG_SPL=y',
+            '+CONFIG_SPL=y', '+CONFIG_PPL_TEXT_BASE=0x1000', '']))[0]
+        self.assertTrue(drift.is_split_conversion(moved.path, moved.hunks,
+                                                  {'TEXT_BASE'}))
+
+    def test_not_reverted(self):
+        """Test that a split-config conversion is left out of the revert"""
+        verdicts = {fdiff.path: drift.classify(fdiff, [], None, {'TEXT_BASE'})
+                    for fdiff in self.fdiffs}
+        patch = drift.build_patch(self.fdiffs, verdicts)
+        self.assertIn('+\treturn CONFIG_SYS_MALLOC_LEN + 1;', patch)
+        self.assertIn('+Use IS_ENABLED(CONFIG_FOO) here', patch)
+        self.assertIn('+\tdefault 0x3000', patch)
+        for text in ('NET_LWIP', 'PHASE_', 'TEXT_BASE'):
+            self.assertNotIn(text, patch)
+
+
 class TestDriftBuildPatch(unittest.TestCase):
     """Tests for building the patch which reverts drift"""
 
@@ -9233,6 +9371,9 @@ class TestDriftCommands(unittest.TestCase):
             dbs.close()
         database.Database.instances.clear()
 
+        # The diff from upstream, and whether the tree has a split config
+        self.diff = DRIFT_DIFF
+        self.split = False
         command.TEST_RESULT = self._handle_git
 
     def tearDown(self):
@@ -9248,6 +9389,13 @@ class TestDriftCommands(unittest.TestCase):
     def _handle_git(self, pipe_list=None, **_):
         """Answer the git commands which the drift code runs"""
         args = list(pipe_list[0])[1:]
+        if args[0] == 'show':
+            # include/linux/kconfig.h, which only defines CONFIG_IS_ENABLED()
+            # without a split config
+            return command.CommandResult(
+                stdout=f"#define {'' if self.split else 'CONFIG_'}IS_ENABLED(x)")
+        if args[0] == 'grep':
+            return command.CommandResult(stdout='config PPL_TEXT_BASE\n')
         if args[0] == 'merge-base':
             return command.CommandResult(stdout='f' * 40)
         if args[0] == 'rev-parse':
@@ -9262,7 +9410,7 @@ class TestDriftCommands(unittest.TestCase):
                 return command.CommandResult(stdout=f'{DRIFT_CHERRY}\n')
             return command.CommandResult(stdout=DRIFT_LOG)
         if args[0] == 'diff':
-            return command.CommandResult(stdout=DRIFT_DIFF.encode('utf-8'))
+            return command.CommandResult(stdout=self.diff.encode('utf-8'))
         if args[0] == 'blame':
             return command.CommandResult(stdout=DRIFT_BLAME.encode('utf-8'))
         raise ValueError(f'Unexpected git command: {args}')
@@ -9392,6 +9540,29 @@ class TestDriftCommands(unittest.TestCase):
                       out)
         self.assertIn('1 hunk(s) of drift in 2 file(s), 25% of divergence',
                       out)
+
+    def test_report_split(self):
+        """Test that the report counts the split-config conversions apart"""
+        with terminal.capture() as (stdout, _):
+            control.do_pickman(self._drift_args())
+        self.assertNotIn('split config', stdout.getvalue())
+
+        self.diff = DRIFT_DIFF + SPLIT_DIFF
+        with terminal.capture() as (stdout, _):
+            control.do_pickman(self._drift_args())
+        out = stdout.getvalue()
+        self.assertIn('9 file(s) differ from upstream', out)
+        self.assertNotIn('split config', out)
+        self.assertIn('10 hunk(s) of drift in 7 file(s)', out)
+
+        self.split = True
+        with terminal.capture() as (stdout, _):
+            ret = control.do_pickman(self._drift_args())
+        out = stdout.getvalue()
+        self.assertEqual(ret, 1)
+        self.assertIn('  6 hunk(s) only adapt upstream to the split config, so '
+                      'they say the same as upstream\n', out)
+        self.assertIn('4 hunk(s) of drift in 5 file(s)', out)
 
     def test_report_deep(self):
         """Test that a deep report finds drift inside a downstream file"""
@@ -9828,6 +9999,9 @@ class TestStatus(unittest.TestCase):
     def _handle_git(self, pipe_list=None, **_):
         """Answer the git commands which status and drift run"""
         args = list(pipe_list[0])[1:]
+        if args[0] == 'show':
+            # There is no include/linux/kconfig.h, so no split config
+            return command.CommandResult(return_code=128)
         if args[0] == 'rev-list':
             if '--count' not in args:
                 # Walking a source to resolve cherry-picks

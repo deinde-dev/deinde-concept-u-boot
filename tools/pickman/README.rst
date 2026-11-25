@@ -1147,6 +1147,16 @@ one pickman parked as a conflict that is a record, shown as ``recorded``;
 otherwise it is found by searching the log, shown as ``inferred``, which is a
 good starting point rather than a fact.
 
+On a tree with a split config (see `Split Config`_), pickman converts each
+commit it picks, e.g. ``CONFIG_IS_ENABLED(FOO)`` becomes
+``IS_ENABLED(CONFIG_FOO)`` and ``CONFIG_TEXT_BASE`` becomes
+``CONFIG_PPL_TEXT_BASE``. A hunk which differs from upstream only in that way
+says the same thing, so the report counts it on a line of its own and
+``drift-fix`` leaves it alone. To decide, pickman converts the upstream side
+with the same code which ``split-check`` uses and compares the two sides,
+ignoring the order of the lines, since a savedefconfig may move a renamed
+option. A hunk which also changes something else is still drift.
+
 Files inside a vendored subtree - ``dts/upstream``, mbedtls, lwip - are left
 out of all of this.  They track a different project and are carried by
 ``update-subtree.sh``, so reverting a delta there would be undone by the next
