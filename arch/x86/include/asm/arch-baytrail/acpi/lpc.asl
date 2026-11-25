@@ -129,13 +129,6 @@ Device (LPCB)
 
 		}
 
-		Method(_DIS, 0, Serialized)
-		{
-			Store(0, UI3E)
-			Store(0, UI4E)
-			Store(0, C1EN)
-		}
-
 		Name(BUF0, ResourceTemplate()
 		{
 			IO(Decode16, 0x03f8, 0x03f8, 0x01, 0x08)

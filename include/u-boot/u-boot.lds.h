@@ -23,6 +23,20 @@
 #endif
 
 /*
+ * IMAGE_MEM_SIZE - Length of the memory region which holds an xPL image
+ *
+ * This is the maximum size of the image, if the phase has one. Otherwise the
+ * region has no limit. This is the length which the linker uses when it cannot
+ * work one out, but it reports 'invalid length for memory region' when it does
+ * that.
+ */
+#ifdef IMAGE_MAX_SIZE
+#define IMAGE_MEM_SIZE	IMAGE_MAX_SIZE
+#else
+#define IMAGE_MEM_SIZE	0xffffffffffffffff
+#endif
+
+/*
  * U_BOOT_LISTS - Input sections for the linker lists
  *
  * Every entry is kept, since nothing refers to most of them directly. The

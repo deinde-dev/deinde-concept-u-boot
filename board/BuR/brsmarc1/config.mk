@@ -23,8 +23,10 @@ cmd_prodzip =					\
 	cp u-boot-dtb.img misc/ &&		\
 	zip -9 -r $@ misc/* >/dev/null $<
 
+ifneq ($(CONFIG_XPL_BUILD),y)
 INPUTS-y += $(hw-platform-y)_prog.bin
 INPUTS-y += $(hw-platform-y)_prod.zip
+endif
 
 $(hw-platform-y)_prog.bin: u-boot-dtb.img spl/u-boot-spl.bin FORCE
 	$(call if_changed,prodbin)

@@ -13,6 +13,7 @@ config TARGET_AM642_A53_EVM
 	bool "TI K3 based AM642 EVM running on A53"
 	select ARM64
 	select BINMAN
+	select TOOLS_MKEFICAPSULE
 	imply BOARD
 	imply SPL_BOARD
 	imply TI_I2C_BOARD_DETECT

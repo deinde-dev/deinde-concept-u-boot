@@ -16,6 +16,7 @@ config TARGET_J721E_A72_EVM
 	imply TI_I2C_BOARD_DETECT
 	select SYS_DISABLE_DCACHE_OPS
 	select BINMAN
+	select TOOLS_MKEFICAPSULE
 
 config TARGET_J721E_R5_EVM
 	bool "TI K3 based J721E EVM running on R5"
