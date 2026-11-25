@@ -84,7 +84,8 @@ static int env_print(char *name, int flag)
 	}
 
 	/* should never happen */
-	printf("## Error: cannot export environment\n");
+	cmd_err("## Error: cannot export environment\n");
+
 	return 0;
 }
 
@@ -933,13 +934,16 @@ static int do_env_import(struct getopt_state *gs)
 	return 0;
 
 sep_err:
-	printf("## %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",
-		cmd);
-	return 1;
+	return cmd_fail(0, "## %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",
+			cmd);
 }
 #endif
 
 #if defined(CONFIG_CMD_NVEDIT_INDIRECT)
+/* shown when the variable named by <from> is not set and there is no default */
+#define NO_FROM_VAR \
+	"## env indirect: Environment variable for <from> (%s) does not exist.\n"
+
 static int do_env_indirect(struct getopt_state *gs)
 {
 	char *default_value = NULL;
@@ -957,11 +961,8 @@ static int do_env_indirect(struct getopt_state *gs)
 		default_value = gs->argv[3];
 
 	val = env_get(from) ?: default_value;
-	if (!val) {
-		printf("## env indirect: Environment variable for <from> (%s) does not exist.\n", from);
-
-		return CMD_RET_FAILURE;
-	}
+	if (!val)
+		return cmd_fail(0, NO_FROM_VAR, from);
 
 	ret = env_set(to, val);
 
