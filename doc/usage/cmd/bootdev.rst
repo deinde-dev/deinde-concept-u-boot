@@ -11,11 +11,11 @@ Synopsis
 
 ::
 
-    bootdev list [-p]        - list all available bootdevs (-p to probe)
-    bootdev hunt [-l|<spec>] - use hunt drivers to find bootdevs
-    bootdev order [clear] | [<spec> ...]  - view or update bootdev order
-    bootdev select <bm>      - select a bootdev by name
-    bootdev info [-p]        - show information about a bootdev
+    bootdev list [-p]              - list all available bootdevs
+    bootdev hunt [-l | <spec>]     - use hunt drivers to find bootdevs
+    bootdev order [clear | <spec>] - view or update the bootdev order
+    bootdev select [<bd>]          - select a bootdev by name, label or seq
+    bootdev info [-p]              - show information about a bootdev
 
 Description
 -----------
@@ -73,10 +73,13 @@ bootdev hunt
 
 This hunts for new bootdevs, or shows a list of hunters.
 
-Use `-l` to list the available bootdev hunters.
+Use `-l` to list the available bootdev hunters. The Used column shows a star
+for each hunter which has been used, since a hunter runs only once.
 
-To run hunters, specify the name of the hunter to run, e.g. "mmc". If no
-name is provided, all hunters are run.
+To run hunters, specify the name of the hunter to run, e.g. "mmc". A name with
+a sequence number after it ("mmc1") selects the same hunter as the name on its
+own. If no name is provided, all hunters are run. A name which matches no
+hunter is not an error; nothing is hunted for in that case.
 
 
 bootdev order
@@ -104,7 +107,9 @@ bootdev select
 ~~~~~~~~~~~~~~
 
 Use this to select a particular bootdev. You can select it by the sequence
-number or name, as shown in `bootdev list`.
+number or name, as shown in `bootdev list`, or by a label such as "mmc1",
+which names the media device the bootdev belongs to. The sequence number is
+read as hexadecimal, as `bootdev list` shows it.
 
 Once a bootdev is selected, you can use `bootdev info` to look at it or
 `bootflow scan` to scan it.
@@ -130,7 +135,7 @@ Bootflows  1 (1 valid)
 Most of the information is the same as `bootdev list` above. The new fields
 are:
 
-Device
+Name
     Name of the bootdev
 
 Status
@@ -141,74 +146,99 @@ Bootflows
     Indicates the number of bootflows attached to the bootdev. This is 0
     unless you have used 'bootflow scan' on the bootflow, or on all bootflows.
 
+If no bootdev is selected, the command asks for `bootdev select` to be used
+first and returns 1.
+
 
 Example
 -------
 
-This example shows listing available bootdev and getting information about
-one of them::
+This example, from sandbox, shows listing the available bootdevs, selecting
+one by its label and getting information about it::
 
-   U-Boot> bootdev list
-   Seq  Probed  Status  Uclass    Name
-   ---  ------  ------  --------  ------------------
-     0   [ + ]      OK  mmc       mmc@7e202000.bootdev
-     1   [   ]      OK  mmc       sdhci@7e300000.bootdev
-     2   [   ]      OK  ethernet  smsc95xx_eth.bootdev
-   ---  ------  ------  --------  ------------------
-   (3 devices)
-   U-Boot> bootdev sel 0
-   U-Boot> bootflow scan
-   U-Boot> bootdev info
-   Name:      mmc@7e202000.bootdev
-   Sequence:  0
-   Status:    Probed
-   Uclass:    mmc
-   Bootflows: 1 (1 valid)
+    => bootdev list
+    Seq  Probed  Status  Uclass    Name
+    ---  ------  ------  --------  ------------------
+      0   [   ]      OK  qfw       qfw_sandbox.bootdev
+      1   [   ]      OK  ethernet  eth@10002000.bootdev
+      2   [   ]      OK  ethernet  eth@10003000.bootdev
+      3   [   ]      OK  ethernet  sbe5.bootdev
+      4   [   ]      OK  ethernet  eth@10004000.bootdev
+      5   [   ]      OK  ethernet  phy-test-eth.bootdev
+      6   [   ]      OK  ethernet  dsa-test-eth.bootdev
+      7   [   ]      OK  ethernet  dsa-test@0.bootdev
+      8   [   ]      OK  ethernet  dsa-test@1.bootdev
+      9   [   ]      OK  mmc       mmc2.bootdev
+      a   [   ]      OK  mmc       mmc1.bootdev
+      b   [   ]      OK  mmc       mmc0.bootdev
+      c   [   ]      OK  spi_flash spi.bin@0.bootdev
+      d   [   ]      OK  spi_flash spi.bin@1.bootdev
+      e   [   ]      OK  fs        vfs_rootfs.bootdev
+    ---  ------  ------  --------  ------------------
+    (15 bootdevs)
+    => bootdev select mmc2
+    => bootdev info
+    Name:      mmc2.bootdev
+    Sequence:  9
+    Status:    Probed
+    Uclass:    mmc
+    Bootflows: 0 (0 valid)
 
-This shows using one of the available hunters, then listing them::
+Selecting a bootdev probes it, so the status is `Probed` here. The bootflow
+count stays at 0 until `bootflow scan` has looked at the bootdev.
 
-    => bootdev hunt usb
-    Hunting with: usb
-    Bus usb@1: scanning bus usb@1 for devices...
-    3 USB Device(s) found
+This shows running one of the available hunters, then listing them::
+
+    => bootdev hunt mmc
+    Hunting with: mmc
     => bootdev hunt -l
     Prio  Used  Uclass           Hunter
     ----  ----  ---------------  ---------------
-    6        ethernet         eth_bootdev
-    1        simple_bus       (none)
-    5        ide              ide_bootdev
-    2        mmc              mmc_bootdev
-    4        nvme             nvme_bootdev
-    4        scsi             scsi_bootdev
-    4        spi_flash        sf_bootdev
-    5     *  usb              usb_bootdev
-    4        virtio           virtio_bootdev
-    (total hunters: 9)
-    => usb stor
-    Device 0: Vendor: sandbox Rev: 1.0 Prod: flash
-                Type: Hard Disk
-                Capacity: 4.0 MB = 0.0 GB (8192 x 512)
-    Device 1: Vendor: sandbox Rev: 1.0 Prod: flash
-                Type: Hard Disk
-                Capacity: 0.0 MB = 0.0 GB (1 x 512)
-    =>
+       6        ethernet         eth_bootdev
+       3        fs               fs_bootdev
+       5        ide              ide_bootdev
+       2     *  mmc              mmc_bootdev
+       4        nvme             nvme_bootdev
+       4        qfw              qfw_bootdev
+       4        host             sandbox_bootdev
+       4        scsi             scsi_bootdev
+       4        spi_flash        sf_bootdev
+       5        usb              usb_bootdev
+       2        virtio           virtio_bootdev
+    (total hunters: 11)
 
 This shows viewing and changing the ordering::
 
     => bootdev order
     mmc2
     mmc1
-    => bootdev order 'mmc usb'
+    => bootdev order 'mmc1 usb'
     => bootdev order
-    mmc
+    mmc1
     usb
     => bootdev order clear
     => bootdev order
     No ordering
-    =>
+
+Note that the labels of a new order are separated by spaces, so they must be
+quoted to reach the command as a single argument.
 
 
 Return value
 ------------
 
-The return value $? is always 0 (true).
+The return value $? is 0 (true) if the command succeeds. It is 1 (false) if
+the arguments are wrong, if `bootdev select` cannot find the bootdev it is
+given, if `bootdev info` is used with no bootdev selected, or if a hunter
+fails.
+
+See also
+--------
+
+* :doc:`bootflow<bootflow>` for scanning the bootdevs and booting what is
+  found on them
+* :doc:`bootmeth<bootmeth>` for the methods used to scan each bootdev
+* :doc:`bootstd<bootstd>` for the state which holds the selected bootdev and
+  the order
+* :doc:`bootctl<bootctl>` for boot control, whose schema can set the bootdev
+  order
