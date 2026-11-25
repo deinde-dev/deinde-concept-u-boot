@@ -583,7 +583,7 @@ static int do_env_default(struct cmd_tbl *cmdtp, int flag,
 				env_flag |= H_NOCLEAR;
 				break;
 			default:
-				return cmd_usage(cmdtp);
+				return CMD_RET_USAGE;
 			}
 		}
 	}
@@ -600,7 +600,7 @@ static int do_env_default(struct cmd_tbl *cmdtp, int flag,
 		return 0;
 	}
 
-	return cmd_usage(cmdtp);
+	return CMD_RET_USAGE;
 }
 
 static int do_env_delete(struct cmd_tbl *cmdtp, int flag,
