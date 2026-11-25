@@ -197,10 +197,8 @@ static int do_acpi_items(struct getopt_state *gs)
 	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
 		return CMD_RET_USAGE;
 
-	if (!IS_ENABLED(CONFIG_ACPIGEN)) {
-		printf("Not supported (enable ACPIGEN)\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!IS_ENABLED(CONFIG_ACPIGEN))
+		return cmd_fail(0, "Not supported (enable ACPIGEN)\n");
 	acpi_dump_items(dump_contents ? ACPI_DUMP_CONTENTS : ACPI_DUMP_LIST);
 
 	return 0;
@@ -218,16 +216,16 @@ static int do_acpi_dump(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	name = argv[1];
-	if (strlen(name) != ACPI_NAME_LEN) {
-		printf("Table name '%s' must be four characters\n", name);
-		return CMD_RET_FAILURE;
-	}
+	if (strlen(name) != ACPI_NAME_LEN)
+		return cmd_fail(-EINVAL,
+				"Table name '%s' must be four characters\n",
+				name);
+
 	str_to_upper(name, sig, ACPI_NAME_LEN);
 	ret = dump_table_name(sig);
-	if (ret) {
-		printf("Table '%.*s' not found\n", ACPI_NAME_LEN, sig);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Table '%.*s' not found\n", ACPI_NAME_LEN,
+				sig);
 
 	return 0;
 }
