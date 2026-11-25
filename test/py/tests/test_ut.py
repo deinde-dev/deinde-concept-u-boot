@@ -188,6 +188,10 @@ def test_ut(ut_ubman, ut_subtest):
         # these setenv sub-tests print "## Error:" on purpose.
         with ut_ubman.disable_check('error_notification'):
             output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
+    elif ut_subtest == 'cmd cmd_test_env_print_missing':
+        # ut cmd cmd_test_env_print_missing prints "## Error:" on purpose.
+        with ut_ubman.disable_check('error_notification'):
+            output = ut_ubman.run_command(f'ut {flags}' + ut_subtest)
     elif ut_subtest == 'cmd cmd_test_run_missing':
         # ut cmd cmd_test_run_missing prints "## Error:" on purpose.
         with ut_ubman.disable_check('error_notification'):
