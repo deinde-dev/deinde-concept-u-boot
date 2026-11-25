@@ -186,7 +186,7 @@ EFI variables
 On qemu-x86_64, U-Boot keeps its EFI variables in a flash, which QEMU
 provides as pflash. QEMU only takes a variable flash behind a code flash, so
 the ROM goes in as pflash unit 0 and the variables as unit 1, a 512 KiB image
-which then sits just below the ROM, at 0xffd80000::
+which then sits just below the 4 MiB ROM, at 0xffb80000::
 
    qemu-img create -f raw vars.img 512K
    qemu-system-x86_64 -M q35 -m 4G -enable-kvm -nographic \
