@@ -144,3 +144,5 @@ See also
 * :doc:`mw<mw>` for writing a value to memory, which ms can then find
 * :doc:`cmp<cmp>` for comparing two regions, rather than searching one
 * :doc:`base<base>` for the address offset applied to these commands
+* :doc:`acpi<acpi>` for the ACPI tables, which this command can find by
+  searching for their signature
