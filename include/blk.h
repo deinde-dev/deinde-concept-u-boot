@@ -784,9 +784,25 @@ const char *blk_get_uclass_name(enum uclass_id uclass_id);
 enum uclass_id blk_get_uclass_id(const char *uclass_idname);
 
 /**
+ * blk_common_subcmd() - handle common sub-commands with block devices
+ *
+ * This is the form a getopt command wants, since the sub-command dispatch
+ * drops the command name before the handler runs.
+ *
+ * @argc: Number of arguments to the sub-command (argv[0] is the sub-command
+ *	itself, e.g. "info")
+ * @argv: Sub-command arguments
+ * @uclass_id: Interface type
+ * @cur_devnump: Current device number for this interface type
+ * Return: 0 if OK, CMD_RET_FAILURE on error
+ */
+int blk_common_subcmd(int argc, char *const argv[], enum uclass_id uclass_id,
+		      int *cur_devnump);
+
+/**
  * blk_common_cmd() - handle common commands with block devices
  *
- * @args: Number of arguments to the command (argv[0] is the command itself)
+ * @argc: Number of arguments to the command (argv[0] is the command itself)
  * @argv: Command arguments
  * @uclass_id: Interface type
  * @cur_devnump: Current device number for this interface type

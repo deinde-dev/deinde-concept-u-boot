@@ -13,35 +13,34 @@
 #include <mapmem.h>
 #include <vsprintf.h>
 
-int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
-		   int *cur_devnump)
+int blk_common_subcmd(int argc, char *const argv[], enum uclass_id uclass_id,
+		      int *cur_devnump)
 {
 	const char *if_name = blk_get_uclass_name(uclass_id);
 
 	switch (argc) {
 	case 0:
-	case 1:
 		return CMD_RET_USAGE;
-	case 2:
-		if (strncmp(argv[1], "inf", 3) == 0) {
+	case 1:
+		if (strncmp(argv[0], "inf", 3) == 0) {
 			blk_list_devices(uclass_id);
 			return CMD_RET_SUCCESS;
-		} else if (strncmp(argv[1], "dev", 3) == 0) {
+		} else if (strncmp(argv[0], "dev", 3) == 0) {
 			if (blk_print_device_num(uclass_id, *cur_devnump)) {
 				printf("\nno %s devices available\n", if_name);
 				return CMD_RET_FAILURE;
 			}
 			return CMD_RET_SUCCESS;
-		} else if (strncmp(argv[1], "part", 4) == 0) {
+		} else if (strncmp(argv[0], "part", 4) == 0) {
 			if (blk_list_part(uclass_id))
 				printf("\nno %s partition table available\n",
 				       if_name);
 			return CMD_RET_SUCCESS;
 		}
 		return CMD_RET_USAGE;
-	case 3:
-		if (strncmp(argv[1], "dev", 3) == 0) {
-			int dev = (int)dectoul(argv[2], NULL);
+	case 2:
+		if (strncmp(argv[0], "dev", 3) == 0) {
+			int dev = (int)dectoul(argv[1], NULL);
 
 			if (!blk_show_device(uclass_id, dev)) {
 				*cur_devnump = dev;
@@ -50,8 +49,8 @@ int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
 				return CMD_RET_FAILURE;
 			}
 			return CMD_RET_SUCCESS;
-		} else if (strncmp(argv[1], "part", 4) == 0) {
-			int dev = (int)dectoul(argv[2], NULL);
+		} else if (strncmp(argv[0], "part", 4) == 0) {
+			int dev = (int)dectoul(argv[1], NULL);
 
 			if (blk_print_part_devnum(uclass_id, dev)) {
 				printf("\n%s device %d not available\n",
@@ -62,10 +61,10 @@ int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
 		}
 		return CMD_RET_USAGE;
 
-	default: /* at least 4 args */
-		if (!strcmp(argv[1], "erase")) {
-			lbaint_t blk = hextoul(argv[2], NULL);
-			ulong cnt = hextoul(argv[3], NULL);
+	default: /* at least 3 args */
+		if (!strcmp(argv[0], "erase")) {
+			lbaint_t blk = hextoul(argv[1], NULL);
+			ulong cnt = hextoul(argv[2], NULL);
 			struct blk_desc *desc;
 			ulong n;
 
@@ -83,13 +82,13 @@ int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
 		}
 
 		/* the rest need a count, which erase does not */
-		if (argc < 5)
+		if (argc < 4)
 			return CMD_RET_USAGE;
 
-		if (strcmp(argv[1], "read") == 0) {
-			phys_addr_t paddr = hextoul(argv[2], NULL);
-			lbaint_t blk = hextoul(argv[3], NULL);
-			ulong cnt = hextoul(argv[4], NULL);
+		if (strcmp(argv[0], "read") == 0) {
+			phys_addr_t paddr = hextoul(argv[1], NULL);
+			lbaint_t blk = hextoul(argv[2], NULL);
+			ulong cnt = hextoul(argv[3], NULL);
 			struct blk_desc *desc;
 			void *vaddr;
 			ulong n;
@@ -108,10 +107,10 @@ int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
 			printf("%ld blocks read: %s\n", n,
 			       n == cnt ? "OK" : "ERROR");
 			return n == cnt ? CMD_RET_SUCCESS : CMD_RET_FAILURE;
-		} else if (strcmp(argv[1], "write") == 0) {
-			phys_addr_t paddr = hextoul(argv[2], NULL);
-			lbaint_t blk = hextoul(argv[3], NULL);
-			ulong cnt = hextoul(argv[4], NULL);
+		} else if (strcmp(argv[0], "write") == 0) {
+			phys_addr_t paddr = hextoul(argv[1], NULL);
+			lbaint_t blk = hextoul(argv[2], NULL);
+			ulong cnt = hextoul(argv[3], NULL);
 			struct blk_desc *desc;
 			void *vaddr;
 			ulong n;
@@ -134,4 +133,10 @@ int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
 			return CMD_RET_USAGE;
 		}
 	}
+}
+
+int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
+		   int *cur_devnump)
+{
+	return blk_common_subcmd(argc - 1, argv + 1, uclass_id, cur_devnump);
 }

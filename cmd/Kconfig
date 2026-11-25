@@ -2673,6 +2673,7 @@ config CMD_BLKMAP
 	bool "blkmap - Composable virtual block devices"
 	depends on BLKMAP
 	default y if BLKMAP
+	select GETOPT
 	help
 	  Create virtual block devices that are backed by various sources,
 	  e.g. RAM, or parts of an existing block device. Though much more

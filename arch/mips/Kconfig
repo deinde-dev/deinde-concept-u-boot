@@ -348,8 +348,8 @@ config MIPS_CACHE_DISABLE
 
 config MIPS_RELOCATION_TABLE_SIZE
 	hex "Relocation table size"
-	range 0x100 0x10000
-	default "0x10000" if TARGET_MALTA
+	range 0x100 0x20000
+	default "0x14000" if TARGET_MALTA
 	default "0x8000"
 	help
 	  A table of relocation data will be appended to the U-Boot binary
@@ -357,7 +357,7 @@ config MIPS_RELOCATION_TABLE_SIZE
 	  U-Boot.
 
 	  This option allows the amount of space reserved for the table to be
-	  adjusted in a range from 256 up to 64k. The default is 32k and should
+	  adjusted in a range from 256 up to 128k. The default is 32k and should
 	  be ok in most cases. Reduce this value to shrink the size of U-Boot
 	  binary.
 
