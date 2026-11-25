@@ -13510,6 +13510,59 @@ class TestSplitcfg(unittest.TestCase):
             [(item.path, item.line, item.kind, item.option)
              for item in found])
 
+    def test_renamed(self):
+        """Test finding the options renamed with the PPL_ prefix"""
+        self.assertEqual({'TEXT_BASE'}, splitcfg.get_renamed(
+            'config PPL_TEXT_BASE\nmenuconfig PPL_FOO\nconfig FOO\n'
+            'config SPL_TEXT_BASE\n'))
+        self.assertTrue(splitcfg.can_rename('arch/arm/dts/a-u-boot.dtsi'))
+        self.assertTrue(splitcfg.can_rename('board/a/Kconfig'))
+        self.assertTrue(splitcfg.can_rename('configs/a_defconfig'))
+        self.assertTrue(splitcfg.can_rename('board/a/spl.config'))
+        self.assertFalse(splitcfg.can_rename('doc/README.a'))
+
+        added = [
+            ('a.c', 1, 'p = (void *)CONFIG_TEXT_BASE + CONFIG_SPL_TEXT_BASE;'),
+            ('a.c', 2, 'q = CONFIG_TEXT_BASE_END + CONFIG_VAL(TEXT_BASE);'),
+            ('board/a/Kconfig', 3, 'config TEXT_BASE'),
+            ('board/a/Kconfig', 4, '\thelp CONFIG_TEXT_BASE'),
+            ('configs/a_defconfig', 5, 'CONFIG_TEXT_BASE=0x1000'),
+            ('doc/a.rst', 6, 'CONFIG_TEXT_BASE'),
+        ]
+        self.assertEqual(
+            [('a.c', 1, splitcfg.RENAMED, 'TEXT_BASE'),
+             ('a.c', 2, 'CONFIG_VAL()', 'TEXT_BASE'),
+             ('board/a/Kconfig', 3, splitcfg.RENAMED, 'TEXT_BASE'),
+             ('configs/a_defconfig', 5, splitcfg.RENAMED, 'TEXT_BASE')],
+            [(item.path, item.line, item.kind, item.option)
+             for item in splitcfg.find(added, {'TEXT_BASE'})])
+
+        # Nothing is renamed without the PPL_ option
+        self.assertEqual([], splitcfg.find(added[2:3]))
+
+    def test_rename(self):
+        """Test renaming options on the lines which use the old name"""
+        text = ('a = CONFIG_TEXT_BASE;\n'
+                'b = CONFIG_VAL(TEXT_BASE);\n'
+                'c = CONFIG_TEXT_BASE + CONFIG_TEXT_BASE;\n')
+        self.assertEqual(
+            'a = CONFIG_PPL_TEXT_BASE;\n'
+            'b = CONFIG_TEXT_BASE;\n'
+            'c = CONFIG_TEXT_BASE + CONFIG_TEXT_BASE;\n',
+            splitcfg.convert('a.c', text, {1: {'TEXT_BASE'}, 9: {'X'}}))
+        self.assertEqual(
+            'config PPL_TEXT_BASE\n\tdefault 0x1000\n',
+            splitcfg.convert('board/a/Kconfig',
+                             'config TEXT_BASE\n\tdefault 0x1000\n',
+                             {1: {'TEXT_BASE'}}))
+        self.assertEqual(
+            'CONFIG_PPL_TEXT_BASE=0x1000\n',
+            splitcfg.convert('configs/a_defconfig',
+                             'CONFIG_TEXT_BASE=0x1000\n',
+                             {1: {'TEXT_BASE'}}))
+        self.assertEqual('CONFIG_TEXT_BASE\n', splitcfg.convert(
+            'doc/a.rst', 'CONFIG_TEXT_BASE\n', {1: {'TEXT_BASE'}}))
+
     def test_options(self):
         """Test working out which options need adding to conf_nospl"""
         prefixes = splitcfg.get_prefixes('')
@@ -13636,6 +13689,11 @@ class TestSplitcfg(unittest.TestCase):
              'scripts/conf_nospl: FOO'],
             splitcfg.format_report(found, ['FOO']))
         self.assertEqual([], splitcfg.format_report([], []))
+        self.assertEqual(
+            ['board/a/Kconfig:2: TEXT_BASE is PPL_TEXT_BASE here'],
+            splitcfg.format_report([splitcfg.Finding(
+                'board/a/Kconfig', 2, splitcfg.RENAMED, 'TEXT_BASE', '')],
+                                   []))
 
 
 class TestSplitPrompt(unittest.TestCase):
@@ -13807,6 +13865,34 @@ class TestSplitCheck(unittest.TestCase):
             note = control.split_note('HEAD~1', 'HEAD')
         self.assertIn('### Split config\nStill needs adapting:\n', note)
         self.assertIn('- drivers/foo.c:1: CONFIG_IS_ENABLED() FOO\n', note)
+
+    def test_fix_renamed(self):
+        """Test renaming an option which this tree gives the PPL_ prefix"""
+        self._write('Kconfig', 'config PPL_TEXT_BASE\n\thex\n')
+        self._commit('rename')
+        self._write('arch/arm/mach-meson/spl.c',
+                    'void *f(void)\n{\n'
+                    '\treturn (void *)CONFIG_TEXT_BASE + 0x4000000;\n}\n')
+
+        # The pick adds the old option, which must not hide its use
+        self._write('board/a/Kconfig', 'config TEXT_BASE\n\tdefault 0x1000\n')
+        self._write('doc/a.rst', 'Uses CONFIG_TEXT_BASE\n')
+        self._commit('pick')
+        self.assertEqual(
+            (1, ['arch/arm/mach-meson/spl.c:3: TEXT_BASE is PPL_TEXT_BASE '
+                 'here',
+                 'board/a/Kconfig:1: TEXT_BASE is PPL_TEXT_BASE here']),
+            self._run('HEAD~1..HEAD'))
+
+        ret, lines = self._run('HEAD~1..HEAD', fix=True)
+        self.assertEqual(0, ret)
+        self.assertIn('note: [pickman] use PPL_TEXT_BASE', lines)
+        self.assertIn('CONFIG_PPL_TEXT_BASE + 0x4000000', tools.read_file(
+            'arch/arm/mach-meson/spl.c', binary=False))
+        self.assertEqual('config PPL_TEXT_BASE\n\tdefault 0x1000\n',
+                         tools.read_file('board/a/Kconfig', binary=False))
+        self.assertEqual('Uses CONFIG_TEXT_BASE\n',
+                         tools.read_file('doc/a.rst', binary=False))
 
     def test_no_kconfig(self):
         """Test a tree with no xPL Kconfig options"""

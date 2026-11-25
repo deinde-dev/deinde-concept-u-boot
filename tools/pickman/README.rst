@@ -434,11 +434,21 @@ false in SPL when there is no ``CONFIG_SPL_FOO``, but in the target
 ``scripts/conf_nospl``. Converting the macro alone could therefore add code to
 SPL.
 
+A few options are renamed in the target, since the old name would take each
+phase's own value. ``CONFIG_TEXT_BASE`` is U-Boot proper's text base in every
+phase in the source, but in the target it would be ``CONFIG_SPL_TEXT_BASE`` in
+SPL, so the target calls it ``CONFIG_PPL_TEXT_BASE``. A commit which uses the
+old name still builds for SPL, silently with the wrong address. Pickman takes
+an option as renamed when the target has ``PPL_FOO`` in Kconfig but no
+``FOO``, and renames it in the code, Kconfig files and defconfigs which a
+commit adds it to, but not in documentation, which keeps the old names.
+
 When the target has a split config, the cherry-pick agent is told to run
 ``split-check -f`` after each pick. This converts the macros in the lines the
 commit adds, e.g. ``CONFIG_IS_ENABLED(FOO)`` becomes ``IS_ENABLED(CONFIG_FOO)``
-and ``obj-$(CONFIG_$(PHASE_)FOO)`` becomes ``obj-$(CONFIG_FOO)``, and adds any
-option which the source only enables in U-Boot proper to ``conf_nospl``. A
+and ``obj-$(CONFIG_$(PHASE_)FOO)`` becomes ``obj-$(CONFIG_FOO)``, renames
+any renamed option, and adds any option which the source only enables in U-Boot
+proper to ``conf_nospl``. A
 commit which ends up with no changes is kept as an empty commit, since the
 target already does what it intended. Documentation, and tools such as
 ``qconfig.py`` which parse the macros, are reported but left alone.
