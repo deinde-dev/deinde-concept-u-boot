@@ -11,6 +11,7 @@
 #include <bootstd.h>
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <dm/device-internal.h>
 #include <dm/uclass-internal.h>
 
@@ -31,20 +32,34 @@ static int bootdev_check_state(struct bootstd_priv **stdp)
 	return 0;
 }
 
-static int do_bootdev_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_bootdev_list(struct getopt_state *gs)
 {
-	bool probe;
+	bool probe = false;
+	int opt;
 
-	probe = argc >= 2 && !strcmp(argv[1], "-p");
+	while ((opt = getopt(gs, "+p")) > 0) {
+		switch (opt) {
+		case 'p':
+			probe = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
+
 	bootdev_list(probe);
 
 	return 0;
 }
 
-static int do_bootdev_select(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_bootdev_select(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct bootstd_priv *std;
 	struct udevice *dev;
 	int ret;
@@ -64,16 +79,28 @@ static int do_bootdev_select(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootdev_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_bootdev_info(struct getopt_state *gs)
 {
 	struct bootstd_priv *priv;
 	struct bootflow *bflow;
 	int ret, i, num_valid;
 	struct udevice *dev;
-	bool probe;
+	bool probe = false;
+	int opt;
 
-	probe = argc >= 2 && !strcmp(argv[1], "-p");
+	while ((opt = getopt(gs, "+p")) > 0) {
+		switch (opt) {
+		case 'p':
+			probe = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = bootdev_check_state(&priv);
 	if (ret)
@@ -106,20 +133,25 @@ static int do_bootdev_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootdev_hunt(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_bootdev_hunt(struct getopt_state *gs)
 {
 	struct bootstd_priv *priv;
 	const char *spec = NULL;
 	bool list = false;
 	int ret = 0;
+	int opt;
 
-	if (argc >= 2) {
-		if (!strcmp(argv[1], "-l"))
+	while ((opt = getopt(gs, "+l")) > 0) {
+		switch (opt) {
+		case 'l':
 			list = true;
-		else
-			spec = argv[1];
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
+	if (gs->index < gs->argc)
+		spec = gs->argv[gs->index];
 
 	ret = bootstd_get_priv(&priv);
 	if (ret)
@@ -138,9 +170,10 @@ static int do_bootdev_hunt(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootdev_order(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootdev_order(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct bootstd_priv *priv;
 	int ret = 0;
 
@@ -181,8 +214,8 @@ U_BOOT_LONGHELP(bootdev,
 	"bootdev info [-p]         - show information about a bootdev (-p to probe)");
 
 U_BOOT_CMD_WITH_SUBCMDS(bootdev, "Boot devices", bootdev_help_text,
-	U_BOOT_SUBCMD_MKENT(list, 2, 1, do_bootdev_list),
-	U_BOOT_SUBCMD_MKENT(hunt, 2, 1, do_bootdev_hunt),
-	U_BOOT_SUBCMD_MKENT(order, 2, 1, do_bootdev_order),
-	U_BOOT_SUBCMD_MKENT(select, 2, 1, do_bootdev_select),
-	U_BOOT_SUBCMD_MKENT(info, 2, 1, do_bootdev_info));
+	U_BOOT_CMD_MKENT_GETOPT(list, 2, 1, do_bootdev_list, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(hunt, 2, 1, do_bootdev_hunt, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(order, 2, 1, do_bootdev_order, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(select, 2, 1, do_bootdev_select, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(info, 2, 1, do_bootdev_info, "", ""));

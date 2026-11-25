@@ -173,6 +173,30 @@ static int bootdev_test_cmd_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("bootdev select 0 extra", 0));
 	ut_assertok(check_usage(uts));
 
+	/* an option which the sub-command does not have */
+	ut_asserteq(1, run_command("bootdev list -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev hunt -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev info -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* order and select have no options at all */
+	ut_asserteq(1, run_command("bootdev order -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev select -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an argument which list and info have no use for */
+	ut_asserteq(1, run_command("bootdev list fred", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev info fred", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 BOOTSTD_TEST(bootdev_test_cmd_usage, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);

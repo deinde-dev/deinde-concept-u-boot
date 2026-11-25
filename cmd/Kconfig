@@ -465,6 +465,7 @@ config CMD_BOOTDEV
 	bool "bootdev"
 	depends on BOOTSTD
 	default y if BOOTSTD_FULL
+	select GETOPT
 	help
 	  Support listing available bootdevs (boot devices) which can provide an
 	  OS to boot, as well as showing information about a particular one.
