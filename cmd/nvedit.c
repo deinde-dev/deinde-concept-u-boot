@@ -88,25 +88,39 @@ static int env_print(char *name, int flag)
 	return 0;
 }
 
-static int do_env_print(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_env_print(struct getopt_state *gs)
 {
 	int i;
 	int rcode = 0;
 	int env_flag = H_HIDE_DOT;
+	int argc, opt;
+	char *const *argv;
 
 #if defined(CONFIG_CMD_NVEDIT_EFI)
-	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'e')
-		return do_env_print_efi(cmdtp, flag, --argc, ++argv);
+	/*
+	 * UEFI variables take options such as -guid and -nv which getopt()
+	 * cannot express, so that form goes straight to do_env_print_efi(),
+	 * which ignores the command table entry it is given
+	 */
+	if (gs->argc > 1 && !strncmp(gs->argv[1], "-e", 2))
+		return do_env_print_efi(NULL, gs->cmd_flag, gs->argc - 1,
+					gs->argv + 1);
 #endif
 
-	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'a') {
-		argc--;
-		argv++;
-		env_flag &= ~H_HIDE_DOT;
+	while ((opt = getopt(gs, "+a")) > 0) {
+		switch (opt) {
+		case 'a':
+			env_flag &= ~H_HIDE_DOT;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
-	if (argc == 1) {
+	argc = gs->argc - gs->index;
+	argv = &gs->argv[gs->index];
+
+	if (!argc) {
 		/* print all env vars */
 		rcode = env_print(NULL, env_flag);
 		if (!rcode)
@@ -118,7 +132,7 @@ static int do_env_print(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* print selected env vars */
 	env_flag &= ~H_HIDE_DOT;
-	for (i = 1; i < argc; ++i) {
+	for (i = 0; i < argc; ++i) {
 		int rc = env_print(argv[i], env_flag);
 		if (!rc) {
 			cmd_err("## Error: \"%s\" not defined\n", argv[i]);
@@ -1140,7 +1154,8 @@ static struct cmd_tbl cmd_env_sub[] = {
 #if defined(CONFIG_CMD_NVEDIT_LOAD)
 	U_BOOT_CMD_MKENT(load, 1, 0, do_env_load, "", ""),
 #endif
-	U_BOOT_CMD_MKENT(print, CONFIG_SYS_MAXARGS, 1, do_env_print, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(print, CONFIG_SYS_MAXARGS, 1, do_env_print, "",
+				""),
 #if defined(CONFIG_CMD_RUN)
 	U_BOOT_CMD_MKENT_NOOPTS(run, CONFIG_SYS_MAXARGS, 1, do_run, "", ""),
 #endif
@@ -1275,7 +1290,7 @@ U_BOOT_CMD_GETOPT_COMPLETE(
 );
 #endif
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_GETOPT_COMPLETE(
 	printenv, CONFIG_SYS_MAXARGS, 1,	do_env_print,
 	"print environment variables",
 	"[-a]\n    - print [all] values of all environment variables\n"
