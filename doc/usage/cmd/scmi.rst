@@ -123,5 +123,7 @@ See also
 --------
 
 * :doc:`clk<clk>` for the rate of each clock the SCMI server provides
+* :doc:`armffa<armffa>` for another standardised firmware interface, which
+  reaches the secure partitions of the secure world
 
 .. _`SCMI specification`: https://developer.arm.com/documentation/den0056/e/?lang=en
