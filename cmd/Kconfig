@@ -1263,6 +1263,7 @@ menu "Device access commands"
 config CMD_ARMFFA
 	bool "Arm FF-A test command"
 	depends on ARM_FFA_TRANSPORT
+	select GETOPT
 	help
 	  Provides a test command for the FF-A support
 	  supported options:
