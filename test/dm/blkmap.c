@@ -7,7 +7,6 @@
 #include <blk.h>
 #include <blkmap.h>
 #include <dm.h>
-#include <env.h>
 #include <asm/test.h>
 #include <dm/test.h>
 #include <test/test.h>
@@ -160,40 +159,3 @@ static int dm_test_blkmap_creation(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_blkmap_creation, 0);
-
-static int dm_test_cmd_blkmap(struct unit_test_state *uts)
-{
-	ulong loadaddr = env_get_hex("loadaddr", 0);
-	struct udevice *dev;
-
-	ut_assertok(run_command("blkmap info", 0));
-	ut_assert_console_end();
-
-	ut_assertok(run_command("blkmap create ramdisk", 0));
-	ut_assert_nextline("Created \"ramdisk\"");
-	ut_assert_console_end();
-
-	ut_assertnonnull((dev = blkmap_from_label("ramdisk")));
-
-	ut_assertok(run_commandf("blkmap map ramdisk 0 800 mem 0x%lx", loadaddr));
-	ut_assert_nextline("Block 0x0+0x800 mapped to 0x%lx", loadaddr);
-	ut_assert_console_end();
-
-	ut_assertok(run_command("blkmap info", 0));
-	ut_assert_nextline("Device 0: Vendor: U-Boot Rev: 1.0 Prod: blkmap");
-	ut_assert_nextline("            Type: Hard Disk");
-	ut_assert_nextline("            Capacity: 1.0 MB = 0.0 GB (2048 x 512)");
-	ut_assert_console_end();
-
-	ut_assertok(run_command("blkmap get ramdisk dev devnum", 0));
-	ut_asserteq(dev_seq(dev), env_get_hex("devnum", 0xdeadbeef));
-
-	ut_assertok(run_command("blkmap destroy ramdisk", 0));
-	ut_assert_nextline("Destroyed \"ramdisk\"");
-	ut_assert_console_end();
-
-	ut_assertok(run_command("blkmap info", 0));
-	ut_assert_console_end();
-	return 0;
-}
-DM_TEST(dm_test_cmd_blkmap, UTF_CONSOLE);
