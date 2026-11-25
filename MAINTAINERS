@@ -257,6 +257,7 @@ F:	drivers/power/domain/meson-gx-pwrc-vpu.c
 F:	drivers/video/meson/
 F:	drivers/watchdog/meson_gxbb_wdt.c
 F:	include/configs/meson64.h
+F:	tools/amlimage*
 F:	doc/board/amlogic/
 N:	meson
 
@@ -386,6 +387,8 @@ F:	arch/arm/mach-histb
 ARM HPE GXP ARCHITECTURE
 M:	Jean-Marie Verdun <verdun@hpe.com>
 M:	Nick Hawkins <nick.hawkins@hpe.com>
+M:	Marcello Sylvester Bauer <marcello.bauer@9elements.com>
+M:	Tan Siewert <tan.siewert@9elements.com>
 S:	Maintained
 F:	arch/arm/dts/hpe-bmc*
 F:	arch/arm/dts/hpe-gxp*
@@ -395,6 +398,8 @@ F:	configs/gxp_defconfig
 F:	doc/device-tree-bindings/spi/hpe,gxp-spi.yaml
 F:	drivers/net/gxp_umac.c
 F:	drivers/net/gxp_umac.h
+F:	drivers/misc/gxp_eeprom.c
+F:	drivers/sysinfo/gxp.c
 F:	drivers/timer/gxp-timer.c
 F:	drivers/spi/gxp_spi.c
 
@@ -1567,7 +1572,7 @@ F:	drivers/power/
 F:	include/power/
 
 POWERPC
-M:	Bradley Morgan <brads@mainlining.org>
+M:	Bradley Morgan <bradley.morgan@linux.dev>
 S:	Maintained
 T:	git https://git.u-boot-project.org/u-boot/custodians/u-boot-ppc.git
 F:	arch/powerpc/

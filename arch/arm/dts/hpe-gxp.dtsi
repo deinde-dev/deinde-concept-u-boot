@@ -10,6 +10,15 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
+	sysinfo {
+		compatible = "hpe,gxp-sysinfo";
+		nvmem-cells = <&serial_number>, <&part_number>,
+			      <&pca_serial_number>, <&pca_part_number>;
+		nvmem-cell-names = "serial-number", "part-number",
+				   "pca-serial-number", "pca-part-number";
+		bootph-all;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
