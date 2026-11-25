@@ -367,6 +367,13 @@ static int cmd_test_blkmap_usage(struct unit_test_state *uts)
 	ut_assertok(expect_usage(uts, "blkmap info other"));
 	ut_assertok(expect_usage(uts, "blkmap read 0x1000 0"));
 
+	/* no sub-command takes an option, so each refuses one */
+	ut_assertok(expect_usage(uts, "blkmap create -x"));
+	ut_assertok(expect_usage(uts, "blkmap destroy -x"));
+	ut_assertok(expect_usage(uts, "blkmap get -x dev"));
+	ut_assertok(expect_usage(uts, "blkmap map -x 0 1 mem 0x1000"));
+	ut_assertok(expect_usage(uts, "blkmap dev -1"));
+
 	ut_assertok(run_command("blkmap destroy disk", 0));
 	console_record_reset();
 

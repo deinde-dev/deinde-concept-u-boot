@@ -8,6 +8,7 @@
 #include <blkmap.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <dm/device.h>
 
@@ -93,9 +94,10 @@ static struct map_handler map_handlers[] = {
 	{ .name = NULL }
 };
 
-static int do_blkmap_map(struct cmd_tbl *cmdtp, int flag,
-			 int argc, char *const argv[])
+static int do_blkmap_map(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct map_handler *handler;
 	struct map_ctx ctx;
 
@@ -122,16 +124,15 @@ static int do_blkmap_map(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_USAGE;
 }
 
-static int do_blkmap_create(struct cmd_tbl *cmdtp, int flag,
-			    int argc, char *const argv[])
+static int do_blkmap_create(struct getopt_state *gs)
 {
 	const char *label;
 	int err;
 
-	if (argc != 2)
+	if (gs->argc != 2)
 		return CMD_RET_USAGE;
 
-	label = argv[1];
+	label = gs->argv[1];
 
 	err = blkmap_create(label, NULL);
 	if (err) {
@@ -143,17 +144,16 @@ static int do_blkmap_create(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_blkmap_destroy(struct cmd_tbl *cmdtp, int flag,
-			     int argc, char *const argv[])
+static int do_blkmap_destroy(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	const char *label;
 	int err;
 
-	if (argc != 2)
+	if (gs->argc != 2)
 		return CMD_RET_USAGE;
 
-	label = argv[1];
+	label = gs->argv[1];
 
 	dev = blkmap_from_label(label);
 	if (!dev) {
@@ -171,9 +171,10 @@ static int do_blkmap_destroy(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_blkmap_get(struct cmd_tbl *cmdtp, int flag,
-			 int argc, char *const argv[])
+static int do_blkmap_get(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	const char *label;
 	int err;
@@ -204,16 +205,10 @@ static int do_blkmap_get(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_blkmap_common(struct cmd_tbl *cmdtp, int flag,
-			    int argc, char *const argv[])
+static int do_blkmap_common(struct getopt_state *gs)
 {
-	/* The subcommand parsing pops the original argv[0] ("blkmap")
-	 * which blk_common_cmd expects. Push it back again.
-	 */
-	argc++;
-	argv--;
-
-	return blk_common_cmd(argc, argv, UCLASS_BLKMAP, &blkmap_curr_dev);
+	return blk_common_subcmd(gs->argc, gs->argv, UCLASS_BLKMAP,
+				 &blkmap_curr_dev);
 }
 
 U_BOOT_CMD_WITH_SUBCMDS(
@@ -228,12 +223,12 @@ U_BOOT_CMD_WITH_SUBCMDS(
 	"blkmap destroy <label> - destroy device\n"
 	"blkmap map <label> <blk#> <cnt> linear <interface> <dev> <blk#> - device mapping\n"
 	"blkmap map <label> <blk#> <cnt> mem <addr> [preserve] - memory mapping\n",
-	U_BOOT_SUBCMD_MKENT(info, 2, 1, do_blkmap_common),
-	U_BOOT_SUBCMD_MKENT(part, 2, 1, do_blkmap_common),
-	U_BOOT_SUBCMD_MKENT(dev, 4, 1, do_blkmap_common),
-	U_BOOT_SUBCMD_MKENT(read, 5, 1, do_blkmap_common),
-	U_BOOT_SUBCMD_MKENT(write, 5, 1, do_blkmap_common),
-	U_BOOT_SUBCMD_MKENT(get, 5, 1, do_blkmap_get),
-	U_BOOT_SUBCMD_MKENT(create, 2, 1, do_blkmap_create),
-	U_BOOT_SUBCMD_MKENT(destroy, 2, 1, do_blkmap_destroy),
-	U_BOOT_SUBCMD_MKENT(map, 32, 1, do_blkmap_map));
+	U_BOOT_CMD_MKENT_NOOPTS(info, 2, 1, do_blkmap_common, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(part, 2, 1, do_blkmap_common, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dev, 4, 1, do_blkmap_common, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read, 5, 1, do_blkmap_common, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write, 5, 1, do_blkmap_common, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(get, 5, 1, do_blkmap_get, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(create, 2, 1, do_blkmap_create, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(destroy, 2, 1, do_blkmap_destroy, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(map, 32, 1, do_blkmap_map, "", ""));
