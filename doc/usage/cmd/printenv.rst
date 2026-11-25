@@ -59,7 +59,7 @@ environment variables:
     ...
     stdout=serial,vidconsole
 
-    Environment size: 644/8188 bytes
+    Environment size: 756/8187 bytes
     => printenv -a
     .foo=bar
     arch=sandbox
@@ -68,7 +68,7 @@ environment variables:
     ...
     stdout=serial,vidconsole
 
-    Environment size: 653/8188 bytes
+    Environment size: 765/8187 bytes
     =>
 
 The next example shows the different output modes when displaying UEFI
@@ -90,7 +90,7 @@ name:
         8be4df61-93ca-11d2-aa0d-00e098032b8c (EFI_GLOBAL_VARIABLE_GUID)
         BS|RT|RO, DataSize = 0x6
         00000000: 65 6e 2d 55 53 00                                en-US.
-    => print -e -s
+    => printenv -e -s
     525400123456
     525400123456
     Attempt 1
@@ -159,7 +159,8 @@ variables can only be displayed if CONFIG_HEXDUMP=y.
 Return value
 ------------
 
-The return value $? is 1 (false) if a specified variable is not found.
+The return value $? is the number of names which are not found, so it is
+1 (false) for a single name which is missing and 2 for two of them.
 Otherwise $? is set to 0 (true).
 
 See also
