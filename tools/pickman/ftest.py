@@ -3806,7 +3806,7 @@ class TestExecuteApply(unittest.TestCase):
                 ret, success, conv_log = control.execute_apply(
                     dbs, 'us/next', commits, 'cherry-c', args, 'ddd444')
 
-            self.assertEqual((1, False, ''), (ret, success, conv_log))
+            self.assertEqual((1, [], ''), (ret, success, conv_log))
             mock_agent.assert_not_called()
             self.assertEqual('conflict', dbs.commit_get('ccc333')[6])
             self.assertEqual('abc123', dbs.source_get('us/next'))
@@ -3830,7 +3830,7 @@ class TestExecuteApply(unittest.TestCase):
 
             # Nothing is recorded, so the commits are tried again once the
             # config file is fixed
-            self.assertEqual((1, False, ''), (ret, success, conv_log))
+            self.assertEqual((1, [], ''), (ret, success, conv_log))
             mock_port.assert_not_called()
             mock_agent.assert_not_called()
             self.assertIsNone(dbs.commit_get('ddd999'))
@@ -3854,7 +3854,7 @@ class TestExecuteApply(unittest.TestCase):
                     argparse.Namespace(push=True), 'aaa000')
 
                 # Nothing is recorded, so the commits are tried again later
-                self.assertEqual((1, False, ''), ret)
+                self.assertEqual((1, [], ''), ret)
                 check.assert_called_once_with(commits)
                 mock_port.assert_not_called()
                 self.assertIsNone(dbs.commit_get('fff111'))
@@ -3891,7 +3891,7 @@ class TestExecuteApply(unittest.TestCase):
 
             # There is nothing to cherry-pick and no MR, but the commits are
             # done and the source moves on
-            self.assertEqual((0, False, ''), (ret, success, conv_log))
+            self.assertEqual((0, [], ''), (ret, success, conv_log))
             mock_agent.assert_not_called()
             mock_push.assert_not_called()
             self.assertEqual('applied', dbs.commit_get('eee555')[6])
@@ -3925,7 +3925,7 @@ class TestExecuteApply(unittest.TestCase):
                 ret, success, _ = control.execute_apply(
                     dbs, 'us/next', commits, 'cherry-s', args, 'bbb888')
 
-            self.assertEqual((0, True), (ret, success))
+            self.assertEqual((0, commits), (ret, success))
             self.assertEqual(['tools/binman', 'tools/dtoc'],
                              mock_agent.call_args[1]['external_paths'])
 
@@ -3998,6 +3998,97 @@ class TestExecuteApply(unittest.TestCase):
                               5, 'open', MR_URL), mreq[1:6])
             self.assertEqual('bbb222', dbs.source_get('us/next'))
             dbs.close()
+
+    def _apply_missing(self, missing):
+        """Apply three commits, with some of them not on the branch
+
+        Args:
+            missing (list of int): Indices of the commits not on the branch
+
+        Returns:
+            tuple:
+                Database: Database instance
+                list of CommitInfo: Commits in the set
+                tuple: Result from execute_apply()
+                Mock: Mock of push_mr()
+                str: stderr output
+        """
+        dbs = self._start_db()
+        commits = [control.CommitInfo(f'{c}' * 6, f'{c}' * 7, f'Commit {c}',
+                                      'Author') for c in 'abc']
+        args = argparse.Namespace(push=True, remote='origin', target='main')
+        with mock.patch.object(control.agent, 'cherry_pick_commits',
+                               return_value=(True, 'log')), \
+             mock.patch.object(control, '_has_unresolved_conflict',
+                               return_value=False), \
+             mock.patch.object(control, 'run_git', return_value='abc123'), \
+             mock.patch.object(control, 'find_missing',
+                               return_value=[commits[i] for i in missing]), \
+             mock.patch.object(control, 'split_note', return_value=''), \
+             mock.patch.object(control, 'push_mr',
+                               return_value=MR_URL) as mock_push, \
+             terminal.capture() as (_, stderr):
+            result = control.execute_apply(dbs, 'us/next', commits,
+                                           'cherry-branch', args, 'bbb222')
+        return dbs, commits, result, mock_push, stderr.getvalue()
+
+    def test_execute_apply_stops_part_way(self):
+        """Test execute_apply when the branch lacks some of the commits"""
+        dbs, commits, result, mock_push, err = self._apply_missing([1, 2])
+        self.assertEqual((0, commits[:1], 'log'), result)
+
+        # Only the first commit is in the merge request; the others are
+        # parked so that they are not lost
+        self.assertEqual(['applied', 'conflict', 'conflict'],
+                         [dbs.commit_get(c.hash)[6] for c in commits])
+        self.assertEqual('bbb222', dbs.source_get('us/next'))
+        _, _, title, desc = mock_push.call_args[0]
+        self.assertEqual('[pickman] Commit a', title)
+        self.assertIn('Commits:\n- aaaaaaa Commit a\n\n', desc)
+        self.assertIn("### Not picked\n\nThese commits are not on the "
+                      "branch, so they are parked as conflicts, for 'pickman "
+                      "parked --retry' to take again:\n\n- `bbbbbbb` Commit "
+                      "b\n- `ccccccc` Commit c\n", desc)
+        self.assertIn('cherry-branch: 2 of the 3 commit(s) are not on the '
+                      'branch, so are parked:\n  bbbbbbb Commit b\n  '
+                      'ccccccc Commit c\n', err)
+        dbs.close()
+
+    def test_execute_apply_none_picked(self):
+        """Test execute_apply when the branch has none of the commits"""
+        dbs, commits, result, mock_push, err = self._apply_missing([0, 1, 2])
+        self.assertEqual((1, [], 'log'), result)
+        self.assertEqual(['conflict'] * 3,
+                         [dbs.commit_get(c.hash)[6] for c in commits])
+        self.assertEqual('abc123', dbs.source_get('us/next'))
+        mock_push.assert_not_called()
+        self.assertIn('cherry-branch: none of the commits is on the branch',
+                      err)
+        dbs.close()
+
+    def test_execute_apply_many_missing(self):
+        """Test that a long list of missing commits is cut short"""
+        dbs = self._start_db()
+        commits = [control.CommitInfo(f'{c}' * 6, f'{c}' * 7, f'Commit {c}',
+                                      'Author') for c in 'abcdefgh']
+        args = argparse.Namespace(push=False)
+        with mock.patch.object(control.agent, 'cherry_pick_commits',
+                               return_value=(True, 'log')), \
+             mock.patch.object(control, '_has_unresolved_conflict',
+                               return_value=False), \
+             mock.patch.object(control, 'run_git', return_value='abc123'), \
+             mock.patch.object(control, 'find_missing',
+                               return_value=commits[1:]), \
+             terminal.capture() as (_, stderr):
+            ret, picked, _ = control.execute_apply(
+                dbs, 'us/next', commits, 'cherry-branch', args, 'bbb222')
+        self.assertEqual((0, commits[:1]), (ret, picked))
+        self.assertIn('  fffffff Commit f\n  ... and 2 more\n',
+                      stderr.getvalue())
+        self.assertNotIn('ggggggg', stderr.getvalue())
+        self.assertEqual('pending', dbs.commit_get('aaaaaa')[6])
+        self.assertEqual('conflict', dbs.commit_get('hhhhhh')[6])
+        dbs.close()
 
     def test_record_mr_existing(self):
         """Test linking commits to a merge request which is already known"""
@@ -12241,6 +12332,87 @@ class TestWriteHistory(HistoryRepo):
         self.assertFalse(ok)
         self.assertIn('Cannot check out cherry cleanly', err)
         self.assertEqual('Record cherry', self._log()[0])
+
+
+class TestFindMissing(unittest.TestCase):
+    """Tests for finding the commits of a set which are not on its branch"""
+
+    def setUp(self):
+        """Set up a repo with upstream commits and a branch which picks some"""
+        self.test_dir = tempfile.mkdtemp()
+        self.orig_dir = os.getcwd()
+        self.repo = self.test_dir
+        _git_init(self.repo)
+        self._commit('a.c', 'Initial')
+        _git(self.repo, 'branch', 'ci/master')
+        self.commits = [
+            self._commit('b.c', 'Pick one'),
+            self._commit('c.c', 'Already there'),
+            self._commit('d.c', 'configs: Resync with savedefconfig'),
+            self._commit('tools/binman/e.py', 'binman: Change it'),
+            self._commit('f.c', 'Skipped by the agent'),
+            self._commit('g.c', 'Pick two'),
+            self._commit('h.c', 'Marked as failed'),
+            self._commit('i.c', 'Never reached'),
+            self._commit(None, 'Empty'),
+        ]
+        _git(self.repo, 'checkout', '-q', '-b', 'cherry', 'ci/master')
+        for commit in self.commits[0], self.commits[5]:
+            _git(self.repo, 'cherry-pick', '-x', commit.hash)
+        _git(self.repo, 'commit', '-q', '--allow-empty', '-m',
+             'Marked as failed [FAILED]\n\n(would-be cherry picked from '
+             f'commit {self.commits[6].hash})')
+        os.chdir(self.repo)
+
+    def tearDown(self):
+        """Remove the repo"""
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _commit(self, fname, subject):
+        """Add a file, if given, and commit it
+
+        Returns:
+            CommitInfo: The commit
+        """
+        if fname:
+            path = os.path.join(self.repo, fname)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tools.write_file(path, f'{subject}\n', binary=False)
+            _git(self.repo, 'add', fname)
+        _git(self.repo, 'commit', '-q', '--allow-empty', '-m', subject)
+        chash = _git(self.repo, 'rev-parse', 'HEAD')
+        return control.CommitInfo(chash, chash[:12], subject, 'Test')
+
+    def test_stops_part_way(self):
+        """Test a branch which stops part-way through its set"""
+        commits = self.commits
+        missing = control.find_missing(commits, 'cherry',
+                                       {commits[1].hash: 'abc'},
+                                       ['tools/binman'])
+        self.assertEqual([commits[4], commits[6], commits[7], commits[8]],
+                         missing)
+
+        # A change to a tool which is still in the tree must be picked
+        missing = control.find_missing(commits, 'cherry', {}, [])
+        self.assertEqual([commits[1], commits[3], commits[4], commits[6],
+                          commits[7], commits[8]], missing)
+
+        # Nothing is missing once the rest are picked
+        for idx in 1, 3, 4, 6, 7, 8:
+            _git(self.repo, 'cherry-pick', '-x', '--allow-empty',
+                 commits[idx].hash)
+        self.assertEqual([], control.find_missing(commits, 'cherry', {}, []))
+
+    def test_note(self):
+        """Test describing the commits which are not on the branch"""
+        self.assertEqual('', control.missing_note([]))
+        self.assertEqual(
+            "### Not picked\n\nThese commits are not on the branch, so they "
+            "are parked as conflicts, for 'pickman parked --retry' to take "
+            f"again:\n\n- `{self.commits[7].chash}` Never reached\n"
+            f"- `{self.commits[8].chash}` Empty\n\n",
+            control.missing_note(self.commits[7:]))
 
 
 class TestKeepVersion(unittest.TestCase):

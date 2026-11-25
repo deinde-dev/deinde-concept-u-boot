@@ -730,6 +730,16 @@ request is closed without merging. Without ``-p`` the commits stay 'pending'
 and the source does not move on; once the branch is in a merge request, use
 ``commit-source`` to move on.
 
+The agent may stop part-way through a set, e.g. on a conflict it cannot
+resolve, yet still report success. So before pushing, pickman looks on the
+branch for the '(cherry picked from commit <hash>)' line of each commit. Any
+which is not there is parked as a conflict (see `Parked Conflicts`_) rather
+than recorded as applied, and the merge request lists it under 'Not picked'.
+A commit needs no such line if the agent may skip it as already applied, if it
+is a savedefconfig resync, which qconfig.py makes again, or if it only changes
+tools maintained as separate projects. If none of the commits is on the
+branch, nothing is pushed.
+
 If the push or the merge request fails, the commits are recorded as
 'unpushed' and the source moves on, since running the agent again each time
 would not help. The failure is logged as an error, every ``step`` and ``poll``
