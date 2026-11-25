@@ -5,6 +5,7 @@
  */
 #include <command.h>
 #include <display_options.h>
+#include <getopt.h>
 #include <log.h>
 #include <mapmem.h>
 #include <tables_csum.h>
@@ -128,13 +129,26 @@ static void list_rsdp(struct acpi_rsdp *rsdp, bool chksums)
 	list_rsdt(rsdp, chksums);
 }
 
-static int do_acpi_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_acpi_list(struct getopt_state *gs)
 {
 	struct acpi_rsdp *rsdp;
-	bool chksums;
+	bool chksums = false;
+	int opt;
 
-	chksums = argc >= 2 && !strcmp("-c", argv[1]);
+	while ((opt = getopt(gs, "+c")) > 0) {
+		switch (opt) {
+		case 'c':
+			chksums = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
+
 	rsdp = map_sysmem(gd_acpi_start(), 0);
 	if (!rsdp) {
 		printf("No ACPI tables present\n");
@@ -147,9 +161,10 @@ static int do_acpi_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_acpi_set(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_acpi_set(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	ulong val;
 
 	if (argc < 2) {
@@ -163,24 +178,36 @@ static int do_acpi_set(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_acpi_items(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_acpi_items(struct getopt_state *gs)
 {
-	bool dump_contents;
+	bool dump_contents = false;
+	int opt;
 
-	dump_contents = argc >= 2 && !strcmp("-d", argv[1]);
-	if (!IS_ENABLED(CONFIG_ACPIGEN)) {
-		printf("Not supported (enable ACPIGEN)\n");
-		return CMD_RET_FAILURE;
+	while ((opt = getopt(gs, "+d")) > 0) {
+		switch (opt) {
+		case 'd':
+			dump_contents = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
+
+	if (!IS_ENABLED(CONFIG_ACPIGEN))
+		return cmd_fail(0, "Not supported (enable ACPIGEN)\n");
 	acpi_dump_items(dump_contents ? ACPI_DUMP_CONTENTS : ACPI_DUMP_LIST);
 
 	return 0;
 }
 
-static int do_acpi_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_acpi_dump(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *name;
 	char sig[ACPI_NAME_LEN];
 	int ret;
@@ -189,16 +216,16 @@ static int do_acpi_dump(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	name = argv[1];
-	if (strlen(name) != ACPI_NAME_LEN) {
-		printf("Table name '%s' must be four characters\n", name);
-		return CMD_RET_FAILURE;
-	}
+	if (strlen(name) != ACPI_NAME_LEN)
+		return cmd_fail(-EINVAL,
+				"Table name '%s' must be four characters\n",
+				name);
+
 	str_to_upper(name, sig, ACPI_NAME_LEN);
 	ret = dump_table_name(sig);
-	if (ret) {
-		printf("Table '%.*s' not found\n", ACPI_NAME_LEN, sig);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Table '%.*s' not found\n", ACPI_NAME_LEN,
+				sig);
 
 	return 0;
 }
@@ -210,7 +237,7 @@ U_BOOT_LONGHELP(acpi,
 	"acpi dump <name>  - Dump ACPI table");
 
 U_BOOT_CMD_WITH_SUBCMDS(acpi, "ACPI tables", acpi_help_text,
-	U_BOOT_SUBCMD_MKENT(list, 2, 1, do_acpi_list),
-	U_BOOT_SUBCMD_MKENT(items, 2, 1, do_acpi_items),
-	U_BOOT_SUBCMD_MKENT(set, 2, 1, do_acpi_set),
-	U_BOOT_SUBCMD_MKENT(dump, 2, 1, do_acpi_dump));
+	U_BOOT_CMD_MKENT_GETOPT(list, 2, 1, do_acpi_list, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(items, 2, 1, do_acpi_items, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(set, 2, 1, do_acpi_set, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 2, 1, do_acpi_dump, "", ""));
