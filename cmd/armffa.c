@@ -8,6 +8,7 @@
 #include <arm_ffa.h>
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <mapmem.h>
 #include <stdlib.h>
 #include <asm/io.h>
@@ -44,10 +45,7 @@ static int ffa_get_dev(struct udevice **devp)
 
 /**
  * do_ffa_getpart() - implementation of the getpart subcommand
- * @cmdtp:		Command Table
- * @flag:		flags
- * @argc:		number of arguments
- * @argv:		arguments
+ * @gs:			getopt state
  *
  * Query a secure partition information. The secure partition UUID is provided
  * as an argument. The function uses the arm_ffa driver
@@ -59,9 +57,10 @@ static int ffa_get_dev(struct udevice **devp)
  *
  * CMD_RET_SUCCESS: on success, otherwise failure
  */
-static int do_ffa_getpart(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_ffa_getpart(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	u32 count = 0;
 	int ret;
 	struct ffa_partition_desc *descs;
@@ -98,10 +97,7 @@ static int do_ffa_getpart(struct cmd_tbl *cmdtp, int flag, int argc,
 
 /**
  * do_ffa_ping() - implementation of the ping subcommand
- * @cmdtp:		Command Table
- * @flag:		flags
- * @argc:		number of arguments
- * @argv:		arguments
+ * @gs:			getopt state
  *
  * Send data to a secure partition. The secure partition UUID is provided
  * as an argument. Use the arm_ffa driver sync_send_receive operation
@@ -111,8 +107,10 @@ static int do_ffa_getpart(struct cmd_tbl *cmdtp, int flag, int argc,
  *
  * CMD_RET_SUCCESS: on success, otherwise failure
  */
-static int do_ffa_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_ffa_ping(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct ffa_send_direct_data msg = {
 			.data0 = 0xaaaaaaaa,
 			.data1 = 0xbbbbbbbb,
@@ -157,10 +155,7 @@ static int do_ffa_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const ar
 
 /**
  *do_ffa_devlist() - implementation of the devlist subcommand
- * @cmdtp: [in]		Command Table
- * @flag:		flags
- * @argc:		number of arguments
- * @argv:		arguments
+ * @gs:			getopt state
  *
  * Query the device belonging to the UCLASS_FFA
  * class.
@@ -169,7 +164,7 @@ static int do_ffa_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const ar
  *
  * CMD_RET_SUCCESS: on success, otherwise failure
  */
-static int do_ffa_devlist(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_ffa_devlist(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	int ret;
@@ -196,6 +191,9 @@ U_BOOT_LONGHELP(armffa,
 	"       - displays information about the FF-A device/driver\n");
 
 U_BOOT_CMD_WITH_SUBCMDS(armffa, "Arm FF-A test command", armffa_help_text,
-			U_BOOT_SUBCMD_MKENT(getpart, 2, 1, do_ffa_getpart),
-			U_BOOT_SUBCMD_MKENT(ping, 2, 1, do_ffa_ping),
-			U_BOOT_SUBCMD_MKENT(devlist, 1, 1, do_ffa_devlist));
+			U_BOOT_CMD_MKENT_NOOPTS(getpart, 2, 1, do_ffa_getpart,
+						"", ""),
+			U_BOOT_CMD_MKENT_NOOPTS(ping, 2, 1, do_ffa_ping,
+						"", ""),
+			U_BOOT_CMD_MKENT_NOOPTS(devlist, 1, 1, do_ffa_devlist,
+						"", ""));

@@ -214,6 +214,16 @@ static int cmd_test_armffa_usage(struct unit_test_state *uts)
 	ut_assert_nextline("%sPartition ID can not be 0", LOGF(FUNC_PING));
 	ut_assertok(check_usage(uts));
 
+	/* none of the sub-commands takes an option */
+	ut_asserteq(1, run_command("armffa getpart -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("armffa ping -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("armffa devlist -x", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 CMD_TEST(cmd_test_armffa_usage, UTF_CONSOLE | UTF_DM | UTF_SCAN_FDT);
