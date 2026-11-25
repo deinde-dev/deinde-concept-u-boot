@@ -24,7 +24,7 @@ static int bootdev_check_state(struct bootstd_priv **stdp)
 	if (ret)
 		return ret;
 	if (!std->cur_bootdev) {
-		printf("Please use 'bootdev select' first\n");
+		cmd_err("Please use 'bootdev select' first\n");
 		return -ENOENT;
 	}
 	*stdp = std;
@@ -160,11 +160,8 @@ static int do_bootdev_hunt(struct getopt_state *gs)
 		bootdev_list_hunters(priv);
 	} else {
 		ret = bootdev_hunt(spec, true);
-		if (ret) {
-			printf("Failed (err=%dE)\n", ret);
-
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "Failed (err=%dE)\n", ret);
 	}
 
 	return 0;
@@ -188,10 +185,8 @@ static int do_bootdev_order(struct getopt_state *gs)
 		}
 
 		ret = bootdev_set_order(argv[1]);
-		if (ret) {
-			printf("Failed (err=%dE)\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "Failed (err=%dE)\n", ret);
 	} else {
 		const char **order = priv->bootdev_order;
 
