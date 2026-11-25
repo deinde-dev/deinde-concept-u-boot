@@ -84,29 +84,44 @@ static int env_print(char *name, int flag)
 	}
 
 	/* should never happen */
-	printf("## Error: cannot export environment\n");
+	cmd_err("## Error: cannot export environment\n");
+
 	return 0;
 }
 
-static int do_env_print(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_env_print(struct getopt_state *gs)
 {
 	int i;
 	int rcode = 0;
 	int env_flag = H_HIDE_DOT;
+	int argc, opt;
+	char *const *argv;
 
 #if defined(CONFIG_CMD_NVEDIT_EFI)
-	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'e')
-		return do_env_print_efi(cmdtp, flag, --argc, ++argv);
+	/*
+	 * UEFI variables take options such as -guid and -nv which getopt()
+	 * cannot express, so that form goes straight to do_env_print_efi(),
+	 * which ignores the command table entry it is given
+	 */
+	if (gs->argc > 1 && !strncmp(gs->argv[1], "-e", 2))
+		return do_env_print_efi(NULL, gs->cmd_flag, gs->argc - 1,
+					gs->argv + 1);
 #endif
 
-	if (argc > 1 && argv[1][0] == '-' && argv[1][1] == 'a') {
-		argc--;
-		argv++;
-		env_flag &= ~H_HIDE_DOT;
+	while ((opt = getopt(gs, "+a")) > 0) {
+		switch (opt) {
+		case 'a':
+			env_flag &= ~H_HIDE_DOT;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
-	if (argc == 1) {
+	argc = gs->argc - gs->index;
+	argv = &gs->argv[gs->index];
+
+	if (!argc) {
 		/* print all env vars */
 		rcode = env_print(NULL, env_flag);
 		if (!rcode)
@@ -118,7 +133,7 @@ static int do_env_print(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* print selected env vars */
 	env_flag &= ~H_HIDE_DOT;
-	for (i = 1; i < argc; ++i) {
+	for (i = 0; i < argc; ++i) {
 		int rc = env_print(argv[i], env_flag);
 		if (!rc) {
 			cmd_err("## Error: \"%s\" not defined\n", argv[i]);
@@ -341,8 +356,7 @@ static int print_active_callback(struct env_entry *entry)
 /*
  * Print the callbacks available and what they are bound to
  */
-static int do_env_callback(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_env_callback(struct getopt_state *gs)
 {
 	struct env_clbk_tbl *clbkp;
 	int i;
@@ -410,7 +424,7 @@ static int print_active_flags(struct env_entry *entry)
 /*
  * Print the flags available and what variables have flags
  */
-static int do_env_flags(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_env_flags(struct getopt_state *gs)
 {
 	/* Print the available variable types */
 	printf("Available variable type flags (position %d):\n",
@@ -541,53 +555,51 @@ U_BOOT_CMD_NOOPTS(
 #endif
 
 #if defined(CONFIG_CMD_NVEDIT_LOAD)
-static int do_env_load(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_env_load(struct getopt_state *gs)
 {
 	return env_reload() ? 1 : 0;
 }
 #endif
 
 #if defined(CONFIG_CMD_NVEDIT_SELECT)
-static int do_env_select(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_env_select(struct getopt_state *gs)
 {
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
-	return env_select(argv[1]) ? 1 : 0;
+	return env_select(gs->argv[1]) ? 1 : 0;
 }
 #endif
 
 #endif /* CONFIG_XPL_BUILD */
 
 #ifndef CONFIG_XPL_BUILD
-static int do_env_default(struct cmd_tbl *cmdtp, int flag,
-			  int argc, char *const argv[])
+static int do_env_default(struct getopt_state *gs)
 {
 	int all = 0, env_flag = H_INTERACTIVE;
+	int argc, opt;
+	char *const *argv;
 
-	debug("Initial value for argc=%d\n", argc);
-	while (--argc > 0 && **++argv == '-') {
-		char *arg = *argv;
-
-		while (*++arg) {
-			switch (*arg) {
-			case 'a':		/* default all */
-				all = 1;
-				break;
-			case 'f':		/* force */
-				env_flag |= H_FORCE;
-				break;
-			case 'k':
-				env_flag |= H_NOCLEAR;
-				break;
-			default:
-				return cmd_usage(cmdtp);
-			}
+	while ((opt = getopt(gs, "+afk")) > 0) {
+		switch (opt) {
+		case 'a':		/* default all */
+			all = 1;
+			break;
+		case 'f':		/* force */
+			env_flag |= H_FORCE;
+			break;
+		case 'k':
+			env_flag |= H_NOCLEAR;
+			break;
+		default:
+			return CMD_RET_USAGE;
 		}
 	}
-	debug("Final value for argc=%d\n", argc);
+
+	argc = gs->argc - gs->index;
+	argv = &gs->argv[gs->index];
+
+	debug("Number of variables named: %d\n", argc);
 	if (all && (argc == 0)) {
 		/* Reset the whole environment */
 		env_set_default("## Resetting to default environment\n",
@@ -600,38 +612,35 @@ static int do_env_default(struct cmd_tbl *cmdtp, int flag,
 		return 0;
 	}
 
-	return cmd_usage(cmdtp);
+	return CMD_RET_USAGE;
 }
 
-static int do_env_delete(struct cmd_tbl *cmdtp, int flag,
-			 int argc, char *const argv[])
+static int do_env_delete(struct getopt_state *gs)
 {
 	int env_flag = H_INTERACTIVE;
 	int ret = 0;
+	int argc, i, opt;
+	char *const *argv;
 
-	debug("Initial value for argc=%d\n", argc);
-	while (argc > 1 && **(argv + 1) == '-') {
-		char *arg = *++argv;
-
-		--argc;
-		while (*++arg) {
-			switch (*arg) {
-			case 'f':		/* force */
-				env_flag |= H_FORCE;
-				break;
-			default:
-				return CMD_RET_USAGE;
-			}
+	while ((opt = getopt(gs, "+f")) > 0) {
+		switch (opt) {
+		case 'f':		/* force */
+			env_flag |= H_FORCE;
+			break;
+		default:
+			return CMD_RET_USAGE;
 		}
 	}
-	debug("Final value for argc=%d\n", argc);
+
+	argc = gs->argc - gs->index;
+	argv = &gs->argv[gs->index];
+
+	debug("Number of variables named: %d\n", argc);
 
 	env_inc_id();
 
-	while (--argc > 0) {
-		char *name = *++argv;
-
-		if (hdelete_r(name, &env_htab, env_flag))
+	for (i = 0; i < argc; i++) {
+		if (hdelete_r(argv[i], &env_htab, env_flag))
 			ret = 1;
 	}
 
@@ -925,36 +934,35 @@ static int do_env_import(struct getopt_state *gs)
 	return 0;
 
 sep_err:
-	printf("## %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",
-		cmd);
-	return 1;
+	return cmd_fail(0, "## %s: only one of \"-b\", \"-c\" or \"-t\" allowed\n",
+			cmd);
 }
 #endif
 
 #if defined(CONFIG_CMD_NVEDIT_INDIRECT)
-static int do_env_indirect(struct cmd_tbl *cmdtp, int flag,
-		       int argc, char *const argv[])
+/* shown when the variable named by <from> is not set and there is no default */
+#define NO_FROM_VAR \
+	"## env indirect: Environment variable for <from> (%s) does not exist.\n"
+
+static int do_env_indirect(struct getopt_state *gs)
 {
-	char *to = argv[1];
-	char *from = argv[2];
 	char *default_value = NULL;
+	char *to, *from;
 	int ret = 0;
 	char *val;
 
-	if (argc < 3 || argc > 4) {
+	if (gs->argc < 3 || gs->argc > 4)
 		return CMD_RET_USAGE;
-	}
 
-	if (argc == 4) {
-		default_value = argv[3];
-	}
+	to = gs->argv[1];
+	from = gs->argv[2];
+
+	if (gs->argc == 4)
+		default_value = gs->argv[3];
 
 	val = env_get(from) ?: default_value;
-	if (!val) {
-		printf("## env indirect: Environment variable for <from> (%s) does not exist.\n", from);
-
-		return CMD_RET_FAILURE;
-	}
+	if (!val)
+		return cmd_fail(0, NO_FROM_VAR, from);
 
 	ret = env_set(to, val);
 
@@ -1013,38 +1021,34 @@ static int print_env_info(void)
  *      Add [-q] - quiet mode, use only for command result, for test by example:
  *                 test env info -p -d -q
  */
-static int do_env_info(struct cmd_tbl *cmdtp, int flag,
-		       int argc, char *const argv[])
+static int do_env_info(struct getopt_state *gs)
 {
 	int eval_flags = 0;
 	int eval_results = 0;
 	bool quiet = false;
+	int opt;
 #if defined(CONFIG_CMD_SAVEENV) && !IS_ENABLED(CONFIG_ENV_IS_DEFAULT)
 	enum env_location loc;
 #endif
 
 	/* display environment information */
-	if (argc <= 1)
+	if (gs->argc <= 1)
 		return print_env_info();
 
 	/* process options */
-	while (--argc > 0 && **++argv == '-') {
-		char *arg = *argv;
-
-		while (*++arg) {
-			switch (*arg) {
-			case 'd':
-				eval_flags |= ENV_INFO_IS_DEFAULT;
-				break;
-			case 'p':
-				eval_flags |= ENV_INFO_IS_PERSISTED;
-				break;
-			case 'q':
-				quiet = true;
-				break;
-			default:
-				return CMD_RET_USAGE;
-			}
+	while ((opt = getopt(gs, "+dpq")) > 0) {
+		switch (opt) {
+		case 'd':
+			eval_flags |= ENV_INFO_IS_DEFAULT;
+			break;
+		case 'p':
+			eval_flags |= ENV_INFO_IS_PERSISTED;
+			break;
+		case 'q':
+			quiet = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
 		}
 	}
 
@@ -1087,15 +1091,14 @@ static int do_env_info(struct cmd_tbl *cmdtp, int flag,
 #endif
 
 #if defined(CONFIG_CMD_ENV_EXISTS)
-static int do_env_exists(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_env_exists(struct getopt_state *gs)
 {
 	struct env_entry e, *ep;
 
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
-	e.key = argv[1];
+	e.key = gs->argv[1];
 	e.data = NULL;
 	hsearch_r(e, ENV_FIND, &ep, &env_htab, 0);
 
@@ -1111,36 +1114,41 @@ static struct cmd_tbl cmd_env_sub[] = {
 	U_BOOT_CMD_MKENT_NOOPTS(ask, CONFIG_SYS_MAXARGS, 1, do_env_ask, "",
 				""),
 #endif
-	U_BOOT_CMD_MKENT(default, 1, 0, do_env_default, "", ""),
-	U_BOOT_CMD_MKENT(delete, CONFIG_SYS_MAXARGS, 0, do_env_delete, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(default, CONFIG_SYS_MAXARGS, 0, do_env_default,
+				"", ""),
+	U_BOOT_CMD_MKENT_GETOPT(delete, CONFIG_SYS_MAXARGS, 0, do_env_delete,
+				"", ""),
 #if defined(CONFIG_CMD_EDITENV)
 	U_BOOT_CMD_MKENT_GETOPT(edit, 3, 0, do_env_edit, "", ""),
 #endif
 #if defined(CONFIG_CMD_ENV_CALLBACK)
-	U_BOOT_CMD_MKENT(callbacks, 1, 0, do_env_callback, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(callbacks, 1, 0, do_env_callback, "", ""),
 #endif
 #if defined(CONFIG_CMD_ENV_FLAGS)
-	U_BOOT_CMD_MKENT(flags, 1, 0, do_env_flags, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(flags, 1, 0, do_env_flags, "", ""),
 #endif
 #if defined(CONFIG_CMD_EXPORTENV)
-	U_BOOT_CMD_MKENT_GETOPT(export, 4, 0, do_env_export, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(export, CONFIG_SYS_MAXARGS, 0, do_env_export,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_GREPENV)
 	U_BOOT_CMD_MKENT_GETOPT(grep, CONFIG_SYS_MAXARGS, 0, do_env_grep, "", ""),
 #endif
 #if defined(CONFIG_CMD_IMPORTENV)
-	U_BOOT_CMD_MKENT_GETOPT(import, 5, 0, do_env_import, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(import, CONFIG_SYS_MAXARGS, 0, do_env_import,
+				"", ""),
 #endif
 #if defined(CONFIG_CMD_NVEDIT_INDIRECT)
-	U_BOOT_CMD_MKENT(indirect, 3, 0, do_env_indirect, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(indirect, 4, 0, do_env_indirect, "", ""),
 #endif
 #if defined(CONFIG_CMD_NVEDIT_INFO)
-	U_BOOT_CMD_MKENT(info, 3, 0, do_env_info, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(info, 4, 0, do_env_info, "", ""),
 #endif
 #if defined(CONFIG_CMD_NVEDIT_LOAD)
-	U_BOOT_CMD_MKENT(load, 1, 0, do_env_load, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(load, 1, 0, do_env_load, "", ""),
 #endif
-	U_BOOT_CMD_MKENT(print, CONFIG_SYS_MAXARGS, 1, do_env_print, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(print, CONFIG_SYS_MAXARGS, 1, do_env_print, "",
+				""),
 #if defined(CONFIG_CMD_RUN)
 	U_BOOT_CMD_MKENT_NOOPTS(run, CONFIG_SYS_MAXARGS, 1, do_run, "", ""),
 #endif
@@ -1151,32 +1159,18 @@ static struct cmd_tbl cmd_env_sub[] = {
 #endif
 #endif
 #if defined(CONFIG_CMD_NVEDIT_SELECT)
-	U_BOOT_CMD_MKENT(select, 2, 0, do_env_select, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(select, 2, 0, do_env_select, "", ""),
 #endif
 	U_BOOT_CMD_MKENT_GETOPT(set, CONFIG_SYS_MAXARGS, 0, do_env_set, "",
 				""),
 #if defined(CONFIG_CMD_ENV_EXISTS)
-	U_BOOT_CMD_MKENT(exists, 2, 0, do_env_exists, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(exists, 2, 0, do_env_exists, "", ""),
 #endif
 };
 
-static int do_env(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_env(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
-	/* drop initial "env" arg */
-	argc--;
-	argv++;
-
-	cp = find_cmd_tbl(argv[0], cmd_env_sub, ARRAY_SIZE(cmd_env_sub));
-
-	if (cp)
-		return cmd_invoke(cp, flag, argc, argv);
-
-	return CMD_RET_USAGE;
+	return cmd_dispatch_subcmd(gs, cmd_env_sub, ARRAY_SIZE(cmd_env_sub));
 }
 
 U_BOOT_LONGHELP(env,
@@ -1251,7 +1245,7 @@ U_BOOT_LONGHELP(env,
 #endif
 	"env set [-f] name [arg ...]\n");
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	env, CONFIG_SYS_MAXARGS, 1, do_env,
 	"environment handling commands", env_help_text
 );
@@ -1275,7 +1269,7 @@ U_BOOT_CMD_GETOPT_COMPLETE(
 );
 #endif
 
-U_BOOT_CMD_COMPLETE(
+U_BOOT_CMD_GETOPT_COMPLETE(
 	printenv, CONFIG_SYS_MAXARGS, 1,	do_env_print,
 	"print environment variables",
 	"[-a]\n    - print [all] values of all environment variables\n"

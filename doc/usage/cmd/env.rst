@@ -13,15 +13,16 @@ Synopsis
 
 	env ask name [message] [size]
 	env callbacks
-	env default [-f] (-a | var [...])
+	env default [-k] [-f] (-a | var [...])
 	env delete [-f] var [...]
-	env edit name
+	env edit [-e] name
 	env erase
 	env exists name
 	env export [-t | -b | -c] [-s size] addr [var ...]
 	env flags
 	env grep [-e] [-n | -v | -b] string [...]
 	env import [-d] [-t [-r] | -b | -c] addr [size] [var ...]
+	env indirect to from [default]
 	env info [-d] [-p] [-q]
 	env load
 	env print [-a | name ...]
@@ -35,8 +36,8 @@ Synopsis
 Description
 -----------
 
-The *env* commands is used to handle the U-Boot (:doc:`../environment`) or
-the UEFI variables.
+The *env* command is used to handle the U-Boot (:doc:`../environment`) or
+the UEFI variables. Each of its sub-commands is described below.
 
 The next commands are kept as alias and for compatibility:
 
@@ -87,6 +88,9 @@ environment to their default values.
         all U-Boot environment.
     \-f
         forcibly, overwrite read-only/write-once variables.
+    \-k
+        keep the variables which are not part of the default environment,
+        rather than deleting them.
 
 Delete
 ~~~~~~
@@ -106,6 +110,9 @@ The *env edit* command edits an environment variable.
 
     name
         name of the variable.
+    \-e
+        use the expo graphical editor rather than the command line. This
+        requires CONFIG_CMD_EDITENV_EXPO.
 
 Erase
 ~~~~~
@@ -162,7 +169,7 @@ matching the requested 'string'.
     \-n
         search string in variable names.
     \-v
-        search string in vairable values.
+        search string in variable values.
     \-b
         search both names and values (default).
 
@@ -198,6 +205,20 @@ The *env import* command imports environment from memory.
         assume binary format ('\0' separated, "\0\0" terminated).
     \-c
         assume checksum protected environment format.
+
+Indirect
+~~~~~~~~
+
+The *env indirect* command sets one variable to the value of another, so
+that a script can read a variable whose name it works out as it runs.
+
+    to
+        name of the variable to set.
+    from
+        name of the variable to read.
+    default
+        value to use when *from* is not set. Without it an unset *from* is
+        an error.
 
 Info
 ~~~~
@@ -257,9 +278,9 @@ The *env save* command saves the U-Boot environment in persistent storage.
 Select
 ~~~~~~
 
-The *env select* command selects an U-Boot environment target, it is useful to
-overid the default location when several U-Boot environment backend are
-availables.
+The *env select* command selects a U-Boot environment target. It is useful to
+override the default location when several U-Boot environment backends are
+available.
 
     target
         name of the U-Boot environment backend to select: EEPROM, EXT4, FAT,
@@ -314,6 +335,11 @@ Delete environment variable in memory::
     => env delete bootcmd
     => env set bootcmd
 
+Set a variable to the value of another, with a default for the case where
+that one is not set::
+
+    => env indirect dtb_name board_dtb default.dtb
+
 Reset environment variable to default value, in memory::
 
     => env default bootcmd
@@ -337,7 +363,7 @@ Re-import this snapshot, deleting all other settings::
 
     => env import -d -t ${backup_addr}
 
-Save environment if default enviromnent is used and persistent storage is
+Save environment if the default environment is used and persistent storage is
 selected::
 
     => if env info -p -d -q; then env save; fi
@@ -351,11 +377,11 @@ configuration options:
 ask
     CONFIG_CMD_ASKENV
 
-callback
+callbacks
     CONFIG_CMD_ENV_CALLBACK
 
 edit
-    CONFIG_CMD_EDITENV
+    CONFIG_CMD_EDITENV, CONFIG_CMD_EDITENV_EXPO for the '-e' option
 
 exists
     CONFIG_CMD_ENV_EXISTS
@@ -374,6 +400,9 @@ grep
 
 import
     CONFIG_CMD_IMPORTENV
+
+indirect
+    CONFIG_CMD_NVEDIT_INDIRECT
 
 info
     CONFIG_CMD_NVEDIT_INFO
@@ -396,6 +425,26 @@ select
 
 set
     CONFIG_CMD_NVEDIT_EFI for UEFI variables support ('-e' option)
+
+Return value
+------------
+
+The return value $? is 0 (true) when the sub-command succeeds. A
+sub-command which is not known, or one given an option or an argument it
+does not accept, shows the usage message above and returns 1 (false).
+
+Two sub-commands report more than a simple failure:
+
+*env exists*
+    1 (false) when the variable is not set.
+
+*env print*
+    the number of names which are not set, so 1 (false) for a single name
+    which is missing.
+
+*env info* returns 0 (true) only when every evaluation it is asked for
+holds, so 'env info -d -p -q' succeeds on a board which is using the
+default environment and can also persist it.
 
 See also
 --------

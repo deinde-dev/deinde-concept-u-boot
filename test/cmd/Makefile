@@ -72,6 +72,7 @@ endif
 obj-$(CONFIG_COREBOOT_SYSINFO) += coreboot.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_EDITENV) += editenv.o
+obj-$(CONFIG_ENV_SUPPORT) += env.o
 ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_EROFS) += erofsload.o erofsls.o
 endif
