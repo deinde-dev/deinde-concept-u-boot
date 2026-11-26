@@ -1,2 +1,2 @@
 # binman is maintained as the standalone binary-manager package
-binary-manager==0.3.0
+binary-manager==0.4.0
