@@ -8,21 +8,25 @@
 #include <chid.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <vsprintf.h>
 #include <linux/bitops.h>
 #include <u-boot/uuid.h>
 
-static int do_chid_show(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+/* messages which are too long to sit in the call which reports them */
+#define SMBIOS_ERR	"Failed to get CHID data from SMBIOS (err=%dE)\n"
+#define GENERATE_ERR	"Failed to generate CHID variant %d (err=%dE)\n"
+#define ENV_SET_ERR \
+	"Failed to set fdtcompat environment variable (err=%d)\n"
+
+static int do_chid_show(struct getopt_state *gs)
 {
 	struct chid_data chid;
 	int ret;
 
 	ret = chid_from_smbios(&chid);
-	if (ret) {
-		printf("Failed to get CHID data from SMBIOS (err=%dE)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, SMBIOS_ERR, ret);
 
 	printf("Manufacturer:      %s\n", chid.manuf);
 	printf("Family:            %s\n", chid.family);
@@ -39,8 +43,7 @@ static int do_chid_show(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_chid_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_chid_list(struct getopt_state *gs)
 {
 	char chid_str[UUID_STR_LEN + 1];
 	u8 chid_bytes[UUID_LEN];
@@ -48,10 +51,8 @@ static int do_chid_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	int variant, ret;
 
 	ret = chid_from_smbios(&chid);
-	if (ret) {
-		printf("Failed to get CHID data from SMBIOS (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, SMBIOS_ERR, ret);
 
 	for (variant = 0; variant < CHID_VARIANT_COUNT; variant++) {
 		ret = chid_generate(variant, &chid, chid_bytes);
@@ -68,8 +69,7 @@ static int do_chid_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_chid_detail(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_chid_detail(struct getopt_state *gs)
 {
 	char chid_str[UUID_STR_LEN + 1];
 	u8 chid_bytes[UUID_LEN];
@@ -78,30 +78,21 @@ static int do_chid_detail(struct cmd_tbl *cmdtp, int flag, int argc,
 	int variant, ret;
 	bool first;
 
-	if (argc != 2) {
-		printf("Usage: chid show <variant>\n");
+	if (gs->argc != 2)
 		return CMD_RET_USAGE;
-	}
 
-	variant = simple_strtol(argv[1], NULL, 10);
-	if (variant < 0 || variant >= CHID_VARIANT_COUNT) {
-		printf("Invalid variant %d (must be 0-%d)\n", variant,
-		       CHID_VARIANT_COUNT - 1);
-		return CMD_RET_FAILURE;
-	}
+	variant = simple_strtol(gs->argv[1], NULL, 10);
+	if (variant < 0 || variant >= CHID_VARIANT_COUNT)
+		return cmd_fail(0, "Invalid variant %d (must be 0-%d)\n",
+				variant, CHID_VARIANT_COUNT - 1);
 
 	ret = chid_from_smbios(&chid);
-	if (ret) {
-		printf("Failed to get CHID data from SMBIOS (err=%dE)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, SMBIOS_ERR, ret);
 
 	ret = chid_generate(variant, &chid, chid_bytes);
-	if (ret) {
-		printf("Failed to generate CHID variant %d (err=%dE)\n",
-		       variant, ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, GENERATE_ERR, variant, ret);
 
 	uuid_bin_to_str(chid_bytes, chid_str, UUID_STR_FORMAT_STD);
 	printf("%s: %s\n", chid_get_variant_name(variant), chid_str);
@@ -124,37 +115,33 @@ static int do_chid_detail(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_chid_compat(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_chid_compat(struct getopt_state *gs)
 {
 	const char *compat;
 	int ret;
 
 	ret = chid_select(&compat);
-	if (ret) {
-		printf("No compatible string found (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "No compatible string found (err=%d)\n",
+				ret);
 
 	printf("%s\n", compat);
 
 	ret = env_set("fdtcompat", compat);
-	if (ret) {
-		printf("Failed to set fdtcompat environment variable (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, ENV_SET_ERR, ret);
 
 	return 0;
 }
 
 U_BOOT_LONGHELP(chid,
 	"compat - Find compatible string and set fdtcompat env var\n"
-	"list - List all CHID variants\n"
-	"show - Show CHID data extracted from SMBIOS\n"
-	"detail <variant> - Show details for a specific CHID variant (0-14)");
+	"chid list - List all CHID variants\n"
+	"chid show - Show CHID data extracted from SMBIOS\n"
+	"chid detail <variant> - Show details for a specific CHID variant (0-14)");
 
 U_BOOT_CMD_WITH_SUBCMDS(chid, "Computer Hardware ID utilities", chid_help_text,
-	U_BOOT_SUBCMD_MKENT(compat, 1, 1, do_chid_compat),
-	U_BOOT_SUBCMD_MKENT(list, 1, 1, do_chid_list),
-	U_BOOT_SUBCMD_MKENT(show, 1, 1, do_chid_show),
-	U_BOOT_SUBCMD_MKENT(detail, 2, 1, do_chid_detail));
+	U_BOOT_CMD_MKENT_NOOPTS(compat, 1, 1, do_chid_compat, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_chid_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(show, 1, 1, do_chid_show, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(detail, 2, 1, do_chid_detail, "", ""));

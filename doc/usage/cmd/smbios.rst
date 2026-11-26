@@ -87,3 +87,9 @@ Configuration
 -------------
 
 The command is only available if CONFIG_CMD_SMBIOS=y.
+
+See also
+--------
+
+* :doc:`chid<chid>` for the hardware IDs which are calculated from a few of
+  the values in these tables
