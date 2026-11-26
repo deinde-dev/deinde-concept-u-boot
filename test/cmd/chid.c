@@ -145,10 +145,6 @@ static int cmd_test_chid_errors(struct unit_test_state *uts)
 	ut_assert_nextline("Invalid variant 15 (must be 0-14)");
 	ut_assert_console_end();
 
-	ut_asserteq(1, run_command("chid detail -1", 0));
-	ut_assert_nextline("Invalid variant -1 (must be 0-14)");
-	ut_assert_console_end();
-
 	return 0;
 }
 CMD_TEST(cmd_test_chid_errors, UTF_CONSOLE);
@@ -186,6 +182,15 @@ static int cmd_test_chid_usage(struct unit_test_state *uts)
 	ut_assertok(expect_usage(uts, "chid compat extra"));
 	ut_assertok(expect_usage(uts, "chid list extra"));
 	ut_assertok(expect_usage(uts, "chid show extra"));
+
+	/* no sub-command takes an option, so each refuses one */
+	ut_assertok(expect_usage(uts, "chid compat -x"));
+	ut_assertok(expect_usage(uts, "chid list -x"));
+	ut_assertok(expect_usage(uts, "chid show -x"));
+	ut_assertok(expect_usage(uts, "chid detail -x"));
+
+	/* a negative variant is an option as far as getopt() is concerned */
+	ut_assertok(expect_usage(uts, "chid detail -1"));
 
 	return 0;
 }

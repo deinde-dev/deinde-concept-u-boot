@@ -8,12 +8,12 @@
 #include <chid.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <vsprintf.h>
 #include <linux/bitops.h>
 #include <u-boot/uuid.h>
 
-static int do_chid_show(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_chid_show(struct getopt_state *gs)
 {
 	struct chid_data chid;
 	int ret;
@@ -39,8 +39,7 @@ static int do_chid_show(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_chid_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_chid_list(struct getopt_state *gs)
 {
 	char chid_str[UUID_STR_LEN + 1];
 	u8 chid_bytes[UUID_LEN];
@@ -68,8 +67,7 @@ static int do_chid_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_chid_detail(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_chid_detail(struct getopt_state *gs)
 {
 	char chid_str[UUID_STR_LEN + 1];
 	u8 chid_bytes[UUID_LEN];
@@ -78,10 +76,10 @@ static int do_chid_detail(struct cmd_tbl *cmdtp, int flag, int argc,
 	int variant, ret;
 	bool first;
 
-	if (argc != 2)
+	if (gs->argc != 2)
 		return CMD_RET_USAGE;
 
-	variant = simple_strtol(argv[1], NULL, 10);
+	variant = simple_strtol(gs->argv[1], NULL, 10);
 	if (variant < 0 || variant >= CHID_VARIANT_COUNT) {
 		printf("Invalid variant %d (must be 0-%d)\n", variant,
 		       CHID_VARIANT_COUNT - 1);
@@ -122,8 +120,7 @@ static int do_chid_detail(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_chid_compat(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_chid_compat(struct getopt_state *gs)
 {
 	const char *compat;
 	int ret;
@@ -152,7 +149,7 @@ U_BOOT_LONGHELP(chid,
 	"chid detail <variant> - Show details for a specific CHID variant (0-14)");
 
 U_BOOT_CMD_WITH_SUBCMDS(chid, "Computer Hardware ID utilities", chid_help_text,
-	U_BOOT_SUBCMD_MKENT(compat, 1, 1, do_chid_compat),
-	U_BOOT_SUBCMD_MKENT(list, 1, 1, do_chid_list),
-	U_BOOT_SUBCMD_MKENT(show, 1, 1, do_chid_show),
-	U_BOOT_SUBCMD_MKENT(detail, 2, 1, do_chid_detail));
+	U_BOOT_CMD_MKENT_NOOPTS(compat, 1, 1, do_chid_compat, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_chid_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(show, 1, 1, do_chid_show, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(detail, 2, 1, do_chid_detail, "", ""));
