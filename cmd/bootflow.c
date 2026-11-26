@@ -17,6 +17,7 @@
 #include <efi_device_path.h>
 #include <env.h>
 #include <expo.h>
+#include <getopt.h>
 #include <log.h>
 #include <mapmem.h>
 
@@ -58,7 +59,7 @@ __maybe_unused static int bootflow_handle_menu(struct bootstd_priv *std,
 	 * which stalls an unattended boot command with no bootable devices
 	 */
 	if (!std->bootflows.count) {
-		printf("No bootflows\n");
+		cmd_err("No bootflows\n");
 		return -ENOENT;
 	}
 
@@ -91,7 +92,7 @@ __maybe_unused static int bootflow_handle_menu(struct bootstd_priv *std,
 		printf("Nothing chosen\n");
 		std->cur_bootflow = NULL;
 	} else if (ret) {
-		printf("Menu failed (err=%d)\n", ret);
+		cmd_err("Menu failed (err=%d)\n", ret);
 	} else {
 		bflow = alist_getw(&std->bootflows, seq, struct bootflow);
 		printf("Selected: %s\n", bflow->os_name ? bflow->os_name :
@@ -106,8 +107,7 @@ __maybe_unused static int bootflow_handle_menu(struct bootstd_priv *std,
 	return 0;
 }
 
-static int do_bootflow_scan(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootflow_scan(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct bootflow_iter iter;
@@ -118,7 +118,6 @@ static int do_bootflow_scan(struct cmd_tbl *cmdtp, int flag, int argc,
 	bool any_part = false;
 	int num_valid = 0;
 	const char *label = NULL;
-	bool has_args;
 	int ret, i;
 	int flags;
 
@@ -126,30 +125,47 @@ static int do_bootflow_scan(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (ret)
 		return CMD_RET_FAILURE;
 
-	has_args = argc > 1 && *argv[1] == '-';
 	if (IS_ENABLED(CONFIG_CMD_BOOTFLOW_FULL)) {
-		if (has_args) {
-			all = strchr(argv[1], 'a');
-			boot = strchr(argv[1], 'b');
-			errors = strchr(argv[1], 'e');
-			no_global = strchr(argv[1], 'G');
-			list = strchr(argv[1], 'l');
-			no_hunter = strchr(argv[1], 'H');
-			menu = strchr(argv[1], 'm');
-			any_part = strchr(argv[1], 'p');
-			text_mode = strchr(argv[1], 't');
-			argc--;
-			argv++;
+		int opt;
+
+		while ((opt = getopt(gs, "+abeGHlmpt")) > 0) {
+			switch (opt) {
+			case 'a':
+				all = true;
+				break;
+			case 'b':
+				boot = true;
+				break;
+			case 'e':
+				errors = true;
+				break;
+			case 'G':
+				no_global = true;
+				break;
+			case 'H':
+				no_hunter = true;
+				break;
+			case 'l':
+				list = true;
+				break;
+			case 'm':
+				menu = true;
+				break;
+			case 'p':
+				any_part = true;
+				break;
+			case 't':
+				text_mode = true;
+				break;
+			default:
+				return CMD_RET_USAGE;
+			}
 		}
-		if (argc > 1)
-			label = argv[1];
+		if (gs->index < gs->argc)
+			label = gs->argv[gs->index];
 		if (!label)
 			dev = std->cur_bootdev;
 	} else {
-		if (has_args) {
-			printf("Flags not supported: enable CONFIG_BOOTSTD_FULL\n");
-			return CMD_RET_USAGE;
-		}
 		boot = true;
 	}
 
@@ -192,10 +208,8 @@ static int do_bootflow_scan(struct cmd_tbl *cmdtp, int flag, int argc,
 		if (!ret)
 			num_valid++;
 		ret = bootstd_add_bootflow(&bflow);
-		if (ret < 0) {
-			printf("Out of memory\n");
-			return CMD_RET_FAILURE;
-		}
+		if (ret < 0)
+			return cmd_fail(ret, "Out of memory\n");
 		if (list)
 			bootflow_show(i, &bflow, errors);
 		if (!menu && boot && !bflow.err)
@@ -229,8 +243,7 @@ static int do_bootflow_scan(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 #ifdef CONFIG_CMD_BOOTFLOW_FULL
-static int do_bootflow_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootflow_list(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct udevice *dev;
@@ -238,9 +251,21 @@ static int do_bootflow_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	int num_valid = 0;
 	bool errors = false;
 	int ret, i;
+	int opt;
 
-	if (argc > 1 && *argv[1] == '-')
-		errors = strchr(argv[1], 'e');
+	while ((opt = getopt(gs, "+e")) > 0) {
+		switch (opt) {
+		case 'e':
+			errors = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = bootstd_get_priv(&std);
 	if (ret)
@@ -272,9 +297,10 @@ static int do_bootflow_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootflow_select(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_bootflow_select(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct bootstd_priv *std;
 	struct bootflow *bflow, *found;
 	struct udevice *dev;
@@ -322,45 +348,52 @@ static int do_bootflow_select(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	if (!found) {
-		printf("Cannot find bootflow '%s' ", name);
+		cmd_err("Cannot find bootflow '%s' ", name);
 		if (dev)
-			printf("in bootdev '%s' ", dev->name);
-		printf("(err=%d)\n", ret);
-		return CMD_RET_FAILURE;
+			cmd_err("in bootdev '%s' ", dev->name);
+		return cmd_fail(ret, "(err=%d)\n", ret);
 	}
 	std->cur_bootflow = found;
 	if (IS_ENABLED(CONFIG_BOOTSTD_FULL)) {
-		if (env_set("bootargs", found->cmdline)) {
-			printf("Cannot set bootargs\n");
-			return CMD_RET_FAILURE;
-		}
+		if (env_set("bootargs", found->cmdline))
+			return cmd_fail(0, "Cannot set bootargs\n");
 	}
 
 	return 0;
 }
 
-static int do_bootflow_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootflow_info(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct bootflow *bflow;
 	bool x86_setup = false;
 	bool dump = false;
 	int ret;
+	int opt;
 
-	if (argc > 1 && *argv[1] == '-') {
-		dump = strchr(argv[1], 'd');
-		x86_setup = strchr(argv[1], 's');
+	while ((opt = getopt(gs, "+ds")) > 0) {
+		switch (opt) {
+		case 'd':
+			dump = true;
+			break;
+		case 's':
+			x86_setup = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = bootstd_get_priv(&std);
 	if (ret)
 		return CMD_RET_FAILURE;
 
-	if (!std->cur_bootflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!std->cur_bootflow)
+		return cmd_fail(0, "No bootflow selected\n");
 	bflow = std->cur_bootflow;
 
 	if (IS_ENABLED(CONFIG_X86) && x86_setup) {
@@ -463,8 +496,7 @@ static int do_bootflow_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootflow_read(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootflow_read(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct bootflow *bflow;
@@ -478,30 +510,34 @@ static int do_bootflow_read(struct cmd_tbl *cmdtp, int flag, int argc,
 	 * Require a current bootflow. Users can use 'bootflow scan -b' to
 	 * automatically scan and boot, if needed.
 	 */
-	if (!std->cur_bootflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!std->cur_bootflow)
+		return cmd_fail(0, "No bootflow selected\n");
 	bflow = std->cur_bootflow;
 	ret = bootflow_read_all(bflow);
-	if (ret) {
-		printf("Failed: err=%dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed: err=%dE\n", ret);
 
 	return 0;
 }
 
-static int do_bootflow_boot(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootflow_boot(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct bootflow *bflow;
 	bool fake = false;
 	int ret;
+	int opt;
 
-	if (IS_ENABLED(CONFIG_BOOTM_FAKE_GO) && argc > 1 && *argv[1] == '-')
-		fake = strchr(argv[1], 'f');
+	while (IS_ENABLED(CONFIG_BOOTM_FAKE_GO) &&
+	       (opt = getopt(gs, "+f")) > 0) {
+		switch (opt) {
+		case 'f':
+			fake = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
 
 	ret = bootstd_get_priv(&std);
 	if (ret)
@@ -511,10 +547,8 @@ static int do_bootflow_boot(struct cmd_tbl *cmdtp, int flag, int argc,
 	 * Require a current bootflow. Users can use 'bootflow scan -b' to
 	 * automatically scan and boot, if needed.
 	 */
-	if (!std->cur_bootflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!std->cur_bootflow)
+		return cmd_fail(0, "No bootflow selected\n");
 	bflow = std->cur_bootflow;
 
 	if (IS_ENABLED(CONFIG_BOOTM_FAKE_GO)) {
@@ -531,21 +565,26 @@ static int do_bootflow_boot(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootflow_menu(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootflow_menu(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct bootflow *bflow;
 	bool text_mode = false;
 	int ret;
+	int opt;
 
-	if (!IS_ENABLED(CONFIG_EXPO)) {
-		printf("Menu not supported\n");
-		return CMD_RET_FAILURE;
+	if (!IS_ENABLED(CONFIG_EXPO))
+		return cmd_fail(0, "Menu not supported\n");
+
+	while ((opt = getopt(gs, "+t")) > 0) {
+		switch (opt) {
+		case 't':
+			text_mode = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
-
-	if (argc > 1 && *argv[1] == '-')
-		text_mode = strchr(argv[1], 't');
 
 	ret = bootstd_get_priv(&std);
 	if (ret)
@@ -558,9 +597,10 @@ static int do_bootflow_menu(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootflow_cmdline(struct cmd_tbl *cmdtp, int flag, int argc,
-			       char *const argv[])
+static int do_bootflow_cmdline(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct bootstd_priv *std;
 	struct bootflow *bflow;
 	const char *op, *arg, *val = NULL;
@@ -574,10 +614,8 @@ static int do_bootflow_cmdline(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_FAILURE;
 
 	bflow = std->cur_bootflow;
-	if (!bflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!bflow)
+		return cmd_fail(0, "No bootflow selected\n");
 
 	op = argv[1];
 	arg = argv[2];
@@ -604,20 +642,20 @@ static int do_bootflow_cmdline(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 	switch (ret) {
 	case -E2BIG:
-		printf("Argument too long\n");
+		cmd_err("Argument too long\n");
 		break;
 	case -ENOENT:
-		printf("Argument not found\n");
+		cmd_err("Argument not found\n");
 		break;
 	case -EINVAL:
-		printf("Mismatched quotes\n");
+		cmd_err("Mismatched quotes\n");
 		break;
 	case -EBADF:
-		printf("Value must be quoted\n");
+		cmd_err("Value must be quoted\n");
 		break;
 	default:
 		if (ret < 0)
-			printf("Unknown error: %dE\n", ret);
+			cmd_err("Unknown error: %dE\n", ret);
 	}
 	if (ret < 0)
 		return CMD_RET_FAILURE;
@@ -630,7 +668,7 @@ U_BOOT_LONGHELP(bootflow,
 #ifdef CONFIG_CMD_BOOTFLOW_FULL
 	"scan [-abeGHlmpt] [bdev]  - scan for valid bootflows (-l list, -a all,\n"
 	"   -e errors, -b boot, -G no global, -H no hunters\n"
-	"   -m menu, -t text-only\n"
+	"   -m menu, -p parts, -t text-only)\n"
 	"bootflow list [-e]             - list scanned bootflows (-e errors)\n"
 	"bootflow select [<num>|<name>] - select a bootflow\n"
 	"bootflow info [-ds]            - show info on current bootflow (-d dump bootflow)\n"
@@ -644,14 +682,20 @@ U_BOOT_LONGHELP(bootflow,
 	);
 
 U_BOOT_CMD_WITH_SUBCMDS(bootflow, "Boot flows", bootflow_help_text,
-	U_BOOT_SUBCMD_MKENT(scan, 3, 1, do_bootflow_scan),
 #ifdef CONFIG_CMD_BOOTFLOW_FULL
-	U_BOOT_SUBCMD_MKENT(list, 2, 1, do_bootflow_list),
-	U_BOOT_SUBCMD_MKENT(select, 2, 1, do_bootflow_select),
-	U_BOOT_SUBCMD_MKENT(info, 2, 1, do_bootflow_info),
-	U_BOOT_SUBCMD_MKENT(read, 1, 1, do_bootflow_read),
-	U_BOOT_SUBCMD_MKENT(boot, 2, 1, do_bootflow_boot),
-	U_BOOT_SUBCMD_MKENT(menu, 2, 1, do_bootflow_menu),
-	U_BOOT_SUBCMD_MKENT(cmdline, 4, 1, do_bootflow_cmdline),
+	U_BOOT_CMD_MKENT_GETOPT(scan, 3, 1, do_bootflow_scan, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(list, 2, 1, do_bootflow_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(select, 2, 1, do_bootflow_select, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(info, 2, 1, do_bootflow_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read, 1, 1, do_bootflow_read, "", ""),
+#ifdef CONFIG_BOOTM_FAKE_GO
+	U_BOOT_CMD_MKENT_GETOPT(boot, 2, 1, do_bootflow_boot, "", ""),
+#else
+	U_BOOT_CMD_MKENT_NOOPTS(boot, 2, 1, do_bootflow_boot, "", ""),
+#endif
+	U_BOOT_CMD_MKENT_GETOPT(menu, 2, 1, do_bootflow_menu, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(cmdline, 4, 1, do_bootflow_cmdline, "", ""),
+#else
+	U_BOOT_CMD_MKENT_NOOPTS(scan, 3, 1, do_bootflow_scan, "", ""),
 #endif
 );

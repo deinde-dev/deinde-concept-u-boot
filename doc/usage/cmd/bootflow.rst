@@ -11,14 +11,14 @@ Synopsis
 
 ::
 
-    bootflow scan [-abeGHlmt] [bootdev]
+    bootflow scan [-abeGHlmpt] [bootdev]
     bootflow list [-e]
     bootflow select [<num|name>]
     bootflow info [-ds]
     bootflow read
-    bootflow boot
-    bootflow cmdline [set|get|clear|delete|auto] <param> [<value>]
+    bootflow boot [-f]
     bootflow menu [-t]
+    bootflow cmdline [set|get|clear|delete|auto] <param> [<value>]
 
 Description
 -----------
@@ -28,9 +28,10 @@ locate bootflows, list them and boot them.
 
 See :doc:`/develop/bootstd/index` for more information.
 
-Note that `CONFIG_BOOTSTD_FULL` (which enables `CONFIG_CMD_BOOTFLOW_FULL) must
+Note that `CONFIG_BOOTSTD_FULL` (which enables `CONFIG_CMD_BOOTFLOW_FULL`) must
 be enabled to obtain full functionality with this command. Otherwise, it only
-supports `bootflow scan` which scans and boots the first available bootflow.
+supports `bootflow scan` which scans and boots the first available bootflow,
+and accepts none of the flags below.
 
 bootflow scan
 ~~~~~~~~~~~~~
@@ -38,9 +39,9 @@ bootflow scan
 Scans for available bootflows, optionally booting the first valid one it finds.
 This operates in two modes:
 
-- If no bootdev is selected (see `bootdev select`) it scans bootflows one
-  by one, extracting all the bootdevs from each
-- If a bootdev is selected, it just scans that one bootflow
+- If no bootdev is selected (see `bootdev select`) it scans the bootdevs one
+  by one, collecting all the bootflows from each
+- If a bootdev is selected, it just scans that one bootdev
 
 Flags are:
 
@@ -59,8 +60,9 @@ Flags are:
     selects a bootflow.
 
 -e
-    Used with -l to also show errors for each bootflow. The shows detailed error
-    information for each bootflow that failed to make it to the `loaded` state.
+    Used with -l to also show errors for each bootflow. This shows detailed
+    error information for each bootflow that failed to make it to the `loaded`
+    state.
 
 -G
     Skip global bootmeths when scanning. By default these are tried first, but
@@ -79,6 +81,11 @@ Flags are:
 -m
     Show a menu of available bootflows for the user to select. When used with
     -b it then boots the one that was selected, if any.
+
+-p
+    Consider every partition, not just those marked bootable. Normally a
+    partition without the bootable flag is skipped, so an OS installed on one
+    produces no bootflow.
 
 -t
     If used with `-m`, show the menu in text mode.
@@ -103,12 +110,12 @@ those errors.
 
 The list looks something like this:
 
-===  ======  ======  ========  ====  ===  ===============================   ================
-Seq  Method  State   Uclass    Part  Ent  Name                              Filename
-===  ======  ======  ========  ====  ===  ===============================   ================
-  0  distro  ready   mmc          2    0  mmc\@7e202000.bootdev.part_2      /boot/extlinux/extlinux.conf
-  1  pxe     ready   ethernet     0    0  smsc95xx_eth.bootdev.0            rpi.pxe/extlinux/extlinux.conf
-===  ======  ======  ========  ====  ===  ===============================   ================
+===  ========  ======  ========  ====  ===  =  ============================  ============================
+Seq  Method    State   Uclass    Part  Ent  E  Name                          Filename
+===  ========  ======  ========  ====  ===  =  ============================  ============================
+0    extlinux  ready   mmc       2     0       mmc\@7e202000.bootdev.part_2  /boot/extlinux/extlinux.conf
+1    pxe       ready   ethernet  0     0       smsc95xx_eth.bootdev.0        rpi.pxe/extlinux/extlinux.conf
+===  ========  ======  ========  ====  ===  =  ============================  ============================
 
 The fields are as follows:
 
@@ -128,7 +135,7 @@ Uclass:
     device (e.g. MMC, Ethernet).
 
 Part:
-    Partition number being accesseed, numbered from 1. Normally a device will
+    Partition number being accessed, numbered from 1. Normally a device will
     have a partition table with a small number of partitions. For devices
     without partition tables (e.g. network) this field is 0.
 
@@ -137,6 +144,10 @@ Ent:
     entries (``BOOTMETHF_MULTI``). For example, an extlinux config with
     several labels shows 0, 1, 2, etc. Blank for boot methods that produce
     only one bootflow per partition.
+
+E:
+    Shows `E` if the bootflow comes from an encrypted partition, blank
+    otherwise. See `bootflow info` for the encryption method.
 
 Name:
     Name of the bootflow. This is generated from the bootdev appended with
@@ -165,12 +176,11 @@ bootflow info
 This shows information on the current bootflow, with the format looking like
 this:
 
-=========  ===============================
+=========  ================================
 Name       mmc\@7e202000.bootdev.part_2
 Device     mmc\@7e202000.bootdev
 Block dev  mmc\@7e202000.blk
-Type       distro
-Method:    extlinux
+Method     extlinux
 State      ready
 Partition  2
 Entry      0: l0
@@ -179,9 +189,12 @@ Subdir     (none)
 Filename   /extlinux/extlinux.conf
 Buffer     3db7ad48
 Size       232 (562 bytes)
-FDT:       <NULL>
+OS         Fedora-Workstation-armhfp-31-1.9
+Cmdline    (none)
+Logo       (none)
+FDT        <NULL>
 Error      0
-=========  ===============================
+=========  ================================
 
 Most of the information is the same as `bootflow list` above. The new fields
 are:
@@ -215,18 +228,36 @@ Buffer
 Size
     Size of the bootflow file
 
-FDT:
+OS
+    Name of the Operating System, where the bootmeth can work this out,
+    else `(none)`
+
+Cmdline
+    Command line which the OS is given when it is booted, as adjusted by
+    `bootflow cmdline`, or `(none)` if there is none
+
+Logo
+    Address of the boot logo, if the bootmeth provides one, else `(none)`.
+    A `Logo size` line follows it when there is one.
+
+FDT
     Filename of the device tree, if supported. The EFI bootmeth uses this to
-    remember the filename to load. If `<NULL>` then there is none.
+    remember the filename to load. If `<NULL>` then there is none. Where there
+    is one, `FDT size` and `FDT addr` lines follow it.
 
 Error
     Error number returned from scanning for the bootflow. This is 0 if the
     bootflow is in the 'loaded' state, or a negative error value on error. You
     can look up Linux error codes to find the meaning of the number.
 
-Use the `-d` flag to dump out the contents of the bootfile file.
+An `X86 setup` line appears before the logo where the bootflow has an x86 setup
+block, and an `EFI path` line after the error where the bootflow uses the EFI
+bootmeth.
 
-The `-s` flag shows any x86 setup block, instead of the above.
+Use the `-d` flag to dump out the contents of the bootflow file.
+
+The `-s` flag shows any x86 setup block, instead of the above. It is available
+on x86 only.
 
 
 bootflow read
@@ -252,7 +283,8 @@ This boots the current bootflow, reading any required files first.
 
 For debugging only, the `-f` flag can be provided to cause a fake boot. This
 runs the boot through to the point of handing off to the OS, then returns, to
-allow the state to be examined.
+allow the state to be examined. The flag requires `CONFIG_BOOTM_FAKE_GO` and
+is ignored without it.
 
 bootflow cmdline
 ~~~~~~~~~~~~~~~~
@@ -275,7 +307,7 @@ To delete a parameter entirely, use::
     bootflow cmdline delete <param>
 
 Automatic parameters are available in a very few cases. You can use these to
-add parmeters where the value is known by U-Boot. For example::
+add parameters where the value is known by U-Boot. For example::
 
     bootflow cmdline auto earlycon
     bootflow cmdline auto console
@@ -292,6 +324,10 @@ bootflow, which then becomes the current one.
 
 The `-t` flag requests a text menu. Otherwise, if a display is available, a
 graphical menu is shown.
+
+The menu requires `CONFIG_EXPO`; without it the command reports that the menu
+is not supported. It also needs at least one bootflow, so use `bootflow scan`
+first.
 
 
 Example
@@ -453,7 +489,7 @@ Here we scan for bootflows and boot the first one found::
     [    0.000000] Booting Linux on physical CPU 0x0
 
 
-Here is am example using the -e flag to see all errors::
+Here is an example using the -a and -e flags to see all errors::
 
     U-Boot> bootflow scan -a
     Card did not respond to voltage select! : -110
@@ -647,7 +683,7 @@ This shows looking at x86 setup information::
 
 This shows reading a bootflow to examine the kernel::
 
-    => bootfl i 0
+    => bootfl i
     Name:
     Device:    emmc@1c,0.bootdev
     Block dev: emmc@1c,0.blk
@@ -665,7 +701,7 @@ This shows reading a bootflow to examine the kernel::
     FDT:       <NULL>
     Error:     0
 
-Note that `Buffer` is 0 so it has not be read yet. Using `bootflow read`::
+Note that `Buffer` is 0 so it has not been read yet. Using `bootflow read`::
 
     => bootfl read
     => bootfl info
@@ -765,10 +801,17 @@ return to U-Boot. If something about the U-Boot processing fails, then the
 return value $? is 1. If the boot succeeds but for some reason the Operating
 System returns, then $? is 0, indicating success.
 
-For `bootflow menu` the return value is $? is 0 (true) if an option was choses,
+For `bootflow menu` the return value $? is 0 (true) if an option was chosen,
 else 1.
 
-For other subcommands, the return value $? is always 0 (true).
+`bootflow select` returns 1 if no bootflow has the given number or name,
+leaving the current bootflow as it was. `bootflow info`, `bootflow read`,
+`bootflow boot` and `bootflow cmdline` return 1 if no bootflow is selected,
+and `bootflow read` and `bootflow cmdline` also return 1 if the operation
+itself fails.
+
+For `bootflow scan` and `bootflow list` the return value $? is always 0
+(true), even when nothing is found.
 
 
 Encrypted Partitions

@@ -476,6 +476,7 @@ config CMD_BOOTFLOW
 	bool "bootflow"
 	depends on BOOTSTD
 	default y
+	select GETOPT
 	help
 	  Support scanning for bootflows available with the bootdevs. The
 	  bootflows can optionally be booted.
