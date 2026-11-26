@@ -15,6 +15,10 @@
 #include <tkey.h>
 #include <u-boot/sha256.h>
 
+/* messages which are too long to sit in the call which reports them */
+#define UNLOCK_ERR	"Failed to unlock LUKS partition (err %dE)\n"
+#define BLKMAP_ERR	"Failed to create blkmap device (err %dE)\n"
+
 static int do_luks_detect(struct getopt_state *gs)
 {
 	struct blk_desc *dev_desc;
@@ -30,10 +34,8 @@ static int do_luks_detect(struct getopt_state *gs)
 		return CMD_RET_FAILURE;
 
 	ret = luks_detect(dev_desc->bdev, &info);
-	if (ret < 0) {
-		printf("Not a LUKS partition (error %dE)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret < 0)
+		return cmd_fail(ret, "Not a LUKS partition (error %dE)\n", ret);
 	version = luks_get_version(dev_desc->bdev, &info);
 	printf("LUKS%d encrypted partition detected\n", version);
 
@@ -88,7 +90,7 @@ static int unlock_with_tkey(struct blk_desc *dev_desc,
 	/* Find TKey device */
 	tkey_dev = tkey_get_device();
 	if (!tkey_dev) {
-		printf("Failed to find TKey device\n");
+		cmd_err("Failed to find TKey device\n");
 		return -ENOENT;
 	}
 
@@ -100,7 +102,7 @@ static int unlock_with_tkey(struct blk_desc *dev_desc,
 				   strlen(passphrase), tkey_disk_key, pubkey,
 				   NULL);
 	if (ret) {
-		printf("Failed to derive TKey disk key (err %dE)\n", ret);
+		cmd_err("Failed to derive TKey disk key (err %dE)\n", ret);
 		return ret;
 	}
 
@@ -174,10 +176,8 @@ static int do_luks_unlock(struct getopt_state *gs)
 
 	/* Verify it's a LUKS partition */
 	version = luks_get_version(dev_desc->bdev, &info);
-	if (version < 0) {
-		printf("Not a LUKS partition\n");
-		return CMD_RET_FAILURE;
-	}
+	if (version < 0)
+		return cmd_fail(version, "Not a LUKS partition\n");
 
 	printf("Unlocking LUKS%d partition...\n", version);
 
@@ -190,10 +190,8 @@ static int do_luks_unlock(struct getopt_state *gs)
 		size_t key_len = strlen(passphrase) / 2;
 
 		if (key_len > sizeof(key_buf) || hex2bin(key_buf, passphrase,
-							 key_len)) {
-			printf("Invalid hex key\n");
-			return CMD_RET_FAILURE;
-		}
+							 key_len))
+			return cmd_fail(0, "Invalid hex key\n");
 		ret = luks_unlock(dev_desc->bdev, &info, key_buf, key_len,
 				  true, master_key, &key_size);
 	} else {
@@ -202,10 +200,8 @@ static int do_luks_unlock(struct getopt_state *gs)
 				  strlen(passphrase), false, master_key,
 				  &key_size);
 	}
-	if (ret) {
-		printf("Failed to unlock LUKS partition (err %dE)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, UNLOCK_ERR, ret);
 
 	/* Create blkmap device with label based on source device */
 	snprintf(label, sizeof(label), "luks-%s-%s", iface, devpart);
@@ -214,8 +210,7 @@ static int do_luks_unlock(struct getopt_state *gs)
 	ret = luks_create_blkmap(dev_desc->bdev, &info, master_key, key_size,
 				 label, &blkmap_dev);
 	if (ret) {
-		printf("Failed to create blkmap device (err %dE)\n", ret);
-		ret = CMD_RET_FAILURE;
+		ret = cmd_fail(ret, BLKMAP_ERR, ret);
 		goto cleanup;
 	}
 
