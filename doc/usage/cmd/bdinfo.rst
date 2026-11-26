@@ -183,3 +183,5 @@ See also
 * :doc:`version<version>` for which U-Boot this is and what built it
 * :doc:`cpu<cpu>` for the CPUs in more detail
 * :doc:`meminfo<meminfo>` for what the memory is being used for
+* :doc:`malloc<malloc>` for the main malloc heap, rather than the early pool
+  shown here

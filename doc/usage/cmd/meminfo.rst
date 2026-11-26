@@ -183,3 +183,4 @@ See also
 * :doc:`ufetch<ufetch>` for the DRAM size alongside the other board details
 * :doc:`bdinfo<bdinfo>` for the addresses of the regions this command sizes
 * :doc:`bloblist<bloblist>` for what the bloblist region listed here holds
+* :doc:`malloc<malloc>` for what is in the malloc heap
