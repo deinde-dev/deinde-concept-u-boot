@@ -23,10 +23,8 @@ static int do_bootstd_images(struct getopt_state *gs)
 	int ret, i;
 
 	ret = bootstd_get_priv(&std);
-	if (ret) {
-		printf("Cannot get bootstd (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot get bootstd (err=%d)\n", ret);
 
 	printf("Seq  Bootflow             Type                  At      Size  Filename\n");
 	printf("---  -------------------  --------------  --------  --------  ----------------\n");
