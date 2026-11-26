@@ -135,6 +135,11 @@ pickman:
 4. Records both the squash and merge commits as 'applied' in the database
 5. Advances the source position past the merge and continues with the next batch
 
+Upstream often commits a few patches directly to its main branch just before a
+subtree merge, so they are on the first-parent chain but not inside any merge.
+Pickman takes these first, as a batch of their own, and handles the subtree
+merge once they are done.
+
 This is works without manual intervention. The currently supported subtrees are:
 
 =================================  ===========

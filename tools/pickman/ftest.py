@@ -4934,6 +4934,22 @@ class TestGetNextCommitsMegaMerge(unittest.TestCase):
             dbs.close()
 
 
+def _subject_only(subject):
+    """Make a git mock which gives a subject and no commits
+
+    Args:
+        subject (str): Subject to return from 'git log -1'
+
+    Returns:
+        function: Mock for command.TEST_RESULT
+    """
+    def mock_git(pipe_list):
+        if '-1' in pipe_list[0]:
+            return command.CommandResult(stdout=subject)
+        return command.CommandResult(stdout='')
+    return mock_git
+
+
 class TestSubtreeMergeDetection(unittest.TestCase):
     """Tests for subtree merge detection in find_unprocessed_commits."""
 
@@ -4959,8 +4975,8 @@ class TestSubtreeMergeDetection(unittest.TestCase):
             dbs.source_set('us/next', 'base')
             dbs.commit()
 
-            command.TEST_RESULT = command.CommandResult(
-                stdout="Subtree merge tag 'v6.15-dts' of "
+            command.TEST_RESULT = _subject_only(
+                "Subtree merge tag 'v6.15-dts' of "
                        "https://example.com/dts.git into dts/upstream")
 
             info = control.find_unprocessed_commits(
@@ -4980,8 +4996,8 @@ class TestSubtreeMergeDetection(unittest.TestCase):
             dbs.source_set('us/next', 'base')
             dbs.commit()
 
-            command.TEST_RESULT = command.CommandResult(
-                stdout="Subtree merge tag 'v3.6.2' of "
+            command.TEST_RESULT = _subject_only(
+                "Subtree merge tag 'v3.6.2' of "
                        "https://example.com/mbedtls.git into "
                        "lib/mbedtls/external/mbedtls")
 
@@ -5000,8 +5016,8 @@ class TestSubtreeMergeDetection(unittest.TestCase):
             dbs.source_set('us/next', 'base')
             dbs.commit()
 
-            command.TEST_RESULT = command.CommandResult(
-                stdout="Subtree merge tag 'STABLE-2_2_0' of "
+            command.TEST_RESULT = _subject_only(
+                "Subtree merge tag 'STABLE-2_2_0' of "
                        "https://example.com/lwip.git into lib/lwip/lwip")
 
             info = control.find_unprocessed_commits(
@@ -5019,31 +5035,25 @@ class TestSubtreeMergeDetection(unittest.TestCase):
             dbs.source_set('us/next', 'base')
             dbs.commit()
 
-            call_count = [0]
+            outputs = [
+                # Subject for merge1: unknown subtree
+                "Subtree merge tag 'v1.0' of https://x.com/x.git into "
+                'lib/unknown',
+                # No mainline commits before merge1
+                '',
+                # Subject for merge2: not a subtree merge
+                'Normal merge commit',
+                # detect_sub_merges: rev-parse ^@
+                'merge1\nside1\n',
+                # detect_sub_merges: log --merges (no sub-merges)
+                '',
+                # Commits for merge2
+                'aaa|aaa1|A|Commit 1|merge1\n',
+            ]
 
             def mock_git(pipe_list):  # pylint: disable=unused-argument
-                call_count[0] += 1
-                if call_count[0] == 1:
-                    # Subject for merge1: unknown subtree
-                    return command.CommandResult(
-                        stdout="Subtree merge tag 'v1.0' of "
-                               "https://x.com/x.git into lib/unknown")
-                if call_count[0] == 2:
-                    # Subject for merge2: not a subtree merge
-                    return command.CommandResult(
-                        stdout='Normal merge commit')
-                if call_count[0] == 3:
-                    # detect_sub_merges: rev-parse ^@
-                    return command.CommandResult(
-                        stdout='merge1\nside1\n')
-                if call_count[0] == 4:
-                    # detect_sub_merges: log --merges (no sub-merges)
-                    return command.CommandResult(stdout='')
-                if call_count[0] == 5:
-                    # Commits for merge2
-                    return command.CommandResult(
-                        stdout='aaa|aaa1|A|Commit 1|merge1\n')
-                return command.CommandResult(stdout='')
+                return command.CommandResult(
+                    stdout=outputs.pop(0) if outputs else '')
 
             command.TEST_RESULT = mock_git
 
@@ -5092,6 +5102,51 @@ class TestSubtreeMergeDetection(unittest.TestCase):
             self.assertEqual(info.advance_to, 'merge1')
             self.assertEqual(info.commits, [])
             dbs.close()
+
+    def test_mainline_before_subtree(self):
+        """Test that mainline commits before a subtree merge are taken"""
+        test_dir = tempfile.mkdtemp()
+        orig_dir = os.getcwd()
+        try:
+            _git_init(test_dir)
+            os.chdir(test_dir)
+            _git(test_dir, 'commit', '-q', '--allow-empty', '-m', 'base')
+            base = _git(test_dir, 'rev-parse', 'HEAD')
+            _git(test_dir, 'checkout', '-q', '--orphan', 'dts')
+            _git(test_dir, 'commit', '-q', '--allow-empty', '-m', 'dts')
+            _git(test_dir, 'checkout', '-q', 'master')
+            for subject in ['serial: Fix it', 'ram: Fix it']:
+                _git(test_dir, 'commit', '-q', '--allow-empty', '-m',
+                     subject)
+            last = _git(test_dir, 'rev-parse', 'HEAD')
+            _git(test_dir, 'merge', '-q', '--allow-unrelated-histories',
+                 '-m', "Subtree merge tag 'v7.1-dts' of dts repo [1] "
+                 'into dts/upstream', 'dts')
+            merge = _git(test_dir, 'rev-parse', 'HEAD')
+
+            dbs = database.Database(self.db_path)
+            dbs.start()
+            dbs.source_set('master', base)
+            dbs.commit()
+            with terminal.capture():
+                info, _ = control.get_next_commits(dbs, 'master')
+            self.assertEqual(['serial: Fix it', 'ram: Fix it'],
+                             [c.subject for c in info.commits])
+            self.assertTrue(info.merge_found)
+            self.assertEqual(last, info.advance_to)
+            self.assertIsNone(info.subtree_update)
+
+            # Once those are done, the subtree merge comes next
+            dbs.source_set('master', last)
+            with terminal.capture():
+                info, _ = control.get_next_commits(dbs, 'master')
+            self.assertEqual([], info.commits)
+            self.assertEqual(merge, info.advance_to)
+            self.assertEqual(('dts', 'v7.1-dts'), info.subtree_update)
+            dbs.close()
+        finally:
+            os.chdir(orig_dir)
+            shutil.rmtree(test_dir)
 
     def test_non_subtree_merge_has_no_subtree_update(self):
         """Test normal merges have subtree_update=None."""

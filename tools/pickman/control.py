@@ -3382,6 +3382,11 @@ def find_unprocessed_commits(dbs, last_commit, source, merge_hashes):
         # Check for subtree merge (e.g. dts/upstream update)
         result = _check_subtree_merge(merge_hash)
         if result is not None:
+            # Take any mainline commits before the subtree merge first,
+            # since the subtree update does not include them
+            commits = _mega_get_batch(dbs, prev_commit, f'{merge_hash}^1')
+            if commits:
+                return NextCommitsInfo(commits, True, commits[-1].hash)
             name, tag = result
             if name:
                 return NextCommitsInfo([], True, merge_hash,
