@@ -381,6 +381,39 @@ static int bootflow_cmd_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("bootflow cmdline set", 0));
 	ut_assertok(check_usage(uts));
 
+	/* an option which the sub-command does not have */
+	ut_asserteq(1, run_command("bootflow scan -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow list -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow info -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow boot -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow menu -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* select, read and cmdline have no options at all */
+	ut_asserteq(1, run_command("bootflow select -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow read -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow cmdline -x fred", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an argument which list and info have no use for */
+	ut_asserteq(1, run_command("bootflow list fred", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow info fred", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 BOOTSTD_TEST(bootflow_cmd_usage, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);

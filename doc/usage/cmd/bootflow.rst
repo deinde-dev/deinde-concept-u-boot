@@ -683,7 +683,7 @@ This shows looking at x86 setup information::
 
 This shows reading a bootflow to examine the kernel::
 
-    => bootfl i 0
+    => bootfl i
     Name:
     Device:    emmc@1c,0.bootdev
     Block dev: emmc@1c,0.blk
