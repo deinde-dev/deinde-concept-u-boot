@@ -283,14 +283,13 @@ static int expect_usage(struct unit_test_state *uts, const char *cmd)
 /* Test what the command does with an option it does not know */
 static int cmd_test_dm_errors(struct unit_test_state *uts)
 {
-	/* 'tree' names the parameter it cannot make sense of */
-	ut_assertok(run_command("dm tree -x", 0));
-	ut_assert_nextline("Unknown parameter: -x");
-	ut_assert_console_end();
+	/* neither sub-command has an -x option */
+	ut_assertok(expect_usage(uts, "dm tree -x"));
+	ut_assertok(expect_usage(uts, "dm uclass -x"));
 
-	/* 'uclass' takes it as the name of a uclass, which matches nothing */
-	ut_assertok(run_command("dm uclass -x", 0));
-	ut_assert_console_end();
+	/* each takes a single name */
+	ut_assertok(expect_usage(uts, "dm tree root extra"));
+	ut_assertok(expect_usage(uts, "dm uclass root extra"));
 
 	return 0;
 }

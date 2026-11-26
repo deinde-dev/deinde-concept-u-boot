@@ -548,10 +548,8 @@ Return value
 ------------
 
 Every sub-command returns 0, since all of them only report what driver
-model holds. A missing or unknown sub-command, or more arguments than one
-takes, shows the usage message and returns 1. An unrecognised option is
-reported by *dm tree* and ignored by *dm uclass*, both of which still
-return 0.
+model holds. A missing or unknown sub-command, an unrecognised option, or
+more arguments than one takes, shows the usage message and returns 1.
 
 See also
 --------
