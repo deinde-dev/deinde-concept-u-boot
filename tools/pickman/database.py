@@ -371,6 +371,26 @@ class Database:  # pylint: disable=too-many-public-methods
                 (source_id,))
         return res.fetchall()
 
+    def commit_get_hashes(self):
+        """Get the hashes of all commits, from any source
+
+        Return:
+            set of str: Commit hashes
+        """
+        res = self.execute('SELECT chash FROM pcommit')
+        return {rec[0] for rec in res.fetchall()}
+
+    def commit_get_oldest(self):
+        """Get the oldest commit of each source
+
+        Return:
+            list of str: Commit hashes, oldest first
+        """
+        res = self.execute(
+            'SELECT chash FROM pcommit WHERE id IN '
+            '(SELECT MIN(id) FROM pcommit GROUP BY source_id) ORDER BY id')
+        return [rec[0] for rec in res.fetchall()]
+
     def commit_get_by_mergereq(self, mergereq_id):
         """Get all commits for a merge request
 

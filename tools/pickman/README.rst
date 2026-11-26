@@ -686,6 +686,19 @@ To count the total remaining merges to process::
 This shows how many merge commits remain on the first-parent chain between the
 last cherry-picked commit and the source branch tip.
 
+To list the commits which pickman skipped over without ever considering them::
+
+    ./tools/pickman/pickman missed us/main
+
+This lists each commit between pickman's starting point and the current source
+position which has no row in the database. The starting point is the first
+commit on the first-parent chain to contain the oldest commit in the database,
+so older history is left out. A row from any source counts, since one source
+may take over from another (see ``switch-source``). The commits are split into
+those with no commit of the same subject on ``ci/master`` and those which
+arrived there some other way. The subject is only a guide: a commit may have
+been reworded, or folded into another one.
+
 To show the next N merges that will be applied::
 
     ./tools/pickman/pickman next-merges us/next
