@@ -629,6 +629,32 @@ static int dm_test_vfs_cmd_err(struct unit_test_state *uts)
 		"Dest '/nodir/.cp_err' failed: -2: No such file or directory");
 	ut_assert_console_end();
 
+	/* only umount has an option, so the rest refuse one */
+	ut_asserteq(1, run_command("fs mount -t ext4", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("fs ls -x", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("fs cp -x /host/Kbuild", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	/* umount takes -a and nothing else */
+	ut_asserteq(1, run_command("fs umount -z", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
 	ut_assertok(run_command("fs umount /host", 0));
 	ut_assert_console_end();
 

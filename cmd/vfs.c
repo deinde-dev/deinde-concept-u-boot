@@ -11,6 +11,7 @@
 #include <command.h>
 #include <dm.h>
 #include <fs.h>
+#include <getopt.h>
 #include <vfs.h>
 #include <dm/uclass.h>
 
@@ -48,15 +49,14 @@ static int fs_mount_handler(int argc, char *const argv[])
 	return vfs_mount(vfs, dir, fsdev);
 }
 
-static int do_fs_mount(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_fs_mount(struct getopt_state *gs)
 {
 	int ret;
 
-	if (argc == 2)
+	if (gs->argc == 2)
 		return CMD_RET_USAGE;
 
-	ret = fs_mount_handler(argc, argv);
+	ret = fs_mount_handler(gs->argc, gs->argv);
 	if (ret) {
 		printf("fs mount failed: %dE\n", ret);
 		return CMD_RET_FAILURE;
@@ -76,15 +76,23 @@ static int fs_umount_handler(const char *path)
 	return vfs_umount_path(vfs, path);
 }
 
-static int do_fs_umount(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_fs_umount(struct getopt_state *gs)
 {
-	int ret;
+	const char *path;
+	bool all = false;
+	int opt, ret;
 
-	if (argc < 2)
-		return CMD_RET_USAGE;
+	while ((opt = getopt(gs, "+a")) > 0) {
+		switch (opt) {
+		case 'a':
+			all = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
 
-	if (!strcmp(argv[1], "-a")) {
+	if (all) {
 		ret = vfs_umount_all();
 		if (ret) {
 			printf("fs umount -a failed: %dE\n", ret);
@@ -93,7 +101,11 @@ static int do_fs_umount(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 	}
 
-	ret = fs_umount_handler(argv[1]);
+	path = getopt_pop(gs);
+	if (!path)
+		return CMD_RET_USAGE;
+
+	ret = fs_umount_handler(path);
 	if (ret) {
 		printf("fs umount failed: %dE\n", ret);
 		return CMD_RET_FAILURE;
@@ -102,10 +114,9 @@ static int do_fs_umount(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_fs_ls(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_fs_ls(struct getopt_state *gs)
 {
-	const char *path = argc >= 2 ? argv[1] : "/";
+	const char *path = gs->argc >= 2 ? gs->argv[1] : "/";
 	int ret;
 
 	ret = vfs_ls(path);
@@ -124,7 +135,7 @@ U_BOOT_LONGHELP(fs,
 	"fs cp <source> <dest>          - copy a file");
 
 U_BOOT_CMD_WITH_SUBCMDS(fs, "Filesystem operations", fs_help_text,
-	U_BOOT_SUBCMD_MKENT(mount, 3, 1, do_fs_mount),
-	U_BOOT_SUBCMD_MKENT(umount, 2, 1, do_fs_umount),
-	U_BOOT_SUBCMD_MKENT(ls, 2, 1, do_fs_ls),
-	U_BOOT_SUBCMD_MKENT(cp, 3, 0, do_cp));
+	U_BOOT_CMD_MKENT_NOOPTS(mount, 3, 1, do_fs_mount, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(umount, 2, 1, do_fs_umount, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(ls, 2, 1, do_fs_ls, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(cp, 3, 0, do_cp, "", ""));

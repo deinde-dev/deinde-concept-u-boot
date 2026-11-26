@@ -14,10 +14,10 @@
 #include <dir.h>
 
 struct blk_desc;
-struct cmd_tbl;
 struct disk_partition;
 struct fs_dirent;
 struct fs_statfs;
+struct getopt_state;
 struct udevice;
 
 /**
@@ -389,8 +389,11 @@ void vfs_print_df(void);
  *
  * Implements the 'fs cp' subcommand. Defined in cmd/fs.c, declared here
  * so that cmd/vfs.c can reference it.
+ *
+ * @gs: getopt state, holding the source and destination paths
+ * Return: CMD_RET_... value
  */
-int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
+int do_cp(struct getopt_state *gs);
 
 #ifdef CONFIG_AUTO_COMPLETE
 /**
