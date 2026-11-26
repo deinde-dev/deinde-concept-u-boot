@@ -837,6 +837,7 @@ See also
 * :doc:`../tkey-fde` - TKey full disk encryption
 * :doc:`boot` - Boot using *bootcmd*, which normally starts this scan
 * :doc:`bootdev` - Boot device documentation
+* :doc:`bootmeth` - Boot methods, which are tried in turn on each bootdev
 * :doc:`bootctl` - Boot control, which offers these bootflows in a menu
 * :doc:`abootimg` - Android boot image contents, which the android bootmeth
   reads for itself
