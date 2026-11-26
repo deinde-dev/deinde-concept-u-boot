@@ -67,6 +67,9 @@ static int __maybe_unused do_malloc_log(struct getopt_state *gs)
 }
 
 #if IS_ENABLED(CONFIG_CMD_MALLOC_LEAK)
+/* Shown by both forms of the check when no snapshot has been taken */
+#define NO_SNAPSHOT	"No snapshot taken, use 'malloc leak start'\n"
+
 static struct malloc_leak_snap leak_snap;
 
 static int do_malloc_leak(struct getopt_state *gs)
@@ -77,10 +80,8 @@ static int do_malloc_leak(struct getopt_state *gs)
 	if (argc < 2) {
 		int leaks;
 
-		if (!leak_snap.addr) {
-			printf("No snapshot taken, use 'malloc leak start'\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!leak_snap.addr)
+			return cmd_fail(0, NO_SNAPSHOT);
 
 		leaks = malloc_leak_check_count(&leak_snap);
 		if (leaks > 0)
@@ -103,10 +104,8 @@ static int do_malloc_leak(struct getopt_state *gs)
 	} else if (!strcmp(argv[1], "end")) {
 		int leaks;
 
-		if (!leak_snap.addr) {
-			printf("No snapshot taken, use 'malloc leak start'\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!leak_snap.addr)
+			return cmd_fail(0, NO_SNAPSHOT);
 
 		leaks = malloc_leak_check_end(&leak_snap);
 		if (leaks > 0)
