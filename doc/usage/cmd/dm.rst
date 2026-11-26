@@ -14,9 +14,10 @@ Synopsis
     dm compat
     dm devres
     dm drivers
+    dm mem
     dm static
-    dm tree [-s][-e] [uclass name]
-    dm uclass [-e] [udevice name]
+    dm tree [-s][-e] [device name]
+    dm uclass [-e] [uclass name]
 
 Description
 -----------
@@ -41,7 +42,7 @@ drivers use the devres API to allocate memory, so that it can be freed
 automatically (without any code needed in the driver's remove() method) when the
 device is removed.
 
-This feature is controlled by CONFIG_DEVRES so no useful output is obtained if
+This feature is controlled by CONFIG_DEBUG_DEVRES so no output is obtained if
 this option is disabled.
 
 dm drivers
@@ -125,15 +126,13 @@ Name
     Shows the device name as well as the tree structure, since child devices are
     shown attached to their parent.
 
-If -s is given, the top-level devices (those which are children of the root
-device) are shown sorted in order of uclass ID, so it is easier to find a
-particular device type.
+If -s is given, the children of each device are shown sorted in order of
+uclass ID, so it is easier to find a particular device type.
 
-If -e is given, forward-matching against existing devices is
-made and only the matched devices are shown.
-
-If a device name is given, forward-matching against existing devices is
-made and only the matched devices are shown.
+If a device name is given, only that device and the devices below it are
+shown. The name must match exactly, unless -e is given, in which case it is
+taken as a prefix and every device whose name starts with it is shown. The
+name `root` asks for the whole tree, as does leaving the name out.
 
 dm uclass
 ~~~~~~~~~
@@ -148,10 +147,10 @@ For each device, the format is::
 where `n` is the index within the uclass, `a` is the address of the device in
 memory and `s` is the sequence number of the device.
 
-If -e is given, forward-matching against existing uclasses is
-made and only the matched uclasses are shown.
-
-If no uclass name is given, all the uclasses are shown.
+If a uclass name is given, only that uclass is shown. The name must match
+exactly, unless -e is given, in which case it is taken as a prefix and every
+uclass whose name starts with it is shown. The name `root` asks for all of
+them, as does leaving the name out.
 
 
 Examples
@@ -307,7 +306,7 @@ dm mem
 
 This example shows the sandbox output::
 
-    > dm mem
+    => dm mem
     Struct sizes: udevice b0, driver 80, uclass 30, uc_driver 78
     Memory: device fe:aea0, device names a16, uclass 5e:11a0
 
@@ -360,7 +359,7 @@ This example shows the sandbox output::
 
 
 dm tree
--------
+~~~~~~~
 
 This example shows the abridged sandbox output::
 
@@ -423,15 +422,34 @@ This example shows the abridged sandbox output::
     nop           8  [   ]   scmi_voltage_domain       `-- regulators
     regulator     5  [   ]   scmi_regulator                |-- reg@0
     regulator     6  [   ]   scmi_regulator                `-- reg@1
-    => dm tree pinc
-    pinctrl       0  [ + ]   sandbox_pinctrl_gpio  pinctrl-gpio
-    gpio          1  [ + ]   sandbox_gpio          |-- base-gpios
-    nop           0  [ + ]   gpio_hog              |   |-- hog_input_active_low
-    nop           1  [ + ]   gpio_hog              |   |-- hog_input_active_high
-    nop           2  [ + ]   gpio_hog              |   |-- hog_output_low
-    nop           3  [ + ]   gpio_hog              |   `-- hog_output_high
-    gpio          2  [   ]   sandbox_gpio          |-- extra-gpios
-    gpio          3  [   ]   sandbox_gpio          `-- pinmux-gpios
+    =>
+
+This example shows a single device and the devices below it, first matching
+the name exactly and then as a prefix::
+
+    => dm tree cros-ec
+     Class     Seq    Probed  Driver                Name
+    -----------------------------------------------------------
+     cros-ec       0  [ + ]   google_cros_ec_sandb  cros-ec
+     pwm           0  [   ]   cros_ec_pwm           |-- cros-ec-pwm
+     keyboard      0  [ + ]   google_cros_ec_keyb   `-- keyboard-controller
+    => dm tree -e cros
+     Class     Seq    Probed  Driver                Name
+    -----------------------------------------------------------
+     cros-ec       0  [ + ]   google_cros_ec_sandb  cros-ec
+     pwm           0  [   ]   cros_ec_pwm           |-- cros-ec-pwm
+     keyboard      0  [ + ]   google_cros_ec_keyb   `-- keyboard-controller
+    =>
+
+With -s the children come out in order of uclass ID, so the keyboard is
+shown before the pwm::
+
+    => dm tree -s cros-ec
+     Class     Seq    Probed  Driver                Name
+    -----------------------------------------------------------
+     cros-ec       0  [ + ]   google_cros_ec_sandb  cros-ec
+     keyboard      0  [ + ]   google_cros_ec_keyb   |-- keyboard-controller
+     pwm           0  [   ]   cros_ec_pwm           `-- cros-ec-pwm
     =>
 
 
@@ -510,13 +528,30 @@ This example shows the abridged sandbox output::
     0   * gpio-wdt @ 0301c070, seq 0
     1   * wdt@0 @ 03021710, seq 1
 
-    => dm uclass blk
-    uclass 22: blk
-    0     mmc2.blk @ 0301ca00, seq 0
-    1     mmc1.blk @ 0301cee0, seq 1
-    2     mmc0.blk @ 0301d380, seq 2
+    =>
+
+This example shows a single uclass, first matching the name exactly and then
+as a prefix. Neither of these uclasses has any devices on sandbox, so only
+their names are shown::
+
+    => dm uclass w1
+    uclass 155: w1
+
+    => dm uclass -e w1
+    uclass 155: w1
+
+    uclass 156: w1_eeprom
 
     =>
+
+Return value
+------------
+
+Every sub-command returns 0, since all of them only report what driver
+model holds. A missing or unknown sub-command, or more arguments than one
+takes, shows the usage message and returns 1. An unrecognised option is
+reported by *dm tree* and ignored by *dm uclass*, both of which still
+return 0.
 
 See also
 --------
