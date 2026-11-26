@@ -3341,6 +3341,7 @@ config CMD_LUKS
 	bool "luks command"
 	depends on BLK_LUKS
 	default y if BLK_LUKS
+	select GETOPT
 	help
 	  Enables the 'luks' command for detecting LUKS (Linux Unified Key
 	  Setup) encrypted partitions. This command checks if a partition

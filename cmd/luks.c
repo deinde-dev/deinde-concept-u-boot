@@ -8,23 +8,24 @@
 #include <blk.h>
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <hexdump.h>
 #include <luks.h>
 #include <part.h>
 #include <tkey.h>
 #include <u-boot/sha256.h>
 
-static int do_luks_detect(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_luks_detect(struct getopt_state *gs)
 {
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
 	int part, ret, version;
 
-	if (argc != 3)
+	if (gs->argc != 3)
 		return CMD_RET_USAGE;
 
-	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
+	part = blk_get_device_part_str(gs->argv[1], gs->argv[2], &dev_desc,
+				       &info, 1);
 	if (part < 0)
 		return CMD_RET_FAILURE;
 
@@ -39,17 +40,17 @@ static int do_luks_detect(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_luks_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_luks_info(struct getopt_state *gs)
 {
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
 	int part, ret;
 
-	if (argc != 3)
+	if (gs->argc != 3)
 		return CMD_RET_USAGE;
 
-	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
+	part = blk_get_device_part_str(gs->argv[1], gs->argv[2], &dev_desc,
+				       &info, 1);
 	if (part < 0)
 		return CMD_RET_FAILURE;
 
@@ -121,40 +122,51 @@ static int unlock_with_tkey(struct blk_desc *dev_desc,
 	return ret;
 }
 
-static int do_luks_unlock(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_luks_unlock(struct getopt_state *gs)
 {
 	struct blk_desc *dev_desc;
 	struct disk_partition info;
 	struct udevice *blkmap_dev;
+	const char *iface, *devpart;
 	const char *passphrase = NULL;
 	bool use_tkey = false;
 	bool pre_derived = false;
-	int part, ret, version;
+	int part, ret, version, opt;
 	u8 master_key[128];
 	char label[64];
 	u32 key_size;
 
-	/* Check for flags */
-	while (argc > 1 && argv[1][0] == '-') {
-		if (!strcmp(argv[1], "-t")) {
+	while ((opt = getopt(gs, "+tp")) > 0) {
+		switch (opt) {
+		case 't':
 			use_tkey = true;
-		} else if (!strcmp(argv[1], "-p")) {
+			break;
+		case 'p':
 			pre_derived = true;
-		} else {
+			break;
+		default:
 			return CMD_RET_USAGE;
 		}
-		argc--;
-		argv++;
 	}
-	if (argc != 4)
+
+	/*
+	 * Each option says where the key comes from, so the two are
+	 * alternatives: -t wins if both are given
+	 */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && use_tkey && pre_derived)
 		return CMD_RET_USAGE;
 
-	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
+	if (gs->argc - gs->index != 3)
+		return CMD_RET_USAGE;
+
+	iface = getopt_pop(gs);
+	devpart = getopt_pop(gs);
+
+	part = blk_get_device_part_str(iface, devpart, &dev_desc, &info, 1);
 	if (part < 0)
 		return CMD_RET_FAILURE;
 
-	passphrase = argv[3];
+	passphrase = getopt_pop(gs);
 
 	log_debug("Partition start %llx blks %llx blksz%lx\n",
 		  (unsigned long long)info.start, (unsigned long long)info.size,
@@ -196,7 +208,7 @@ static int do_luks_unlock(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	/* Create blkmap device with label based on source device */
-	snprintf(label, sizeof(label), "luks-%s-%s", argv[1], argv[2]);
+	snprintf(label, sizeof(label), "luks-%s-%s", iface, devpart);
 
 	/* Create and map the blkmap device */
 	ret = luks_create_blkmap(dev_desc->bdev, &info, master_key, key_size,
@@ -221,12 +233,12 @@ cleanup:
 static char luks_help_text[] =
 	"detect <interface> <dev[:part]> - detect if partition is LUKS encrypted\n"
 	"luks info <interface> <dev[:part]> - show LUKS header information\n"
-	"luks unlock [-t] [-p] <interface> <dev[:part]> <passphrase> - unlock LUKS partition\n"
+	"luks unlock [-t | -p] <interface> <dev[:part]> <passphrase> - unlock LUKS partition\n"
 	"  -t: Use TKey hardware security token with passphrase as USS\n"
 	"  -p: Treat passphrase as hex-encoded pre-derived master key (skip KDF)\n";
 
 U_BOOT_CMD_WITH_SUBCMDS(luks, "LUKS (Linux Unified Key Setup) operations",
 			luks_help_text,
-	U_BOOT_SUBCMD_MKENT(detect, 3, 1, do_luks_detect),
-	U_BOOT_SUBCMD_MKENT(info, 3, 1, do_luks_info),
-	U_BOOT_SUBCMD_MKENT(unlock, 5, 1, do_luks_unlock));
+	U_BOOT_CMD_MKENT_NOOPTS(detect, 3, 1, do_luks_detect, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, 3, 1, do_luks_info, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(unlock, 5, 1, do_luks_unlock, "", ""));

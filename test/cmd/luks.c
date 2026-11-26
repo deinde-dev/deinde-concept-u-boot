@@ -373,6 +373,14 @@ static int cmd_test_luks_usage(struct unit_test_state *uts)
 	/* only -t and -p are on offer */
 	ut_assertok(expect_usage(uts, "luks unlock -x mmc 0:1 pass"));
 
+	/* each option says where the key comes from, so only one may be given */
+	ut_assertok(expect_usage(uts, "luks unlock -t -p mmc 0:1 pass"));
+	ut_assertok(expect_usage(uts, "luks unlock -tp mmc 0:1 pass"));
+
+	/* detect and info take no option, rather than one as an interface */
+	ut_assertok(expect_usage(uts, "luks detect -x 0:1"));
+	ut_assertok(expect_usage(uts, "luks info -x 0:1"));
+
 	return 0;
 }
 CMD_TEST(cmd_test_luks_usage, UTF_CONSOLE);
