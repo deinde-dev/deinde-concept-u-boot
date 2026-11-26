@@ -630,7 +630,7 @@ U_BOOT_LONGHELP(bootflow,
 #ifdef CONFIG_CMD_BOOTFLOW_FULL
 	"scan [-abeGHlmpt] [bdev]  - scan for valid bootflows (-l list, -a all,\n"
 	"   -e errors, -b boot, -G no global, -H no hunters\n"
-	"   -m menu, -t text-only\n"
+	"   -m menu, -p parts, -t text-only)\n"
 	"bootflow list [-e]             - list scanned bootflows (-e errors)\n"
 	"bootflow select [<num>|<name>] - select a bootflow\n"
 	"bootflow info [-ds]            - show info on current bootflow (-d dump bootflow)\n"
