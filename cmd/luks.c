@@ -92,8 +92,8 @@ static int unlock_with_tkey(struct blk_desc *dev_desc,
 	}
 
 	/* Derive disk key using TKey with passphrase as USS */
-	printf("Loading TKey signer app (%lx bytes) with USS...\n",
-	       TKEY_SIGNER_SIZE);
+	printf("Loading TKey signer app (%lu bytes) with USS...\n",
+	       (ulong)TKEY_SIGNER_SIZE);
 	ret = tkey_derive_disk_key(tkey_dev, (const u8 *)__signer_1_0_0_begin,
 				   TKEY_SIGNER_SIZE, (const u8 *)passphrase,
 				   strlen(passphrase), tkey_disk_key, pubkey,
