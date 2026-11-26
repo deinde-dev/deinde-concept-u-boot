@@ -132,3 +132,5 @@ See also
 * :doc:`ls<ls>` for listing a directory of a mounted filesystem
 * :doc:`cd<cd>` for changing into one, so that later paths can be
   relative
+* :doc:`fs<fs>` for mounting, unmounting, listing and copying under a
+  single command

@@ -118,3 +118,4 @@ See also
 * :doc:`mount<mount>` for making a filesystem available to this command
 * :doc:`size<size>` for asking about one file rather than listing them all
 * :doc:`load<load>` for reading one of the files into memory
+* :doc:`fs<fs>` for listing with the same command which mounts
