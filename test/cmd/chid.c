@@ -5,17 +5,41 @@
  * Copyright 2025 Simon Glass <sjg@chromium.org>
  */
 
+#include <chid.h>
 #include <command.h>
 #include <console.h>
 #include <env.h>
+#include <malloc.h>
 #include <test/cmd.h>
 #include <test/ut.h>
 #include <version.h>
 
-/* Test the 'chid show' command */
-static int cmd_chid_show_test(struct unit_test_state *uts)
+/*
+ * The CHID of each variant on sandbox, where the SMBIOS values come from the
+ * test devicetree. The first three take in the BIOS version, so their UUIDs
+ * change with every build and only the label is checked.
+ */
+static const char *const sandbox_chid[CHID_VARIANT_COUNT] = {
+	NULL,
+	NULL,
+	NULL,
+	"a07db1d8-e0f9-5d47-a507-8c358eb7edf4",
+	"5efd2af9-23d6-5fe6-bdb0-e040b9e5b054",
+	"48aede6f-65db-51a5-8905-fdabdbc0685e",
+	"d1c25f0a-6eb8-5c23-961c-e46694384fa0",
+	"84398dad-5de1-553b-87b9-1b7c4b02c505",
+	"ed1fa480-f06b-52ba-b203-56562c52c7e2",
+	"c0185db1-6111-5432-955a-e5ecdac0d351",
+	"6b7ad4ae-1f41-52dd-8499-ab9ab9e8688c",
+	"72523836-a3fc-57b0-8d3c-4ce56cbf6b96",
+	"e93b37fb-5592-55dd-8e4b-9df3fbc9abde",
+	"d67e233f-5cad-541c-87f8-ee9bca569e5e",
+	"45c5e2e7-db48-556b-aae4-0a03c5a15eae",
+};
+
+/* Test the 'chid show' sub-command */
+static int cmd_test_chid_base(struct unit_test_state *uts)
 {
-	/* Test chid show command and verify expected output */
 	ut_assertok(run_command("chid show", 0));
 
 	ut_assert_nextline("Manufacturer:      Sandbox Corp");
@@ -33,42 +57,45 @@ static int cmd_chid_show_test(struct unit_test_state *uts)
 
 	return 0;
 }
-CMD_TEST(cmd_chid_show_test, UTF_CONSOLE);
+CMD_TEST(cmd_test_chid_base, UTF_CONSOLE);
 
-/* Test invalid chid subcommand */
-static int cmd_chid_invalid_test(struct unit_test_state *uts)
+/* Test the 'chid list' sub-command */
+static int cmd_test_chid_list(struct unit_test_state *uts)
 {
-	/* Test chid command with invalid arguments */
-	ut_asserteq(1, run_command("chid invalid", 0));
+	int variant;
 
-	return 0;
-}
-CMD_TEST(cmd_chid_invalid_test, UTF_CONSOLE);
-
-/* Test the 'chid list' command */
-static int cmd_chid_list_test(struct unit_test_state *uts)
-{
-	/* Test chid list command runs successfully */
 	ut_assertok(run_command("chid list", 0));
 
-	/* Just verify that some output is produced - exact CHIDs vary */
+	for (variant = 0; variant < CHID_VARIANT_COUNT; variant++) {
+		if (sandbox_chid[variant])
+			ut_assert_nextline("HardwareID-%02d: %s", variant,
+					   sandbox_chid[variant]);
+		else
+			ut_assert_nextlinen("HardwareID-%02d: ", variant);
+	}
+	ut_assert_console_end();
+
 	return 0;
 }
-CMD_TEST(cmd_chid_list_test, UTF_CONSOLE);
+CMD_TEST(cmd_test_chid_list, UTF_CONSOLE);
 
-/* Test the 'chid detail' command */
-static int cmd_chid_detail_test(struct unit_test_state *uts)
+/* Test the 'chid detail' sub-command */
+static int cmd_test_chid_detail(struct unit_test_state *uts)
 {
-	/* Test chid detail command for variant 14 (manufacturer only) */
+	/* the least specific variant uses the manufacturer alone */
 	ut_assertok(run_command("chid detail 14", 0));
-
-	ut_assert_nextlinen("HardwareID-14: ");
+	ut_assert_nextline("HardwareID-14: %s", sandbox_chid[14]);
 	ut_assert_nextline("Fields: Manufacturer");
 	ut_assert_console_end();
 
-	/* Test chid detail command for variant 0 (most specific) */
-	ut_assertok(run_command("chid detail 0", 0));
+	/* one in the middle, which leaves out the SKU and the baseboard */
+	ut_assertok(run_command("chid detail 5", 0));
+	ut_assert_nextline("HardwareID-05: %s", sandbox_chid[5]);
+	ut_assert_nextline("Fields: Manufacturer + Family + ProductName");
+	ut_assert_console_end();
 
+	/* the most specific variant takes in eight fields */
+	ut_assertok(run_command("chid detail 0", 0));
 	ut_assert_nextlinen("HardwareID-00: ");
 	ut_assert_nextline(
 		"Fields: Manufacturer + Family + ProductName + ProductSku + "
@@ -78,48 +105,88 @@ static int cmd_chid_detail_test(struct unit_test_state *uts)
 
 	return 0;
 }
-CMD_TEST(cmd_chid_detail_test, UTF_CONSOLE);
+CMD_TEST(cmd_test_chid_detail, UTF_CONSOLE);
 
-/* Test chid detail with invalid variant */
-static int cmd_chid_detail_invalid_test(struct unit_test_state *uts)
+/* Test the 'chid compat' sub-command */
+static int cmd_test_chid_compat(struct unit_test_state *uts)
 {
-	/* Test chid detail with invalid variant number - should fail */
-	ut_asserteq(1, run_command("chid detail 15", 0));
+	const char *val;
+	char *saved = NULL;
 
-	/* Test chid detail with negative variant number - should fail */
-	ut_asserteq(1, run_command("chid detail -1", 0));
-
-	return 0;
-}
-CMD_TEST(cmd_chid_detail_invalid_test, 0);
-
-/* Test the 'chid compat' command */
-static int cmd_chid_compat_test(struct unit_test_state *uts)
-{
-	const char *fdtcompat_val;
-	int ret;
-
-	/* Clear any existing fdtcompat environment variable */
-	env_set("fdtcompat", NULL);
-	ut_assertnull(env_get("fdtcompat"));
-
-	/* Run chid compat command - may succeed or fail depending on devicetree */
-	ret = run_command("chid compat", 0);
-
-	if (ret == 0) {
-		/* Command succeeded, check that fdtcompat was set */
-		fdtcompat_val = env_get("fdtcompat");
-		ut_assertnonnull(fdtcompat_val);
-		ut_assert(strlen(fdtcompat_val) > 0);
-		/* Command should print the compatible string it found */
-		ut_assert_nextline(fdtcompat_val);
-	} else {
-		/* Command failed, check expected failure message and no env var set */
-		ut_assert_nextline("No compatible string found");
-		ut_assertnull(env_get("fdtcompat"));
+	/*
+	 * The variable must come back as it was, since a later test or a boot
+	 * may rely on it
+	 */
+	val = env_get("fdtcompat");
+	if (val) {
+		saved = strdup(val);
+		ut_assertnonnull(saved);
 	}
+	ut_assertok(env_set("fdtcompat", NULL));
 
+	/* sandbox has a /chid node whose hardware IDs are its own */
+	ut_assertok(run_command("chid compat", 0));
+	ut_assert_nextline("sandbox,test-device-1");
 	ut_assert_console_end();
+	ut_asserteq_str("sandbox,test-device-1", env_get("fdtcompat"));
+
+	ut_assertok(env_set("fdtcompat", saved));
+	free(saved);
+
 	return 0;
 }
-CMD_TEST(cmd_chid_compat_test, UTF_CONSOLE);
+CMD_TEST(cmd_test_chid_compat, UTF_CONSOLE);
+
+/* Test what the command reports when it cannot do what it is asked */
+static int cmd_test_chid_errors(struct unit_test_state *uts)
+{
+	/* the variant must be one which the specification defines */
+	ut_asserteq(1, run_command("chid detail 15", 0));
+	ut_assert_nextline("Invalid variant 15 (must be 0-14)");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("chid detail -1", 0));
+	ut_assert_nextline("Invalid variant -1 (must be 0-14)");
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_chid_errors, UTF_CONSOLE);
+
+/**
+ * expect_usage() - Run a command which shows the usage message
+ *
+ * @uts: Test state
+ * @cmd: Command to run
+ * Return: 0 if OK, 1 on failure
+ */
+static int expect_usage(struct unit_test_state *uts, const char *cmd)
+{
+	ut_asserteq(1, run_command(cmd, 0));
+	ut_assert_nextline("chid - Computer Hardware ID utilities");
+
+	/* the rest is the usage text, which this test does not check */
+	console_record_reset();
+
+	return 0;
+}
+
+/* Test the arguments which show the usage message */
+static int cmd_test_chid_usage(struct unit_test_state *uts)
+{
+	/* a sub-command is required, and must be one of those on offer */
+	ut_assertok(expect_usage(uts, "chid"));
+	ut_assertok(expect_usage(uts, "chid other"));
+
+	/* 'detail' wants a variant and nothing else */
+	ut_assertok(expect_usage(uts, "chid detail"));
+	ut_assertok(expect_usage(uts, "chid detail 0 1"));
+
+	/* the other three take no arguments at all */
+	ut_assertok(expect_usage(uts, "chid compat extra"));
+	ut_assertok(expect_usage(uts, "chid list extra"));
+	ut_assertok(expect_usage(uts, "chid show extra"));
+
+	return 0;
+}
+CMD_TEST(cmd_test_chid_usage, UTF_CONSOLE);
