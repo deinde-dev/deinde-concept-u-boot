@@ -10,7 +10,7 @@ Sending patches
    a merge request against `concept.deinde.dev/u-boot/u-boot
    <https://concept.deinde.dev/u-boot/u-boot>`_, and use the tree's
    `mailing list
-   <https://lists.deinde.dev/mailman3/lists/concept.u-boot.org/>`_ for
+   <https://lists.deinde.dev/mailman3/lists/concept.deinde.dev/>`_ for
    discussion. The rules here still apply to anything you intend to send
    upstream afterwards.
 

@@ -39,7 +39,7 @@ Contributing Guidelines
    `concept.deinde.dev/u-boot/u-boot
    <https://concept.deinde.dev/u-boot/u-boot>`_. Patches are not accepted by
    email here; the tree's `mailing list
-   <https://lists.deinde.dev/mailman3/lists/concept.u-boot.org/>`_ is for
+   <https://lists.deinde.dev/mailman3/lists/concept.deinde.dev/>`_ is for
    discussion.
 
    The guidelines below describe contributing to **mainline U-Boot**, which
