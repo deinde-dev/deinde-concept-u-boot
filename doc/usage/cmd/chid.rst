@@ -1,5 +1,8 @@
 .. SPDX-License-Identifier: GPL-2.0+
 
+.. index::
+   single: chid (command)
+
 chid command
 ============
 
@@ -49,7 +52,8 @@ detail <variant>
 Examples
 --------
 
-::
+These come from a sandbox run, where the SMBIOS values are the ones in the
+test devicetree::
 
     => chid show
     Manufacturer:      Sandbox Corp
@@ -58,19 +62,19 @@ Examples
     Product SKU:       SANDBOX-SKU
     Baseboard Manuf:   Sandbox Boards
     Baseboard Product: Sandbox Motherboard
-    BIOS Vendor:       U-Boot
-    BIOS Version:      2025.08-g167811e037b5-dirty
-    BIOS Major:        25
-    BIOS Minor:        8
+    BIOS Vendor:       Deinde Concept U-Boot
+    BIOS Version:      2026.12-rc3-g905df42b432c
+    BIOS Major:        26
+    BIOS Minor:        12
     Enclosure Type:    2
     =>
 
 This shows how to obtain the CHIDs for all variants::
 
     => chid list
-    HardwareID-00: 133e2a0f-2299-5874-b475-40f5a1744a35
-    HardwareID-01: a9648aa2-bb0e-5e53-95d7-432ac18f041f
-    HardwareID-02: cbb458c8-4d1a-5898-9a2c-6657c6664a9a
+    HardwareID-00: a5814c69-1123-51e7-a780-18fb27318dda
+    HardwareID-01: 746b256a-521b-5c35-81ba-8833f6287510
+    HardwareID-02: 60901d1a-bf05-5546-b8a5-47970d4ea96c
     HardwareID-03: a07db1d8-e0f9-5d47-a507-8c358eb7edf4
     HardwareID-04: 5efd2af9-23d6-5fe6-bdb0-e040b9e5b054
     HardwareID-05: 48aede6f-65db-51a5-8905-fdabdbc0685e
@@ -84,6 +88,10 @@ This shows how to obtain the CHIDs for all variants::
     HardwareID-13: d67e233f-5cad-541c-87f8-ee9bca569e5e
     HardwareID-14: 45c5e2e7-db48-556b-aae4-0a03c5a15eae
 
+The first three variants take in the BIOS version, so their UUIDs are
+different for every build. The rest depend only on the board, so they stay
+the same from one build to the next.
+
 Show details for a specific variant::
 
     => chid detail 14
@@ -93,22 +101,30 @@ Show details for a specific variant::
 Find compatible string and set environment variable::
 
     => chid compat
-    google,veyron-speedy
+    sandbox,test-device-1
     => printenv fdtcompat
-    fdtcompat=google,veyron-speedy
+    fdtcompat=sandbox,test-device-1
 
 Configuration
 -------------
 
-The chid command is available when `CONFIG_CMD_CHID` is enabled.
+The chid command is available when ``CONFIG_CMD_CHID`` is enabled, which
+needs ``CONFIG_CHID`` and the SMBIOS parser it relies on.
 
 Return value
 ------------
 
-The return value $? is 0 (true) on success, 1 (false) on failure.
+The return value $? is 0 (true) on success and 1 (false) on failure. A
+sub-command fails when the SMBIOS data cannot be read, when no CHID matches
+any node under /chid, or when the variant given to ``chid detail`` is not in
+the range 0 to 14, each case reporting what went wrong.
+
+The usage message appears instead, with $? set to 1 (false), when no
+sub-command is given, when it is not one of the four on offer, or when the
+arguments after it are not what that sub-command takes.
 
 See also
 --------
 
-* :doc:`/develop/chid` - CHID developer documentation
-* :doc:`smbios <smbios>` - SMBIOS table information
+* :doc:`/develop/chid` for how the CHID data and the /chid nodes are built
+* :doc:`smbios<smbios>` for showing the SMBIOS tables the CHIDs come from
