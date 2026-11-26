@@ -526,9 +526,115 @@ static int dm_test_vfs_cmd(struct unit_test_state *uts)
 	ut_assertok(run_command("fs mount", 0));
 	ut_assert_console_end();
 
+	/* -a unmounts everything, even with nothing mounted */
+	ut_assertok(run_command("fs mount hostfs /host", 0));
+	ut_assertok(run_command("fs mount hostfs /other", 0));
+	ut_assertok(run_command("fs umount -a", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("fs mount", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("fs umount -a", 0));
+	ut_assert_console_end();
+
 	return 0;
 }
 DM_TEST(dm_test_vfs_cmd, UTF_SCAN_FDT);
+
+/* Test the errors and the usage message of the 'fs' command */
+static int dm_test_vfs_cmd_err(struct unit_test_state *uts)
+{
+	ut_assertok(vfs_init());
+
+	/* the command needs a sub-command */
+	ut_asserteq(1, run_command("fs", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline(
+		"fs mount [<dev> <mountpoint>]  - list or create mounts");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	/* a sub-command which does not exist shows the same message */
+	ut_asserteq(1, run_command("fs nosuch", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	/* mount needs a mount point as well as a device */
+	ut_asserteq(1, run_command("fs mount hostfs", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	/* the mount point must be an absolute path */
+	ut_asserteq(1, run_command("fs mount hostfs host", 0));
+	ut_assert_nextline("fs mount failed: -22: Invalid argument");
+	ut_assert_console_end();
+
+	/* a device which is not there */
+	ut_asserteq(1, run_command("fs mount nodev /host", 0));
+	ut_assert_nextline("fs mount failed: -19: No such device");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("fs mount hostfs /host", 0));
+	ut_assert_console_end();
+
+	/* a mount point which is in use */
+	ut_asserteq(1, run_command("fs mount hostfs /host", 0));
+	ut_assert_nextline("fs mount failed: -16: Device or resource busy");
+	ut_assert_console_end();
+
+	/* umount needs a mount point */
+	ut_asserteq(1, run_command("fs umount", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	/* a path which is not a mount point */
+	ut_asserteq(1, run_command("fs umount /host/doc", 0));
+	ut_assert_nextline("fs umount failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* ls on a path which is not there */
+	ut_asserteq(1, run_command("fs ls /nosuch", 0));
+	ut_assert_nextline("fs ls failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* ls on a file rather than a directory */
+	ut_asserteq(1, run_command("fs ls /host/Kbuild", 0));
+	ut_assert_nextline("fs ls failed: -20: Not a directory");
+	ut_assert_console_end();
+
+	/* cp needs both paths */
+	ut_asserteq(1, run_command("fs cp /host/Kbuild", 0));
+	ut_assert_nextline("fs - Filesystem operations");
+	ut_assert_skip_to_line(
+		"fs cp <source> <dest>          - copy a file");
+	ut_assert_console_end();
+
+	/* a source which is not there */
+	ut_asserteq(1, run_command("fs cp /nosuch /host/.cp_err", 0));
+	ut_assert_nextline(
+		"Source '/nosuch' not found: -2: No such file or directory");
+	ut_assert_console_end();
+
+	/* a destination which cannot be created */
+	ut_asserteq(1, run_command("fs cp /host/Kbuild /nodir/.cp_err", 0));
+	ut_assert_nextline(
+		"Dest '/nodir/.cp_err' failed: -2: No such file or directory");
+	ut_assert_console_end();
+
+	ut_assertok(run_command("fs umount /host", 0));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_vfs_cmd_err, UTF_SCAN_FDT);
 
 /* Test current working directory */
 static int dm_test_vfs_cwd(struct unit_test_state *uts)
