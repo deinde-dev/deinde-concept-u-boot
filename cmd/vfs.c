@@ -57,10 +57,8 @@ static int do_fs_mount(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = fs_mount_handler(gs->argc, gs->argv);
-	if (ret) {
-		printf("fs mount failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "fs mount failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
@@ -94,10 +92,9 @@ static int do_fs_umount(struct getopt_state *gs)
 
 	if (all) {
 		ret = vfs_umount_all();
-		if (ret) {
-			printf("fs umount -a failed: %dE\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "fs umount -a failed: %dE\n", ret);
+
 		return CMD_RET_SUCCESS;
 	}
 
@@ -106,10 +103,8 @@ static int do_fs_umount(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = fs_umount_handler(path);
-	if (ret) {
-		printf("fs umount failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "fs umount failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
@@ -120,10 +115,8 @@ static int do_fs_ls(struct getopt_state *gs)
 	int ret;
 
 	ret = vfs_ls(path);
-	if (ret) {
-		printf("fs ls failed: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "fs ls failed: %dE\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
