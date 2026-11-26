@@ -16,7 +16,8 @@
 
 static int fs_mount_handler(int argc, char *const argv[])
 {
-	struct udevice *vfs, *fsdev, *dir;
+	struct udevice *vfs, *fsdev, *dir, *mnt;
+	const char *subpath;
 	int ret;
 
 	vfs = vfs_root();
@@ -30,6 +31,11 @@ static int fs_mount_handler(int argc, char *const argv[])
 
 	if (argc < 3)
 		return -EINVAL;
+
+	/* check whether something is mounted there already */
+	ret = vfs_find_mount(vfs, argv[2], &mnt, &subpath);
+	if (!ret && mnt && !*subpath)
+		return -EBUSY;
 
 	ret = uclass_get_device_by_name(UCLASS_FS, argv[1], &fsdev);
 	if (ret)
