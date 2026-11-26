@@ -77,3 +77,4 @@ See also
 * :doc:`df<df>` for the space used in each mount before it goes
 * :doc:`ls<ls>` for listing the root, which still shows the mount point
   once the filesystem is detached
+* :doc:`fs<fs>` for unmounting with the same command which mounts

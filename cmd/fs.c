@@ -272,7 +272,7 @@ U_BOOT_CMD_COMPLETE(
 
 #define COPY_BUF_SIZE	0x1000
 
-int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+int do_cp(struct getopt_state *gs)
 {
 	struct file_uc_priv *uc_priv;
 	struct udevice *src, *dst;
@@ -281,20 +281,19 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	long total = 0;
 	int ret;
 
-	if (argc < 3)
+	if (gs->argc < 3)
 		return CMD_RET_USAGE;
 
-	ret = vfs_open_file(argv[1], DIR_O_RDONLY, &src);
-	if (ret) {
-		printf("Source '%s' not found: %dE\n", argv[1], ret);
-		return CMD_RET_FAILURE;
-	}
+	ret = vfs_open_file(gs->argv[1], DIR_O_RDONLY, &src);
+	if (ret)
+		return cmd_fail(ret, "Source '%s' not found: %dE\n",
+				gs->argv[1], ret);
 
-	ret = vfs_open_file(argv[2], DIR_O_WRONLY, &dst);
+	ret = vfs_open_file(gs->argv[2], DIR_O_WRONLY, &dst);
 	if (ret) {
-		printf("Dest '%s' failed: %dE\n", argv[2], ret);
 		file_close(src);
-		return CMD_RET_FAILURE;
+		return cmd_fail(ret, "Dest '%s' failed: %dE\n", gs->argv[2],
+				ret);
 	}
 
 	uc_priv = dev_get_uclass_priv(src);
@@ -307,8 +306,7 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 		nread = file_read_at(src, buf, pos, chunk);
 		if (nread < 0) {
-			printf("Read failed: %ldE\n", nread);
-			ret = CMD_RET_FAILURE;
+			ret = cmd_fail(nread, "Read failed: %ldE\n", nread);
 			goto done;
 		}
 		if (!nread)
@@ -316,8 +314,8 @@ int do_cp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 		nwritten = file_write_at(dst, buf, pos, nread);
 		if (nwritten < 0) {
-			printf("Write failed: %ldE\n", nwritten);
-			ret = CMD_RET_FAILURE;
+			ret = cmd_fail(nwritten, "Write failed: %ldE\n",
+				       nwritten);
 			goto done;
 		}
 
