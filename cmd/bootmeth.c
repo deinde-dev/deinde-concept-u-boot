@@ -125,7 +125,7 @@ static int do_bootmeth_set(struct cmd_tbl *cmdtp, int flag, int argc,
 
 U_BOOT_LONGHELP(bootmeth,
 	"list [-a]     - list available bootmeths (-a all)\n"
-	"bootmeth order [<bd> ...]  - select bootmeth order / subset to use\n"
+	"bootmeth order [\"<bm> ...\"]  - select bootmeth order / subset to use\n"
 	"bootmeth set <bootmeth> <property> <value> - set optional property");
 
 U_BOOT_CMD_WITH_SUBCMDS(bootmeth, "Boot methods", bootmeth_help_text,
