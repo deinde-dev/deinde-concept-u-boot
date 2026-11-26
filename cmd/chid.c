@@ -78,10 +78,8 @@ static int do_chid_detail(struct cmd_tbl *cmdtp, int flag, int argc,
 	int variant, ret;
 	bool first;
 
-	if (argc != 2) {
-		printf("Usage: chid show <variant>\n");
+	if (argc != 2)
 		return CMD_RET_USAGE;
-	}
 
 	variant = simple_strtol(argv[1], NULL, 10);
 	if (variant < 0 || variant >= CHID_VARIANT_COUNT) {
@@ -149,9 +147,9 @@ static int do_chid_compat(struct cmd_tbl *cmdtp, int flag, int argc,
 
 U_BOOT_LONGHELP(chid,
 	"compat - Find compatible string and set fdtcompat env var\n"
-	"list - List all CHID variants\n"
-	"show - Show CHID data extracted from SMBIOS\n"
-	"detail <variant> - Show details for a specific CHID variant (0-14)");
+	"chid list - List all CHID variants\n"
+	"chid show - Show CHID data extracted from SMBIOS\n"
+	"chid detail <variant> - Show details for a specific CHID variant (0-14)");
 
 U_BOOT_CMD_WITH_SUBCMDS(chid, "Computer Hardware ID utilities", chid_help_text,
 	U_BOOT_SUBCMD_MKENT(compat, 1, 1, do_chid_compat),
