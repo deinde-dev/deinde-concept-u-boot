@@ -1049,7 +1049,7 @@ F:	tools/mkeficapsule.c
 EMULATION
 M:	Simon Glass <sjg@chromium.org>
 S:	Maintained
-W:	https://docs.u-boot.org/en/latest/board/emulation/script.html
+W:	https://concept-docs.readthedocs.io/en/latest/board/emulation/script.html
 F:	configs/qemu-x86*
 F:	doc/board/emulation/script.rst
 F:	scripts/build-qemu

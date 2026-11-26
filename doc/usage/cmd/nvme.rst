@@ -95,27 +95,54 @@ blk#.
 Example
 -------
 
-Sandbox has no NVMe controller to attach the command to, so the examples here
-show what each sub-command does when there is no namespace.
+These examples use the emulated controller which sandbox provides when it is
+started with its test devicetree (the -T flag). It has a single 2MB namespace
+which holds no partition table.
 
-A scan which finds nothing prints nothing and succeeds, and so does the
-listing which follows it::
+Scan for namespaces and list what is found::
 
     => nvme scan
     => nvme info
-    => echo $?
-    0
+    Device 0: Vendor:  Rev: 1.0 Prod: 0123456789ab
+                Type: Hard Disk
+                Capacity: 2.0 MB = 0.0 GB (4096 x 512)
 
-The sub-commands which need a device say that there is none::
+Show the current device::
 
     => nvme device
 
-    no nvme devices available
-    => nvme detail
+    nvme device 0: Vendor:  Rev: 1.0 Prod: 0123456789ab
+                Type: Hard Disk
+                Capacity: 2.0 MB = 0.0 GB (4096 x 512)
 
-    nvme device 0 not available
-    => echo $?
-    1
+Show what the namespace and its controller support::
+
+    => nvme detail
+    Blk device 0: Optional Admin Command Support:
+        Namespace Management/Attachment: no
+        Firmware Commit/Image download: no
+        Format NVM: no
+        Security Send/Receive: no
+    Blk device 0: Optional NVM Command Support:
+        Reservation: no
+        Save/Select field in the Set/Get features: no
+        Write Zeroes: no
+        Dataset Management: no
+        Write Uncorrectable: no
+    Blk device 0: Format NVM Attributes:
+        Support Cryptographic Erase: No
+        Support erase a particular namespace: Yes
+        Support format a particular namespace: Yes
+    Blk device 0: LBA Format Support:
+    Blk device 0: End-to-End DataProtect Capabilities:
+        As last eight bytes: No
+        As first eight bytes: No
+        Support Type3: No
+        Support Type2: No
+        Support Type1: No
+    Blk device 0: Metadata capabilities:
+        As part of a separate buffer: No
+        As part of an extended data LBA: No
 
 The partition listing reports the missing table but still succeeds::
 
@@ -125,12 +152,26 @@ The partition listing reports the missing table but still succeeds::
     => echo $?
     0
 
-A transfer announces itself before finding that the device is missing, so the
-line is left unfinished and the command returns 1::
+Write a block from memory, read it back to a different address and compare
+the two::
 
-    => nvme read 1000 0 1
+    => mw.b 1000 a5 200
+    => nvme write 1000 2 1
 
-    nvme read: device 0 block # 0, count 1 ...
+    nvme write: device 0 block # 2, count 1 ... 1 blocks written: OK
+    => nvme read 2000 2 1
+
+    nvme read: device 0 block # 2, count 1 ... 1 blocks read: OK
+    => cmp.b 1000 2000 200
+    Total of 512 byte(s) were the same
+
+Selecting a device which does not exist fails::
+
+    => nvme device 1
+
+    Device 1: unknown device
+    => echo $?
+    1
 
 Return value
 ------------
