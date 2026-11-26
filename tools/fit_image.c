@@ -202,6 +202,20 @@ static int fit_calc_size(struct imgtool *itl)
 		total_size += size;
 	}
 
+	if (itl->fit_tfa_bl31) {
+		size = imagetool_get_filesize(itl, itl->fit_tfa_bl31);
+		if (size < 0)
+			return -1;
+		total_size += size;
+	}
+
+	if (itl->fit_tee) {
+		size = imagetool_get_filesize(itl, itl->fit_tee);
+		if (size < 0)
+			return -1;
+		total_size += size;
+	}
+
 	for (cont = itl->content_head; cont; cont = cont->next) {
 		size = imagetool_get_filesize(itl, cont->fname);
 		if (size < 0)
@@ -459,6 +473,52 @@ static int fit_write_images(struct imgtool *itl, char *fdt)
 		fdt_end_node(fdt);
 	}
 
+	/* And a TFA BL31 file if available */
+	if (itl->fit_tfa_bl31) {
+		fdt_begin_node(fdt, FIT_TFA_BL31_PROP "-1");
+
+		fdt_property_string(fdt, FIT_TYPE_PROP, FIT_TFA_BL31_PROP);
+		fdt_property_string(fdt, FIT_OS_PROP,
+				    genimg_get_os_short_name(itl->os));
+		fdt_property_string(fdt, FIT_ARCH_PROP,
+				    genimg_get_arch_short_name(itl->arch));
+		get_basename(str, sizeof(str), itl->fit_tfa_bl31);
+		fdt_property_string(fdt, FIT_DESC_PROP, str);
+
+		ret = fdt_property_file(itl, fdt, itl->fit_tfa_bl31, NULL);
+		if (ret)
+			return ret;
+		fdt_property_u32(fdt, FIT_LOAD_PROP, itl->fit_tfa_bl31_addr);
+		fdt_property_u32(fdt, FIT_ENTRY_PROP, itl->fit_tfa_bl31_addr);
+		fit_add_hash_or_sign(itl, fdt, true);
+		if (ret)
+			return ret;
+		fdt_end_node(fdt);
+	}
+
+	/* And a TEE file if available */
+	if (itl->fit_tee) {
+		fdt_begin_node(fdt, FIT_TEE_PROP "-1");
+
+		fdt_property_string(fdt, FIT_TYPE_PROP, FIT_TEE_PROP);
+		fdt_property_string(fdt, FIT_OS_PROP,
+				    genimg_get_os_short_name(itl->os));
+		fdt_property_string(fdt, FIT_ARCH_PROP,
+				    genimg_get_arch_short_name(itl->arch));
+		get_basename(str, sizeof(str), itl->fit_tee);
+		fdt_property_string(fdt, FIT_DESC_PROP, str);
+
+		ret = fdt_property_file(itl, fdt, itl->fit_tee, NULL);
+		if (ret)
+			return ret;
+		fdt_property_u32(fdt, FIT_LOAD_PROP, itl->fit_tee_addr);
+		fdt_property_u32(fdt, FIT_ENTRY_PROP, itl->fit_tee_addr);
+		fit_add_hash_or_sign(itl, fdt, true);
+		if (ret)
+			return ret;
+		fdt_end_node(fdt);
+	}
+
 	fdt_end_node(fdt);
 
 	return 0;
@@ -500,6 +560,30 @@ static int fit_copy_image_data(void *fdt, int node, void *buf,
 }
 
 /**
+ * fit_write_loadables() - Write the 'loadables' property of a configuration
+ *
+ * This lists the TFA BL31 and TEE images, if any. The property is omitted if
+ * there are none. The main image is never listed, since it is not a loadable
+ *
+ * @itl: Image-tool info
+ * @fdt: Devicetree to write to
+ */
+static void fit_write_loadables(struct imgtool *itl, char *fdt)
+{
+	char str[100];
+	int len = 0;
+
+	if (itl->fit_tfa_bl31)
+		len += snprintf(str + len, sizeof(str) - len,
+				FIT_TFA_BL31_PROP "-1") + 1;
+	if (itl->fit_tee)
+		len += snprintf(str + len, sizeof(str) - len,
+				FIT_TEE_PROP "-1") + 1;
+	if (len)
+		fdt_property(fdt, FIT_LOADABLE_PROP, str, len);
+}
+
+/**
  * fit_write_configs() - Write out a list of configurations to the FIT
  *
  * If there are device tree files, we include a configuration for each, which
@@ -533,6 +617,8 @@ static void fit_write_configs(struct imgtool *itl, char *fdt)
 		snprintf(str, sizeof(str), "%s-1", typename);
 		fdt_property_string(fdt, typename, str);
 
+		fit_write_loadables(itl, fdt);
+
 		if (itl->fit_ramdisk)
 			fdt_property_string(fdt, FIT_RAMDISK_PROP,
 					    FIT_RAMDISK_PROP "-1");
@@ -554,6 +640,8 @@ static void fit_write_configs(struct imgtool *itl, char *fdt)
 		typename = genimg_get_type_short_name(itl->fit_image_type);
 		snprintf(str, sizeof(str), "%s-1", typename);
 		fdt_property_string(fdt, typename, str);
+
+		fit_write_loadables(itl, fdt);
 
 		if (itl->fit_ramdisk)
 			fdt_property_string(fdt, FIT_RAMDISK_PROP,
