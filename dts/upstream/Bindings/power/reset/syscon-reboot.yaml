@@ -51,12 +51,6 @@ properties:
   priority:
     default: 192
 
-oneOf:
-  - required:
-      - offset
-  - required:
-      - reg
-
 required:
   - compatible
 
