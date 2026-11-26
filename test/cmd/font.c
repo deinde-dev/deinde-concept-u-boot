@@ -216,6 +216,15 @@ static int font_test_usage(struct unit_test_state *uts)
 	if (IS_ENABLED(CONFIG_VIDEO_GLYPH_STATS))
 		ut_assertok(expect_usage(uts, "font info extra"));
 
+	/* no sub-command takes an option, refused only with CMD_ARG_CHECK */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK)) {
+		ut_assertok(expect_usage(uts, "font list -x"));
+		ut_assertok(expect_usage(uts, "font select -x"));
+		ut_assertok(expect_usage(uts, "font size -x"));
+		if (IS_ENABLED(CONFIG_VIDEO_GLYPH_STATS))
+			ut_assertok(expect_usage(uts, "font info -x"));
+	}
+
 	return 0;
 }
 FONT_TEST(font_test_usage, UTF_CONSOLE);

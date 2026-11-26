@@ -98,9 +98,9 @@ Return value
 ------------
 
 The return value $? is 0 if the sub-command succeeds. It is 1 if there is no
-video console, if the font cannot be selected, or if the sub-command is
-missing, unknown, or given more arguments than it takes, in which case the
-usage message is shown.
+video console or the font cannot be selected. A missing or unknown
+sub-command, an option, which none of them takes, or more arguments than one
+takes, shows the usage message and returns 1.
 
 Configuration
 -------------

@@ -2991,6 +2991,7 @@ config CMD_SELECT_FONT
 	bool "select font size"
 	depends on VIDEO
 	default y if CONSOLE_TRUETYPE
+	select GETOPT
 	help
 	  Enabling this will provide 'font' command.
 	  Allows font selection at runtime.
