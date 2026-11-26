@@ -47,10 +47,8 @@ static int do_font_select(struct getopt_state *gs)
 	if (argc == 3)
 		size = dectoul(argv[2], NULL);
 	ret = vidconsole_select_font(dev, NULL, name, size);
-	if (ret) {
-		printf("Failed (error %d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed (error %d)\n", ret);
 
 	return 0;
 }
@@ -67,10 +65,8 @@ static int do_font_size(struct getopt_state *gs)
 	if (uclass_first_device_err(UCLASS_VIDEO_CONSOLE, &dev))
 		return CMD_RET_FAILURE;
 	ret = vidconsole_get_font_size(dev, NULL, &font_name, &size);
-	if (ret) {
-		printf("Failed (error %d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed (error %d)\n", ret);
 
 	if (argc < 2) {
 		printf("%d\n", size);
@@ -78,10 +74,8 @@ static int do_font_size(struct getopt_state *gs)
 		size = dectoul(argv[1], NULL);
 
 		ret = vidconsole_select_font(dev, NULL, font_name, size);
-		if (ret) {
-			printf("Failed (error %d)\n", ret);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret, "Failed (error %d)\n", ret);
 	}
 
 	return 0;
