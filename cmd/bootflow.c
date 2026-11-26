@@ -59,7 +59,7 @@ __maybe_unused static int bootflow_handle_menu(struct bootstd_priv *std,
 	 * which stalls an unattended boot command with no bootable devices
 	 */
 	if (!std->bootflows.count) {
-		printf("No bootflows\n");
+		cmd_err("No bootflows\n");
 		return -ENOENT;
 	}
 
@@ -92,7 +92,7 @@ __maybe_unused static int bootflow_handle_menu(struct bootstd_priv *std,
 		printf("Nothing chosen\n");
 		std->cur_bootflow = NULL;
 	} else if (ret) {
-		printf("Menu failed (err=%d)\n", ret);
+		cmd_err("Menu failed (err=%d)\n", ret);
 	} else {
 		bflow = alist_getw(&std->bootflows, seq, struct bootflow);
 		printf("Selected: %s\n", bflow->os_name ? bflow->os_name :
@@ -208,10 +208,8 @@ static int do_bootflow_scan(struct getopt_state *gs)
 		if (!ret)
 			num_valid++;
 		ret = bootstd_add_bootflow(&bflow);
-		if (ret < 0) {
-			printf("Out of memory\n");
-			return CMD_RET_FAILURE;
-		}
+		if (ret < 0)
+			return cmd_fail(ret, "Out of memory\n");
 		if (list)
 			bootflow_show(i, &bflow, errors);
 		if (!menu && boot && !bflow.err)
@@ -350,18 +348,15 @@ static int do_bootflow_select(struct getopt_state *gs)
 	}
 
 	if (!found) {
-		printf("Cannot find bootflow '%s' ", name);
+		cmd_err("Cannot find bootflow '%s' ", name);
 		if (dev)
-			printf("in bootdev '%s' ", dev->name);
-		printf("(err=%d)\n", ret);
-		return CMD_RET_FAILURE;
+			cmd_err("in bootdev '%s' ", dev->name);
+		return cmd_fail(ret, "(err=%d)\n", ret);
 	}
 	std->cur_bootflow = found;
 	if (IS_ENABLED(CONFIG_BOOTSTD_FULL)) {
-		if (env_set("bootargs", found->cmdline)) {
-			printf("Cannot set bootargs\n");
-			return CMD_RET_FAILURE;
-		}
+		if (env_set("bootargs", found->cmdline))
+			return cmd_fail(0, "Cannot set bootargs\n");
 	}
 
 	return 0;
@@ -397,10 +392,8 @@ static int do_bootflow_info(struct getopt_state *gs)
 	if (ret)
 		return CMD_RET_FAILURE;
 
-	if (!std->cur_bootflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!std->cur_bootflow)
+		return cmd_fail(0, "No bootflow selected\n");
 	bflow = std->cur_bootflow;
 
 	if (IS_ENABLED(CONFIG_X86) && x86_setup) {
@@ -517,16 +510,12 @@ static int do_bootflow_read(struct getopt_state *gs)
 	 * Require a current bootflow. Users can use 'bootflow scan -b' to
 	 * automatically scan and boot, if needed.
 	 */
-	if (!std->cur_bootflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!std->cur_bootflow)
+		return cmd_fail(0, "No bootflow selected\n");
 	bflow = std->cur_bootflow;
 	ret = bootflow_read_all(bflow);
-	if (ret) {
-		printf("Failed: err=%dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed: err=%dE\n", ret);
 
 	return 0;
 }
@@ -558,10 +547,8 @@ static int do_bootflow_boot(struct getopt_state *gs)
 	 * Require a current bootflow. Users can use 'bootflow scan -b' to
 	 * automatically scan and boot, if needed.
 	 */
-	if (!std->cur_bootflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!std->cur_bootflow)
+		return cmd_fail(0, "No bootflow selected\n");
 	bflow = std->cur_bootflow;
 
 	if (IS_ENABLED(CONFIG_BOOTM_FAKE_GO)) {
@@ -586,10 +573,8 @@ static int do_bootflow_menu(struct getopt_state *gs)
 	int ret;
 	int opt;
 
-	if (!IS_ENABLED(CONFIG_EXPO)) {
-		printf("Menu not supported\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!IS_ENABLED(CONFIG_EXPO))
+		return cmd_fail(0, "Menu not supported\n");
 
 	while ((opt = getopt(gs, "+t")) > 0) {
 		switch (opt) {
@@ -629,10 +614,8 @@ static int do_bootflow_cmdline(struct getopt_state *gs)
 		return CMD_RET_FAILURE;
 
 	bflow = std->cur_bootflow;
-	if (!bflow) {
-		printf("No bootflow selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!bflow)
+		return cmd_fail(0, "No bootflow selected\n");
 
 	op = argv[1];
 	arg = argv[2];
@@ -659,20 +642,20 @@ static int do_bootflow_cmdline(struct getopt_state *gs)
 	}
 	switch (ret) {
 	case -E2BIG:
-		printf("Argument too long\n");
+		cmd_err("Argument too long\n");
 		break;
 	case -ENOENT:
-		printf("Argument not found\n");
+		cmd_err("Argument not found\n");
 		break;
 	case -EINVAL:
-		printf("Mismatched quotes\n");
+		cmd_err("Mismatched quotes\n");
 		break;
 	case -EBADF:
-		printf("Value must be quoted\n");
+		cmd_err("Value must be quoted\n");
 		break;
 	default:
 		if (ret < 0)
-			printf("Unknown error: %dE\n", ret);
+			cmd_err("Unknown error: %dE\n", ret);
 	}
 	if (ret < 0)
 		return CMD_RET_FAILURE;
