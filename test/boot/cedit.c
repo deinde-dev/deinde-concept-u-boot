@@ -57,6 +57,144 @@ static int cedit_base(struct unit_test_state *uts)
 }
 BOOTSTD_TEST(cedit_base, UTF_CONSOLE);
 
+/* Check that the usage message is shown, with its first and last lines */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("cedit - Configuration editor");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline(
+		"cedit load <interface> <dev[:part]> <filename>   - load config editor");
+	ut_assert_skip_to_line(
+		"cedit run                                        - run config editor");
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Check the cedit command's usage message */
+static int cedit_usage(struct unit_test_state *uts)
+{
+	/* no sub-command */
+	ut_asserteq(1, run_command("cedit", 0));
+	ut_assertok(check_usage(uts));
+
+	/* a sub-command which does not exist */
+	ut_asserteq(1, run_command("cedit fred", 0));
+	ut_assertok(check_usage(uts));
+
+	/* too few arguments for load */
+	ut_asserteq(1, run_command("cedit load hostfs -", 0));
+	ut_assertok(check_usage(uts));
+
+	/* too many arguments for dump */
+	ut_asserteq(1, run_command("cedit dump extra", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+BOOTSTD_TEST(cedit_usage, UTF_CONSOLE);
+
+/* Check the sub-commands which need an editor to have been loaded */
+static int cedit_no_expo(struct unit_test_state *uts)
+{
+	extern struct expo *cur_exp;
+	struct expo *old = cur_exp;
+
+	cur_exp = NULL;
+
+	ut_asserteq(1, run_command("cedit run", 0));
+	ut_assert_nextline("No expo loaded");
+
+	ut_asserteq(1, run_command("cedit read_fdt hostfs - settings.dtb", 0));
+	ut_assert_nextline("No expo loaded");
+
+	ut_asserteq(1, run_command("cedit write_fdt hostfs - settings.dtb", 0));
+	ut_assert_nextline("No expo loaded");
+
+	ut_asserteq(1, run_command("cedit read_env", 0));
+	ut_assert_nextline("No expo loaded");
+
+	ut_asserteq(1, run_command("cedit write_env", 0));
+	ut_assert_nextline("No expo loaded");
+
+	ut_asserteq(1, run_command("cedit read_cmos", 0));
+	ut_assert_nextline("No expo loaded");
+
+	ut_asserteq(1, run_command("cedit write_cmos", 0));
+	ut_assert_nextline("No expo loaded");
+
+	if (IS_ENABLED(CONFIG_CMD_CEDIT_DUMP)) {
+		ut_asserteq(1, run_command("cedit dump", 0));
+		ut_assert_nextline("No expo loaded");
+	}
+
+	ut_assert_console_end();
+	cur_exp = old;
+
+	return 0;
+}
+BOOTSTD_TEST(cedit_no_expo, UTF_CONSOLE);
+
+/* Check the cedit load error paths */
+static int cedit_fail(struct unit_test_state *uts)
+{
+	extern struct expo *cur_exp;
+	struct udevice *dev;
+	struct scene *scn;
+
+	/* a file which is not there */
+	ut_asserteq(1, run_command("cedit load hostfs - nothere.dtb", 0));
+	ut_assert_nextline("File not found");
+	ut_assert_console_end();
+
+	/*
+	 * write out the settings, then try to load them as a description: the
+	 * file is a valid devicetree but has no expo in it
+	 */
+	ut_assertok(run_command("cedit load hostfs - cedit.dtb", 0));
+	ut_assertok(uclass_first_device_err(UCLASS_VIDEO, &dev));
+	ut_asserteq(ID_SCENE1, cedit_prepare(cur_exp, dev, &scn));
+	ut_assertok(run_command("cedit write_fdt hostfs - settings.dtb", 0));
+
+	ut_asserteq(1, run_command("cedit load hostfs - settings.dtb", 0));
+
+	/* skip the log line from expo_build() */
+	ut_assert_skip_to_line("Failed to build expo: -22: Invalid argument");
+	ut_assert_console_end();
+
+	/* the editor which failed to load is still the current one */
+	ut_assertnonnull(cur_exp);
+
+	return 0;
+}
+BOOTSTD_TEST(cedit_fail, UTF_CONSOLE);
+
+/* Check the cedit dump command */
+static int cedit_dump(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_CMD_CEDIT_DUMP))
+		return -EAGAIN;
+
+	ut_assertok(run_command("cedit load hostfs - cedit.dtb", 0));
+	ut_assertok(run_command("cedit dump", 0));
+
+	ut_assert_nextline("Expo: name 'name'");
+	ut_assert_skip_to_line("Scenes:");
+	ut_assert_nextline("  Scene 6: name 'main'");
+	ut_assert_skip_to_line("    Object 8 (cpu-speed): type menu");
+	ut_assert_skip_to_line(
+		"        Item a: name 'cpu-speed.item-0' key_id 0 label_id 19 desc_id 0 preview_id 0");
+	ut_assert_skip_to_line("    Object 12 (machine-name.edit): type text");
+	ut_assert_skip_to_line("        str ''");
+
+	/* the dump ends with a blank line of its own */
+	console_record_reset();
+
+	return 0;
+}
+BOOTSTD_TEST(cedit_dump, UTF_CONSOLE);
+
 /* Check the cedit write_fdt and read_fdt commands */
 static int cedit_fdt(struct unit_test_state *uts)
 {
@@ -230,6 +368,20 @@ static int cedit_cmos(struct unit_test_state *uts)
 
 	ut_asserteq(ID_CPU_SPEED_2, menu->cur_item_id);
 	ut_asserteq(ID_AC_MEMORY, menu2->cur_item_id);
+
+	/* the same device, this time named on the command line */
+	ut_assertok(run_command("cedit write_cmos -v rtc@43", 0));
+	ut_assert_nextlinen("Write 2 bytes from offset 80 to 84");
+	ut_assertok(run_command("cedit read_cmos -v rtc@43", 0));
+	ut_assert_nextlinen("Read 2 bytes from offset 80 to 84");
+	ut_assert_console_end();
+
+	/* a device which does not exist */
+	ut_asserteq(1, run_command("cedit read_cmos nope", 0));
+	ut_assert_nextline("Failed to get RTC device: -19: No such device");
+	ut_asserteq(1, run_command("cedit write_cmos nope", 0));
+	ut_assert_nextline("Failed to get RTC device: -19: No such device");
+	ut_assert_console_end();
 
 	return 0;
 }
