@@ -131,7 +131,7 @@ int luks_show_info(struct udevice *blk, struct disk_partition *pinfo)
 			json_start = (char *)(hdr + 4096);
 			json_size = hdr_size - 4096;
 
-			printf("\nJSON metadata (%llx bytes):\n", json_size);
+			printf("\nJSON metadata (%llu bytes):\n", json_size);
 			json_print_pretty(json_start, (int)json_size);
 		}
 	} else {
