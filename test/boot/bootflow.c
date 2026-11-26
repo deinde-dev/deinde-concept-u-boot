@@ -50,6 +50,54 @@ static u16 __efi_runtime_data test_vendor[] = u"U-Boot testing";
 #define HEADER	"Seq  Method       State   Uclass    Part  Ent  E  Name                      Filename"
 #define EXT0	"  0  extlinux     ready   mmc          1    0     mmc1.bootdev.part_1       /extlinux/extlinux.conf"
 
+/* Lines of the usage message, each too long to write where it is used */
+#define USAGE_SCAN	\
+	"bootflow scan [-abeGHlmpt] [bdev]  - scan for valid bootflows (-l list, -a all,"
+#define USAGE_SCAN2	\
+	"   -e errors, -b boot, -G no global, -H no hunters"
+#define USAGE_SCAN3	\
+	"   -m menu, -p parts, -t text-only)"
+#define USAGE_LIST	\
+	"bootflow list [-e]             - list scanned bootflows (-e errors)"
+#define USAGE_SELECT	\
+	"bootflow select [<num>|<name>] - select a bootflow"
+#define USAGE_INFO	\
+	"bootflow info [-ds]            - show info on current bootflow (-d dump bootflow)"
+#define USAGE_READ	\
+	"bootflow read                  - read all current-bootflow files"
+#define USAGE_BOOT	\
+	"bootflow boot [-f]             - boot current bootflow (-f fake)"
+#define USAGE_MENU	\
+	"bootflow menu [-t]             - show a menu of available bootflows"
+#define USAGE_CMDLINE	\
+	"bootflow cmdline [set|get|clear|delete|auto] <param> [<value>] - update cmdline"
+
+/**
+ * check_usage() - Check the usage message which the command shows
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("bootflow - Boot flows");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline(USAGE_SCAN);
+	ut_assert_nextline(USAGE_SCAN2);
+	ut_assert_nextline(USAGE_SCAN3);
+	ut_assert_nextline(USAGE_LIST);
+	ut_assert_nextline(USAGE_SELECT);
+	ut_assert_nextline(USAGE_INFO);
+	ut_assert_nextline(USAGE_READ);
+	ut_assert_nextline(USAGE_BOOT);
+	ut_assert_nextline(USAGE_MENU);
+	ut_assert_nextline(USAGE_CMDLINE);
+	ut_assert_console_end();
+
+	return 0;
+}
+
 static int inject_response(struct unit_test_state *uts)
 {
 	/*
@@ -289,6 +337,127 @@ static int bootflow_cmd_info(struct unit_test_state *uts)
 	return 0;
 }
 BOOTSTD_TEST(bootflow_cmd_info, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Check the ways of reaching the usage message of the 'bootflow' command */
+static int bootflow_cmd_usage(struct unit_test_state *uts)
+{
+	/* no sub-command at all */
+	ut_asserteq(1, run_command("bootflow", 0));
+	ut_assertok(check_usage(uts));
+
+	/* a sub-command which does not exist */
+	ut_asserteq(1, run_command("bootflow fred", 0));
+	ut_assertok(check_usage(uts));
+
+	/* one argument too many for the sub-command */
+	ut_asserteq(1, run_command("bootflow scan -l mmc1 extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow list -e extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow select 0 extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow info -d extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow read extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow boot -f extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow menu -t extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow cmdline set fred 1 extra", 0));
+	ut_assertok(check_usage(uts));
+
+	/* cmdline needs an operation and a parameter name */
+	ut_asserteq(1, run_command("bootflow cmdline", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootflow cmdline set", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+BOOTSTD_TEST(bootflow_cmd_usage, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Check the sub-commands which need a current bootflow and have none */
+static int bootflow_cmd_none(struct unit_test_state *uts)
+{
+	struct bootstd_priv *std;
+
+	ut_assertok(bootstd_get_priv(&std));
+	ut_assertnull(std->cur_bootflow);
+
+	ut_asserteq(1, run_command("bootflow info", 0));
+	ut_assert_nextline("No bootflow selected");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("bootflow read", 0));
+	ut_assert_nextline("No bootflow selected");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("bootflow boot", 0));
+	ut_assert_nextline("No bootflow selected");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("bootflow cmdline get fred", 0));
+	ut_assert_nextline("No bootflow selected");
+	ut_assert_console_end();
+
+	/* nothing has been scanned, so there is nothing to select either */
+	ut_asserteq(1, run_command("bootflow select fred", 0));
+	ut_assert_nextline("Cannot find bootflow 'fred' (err=-2)");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("bootflow select 99", 0));
+	ut_assert_nextline("Cannot find bootflow '99' (err=-2)");
+	ut_assert_console_end();
+
+	return 0;
+}
+BOOTSTD_TEST(bootflow_cmd_none, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Check 'bootflow read' and unselecting a bootflow */
+static int bootflow_cmd_read(struct unit_test_state *uts)
+{
+	struct bootstd_priv *std;
+
+	ut_assertok(run_command("bootdev select 1", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("bootflow scan", 0));
+	ut_assert_console_end();
+	ut_assertok(run_command("bootflow select 0", 0));
+	ut_assert_console_end();
+
+	ut_assertok(bootstd_get_priv(&std));
+	ut_assertnonnull(std->cur_bootflow);
+
+	/*
+	 * Reading the files parses the extlinux config, which offers a menu of
+	 * the labels it finds, so provide a response. What it prints is beside
+	 * the point here, which is that the command succeeds
+	 */
+	ut_assertok(inject_response(uts));
+	ut_assertok(run_command("bootflow read", 0));
+	console_record_reset();
+
+	/* with no argument, select drops the current bootflow */
+	ut_assertok(run_command("bootflow select", 0));
+	ut_assert_console_end();
+	ut_assertnull(std->cur_bootflow);
+
+	ut_asserteq(1, run_command("bootflow info", 0));
+	ut_assert_nextline("No bootflow selected");
+	ut_assert_console_end();
+
+	return 0;
+}
+BOOTSTD_TEST(bootflow_cmd_read, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
 
 /* Check 'bootflow scan -b' to boot the first available bootdev */
 static int bootflow_scan_boot(struct unit_test_state *uts)
