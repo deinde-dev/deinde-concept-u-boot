@@ -12,6 +12,7 @@
 #include <dm.h>
 #include <expo.h>
 #include <fs_legacy.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <mapmem.h>
 #include <membuf.h>
@@ -22,17 +23,16 @@ struct expo *cur_exp;
 
 static int check_cur_expo(void)
 {
-	if (!cur_exp) {
-		printf("No expo loaded\n");
-		return -ENOENT;
-	}
+	if (!cur_exp)
+		return cmd_fail(-ENOENT, "No expo loaded\n");
 
 	return 0;
 }
 
-static int do_cedit_load(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_cedit_load(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *fname;
 	struct expo *exp;
 	struct abuf buf;
@@ -44,23 +44,17 @@ static int do_cedit_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	fname = argv[3];
 
 	ret = fs_load_alloc(argv[1], argv[2], argv[3], SZ_1M, 0, &buf);
-	if (ret) {
-		printf("File not found\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "File not found\n");
 
 	tree = oftree_from_fdt(abuf_uninit_move(&buf, NULL));
-	if (!oftree_valid(tree)) {
-		printf("Cannot create oftree\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!oftree_valid(tree))
+		return cmd_fail(0, "Cannot create oftree\n");
 
 	ret = expo_build(oftree_root(tree), &exp);
 	oftree_dispose(tree);
-	if (ret) {
-		printf("Failed to build expo: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to build expo: %dE\n", ret);
 
 	if (cur_exp)
 		expo_destroy(cur_exp);
@@ -70,20 +64,18 @@ static int do_cedit_load(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 #ifdef CONFIG_COREBOOT_SYSINFO
-static int do_cedit_cb_load(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_cedit_cb_load(struct getopt_state *gs)
 {
 	struct expo *exp;
 	int ret;
 
-	if (argc > 1)
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->argc > 1)
 		return CMD_RET_USAGE;
 
 	ret = cb_expo_build(&exp);
-	if (ret) {
-		printf("Failed to build expo: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to build expo: %dE\n", ret);
 
 	cur_exp = exp;
 
@@ -91,9 +83,10 @@ static int do_cedit_cb_load(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif /* CONFIG_COREBOOT_SYSINFO */
 
-static int do_cedit_write_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_cedit_write_fdt(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *fname;
 	struct abuf buf;
 	loff_t bytes;
@@ -107,10 +100,8 @@ static int do_cedit_write_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_FAILURE;
 
 	ret = cedit_write_settings(cur_exp, &buf);
-	if (ret) {
-		printf("Failed to write settings: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to write settings: %dE\n", ret);
 
 	if (fs_set_blk_dev(argv[1], argv[2], FS_TYPE_ANY))
 		return CMD_RET_FAILURE;
@@ -123,9 +114,10 @@ static int do_cedit_write_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cedit_read_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_cedit_read_fdt(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *fname;
 	struct abuf buf;
 	oftree tree;
@@ -135,139 +127,159 @@ static int do_cedit_read_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 	fname = argv[3];
 
-	ret = fs_load_alloc(argv[1], argv[2], argv[3], SZ_1M, 0, &buf);
-	if (ret) {
-		printf("File not found\n");
+	if (check_cur_expo())
 		return CMD_RET_FAILURE;
-	}
+
+	ret = fs_load_alloc(argv[1], argv[2], argv[3], SZ_1M, 0, &buf);
+	if (ret)
+		return cmd_fail(ret, "File not found\n");
 
 	tree = oftree_from_fdt(buf.data);
 	if (!oftree_valid(tree)) {
 		abuf_uninit(&buf);
-		printf("Cannot create oftree\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Cannot create oftree\n");
 	}
 
 	ret = cedit_read_settings(cur_exp, tree);
 	oftree_dispose(tree);
 	abuf_uninit(&buf);
-	if (ret) {
-		printf("Failed to read settings: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to read settings: %dE\n", ret);
 
 	return 0;
 }
 
-static int do_cedit_write_env(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_cedit_write_env(struct getopt_state *gs)
 {
-	bool verbose;
-	int ret;
+	bool verbose = false;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	verbose = argc > 1 && !strcmp(argv[1], "-v");
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = cedit_write_settings_env(cur_exp, verbose);
-	if (ret) {
-		printf("Failed to write settings to environment: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"Failed to write settings to environment: %dE\n",
+				ret);
 
 	return 0;
 }
 
-static int do_cedit_read_env(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_cedit_read_env(struct getopt_state *gs)
 {
-	bool verbose;
-	int ret;
+	bool verbose = false;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	verbose = argc > 1 && !strcmp(argv[1], "-v");
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = cedit_read_settings_env(cur_exp, verbose);
-	if (ret) {
-		printf("Failed to read settings from environment: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"Failed to read settings from environment: %dE\n",
+				ret);
 
 	return 0;
 }
 
-static int do_cedit_write_cmos(struct cmd_tbl *cmdtp, int flag, int argc,
-			       char *const argv[])
+static int do_cedit_write_cmos(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	bool verbose = false;
-	int ret;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	if (argc > 1 && !strcmp(argv[1], "-v")) {
-		verbose = true;
-		argc--;
-		argv++;
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
-	if (argc > 1)
-		ret = uclass_get_device_by_name(UCLASS_RTC, argv[1], &dev);
+	if (gs->index < gs->argc)
+		ret = uclass_get_device_by_name(UCLASS_RTC,
+						gs->argv[gs->index], &dev);
 	else
 		ret = uclass_first_device_err(UCLASS_RTC, &dev);
-	if (ret) {
-		printf("Failed to get RTC device: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to get RTC device: %dE\n", ret);
 
-	if (cedit_write_settings_cmos(cur_exp, dev, verbose)) {
-		printf("Failed to write settings to CMOS\n");
-		return CMD_RET_FAILURE;
-	}
+	if (cedit_write_settings_cmos(cur_exp, dev, verbose))
+		return cmd_fail(0, "Failed to write settings to CMOS\n");
 
 	return 0;
 }
 
-static int do_cedit_read_cmos(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_cedit_read_cmos(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	bool verbose = false;
-	int ret;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	if (argc > 1 && !strcmp(argv[1], "-v")) {
-		verbose = true;
-		argc--;
-		argv++;
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
-	if (argc > 1)
-		ret = uclass_get_device_by_name(UCLASS_RTC, argv[1], &dev);
+	if (gs->index < gs->argc)
+		ret = uclass_get_device_by_name(UCLASS_RTC,
+						gs->argv[gs->index], &dev);
 	else
 		ret = uclass_first_device_err(UCLASS_RTC, &dev);
-	if (ret) {
-		printf("Failed to get RTC device: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to get RTC device: %dE\n", ret);
 
 	ret = cedit_read_settings_cmos(cur_exp, dev, verbose);
-	if (ret) {
-		printf("Failed to read settings from CMOS: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"Failed to read settings from CMOS: %dE\n", ret);
 
 	return 0;
 }
 
-static int do_cedit_run(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_cedit_run(struct getopt_state *gs)
 {
 	ofnode node;
 	int ret;
@@ -295,8 +307,7 @@ static int do_cedit_run(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 #ifdef CONFIG_CMD_CEDIT_DUMP
-static int do_cedit_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_cedit_dump(struct getopt_state *gs)
 {
 	struct membuf mb;
 	char buf[256];
@@ -305,10 +316,8 @@ static int do_cedit_dump(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	if (membuf_new(&mb, 131072)) {
-		printf("Failed to allocate membuf\n");
-		return CMD_RET_FAILURE;
-	}
+	if (membuf_new(&mb, 131072))
+		return cmd_fail(-ENOMEM, "Failed to allocate membuf\n");
 
 	expo_dump(cur_exp, &mb);
 
@@ -342,18 +351,18 @@ U_BOOT_LONGHELP(cedit,
 	"cedit run                                        - run config editor");
 
 U_BOOT_CMD_WITH_SUBCMDS(cedit, "Configuration editor", cedit_help_text,
-	U_BOOT_SUBCMD_MKENT(load, 5, 1, do_cedit_load),
+	U_BOOT_CMD_MKENT_NOOPTS(load, 5, 1, do_cedit_load, "", ""),
 #ifdef CONFIG_COREBOOT_SYSINFO
-	U_BOOT_SUBCMD_MKENT(cb_load, 5, 1, do_cedit_cb_load),
+	U_BOOT_CMD_MKENT_NOOPTS(cb_load, 5, 1, do_cedit_cb_load, "", ""),
 #endif
-	U_BOOT_SUBCMD_MKENT(read_fdt, 5, 1, do_cedit_read_fdt),
-	U_BOOT_SUBCMD_MKENT(write_fdt, 5, 1, do_cedit_write_fdt),
-	U_BOOT_SUBCMD_MKENT(read_env, 2, 1, do_cedit_read_env),
-	U_BOOT_SUBCMD_MKENT(write_env, 2, 1, do_cedit_write_env),
-	U_BOOT_SUBCMD_MKENT(read_cmos, 2, 1, do_cedit_read_cmos),
-	U_BOOT_SUBCMD_MKENT(write_cmos, 2, 1, do_cedit_write_cmos),
+	U_BOOT_CMD_MKENT_NOOPTS(read_fdt, 5, 1, do_cedit_read_fdt, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_fdt, 5, 1, do_cedit_write_fdt, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(read_env, 2, 1, do_cedit_read_env, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(write_env, 2, 1, do_cedit_write_env, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(read_cmos, 3, 1, do_cedit_read_cmos, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(write_cmos, 3, 1, do_cedit_write_cmos, "", ""),
 #ifdef CONFIG_CMD_CEDIT_DUMP
-	U_BOOT_SUBCMD_MKENT(dump, 1, 1, do_cedit_dump),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 1, 1, do_cedit_dump, "", ""),
 #endif
-	U_BOOT_SUBCMD_MKENT(run, 1, 1, do_cedit_run),
+	U_BOOT_CMD_MKENT_NOOPTS(run, 1, 1, do_cedit_run, "", ""),
 );

@@ -12,14 +12,15 @@ Synopsis
 ::
 
     cedit load <interface> <dev[:part]> <filename>
-    cedit run
-    cedit write_fdt <dev[:part]> <filename>
-    cedit read_fdt <dev[:part]> <filename>
-    cedit write_env [-v]
-    cedit read_env [-v]
-    cedit write_cmos [-v] [dev]
     cedit cb_load
+    cedit read_fdt <interface> <dev[:part]> <filename>
+    cedit write_fdt <interface> <dev[:part]> <filename>
+    cedit read_env [-v]
+    cedit write_env [-v]
+    cedit read_cmos [-v] [dev]
+    cedit write_cmos [-v] [dev]
     cedit dump
+    cedit run
 
 Description
 -----------
@@ -34,6 +35,9 @@ The description is in the form of a devicetree file, as documented at
 
 See :doc:`../../develop/cedit` for information about the configuration editor.
 
+Each sub-command other than *load* and *cb_load* needs an editor to have been
+loaded; they report `No expo loaded` if there is none.
+
 cedit load
 ~~~~~~~~~~
 
@@ -41,24 +45,28 @@ Loads a configuration-editor description from a file. It creates a new cedit
 structure ready for use. Initially no settings are read, so default values are
 used for each object.
 
-cedit run
-~~~~~~~~~
+Any editor which is already loaded is destroyed, along with the settings it
+holds.
 
-Runs the default configuration-editor event loop. This is very simple, just
-accepting character input and moving through the objects under user control.
-The implementation is at `cedit_run()`.
+.. _cedit_cb_load:
 
-cedit write_fdt
-~~~~~~~~~~~~~~~
+cedit cb_load
+~~~~~~~~~~~~~
 
-Writes the current user settings to a devicetree file. For each menu item the
-selected ID and its text string are written.
+This is supported only on x86 devices booted from coreboot. It creates a new
+configuration editor which can be used to edit CMOS settings.
 
 cedit read_fdt
 ~~~~~~~~~~~~~~
 
 Reads the user settings from a devicetree file and updates the cedit with those
 settings.
+
+cedit write_fdt
+~~~~~~~~~~~~~~~
+
+Writes the current user settings to a devicetree file. For each menu item the
+selected ID, its value and its text string are written.
 
 cedit read_env
 ~~~~~~~~~~~~~~
@@ -74,33 +82,37 @@ cedit write_env
 ~~~~~~~~~~~~~~~
 
 Writes the settings to environment variables. For each menu item the selected
-ID and its text string are written, similar to:
+ID, its value and its text string are written, similar to:
 
    env set c.<name> <selected_id>
+   env set c.<name>-value <selected_id's value>
    env set c.<name>-str <selected_id's text string>
 
 The `-v` flag enables verbose mode, where each variable is printed before it is
 set.
 
+cedit read_cmos
+~~~~~~~~~~~~~~~
+
+Reads the settings from locations in the CMOS RAM and updates the cedit with
+them. The locations used are specified by the schema. See :ref:`expo_format`.
+
+The `-v` flag enables verbose mode, which shows which CMOS locations were read.
+
+Normally the first RTC device is used to hold the data. You can specify a
+different device by name using the `dev` parameter.
+
 cedit write_cmos
 ~~~~~~~~~~~~~~~~
 
 Writes the settings to locations in the CMOS RAM. The locations used are
-specified by the schema. See `expo_format_`.
+specified by the schema. See :ref:`expo_format`.
 
 The `-v` flag enables verbose mode, which shows which CMOS locations were
 updated.
 
 Normally the first RTC device is used to hold the data. You can specify a
 different device by name using the `dev` parameter.
-
-.. _cedit_cb_load:
-
-cedit cb_load
-~~~~~~~~~~~~~
-
-This is supported only on x86 devices booted from coreboot. It creates a new
-configuration editor which can be used to edit CMOS settings.
 
 cedit dump
 ~~~~~~~~~~
@@ -109,78 +121,92 @@ Dumps the current expo structure to the console. This shows the expo, its
 scenes, objects, and their properties in a human-readable format. This is useful
 for debugging and understanding the structure of the configuration editor.
 
+cedit run
+~~~~~~~~~
+
+Runs the default configuration-editor event loop. This is very simple, just
+accepting character input and moving through the objects under user control.
+The implementation is at `cedit_run()`.
+
+The editor is destroyed when the user saves the settings, so that a fresh one is
+used for any future editing. Leaving the editor without saving keeps it, along
+with the settings chosen while it was running.
+
 Configuration
 -------------
 
 The cedit command is only available if CONFIG_CMD_CEDIT=y.
+
+The 'cedit cb_load' subcommand is only available if CONFIG_COREBOOT_SYSINFO=y.
 
 The 'cedit dump' subcommand is only available if CONFIG_CMD_CEDIT_DUMP=y.
 
 Example
 -------
 
-::
+This loads a configuration editor on sandbox and runs it, the user selecting
+'Always On' for the AC Power setting. Pressing Escape leaves the editor without
+saving, which is why nothing is written to the environment at this point::
 
-    => cedit load hostfs - fred.dtb
+    => cedit load hostfs - cedit.dtb
     => cedit run
+
+The settings are still held by the editor, so they can be written to a
+devicetree file and read back again::
+
     => cedit write_fdt hostfs - settings.dtb
-
-That results in::
-
+    => load hostfs - 1000 settings.dtb
+    1024 bytes read in 0 ms
+    => fdt addr 1000
+    Working FDT set to 1000
+    => fdt print
     / {
         cedit-values {
-            cpu-speed = <0x00000006>;
-            cpu-speed-value = <0x00000003>;
+            cpu-speed = <0x0000000a>;
+            cpu-speed-value = <0x00000000>;
             cpu-speed-str = "2 GHz";
-            power-loss = <0x0000000a>;
-            power-loss-value = <0x00000000>;
-            power-loss-str = "Always Off";
+            power-loss = <0x0000000f>;
+            power-loss-value = <0x00000001>;
+            power-loss-str = "Always On";
+            machine-name = [00];
         };
-    }
-
+    };
     => cedit read_fdt hostfs - settings.dtb
 
-This shows settings being stored in the environment::
+This shows settings being stored in the environment. Note that read_env only
+reads the ID of each setting, since that is enough to select the menu item::
 
     => cedit write_env -v
-    c.cpu-speed=11
-    c.cpu-speed-str=2.5 GHz
-    c.cpu-speed-value=3
-    c.power-loss=14
-    c.power-loss-str=Always Off
-    c.power-loss-value=0
-    c.machine-name=my-machine
-    c.cpu-speed=11
-    c.power-loss=14
-    c.machine-name=my-machine
-    => print
-    ...
-    c.cpu-speed=6
+    c.cpu-speed=10
     c.cpu-speed-str=2 GHz
-    c.power-loss=10
-    c.power-loss-str=Always Off
-    c.machine-name=my-machine
-    ...
-
+    c.cpu-speed-value=0
+    c.power-loss=15
+    c.power-loss-str=Always On
+    c.power-loss-value=1
+    c.machine-name=
+    => print c.cpu-speed c.power-loss-str
+    c.cpu-speed=10
+    c.power-loss-str=Always On
     => cedit read_env -v
-    c.cpu-speed=7
-    c.power-loss=12
+    c.cpu-speed=10
+    c.power-loss=15
+    c.machine-name=
 
-This shows writing to CMOS RAM. Notice that the bytes at 80 and 84 change::
+This shows writing to CMOS RAM. Notice that the byte at 84 changes::
 
     => rtc read 80 8
-    00000080: 00 00 00 00 00 2f 2a 08                          ...../*.
-    =>  cedit write_cmos -v
+    00000080: 00 00 00 00 00 16 37 06                          ......7.
+    => cedit write_cmos -v
     Write 2 bytes from offset 80 to 84
     => rtc read 80 8
-    00000080: 01 00 00 00 08 2f 2a 08                          ...../*.
+    00000080: 00 00 00 00 04 16 37 06                          ......7.
     => cedit read_cmos -v
     Read 2 bytes from offset 80 to 84
 
 Here is an example with the device specified::
 
-    => cedit write_cmos rtc@43
-    =>
+    => cedit write_cmos -v rtc@61
+    Write 2 bytes from offset 80 to 84
 
 This example shows editing coreboot CMOS-RAM settings. A script could be used
 to automate this::
@@ -230,7 +256,7 @@ Check that the CMOS RAM checksum is correct, then create a configuration editor
 and load the settings from CMOS RAM::
 
     => cbcmos check
-    => cedit cb
+    => cedit cb_load
     => cedit read_cmos
 
 Now run the cedit. In this case the user selected 'save' so `cedit run` returns
@@ -252,129 +278,139 @@ Update the checksum in CMOS RAM::
 
 This shows dumping the cedit::
 
+    => cedit dump
     Expo: name 'name'
-    display (null)
-    cons (none)
-    mouse (none)
-    scene_id 0
-    next_id 42
-    req_width 0
-    req_height 0
-    text_mode 0
-    popup 0
-    show_highlight 0
-    mouse_enabled 0
-    mouse_ptr 0000000000000000
-    mouse_size 0x0
-    mouse_pos (0,0)
-    damage (0,0)-(0,0)
-    done 0
-    save 0
-    last_key_ms 271450936
-    Theme:
+      display (null)
+      cons (none)
+      mouse (none)
+      scene_id 0
+      next_id 2a
+      req_width 0
+      req_height 0
+      text_mode 0
+      popup 0
+      show_highlight 0
+      mouse_enabled 0
+      mouse_ptr 0000000000000000
+      mouse_size 0x0
+      mouse_pos (0,0)
+      damage (0,0)-(0,0)
+      done 0
+      save 0
+      last_key_ms 7046959059
+      Theme:
         font_size 0
         white_on_black 0
         menu_inset 0
         menuitem_gap_y 0
 
     Scenes:
-    Scene 6: name 'main'
-        title_id 19 (title)
+      Scene 6: name 'main'
+        title_id 13 (main.title)
         highlight_id 0 ((none))
-        Object 19 (title): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 20 font_name '(default)' font_size 0
+        Object 13 (main.title): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 14 font_name '(default)' font_size 0
             str 'Test Configuration'
-        Object 21 (prompt): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 22 font_name '(default)' font_size 0
+        Object 15 (main.prompt): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 16 font_name '(default)' font_size 0
             str 'UP and DOWN to choose, ENTER to select'
         Object 8 (cpu-speed): type menu
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Menu: pointer_id 0 title_id 23 manual 0
-            Item 10: name '00' label_id 25 desc_id 0
-            Item 11: name '01' label_id 27 desc_id 0
-            Item 12: name '02' label_id 29 desc_id 0
-        Object 23 (title): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 24 font_name '(default)' font_size 0
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Menu: pointer_id 0 title_id 17 manual 0
+            Item a: name 'cpu-speed.item-0' key_id 0 label_id 19 desc_id 0 preview_id 0
+            Item b: name 'cpu-speed.item-1' key_id 0 label_id 1b desc_id 0 preview_id 0
+            Item c: name 'cpu-speed.item-2' key_id 0 label_id 1d desc_id 0 preview_id 0
+        Object 17 (cpu-speed.title): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 18 font_name '(default)' font_size 0
             str 'CPU speed'
-        Object 25 (item-label): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 26 font_name '(default)' font_size 0
+        Object 19 (cpu-speed.item-0.label): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 1a font_name '(default)' font_size 0
             str '2 GHz'
-        Object 27 (item-label): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 28 font_name '(default)' font_size 0
+        Object 1b (cpu-speed.item-1.label): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 1c font_name '(default)' font_size 0
             str '2.5 GHz'
-        Object 29 (item-label): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 30 font_name '(default)' font_size 0
+        Object 1d (cpu-speed.item-2.label): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 1e font_name '(default)' font_size 0
             str '3 GHz'
-        Object 13 (power-loss): type menu
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Menu: pointer_id 0 title_id 31 manual 0
-            Item 14: name '00' label_id 33 desc_id 0
-            Item 15: name '01' label_id 35 desc_id 0
-            Item 16: name '02' label_id 37 desc_id 0
-        Object 31 (title): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 32 font_name '(default)' font_size 0
+        Object d (power-loss): type menu
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Menu: pointer_id 0 title_id 1f manual 0
+            Item e: name 'power-loss.item-0' key_id 0 label_id 21 desc_id 0 preview_id 0
+            Item f: name 'power-loss.item-1' key_id 0 label_id 23 desc_id 0 preview_id 0
+            Item 10: name 'power-loss.item-2' key_id 0 label_id 25 desc_id 0 preview_id 0
+        Object 1f (power-loss.title): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 20 font_name '(default)' font_size 0
             str 'AC Power'
-        Object 33 (item-label): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 34 font_name '(default)' font_size 0
+        Object 21 (power-loss.item-0.label): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 22 font_name '(default)' font_size 0
             str 'Always Off'
-        Object 35 (item-label): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 36 font_name '(default)' font_size 0
+        Object 23 (power-loss.item-1.label): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 24 font_name '(default)' font_size 0
             str 'Always On'
-        Object 37 (item-label): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 38 font_name '(default)' font_size 0
+        Object 25 (power-loss.item-2.label): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 26 font_name '(default)' font_size 0
             str 'Memory'
-        Object 17 (machine-name): type textline
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Textline: label_id 39 edit_id 18
+        Object 11 (machine-name): type textline
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Textline: label_id 27 edit_id 12
             line_chars 14 pos 14
-        Object 39 (title): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 40 font_name '(default)' font_size 0
+        Object 27 (machine-name.label): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 28 font_name '(default)' font_size 0
             str 'Machine name'
-        Object 18 (edit): type text
-        flags
-        bbox: (0,0)-(0,0)
-        dims: 0x0
-        Text: str_id 41 font_name '(default)' font_size 0
+        Object 12 (machine-name.edit): type text
+          flags
+          bbox: (0,0)-(0,0)
+          dims: 0x0
+          Text: str_id 29 font_name '(default)' font_size 0
             str ''
+
+Return value
+------------
+
+The return value $? is 0 (true) if the sub-command succeeds, else 1 (false). A
+missing, unknown or over-long sub-command shows the usage message and returns 1.
+
+`cedit run` returns 1 if the user leaves the editor without saving, since in
+that case the settings are not meant to be kept.
 
 See also
 --------
