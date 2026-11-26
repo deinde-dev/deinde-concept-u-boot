@@ -137,6 +137,7 @@ See also
   sub-command
 * :doc:`lcdputs<lcdputs>` for writing a string at the cursor position without
   naming a sub-command
+* :doc:`font<font>` for the font the video console writes with
 * :doc:`osd<osd>` for the text overlay drawn on top of the display
 * :doc:`bmp<bmp>` for drawing a BMP image on the display
 * :doc:`2048<2048>` for a game which needs an ANSI terminal rather than a

@@ -51,6 +51,7 @@ CONFIG_VIDEO_ANSI=n and there is no video console to clear.
 See also
 --------
 
+* :doc:`font<font>` for the font the cleared console writes with
 * :doc:`osd<osd>` for the text overlay, which this command leaves alone
 * :doc:`bmp<bmp>` for drawing a BMP image on the display
 * :doc:`2048<2048>` for a game which clears the screen for itself
