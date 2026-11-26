@@ -350,8 +350,8 @@ U_BOOT_CMD_WITH_SUBCMDS(cedit, "Configuration editor", cedit_help_text,
 	U_BOOT_SUBCMD_MKENT(write_fdt, 5, 1, do_cedit_write_fdt),
 	U_BOOT_SUBCMD_MKENT(read_env, 2, 1, do_cedit_read_env),
 	U_BOOT_SUBCMD_MKENT(write_env, 2, 1, do_cedit_write_env),
-	U_BOOT_SUBCMD_MKENT(read_cmos, 2, 1, do_cedit_read_cmos),
-	U_BOOT_SUBCMD_MKENT(write_cmos, 2, 1, do_cedit_write_cmos),
+	U_BOOT_SUBCMD_MKENT(read_cmos, 3, 1, do_cedit_read_cmos),
+	U_BOOT_SUBCMD_MKENT(write_cmos, 3, 1, do_cedit_write_cmos),
 #ifdef CONFIG_CMD_CEDIT_DUMP
 	U_BOOT_SUBCMD_MKENT(dump, 1, 1, do_cedit_dump),
 #endif
