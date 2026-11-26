@@ -58,6 +58,7 @@ obj-$(CONFIG_CMD_CLONE) += clone.o
 endif
 obj-$(CONFIG_CMD_CLS) += cls.o
 obj-$(CONFIG_CMD_DEMO) += demo.o
+obj-$(CONFIG_CMD_DM) += dm.o
 endif
 obj-$(CONFIG_CMD_CONFIG) += config.o
 ifdef CONFIG_CONSOLE_RECORD
