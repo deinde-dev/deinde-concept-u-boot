@@ -475,10 +475,10 @@ static int do_mtd_io(struct getopt_state *gs)
 	int argc = gs->argc;
 	char *const *argv = gs->argv;
 	bool dump, read, raw, woob, benchmark, write_empty_pages, has_pages = false;
-	u64 start_off, off, len, remaining, default_len, speed;
+	u64 start_off, off, len, remaining, default_len, speed, user_addr = 0;
 	unsigned long bench_start, bench_end;
 	struct mtd_oob_ops io_op = {};
-	uint user_addr = 0, npages;
+	uint npages;
 	const char *cmd = argv[0];
 	struct mtd_info *mtd;
 	u32 oob_len;

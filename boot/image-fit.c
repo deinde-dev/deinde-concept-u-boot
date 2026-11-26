@@ -173,18 +173,10 @@ static void fit_get_debug(const void *fit, int noffset,
 int fit_get_subimage_count(const void *fit, int images_noffset)
 {
 	int noffset;
-	int ndepth;
 	int count = 0;
 
-	/* Process its subnodes, print out component images details */
-	for (ndepth = 0, count = 0,
-		noffset = fdt_next_node(fit, images_noffset, &ndepth);
-	     (noffset >= 0) && (ndepth > 0);
-	     noffset = fdt_next_node(fit, noffset, &ndepth)) {
-		if (ndepth == 1) {
-			count++;
-		}
-	}
+	fdt_for_each_subnode(noffset, fit, images_noffset)
+		count++;
 
 	return count;
 }
@@ -1141,7 +1133,6 @@ int fit_all_image_verify(const void *fit)
 {
 	int images_noffset;
 	int noffset;
-	int ndepth;
 	int count;
 
 	/* Find images parent node offset */
@@ -1155,23 +1146,15 @@ int fit_all_image_verify(const void *fit)
 	/* Process all image subnodes, check hashes for each */
 	printf("## Checking hash(es) for FIT Image at %08lx ...\n",
 	       (ulong)map_to_sysmem(fit));
-	for (ndepth = 0, count = 0,
-	     noffset = fdt_next_node(fit, images_noffset, &ndepth);
-			(noffset >= 0) && (ndepth > 0);
-			noffset = fdt_next_node(fit, noffset, &ndepth)) {
-		if (ndepth == 1) {
-			/*
-			 * Direct child node of the images parent node,
-			 * i.e. component image node.
-			 */
-			printf("   Hash(es) for Image %u (%s): ", count,
-			       fit_get_name(fit, noffset));
-			count++;
+	count = 0;
+	fdt_for_each_subnode(noffset, fit, images_noffset) {
+		printf("   Hash(es) for Image %u (%s): ", count,
+		       fit_get_name(fit, noffset));
+		count++;
 
-			if (!fit_image_verify(fit, noffset))
-				return 0;
-			printf("OK\n");
-		}
+		if (!fit_image_verify(fit, noffset))
+			return 0;
+		printf("OK\n");
 	}
 	return 1;
 }
@@ -1467,7 +1450,6 @@ int fit_check_format(const void *fit, ulong size)
 
 int fit_conf_find_compat(const void *fit, const void *fdt)
 {
-	int ndepth = 0;
 	int noffset, confs_noffset, images_noffset;
 	const void *fdt_compat;
 	int fdt_compat_len;
@@ -1502,9 +1484,7 @@ int fit_conf_find_compat(const void *fit, const void *fdt)
 	 * Loop over the configurations in the FIT image.
 	 */
 	printf("Looking for best match...");
-	for (noffset = fdt_next_node(fit, confs_noffset, &ndepth);
-			(noffset >= 0) && (ndepth > 0);
-			noffset = fdt_next_node(fit, noffset, &ndepth)) {
+	fdt_for_each_subnode(noffset, fit, confs_noffset) {
 		const void *fdt;
 		const char *kfdt_name;
 		int kfdt_noffset, compat_noffset;
@@ -1512,9 +1492,6 @@ int fit_conf_find_compat(const void *fit, const void *fdt)
 		int len;
 		size_t sz;
 		int i;
-
-		if (ndepth > 1)
-			continue;
 
 		/* If there's a compat property in the config node, use that. */
 		if (fdt_getprop(fit, noffset, FIT_COMPATIBLE_PROP, NULL)) {
