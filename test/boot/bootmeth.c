@@ -229,6 +229,27 @@ static int bootmeth_cmd_usage(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("bootmeth list -a extra", 0));
 	ut_assertok(check_usage(uts));
 
+	/* an option which the sub-command does not have */
+	ut_asserteq(1, run_command("bootmeth list -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* order and set have no options at all */
+	ut_asserteq(1, run_command("bootmeth order -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootmeth set -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an argument which the sub-command has no use for */
+	ut_asserteq(1, run_command("bootmeth list fred", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootmeth order extlinux efi", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootmeth set extlinux fallback 1 extra", 0));
+	ut_assertok(check_usage(uts));
+
 	return 0;
 }
 BOOTSTD_TEST(bootmeth_cmd_usage, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);

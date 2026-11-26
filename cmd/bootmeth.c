@@ -12,24 +12,33 @@
 #include <command.h>
 #include <dm.h>
 #include <env.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <dm/uclass-internal.h>
 
-static int do_bootmeth_list(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_bootmeth_list(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct udevice *dev;
 	bool use_order;
 	bool all = false;
 	int ret;
+	int opt;
 	int i;
 
-	if (argc > 1 && *argv[1] == '-') {
-		all = strchr(argv[1], 'a');
-		argc--;
-		argv++;
+	while ((opt = getopt(gs, "+a")) > 0) {
+		switch (opt) {
+		case 'a':
+			all = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = bootstd_get_priv(&std);
 	if (ret) {
@@ -89,10 +98,14 @@ static int do_bootmeth_list(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootmeth_order(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_bootmeth_order(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	int ret;
+
+	/* a second list would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->argc > 2)
+		return CMD_RET_USAGE;
 
 	ret = bootmeth_set_order(argv[1]);
 	if (ret) {
@@ -104,10 +117,15 @@ static int do_bootmeth_order(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_bootmeth_set(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_bootmeth_set(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int ret;
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && argc > 4)
+		return CMD_RET_USAGE;
 
 	if (argc < 4) {
 		printf("Required parameters not provided\n");
@@ -129,6 +147,8 @@ U_BOOT_LONGHELP(bootmeth,
 	"bootmeth set <bootmeth> <property> <value> - set optional property");
 
 U_BOOT_CMD_WITH_SUBCMDS(bootmeth, "Boot methods", bootmeth_help_text,
-	U_BOOT_SUBCMD_MKENT(list, 2, 1, do_bootmeth_list),
-	U_BOOT_SUBCMD_MKENT(order, CONFIG_SYS_MAXARGS, 1, do_bootmeth_order),
-	U_BOOT_SUBCMD_MKENT(set, CONFIG_SYS_MAXARGS, 1, do_bootmeth_set));
+	U_BOOT_CMD_MKENT_GETOPT(list, 2, 1, do_bootmeth_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(order, CONFIG_SYS_MAXARGS, 1, do_bootmeth_order,
+				"", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(set, CONFIG_SYS_MAXARGS, 1, do_bootmeth_set,
+				"", ""));

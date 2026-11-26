@@ -495,6 +495,7 @@ config CMD_BOOTMETH
 	bool "bootmeth"
 	depends on BOOTSTD
 	default y if BOOTSTD_FULL
+	select GETOPT
 	help
 	  Support listing available bootmeths (methods used to boot an
 	  Operating System), as well as selecting the order that the bootmeths
