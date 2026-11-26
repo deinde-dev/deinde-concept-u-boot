@@ -23,10 +23,8 @@ struct expo *cur_exp;
 
 static int check_cur_expo(void)
 {
-	if (!cur_exp) {
-		printf("No expo loaded\n");
-		return -ENOENT;
-	}
+	if (!cur_exp)
+		return cmd_fail(-ENOENT, "No expo loaded\n");
 
 	return 0;
 }
@@ -46,23 +44,17 @@ static int do_cedit_load(struct getopt_state *gs)
 	fname = argv[3];
 
 	ret = fs_load_alloc(argv[1], argv[2], argv[3], SZ_1M, 0, &buf);
-	if (ret) {
-		printf("File not found\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "File not found\n");
 
 	tree = oftree_from_fdt(abuf_uninit_move(&buf, NULL));
-	if (!oftree_valid(tree)) {
-		printf("Cannot create oftree\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!oftree_valid(tree))
+		return cmd_fail(0, "Cannot create oftree\n");
 
 	ret = expo_build(oftree_root(tree), &exp);
 	oftree_dispose(tree);
-	if (ret) {
-		printf("Failed to build expo: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to build expo: %dE\n", ret);
 
 	if (cur_exp)
 		expo_destroy(cur_exp);
@@ -82,10 +74,8 @@ static int do_cedit_cb_load(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = cb_expo_build(&exp);
-	if (ret) {
-		printf("Failed to build expo: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to build expo: %dE\n", ret);
 
 	cur_exp = exp;
 
@@ -110,10 +100,8 @@ static int do_cedit_write_fdt(struct getopt_state *gs)
 		return CMD_RET_FAILURE;
 
 	ret = cedit_write_settings(cur_exp, &buf);
-	if (ret) {
-		printf("Failed to write settings: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to write settings: %dE\n", ret);
 
 	if (fs_set_blk_dev(argv[1], argv[2], FS_TYPE_ANY))
 		return CMD_RET_FAILURE;
@@ -143,25 +131,20 @@ static int do_cedit_read_fdt(struct getopt_state *gs)
 		return CMD_RET_FAILURE;
 
 	ret = fs_load_alloc(argv[1], argv[2], argv[3], SZ_1M, 0, &buf);
-	if (ret) {
-		printf("File not found\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "File not found\n");
 
 	tree = oftree_from_fdt(buf.data);
 	if (!oftree_valid(tree)) {
 		abuf_uninit(&buf);
-		printf("Cannot create oftree\n");
-		return CMD_RET_FAILURE;
+		return cmd_fail(0, "Cannot create oftree\n");
 	}
 
 	ret = cedit_read_settings(cur_exp, tree);
 	oftree_dispose(tree);
 	abuf_uninit(&buf);
-	if (ret) {
-		printf("Failed to read settings: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to read settings: %dE\n", ret);
 
 	return 0;
 }
@@ -189,10 +172,10 @@ static int do_cedit_write_env(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = cedit_write_settings_env(cur_exp, verbose);
-	if (ret) {
-		printf("Failed to write settings to environment: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"Failed to write settings to environment: %dE\n",
+				ret);
 
 	return 0;
 }
@@ -220,10 +203,10 @@ static int do_cedit_read_env(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = cedit_read_settings_env(cur_exp, verbose);
-	if (ret) {
-		printf("Failed to read settings from environment: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"Failed to read settings from environment: %dE\n",
+				ret);
 
 	return 0;
 }
@@ -252,15 +235,11 @@ static int do_cedit_write_cmos(struct getopt_state *gs)
 						gs->argv[gs->index], &dev);
 	else
 		ret = uclass_first_device_err(UCLASS_RTC, &dev);
-	if (ret) {
-		printf("Failed to get RTC device: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to get RTC device: %dE\n", ret);
 
-	if (cedit_write_settings_cmos(cur_exp, dev, verbose)) {
-		printf("Failed to write settings to CMOS\n");
-		return CMD_RET_FAILURE;
-	}
+	if (cedit_write_settings_cmos(cur_exp, dev, verbose))
+		return cmd_fail(0, "Failed to write settings to CMOS\n");
 
 	return 0;
 }
@@ -289,16 +268,13 @@ static int do_cedit_read_cmos(struct getopt_state *gs)
 						gs->argv[gs->index], &dev);
 	else
 		ret = uclass_first_device_err(UCLASS_RTC, &dev);
-	if (ret) {
-		printf("Failed to get RTC device: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to get RTC device: %dE\n", ret);
 
 	ret = cedit_read_settings_cmos(cur_exp, dev, verbose);
-	if (ret) {
-		printf("Failed to read settings from CMOS: %dE\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"Failed to read settings from CMOS: %dE\n", ret);
 
 	return 0;
 }
@@ -340,10 +316,8 @@ static int do_cedit_dump(struct getopt_state *gs)
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	if (membuf_new(&mb, 131072)) {
-		printf("Failed to allocate membuf\n");
-		return CMD_RET_FAILURE;
-	}
+	if (membuf_new(&mb, 131072))
+		return cmd_fail(-ENOMEM, "Failed to allocate membuf\n");
 
 	expo_dump(cur_exp, &mb);
 
