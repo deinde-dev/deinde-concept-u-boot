@@ -17,6 +17,9 @@ config TARGET_ANDES_VOYAGER
 config TARGET_BEAGLEBOARD_BEAGLEVFIRE
 	bool "Support BeagleBoard BeagleV-Fire Board (based on Microchip MPFS)"
 
+config TARGET_K230_CANMV
+	bool "Support K230 CanMV Board"
+
 config TARGET_LICHEERV_NANO
 	bool "Support LicheeRV Nano Board"
 
@@ -124,6 +127,7 @@ source "board/andestech/ae350/Kconfig"
 source "board/andestech/voyager/Kconfig"
 source "board/aspeed/ibex_ast2700/Kconfig"
 source "board/beagle/beaglev_fire/Kconfig"
+source "board/canaan/k230_canmv/Kconfig"
 source "board/emulation/qemu-riscv/Kconfig"
 source "board/microchip/mpfs_generic/Kconfig"
 source "board/openpiton/riscv64/Kconfig"
@@ -150,6 +154,7 @@ source "arch/riscv/cpu/generic/Kconfig"
 source "arch/riscv/cpu/jh7110/Kconfig"
 source "arch/riscv/cpu/k1/Kconfig"
 source "arch/riscv/cpu/k3/Kconfig"
+source "arch/riscv/cpu/k230/Kconfig"
 source "arch/riscv/cpu/th1520/Kconfig"
 
 # architecture-specific options below
