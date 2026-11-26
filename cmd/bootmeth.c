@@ -41,10 +41,8 @@ static int do_bootmeth_list(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = bootstd_get_priv(&std);
-	if (ret) {
-		printf("Cannot get bootstd (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot get bootstd (err=%d)\n", ret);
 
 	printf("Order  Seq  Name                Description\n");
 	printf("-----  ---  ------------------  ------------------\n");
@@ -108,10 +106,8 @@ static int do_bootmeth_order(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	ret = bootmeth_set_order(argv[1]);
-	if (ret) {
-		printf("Failed (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed (err=%d)\n", ret);
 	env_set("bootmeths", argv[1]);
 
 	return 0;
@@ -127,16 +123,12 @@ static int do_bootmeth_set(struct getopt_state *gs)
 	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && argc > 4)
 		return CMD_RET_USAGE;
 
-	if (argc < 4) {
-		printf("Required parameters not provided\n");
-		return CMD_RET_FAILURE;
-	}
+	if (argc < 4)
+		return cmd_fail(0, "Required parameters not provided\n");
 
 	ret = bootmeth_set_property(argv[1], argv[2], argv[3]);
-	if (ret) {
-		printf("Failed (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed (err=%d)\n", ret);
 
 	return 0;
 }
