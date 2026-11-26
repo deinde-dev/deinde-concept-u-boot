@@ -507,6 +507,7 @@ config CMD_BOOTSTD
 	bool "bootstd"
 	depends on BOOTSTD
 	default y if BOOTSTD_FULL
+	select GETOPT
 	help
 	  Provide general information and control for bootstd.
 

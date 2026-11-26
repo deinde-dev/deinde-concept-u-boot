@@ -12,11 +12,11 @@
 #include <bootstd.h>
 #include <command.h>
 #include <dm.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <dm/uclass-internal.h>
 
-static int do_bootstd_images(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_bootstd_images(struct getopt_state *gs)
 {
 	const struct bootflow *bflow;
 	struct bootstd_priv *std;
@@ -62,4 +62,4 @@ U_BOOT_LONGHELP(bootstd,
 	"images      - list loaded images");
 
 U_BOOT_CMD_WITH_SUBCMDS(bootstd, "Standard-boot operation", bootstd_help_text,
-	U_BOOT_SUBCMD_MKENT(images, 1, 1, do_bootstd_images));
+	U_BOOT_CMD_MKENT_NOOPTS(images, 1, 1, do_bootstd_images, "", ""));
