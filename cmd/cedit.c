@@ -135,6 +135,9 @@ static int do_cedit_read_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 	fname = argv[3];
 
+	if (check_cur_expo())
+		return CMD_RET_FAILURE;
+
 	ret = fs_load_alloc(argv[1], argv[2], argv[3], SZ_1M, 0, &buf);
 	if (ret) {
 		printf("File not found\n");
