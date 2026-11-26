@@ -41,8 +41,7 @@ int do_addr_find(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		return CMD_RET_FAILURE;
 	}
 
-	start = lmb_alloc(size, SZ_2M);
-	if ((long)start < 0) {
+	if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M, &start, size, LMB_NONE)) {
 		log_err("Failed to find enough RAM for 0x%llx bytes\n", size);
 
 		return CMD_RET_FAILURE;

@@ -90,6 +90,7 @@ static const struct legacy_img_hdr *image_get_fdt(ulong fdt_addr)
 static void boot_fdt_handle_region(u64 addr, u64 size, u32 flags, bool free)
 {
 	long ret;
+	phys_addr_t rsv_addr;
 
 	/*
 	 * LMB already reserves all memory above ram_top so that nothing is
@@ -110,10 +111,12 @@ static void boot_fdt_handle_region(u64 addr, u64 size, u32 flags, bool free)
 		size = min(size, ram_top - addr);
 	}
 
+	rsv_addr = (phys_addr_t)addr;
 	if (free)
-		ret = lmb_free_flags(addr, size, flags);
+		ret = lmb_free(rsv_addr, size, flags);
 	else
-		ret = lmb_reserve(addr, size, flags);
+		ret = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &rsv_addr, size,
+				    flags);
 
 	if (!ret || ret == -EFAULT) {
 		debug("   %s fdt memory region%s: addr=%llx size=%llx flags=%x ret=%ld\n",
@@ -219,7 +222,7 @@ void boot_fdt_add_mem_rsv_regions(const void *fdt_blob)
  */
 int boot_relocate_fdt(char **of_flat_tree, ulong *of_size)
 {
-	u64	start, size, usable, addr, low, mapsize;
+	u64	start, size, usable, low, mapsize;
 	void	*fdt_blob = *of_flat_tree;
 	void	*of_start = NULL;
 	char	*fdt_high;
@@ -227,6 +230,7 @@ int boot_relocate_fdt(char **of_flat_tree, ulong *of_size)
 	int	bank;
 	int	err;
 	int	disable_relocation = 0;
+	phys_addr_t addr;
 
 	/* nothing to do */
 	if (*of_size == 0)
@@ -245,9 +249,9 @@ int boot_relocate_fdt(char **of_flat_tree, ulong *of_size)
 	/* If fdt_high is set use it to select the relocation address */
 	fdt_high = env_get("fdt_high");
 	if (fdt_high) {
-		ulong desired_addr = hextoul(fdt_high, NULL);
+		ulong high_addr = hextoul(fdt_high, NULL);
 
-		if (desired_addr == ~0UL) {
+		if (high_addr == ~0UL) {
 			/* All ones means use fdt in place */
 			of_start = fdt_blob;
 			printf("WARNING:\n"
@@ -255,18 +259,27 @@ int boot_relocate_fdt(char **of_flat_tree, ulong *of_size)
 			       "boot failures due to placement of DT at non-8-byte-aligned addresses.\n"
 			       "This system will likely fail to boot. Unset the 'fdt_high' environment\n"
 			       "variable and submit a fix upstream.\n");
-			lmb_reserve(map_to_sysmem(of_start), of_len, LMB_NONE);
-			disable_relocation = 1;
-		} else if (desired_addr) {
-			addr = lmb_alloc_base(of_len, 0x1000, desired_addr,
-					      LMB_NONE);
-			of_start = map_sysmem(addr, of_len);
-			if (of_start == NULL) {
-				puts("Failed using fdt_high value for Device Tree");
+			addr = map_to_sysmem(fdt_blob);
+			err = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr,
+					    of_len, LMB_NONE);
+			if (err) {
+				printf("Failed to reserve memory for fdt at %#llx\n",
+				       (u64)addr);
 				goto error;
 			}
+
+			disable_relocation = 1;
 		} else {
-			addr = lmb_alloc(of_len, 0x1000);
+			enum lmb_mem_type type = high_addr ?
+				LMB_MEM_ALLOC_MAX : LMB_MEM_ALLOC_ANY;
+
+			addr = high_addr;
+			err = lmb_alloc_mem(type, 0x1000, &addr, of_len,
+					    LMB_NONE);
+			if (err) {
+				puts("Failed to allocate memory for Device Tree relocation\n");
+				goto error;
+			}
 			of_start = map_sysmem(addr, of_len);
 		}
 	} else {
@@ -288,11 +301,15 @@ int boot_relocate_fdt(char **of_flat_tree, ulong *of_size)
 			 * for LMB allocation.
 			 */
 			usable = min(start + size, low + mapsize);
-			addr = lmb_alloc_base(of_len, 0x1000, usable, LMB_NONE);
-			of_start = map_sysmem(addr, of_len);
-			/* Allocation succeeded, use this block. */
-			if (of_start != NULL)
-				break;
+			addr = usable;
+			err = lmb_alloc_mem(LMB_MEM_ALLOC_MAX, 0x1000,
+					    &addr, of_len, LMB_NONE);
+			if (!err) {
+				of_start = map_sysmem(addr, of_len);
+				/* Allocation succeeded, use this block. */
+				if (of_start)
+					break;
+			}
 
 			/*
 			 * Reduce the mapping size in the next bank
@@ -835,7 +852,7 @@ int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 
 	/* Delete the old LMB reservation */
 	if (IS_ENABLED(CONFIG_LMB) && lmb)
-		lmb_free(map_to_sysmem(blob), fdt_totalsize(blob));
+		lmb_free(map_to_sysmem(blob), fdt_totalsize(blob), LMB_NONE);
 
 	ret = fdt_shrink_to_minimum(blob, 0);
 	if (ret < 0)
@@ -843,8 +860,17 @@ int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 	of_size = ret;
 
 	/* Create a new LMB reservation */
-	if (IS_ENABLED(CONFIG_LMB) && lmb)
-		lmb_reserve(map_to_sysmem(blob), of_size, LMB_NONE);
+	if (IS_ENABLED(CONFIG_LMB) && lmb) {
+		phys_addr_t fdt_addr;
+
+		fdt_addr = map_to_sysmem(blob);
+		ret = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &fdt_addr,
+				    of_size, LMB_NONE);
+		if (ret) {
+			printf("Failed to reserve memory for the fdt at %#llx\n",
+			       (u64)fdt_addr);
+		}
+	}
 
 	if (IS_ENABLED(CONFIG_OF_BOARD_SETUP_EXTENDED) && !skip_board_fixup)
 		ft_board_setup_ex(blob, gd->bd);

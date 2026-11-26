@@ -181,6 +181,7 @@ static int booti_check_granule(u64 flags)
 static int booti_place(ulong cur, u64 text_offset, u64 image_size, u64 flags,
 		       bool force_reloc, bool placed, ulong *addrp)
 {
+	phys_addr_t addr;
 	u64 dst;
 
 	/*
@@ -202,17 +203,19 @@ static int booti_place(ulong cur, u64 text_offset, u64 image_size, u64 flags,
 			    !bootargs_has_nokaslr() &&
 			    !booti_random_base(image_size, &dst))
 				done = true;
+			addr = cur - text_offset;
 			if (!done && cur >= text_offset &&
 			    IS_ALIGNED(cur - text_offset, SZ_2M) &&
-			    !lmb_alloc_addr(cur - text_offset, image_size,
-					    LMB_NONE)) {
+			    !lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr,
+					   image_size, LMB_NONE)) {
 				dst = cur - text_offset;
 				done = true;
 			}
 			if (!done) {
-				dst = lmb_alloc(image_size, SZ_2M);
-				if (!dst)
+				if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M,
+						  &addr, image_size, LMB_NONE))
 					return -ENOSPC;
+				dst = addr;
 			}
 		} else {
 			dst = cur - text_offset;
@@ -297,8 +300,8 @@ int booti_alloc(ulong size, ulong *addrp)
 		*addrp = base;
 		return 0;
 	}
-	addr = lmb_alloc(alloc_size(size), SZ_2M);
-	if (!addr)
+	if (lmb_alloc_mem(LMB_MEM_ALLOC_ANY, SZ_2M, &addr, alloc_size(size),
+			  LMB_NONE))
 		return -ENOSPC;
 	*addrp = addr;
 
@@ -311,7 +314,7 @@ int booti_check(ulong image, ulong size, ulong *relocated_addr, ulong *sizep)
 	 * Release the space so that setup_image() can reserve exactly what the
 	 * header says is needed, or move the Image if that is not possible
 	 */
-	lmb_free(image, alloc_size(size));
+	lmb_free(image, alloc_size(size), LMB_NONE);
 
 	return setup_image(image, relocated_addr, sizep, false, true);
 }

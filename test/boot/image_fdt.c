@@ -108,6 +108,7 @@ static int test_boot_fdt_rsv_above_ram_top(struct unit_test_state *uts)
 		.start = ram_top - SZ_4K,
 		.end = ram_top + SZ_4K - 1,
 	};
+	phys_addr_t addr = ram_top;
 	int nomap_start, nomap_end, nomap_above, noov_above;
 	struct lmb store;
 	void *blob;
@@ -129,7 +130,8 @@ static int test_boot_fdt_rsv_above_ram_top(struct unit_test_state *uts)
 	/* Set up LMB as lmb_add_memory() does for a lower ram_top */
 	ut_assertok(lmb_push(&store));
 	ut_assertok(lmb_add(gd->ram_base, gd->ram_size));
-	ut_assertok(lmb_reserve(ram_top, size, LMB_NOOVERWRITE));
+	ut_assertok(lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr, size,
+				  LMB_NOOVERWRITE));
 	gd->ram_top = ram_top;
 
 	boot_fdt_add_mem_rsv_regions(blob);

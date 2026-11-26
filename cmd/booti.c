@@ -48,7 +48,7 @@ static int decomp_direct(int ctype, ulong ld, ulong comp_len, ulong *destp,
 			   map_sysmem(dest, size), map_sysmem(ld, 0), comp_len,
 			   size, &end);
 	if (ret) {
-		lmb_free(dest, size);
+		lmb_free(dest, size, LMB_NONE);
 		return ret;
 	}
 	*destp = dest;
@@ -70,6 +70,7 @@ static int booti_start(struct bootm_info *bmi)
 	uint8_t *temp;
 	ulong dest;
 	ulong dest_end;
+	phys_addr_t ep_addr;
 	unsigned long comp_len;
 	unsigned long decomp_len;
 	bool placed = false;
@@ -145,7 +146,14 @@ static int booti_start(struct bootm_info *bmi)
 	images->os.start = relocated_addr;
 	images->os.end = relocated_addr + image_size;
 
-	lmb_reserve(images->ep, le32_to_cpu(image_size), LMB_NONE);
+	ep_addr = (phys_addr_t)images->ep;
+	ret = lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &ep_addr,
+			    le32_to_cpu(image_size), LMB_NONE);
+	if (ret) {
+		printf("Failed to allocate memory for the image at %#llx\n",
+		       (unsigned long long)images->ep);
+		return 1;
+	}
 
 	/*
 	 * Handle the BOOTM_STATE_FINDOTHER state ourselves as we do not

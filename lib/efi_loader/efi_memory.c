@@ -410,6 +410,7 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 					enum efi_memory_type memory_type,
 					efi_uintn_t pages, uint64_t *memory)
 {
+	int err;
 	u64 len;
 	uint flags;
 	efi_status_t ret;
@@ -431,16 +432,17 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 	switch (type) {
 	case EFI_ALLOCATE_ANY_PAGES:
 		/* Any page */
-		addr = (u64)lmb_alloc_base(len, EFI_PAGE_SIZE,
-						 LMB_ALLOC_ANYWHERE, flags);
-		if (!addr)
+		err = lmb_alloc_mem(LMB_MEM_ALLOC_ANY, EFI_PAGE_SIZE, &addr,
+				    len, flags);
+		if (err)
 			return EFI_OUT_OF_RESOURCES;
 		break;
 	case EFI_ALLOCATE_MAX_ADDRESS:
 		/* Max address */
-		addr = (u64)lmb_alloc_base(len, EFI_PAGE_SIZE, *memory,
-						 flags);
-		if (!addr)
+		addr = *memory;
+		err = lmb_alloc_mem(LMB_MEM_ALLOC_MAX, EFI_PAGE_SIZE, &addr,
+				    len, flags);
+		if (err)
 			return EFI_OUT_OF_RESOURCES;
 		break;
 	case EFI_ALLOCATE_ADDRESS:
@@ -448,7 +450,7 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 			return EFI_NOT_FOUND;
 
 		addr = *memory;
-		if (lmb_alloc_addr(addr, len, flags))
+		if (lmb_alloc_mem(LMB_MEM_ALLOC_ADDR, 0, &addr, len, flags))
 			return EFI_NOT_FOUND;
 		break;
 	default:
@@ -460,7 +462,7 @@ static efi_status_t efi_allocate_pages_(enum efi_allocate_type type,
 	ret = efi_update_memory_map(addr, pages, memory_type, true, false);
 	if (ret != EFI_SUCCESS) {
 		/* Map would overlap, bail out */
-		lmb_free_flags(addr, (u64)pages << EFI_PAGE_SHIFT, flags);
+		lmb_free(addr, (u64)pages << EFI_PAGE_SHIFT, flags);
 		if (type == EFI_ALLOCATE_ADDRESS)
 			return EFI_NOT_FOUND;
 		return EFI_OUT_OF_RESOURCES;
@@ -503,7 +505,7 @@ static efi_status_t efi_free_pages_(uint64_t memory, efi_uintn_t pages)
 	}
 
 	len = (u64)pages << EFI_PAGE_SHIFT;
-	status = lmb_free_flags(memory, len, LMB_NOOVERWRITE);
+	status = lmb_free(memory, len, LMB_NOOVERWRITE);
 	if (status)
 		return EFI_NOT_FOUND;
 

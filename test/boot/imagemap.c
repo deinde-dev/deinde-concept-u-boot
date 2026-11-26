@@ -358,8 +358,8 @@ static int imagemap_test_map_to_not_resized(struct unit_test_state *uts)
 	priv = dev_get_uclass_priv(dev);
 
 	/* Caller reserves its own load address and owns the memory */
-	dst_phys = lmb_alloc(NOT_RESIZED_DST, ARCH_DMA_MINALIGN);
-	ut_assert(dst_phys);
+	ut_assertok(lmb_alloc_mem(LMB_MEM_ALLOC_ANY, ARCH_DMA_MINALIGN,
+				  &dst_phys, NOT_RESIZED_DST, LMB_NONE));
 	dst = map_sysmem(dst_phys, NOT_RESIZED_DST);
 
 	/* Distinct guard pattern beyond the 64 requested payload bytes */
@@ -406,7 +406,7 @@ static int imagemap_test_map_to_not_resized(struct unit_test_state *uts)
 	 * The caller's own reservation was never taken over by imagemap and
 	 * is still ours to release.
 	 */
-	lmb_free(dst_phys, NOT_RESIZED_DST);
+	lmb_free(dst_phys, NOT_RESIZED_DST, LMB_NONE);
 
 	return 0;
 }
