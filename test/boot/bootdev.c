@@ -16,6 +16,39 @@
 #include <test/ut.h>
 #include "bootstd_common.h"
 
+/* Lines of the usage message, each too long to write where it is used */
+#define USAGE_LIST	\
+	"bootdev list [-p]         - list all available bootdevs (-p to probe)"
+#define USAGE_HUNT	\
+	"bootdev hunt [-l|<spec>]  - use hunt drivers to find bootdevs"
+#define USAGE_ORDER	\
+	"bootdev order [clear] | [<spec>,...]  - view or update bootdev order"
+#define USAGE_SELECT	\
+	"bootdev select <bd>       - select a bootdev by name | label | seq"
+#define USAGE_INFO	\
+	"bootdev info [-p]         - show information about a bootdev (-p to probe)"
+
+/**
+ * check_usage() - Check the usage message which the command shows
+ *
+ * @uts: Test state
+ * Return: 0 if OK, 1 on failure
+ */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("bootdev - Boot devices");
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline(USAGE_LIST);
+	ut_assert_nextline(USAGE_HUNT);
+	ut_assert_nextline(USAGE_ORDER);
+	ut_assert_nextline(USAGE_SELECT);
+	ut_assert_nextline(USAGE_INFO);
+	ut_assert_console_end();
+
+	return 0;
+}
+
 /* Check 'bootdev list' command */
 static int bootdev_test_cmd_list(struct unit_test_state *uts)
 {
@@ -52,14 +85,35 @@ static int bootdev_test_cmd_select(struct unit_test_state *uts)
 	ut_assertok(bootstd_get_priv(&std));
 
 	ut_asserteq(1, run_command("bootdev info", 0));
-	ut_assert_nextlinen("Please use");
+	ut_assert_nextline("Please use 'bootdev select' first");
 	ut_assert_console_end();
+
+	/* a name which is not a bootdev, nor a label of one */
+	ut_asserteq(1, run_command("bootdev select fred", 0));
+	ut_assert_nextline("Cannot find bootdev 'fred' (err=-96)");
+	ut_assert_console_end();
+	ut_assertnull(std->cur_bootdev);
+
+	/* a sequence number which no bootdev has */
+	ut_asserteq(1, run_command("bootdev select 99", 0));
+	ut_assert_nextline("Cannot find '99' (err=-19)");
+	ut_assert_console_end();
+	ut_assertnull(std->cur_bootdev);
 
 	/* select by sequence */
 	ut_assertok(run_command("bootdev select 0", 0));
 	ut_assert_console_end();
 
 	ut_assertok(run_command("bootdev info", 0));
+	ut_assert_nextline("Name:      mmc2.bootdev");
+	ut_assert_nextline("Sequence:  0");
+	ut_assert_nextline("Status:    Probed");
+	ut_assert_nextline("Uclass:    mmc");
+	ut_assert_nextline("Bootflows: 0 (0 valid)");
+	ut_assert_console_end();
+
+	/* -p probes the bootdev, which selecting it has already done */
+	ut_assertok(run_command("bootdev info -p", 0));
 	ut_assert_nextline("Name:      mmc2.bootdev");
 	ut_assert_nextline("Sequence:  0");
 	ut_assert_nextline("Status:    Probed");
@@ -85,12 +139,67 @@ static int bootdev_test_cmd_select(struct unit_test_state *uts)
 	ut_assertnull(std->cur_bootdev);
 
 	ut_asserteq(1, run_command("bootdev info", 0));
-	ut_assert_nextlinen("Please use");
+	ut_assert_nextline("Please use 'bootdev select' first");
 	ut_assert_console_end();
 
 	return 0;
 }
 BOOTSTD_TEST(bootdev_test_cmd_select, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Check the ways of reaching the usage message of the 'bootdev' command */
+static int bootdev_test_cmd_usage(struct unit_test_state *uts)
+{
+	/* no sub-command at all */
+	ut_asserteq(1, run_command("bootdev", 0));
+	ut_assertok(check_usage(uts));
+
+	/* a sub-command which does not exist */
+	ut_asserteq(1, run_command("bootdev fred", 0));
+	ut_assertok(check_usage(uts));
+
+	/* one argument too many for the sub-command */
+	ut_asserteq(1, run_command("bootdev list -p extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev info -p extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev hunt -l extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev order clear extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev select 0 extra", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an option which the sub-command does not have */
+	ut_asserteq(1, run_command("bootdev list -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev hunt -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev info -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* order and select have no options at all */
+	ut_asserteq(1, run_command("bootdev order -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev select -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an argument which list and info have no use for */
+	ut_asserteq(1, run_command("bootdev list fred", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("bootdev info fred", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+BOOTSTD_TEST(bootdev_test_cmd_usage, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
 
 /* Check bootdev labels */
 static int bootdev_test_labels(struct unit_test_state *uts)
@@ -443,6 +552,11 @@ static int bootdev_test_cmd_hunt(struct unit_test_state *uts)
 	ut_assert_nextline("   6        ethernet         eth_bootdev");
 	ut_assert_skip_to_line("(total hunters: %d)", HUNTER_COUNT);
 	ut_assert_console_end();
+
+	/* a spec which matches no hunter runs nothing and says nothing */
+	ut_assertok(run_command("bootdev hunt fred", 0));
+	ut_assert_console_end();
+	ut_asserteq(0, std->hunters_used);
 
 	/* Use the MMC hunter and see that it updates */
 	ut_assertok(run_command("bootdev hunt mmc", 0));
