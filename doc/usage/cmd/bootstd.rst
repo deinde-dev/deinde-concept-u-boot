@@ -20,12 +20,38 @@ The `bootstd` command is used to manage standard boot. At present the only
 functionality available is to look at the images which have been loaded, or
 could be loaded should a particular bootflow be selected.
 
+It is enabled by `CONFIG_CMD_BOOTSTD`, which is on by default when
+`CONFIG_BOOTSTD_FULL` is enabled.
+
 See :doc:`/develop/bootstd/index` for more information.
 
-bootflow images
-~~~~~~~~~~~~~~~
+bootstd images
+~~~~~~~~~~~~~~
 
-Lists the available images and their location in memory.
+Lists the available images and their location in memory. Every image of every
+bootflow is shown, in the order the bootflows were found.
+
+The fields are as follows:
+
+Seq:
+    Sequence number of the bootflow holding the image, as shown by
+    `bootflow list`. The same number appears on each of its images.
+
+Bootflow:
+    Name of that bootflow.
+
+Type:
+    Type of the image, for example `extlinux_cfg` for an extlinux
+    configuration file, `logo` for a bitmap or `kernel` for an OS.
+
+At:
+    Address the image is loaded at, in hex, or `-` if it has not been loaded.
+
+Size:
+    Size of the image in bytes, in hex.
+
+Filename:
+    Name of the file the image comes from.
 
 Example
 -------
@@ -36,13 +62,13 @@ content of a few of them::
     => bootflow scan
     => bootflow list
     Showing all bootflows
-    Seq  Method       State   Uclass    Part  Ent  Name                      Filename
-    ---  -----------  ------  --------  ----  ---  ------------------------  ----------------
-      0  extlinux     ready   mmc          1    0  mmc1.bootdev.part_1       /extlinux/extlinux.conf
-      1  script       ready   mmc          1       mmc4.bootdev.part_1       /boot/boot.scr
-      2  cros         ready   mmc          2       mmc5.bootdev.part_2
-      3  cros         ready   mmc          4       mmc5.bootdev.part_4
-    ---  -----------  ------  --------  ----  ---  ------------------------  ----------------
+    Seq  Method       State   Uclass    Part  Ent  E  Name                      Filename
+    ---  -----------  ------  --------  ----  ---  -  ------------------------  ----------------
+      0  extlinux     ready   mmc          1    0     mmc1.bootdev.part_1       /extlinux/extlinux.conf
+      1  script       ready   mmc          1          mmc4.bootdev.part_1       /boot/boot.scr
+      2  cros         ready   mmc          2          mmc5.bootdev.part_2
+      3  cros         ready   mmc          4          mmc5.bootdev.part_4
+    ---  -----------  ------  --------  ----  ---  -  ------------------------  ----------------
     (4 bootflows, 4 valid)
     =>
     => bootstd images
@@ -73,7 +99,11 @@ content of a few of them::
 Return value
 ------------
 
-The return value $? is always 0 (true).
+The return value $? is 0 (true) if the images are listed. It is 1 (false), with
+the usage message shown, if no sub-command is given, if the sub-command is not
+recognised or if it is given an argument it has no use for. It is also 1 if
+standard boot is not available, in which case the command reports the error it
+got.
 
 See also
 --------
@@ -84,6 +114,3 @@ See also
 * :doc:`bootmeth<bootmeth>` for the methods used to scan each device
 * :doc:`bootctl<bootctl>` for boot control, whose schema sets the bootdev
   order through its 'labels' option
-
-
-.. BootflowStates_:
