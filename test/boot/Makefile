@@ -4,6 +4,7 @@
 
 ifdef CONFIG_UT_BOOTSTD
 obj-$(CONFIG_BOOTSTD) += bootdev.o bootstd_common.o bootflow.o bootmeth.o
+obj-$(CONFIG_CMD_BOOTSTD) += bootstd.o
 obj-$(CONFIG_BOOTMETH_BLS) += bls_parse.o
 obj-$(CONFIG_CMDLINE) += pxe.o
 obj-$(CONFIG_FIT) += image.o
