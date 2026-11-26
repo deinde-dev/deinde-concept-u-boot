@@ -13,16 +13,20 @@
 #include <linux/bitops.h>
 #include <u-boot/uuid.h>
 
+/* messages which are too long to sit in the call which reports them */
+#define SMBIOS_ERR	"Failed to get CHID data from SMBIOS (err=%dE)\n"
+#define GENERATE_ERR	"Failed to generate CHID variant %d (err=%dE)\n"
+#define ENV_SET_ERR \
+	"Failed to set fdtcompat environment variable (err=%d)\n"
+
 static int do_chid_show(struct getopt_state *gs)
 {
 	struct chid_data chid;
 	int ret;
 
 	ret = chid_from_smbios(&chid);
-	if (ret) {
-		printf("Failed to get CHID data from SMBIOS (err=%dE)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, SMBIOS_ERR, ret);
 
 	printf("Manufacturer:      %s\n", chid.manuf);
 	printf("Family:            %s\n", chid.family);
@@ -47,10 +51,8 @@ static int do_chid_list(struct getopt_state *gs)
 	int variant, ret;
 
 	ret = chid_from_smbios(&chid);
-	if (ret) {
-		printf("Failed to get CHID data from SMBIOS (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, SMBIOS_ERR, ret);
 
 	for (variant = 0; variant < CHID_VARIANT_COUNT; variant++) {
 		ret = chid_generate(variant, &chid, chid_bytes);
@@ -80,24 +82,17 @@ static int do_chid_detail(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	variant = simple_strtol(gs->argv[1], NULL, 10);
-	if (variant < 0 || variant >= CHID_VARIANT_COUNT) {
-		printf("Invalid variant %d (must be 0-%d)\n", variant,
-		       CHID_VARIANT_COUNT - 1);
-		return CMD_RET_FAILURE;
-	}
+	if (variant < 0 || variant >= CHID_VARIANT_COUNT)
+		return cmd_fail(0, "Invalid variant %d (must be 0-%d)\n",
+				variant, CHID_VARIANT_COUNT - 1);
 
 	ret = chid_from_smbios(&chid);
-	if (ret) {
-		printf("Failed to get CHID data from SMBIOS (err=%dE)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, SMBIOS_ERR, ret);
 
 	ret = chid_generate(variant, &chid, chid_bytes);
-	if (ret) {
-		printf("Failed to generate CHID variant %d (err=%dE)\n",
-		       variant, ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, GENERATE_ERR, variant, ret);
 
 	uuid_bin_to_str(chid_bytes, chid_str, UUID_STR_FORMAT_STD);
 	printf("%s: %s\n", chid_get_variant_name(variant), chid_str);
@@ -126,18 +121,15 @@ static int do_chid_compat(struct getopt_state *gs)
 	int ret;
 
 	ret = chid_select(&compat);
-	if (ret) {
-		printf("No compatible string found (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "No compatible string found (err=%d)\n",
+				ret);
 
 	printf("%s\n", compat);
 
 	ret = env_set("fdtcompat", compat);
-	if (ret) {
-		printf("Failed to set fdtcompat environment variable (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, ENV_SET_ERR, ret);
 
 	return 0;
 }
