@@ -21,8 +21,10 @@ obj-y += version.o
 obj-y += board_f.o
 obj-y += board_r.o
 ifdef CONFIG_SYS_THUMB_BUILD
+ifneq ($(CONFIG_SYS_ARM_ARCH),7)
 CFLAGS_REMOVE_board_f.o := $(LTO_CFLAGS)
 CFLAGS_REMOVE_board_r.o := $(LTO_CFLAGS)
+endif
 endif
 obj-$(CONFIG_DISPLAY_BOARDINFO) += board_info.o
 obj-$(CONFIG_DISPLAY_BOARDINFO_LATE) += board_info.o
