@@ -12,15 +12,15 @@ Synopsis
 ::
 
     bootmeth list [-a]          - list selected bootmeths (-a for all)
-    bootmeth order "[<bm> ...]" - select the order of bootmeths
+    bootmeth order ["<bm> ..."] - select the order of bootmeths
     bootmeth set <bootmeth> <property> <value> - set optional property
 
 
 Description
 -----------
 
-The `bootmeth` command is used to manage bootmeths. It can list them and change
-the order in which they are used.
+The `bootmeth` command is used to manage bootmeths. It can list them, change
+the order in which they are used and set a property of one of them.
 
 See :doc:`/develop/bootstd/index` for more information.
 
@@ -33,11 +33,18 @@ bootmeth order
 Selects which bootmeths to use and the order in which they are invoked. When
 scanning bootdevs, each bootmeth is tried in turn to see if it can find a valid
 bootflow. You can use this command to adjust the order or even to omit some
-boomeths.
+bootmeths.
 
 The argument is a quoted list of bootmeths to use, by name. If global bootmeths
 are included, they must be at the end, otherwise the scanning mechanism will not
 work correctly.
+
+With no argument at all the ordering is dropped, so that every bootmeth is used
+again, in sequence order.
+
+The command keeps the list in the `bootmeths` environment variable. Setting
+that variable has the same effect as using this command, since standard boot
+reads the new value as it is written.
 
 
 bootmeth list
@@ -51,9 +58,8 @@ Order  Seq  Name                Description
 =====  ===  ==================  =================================
     0    0  extlinux            Extlinux boot from a block device
     1    1  efi                 EFI boot from an .efi file
-    2    2  pxe                 PXE boot from a network device
-    3    3  sandbox             Sandbox boot for testing
- glob    4  efi_mgr             EFI bootmgr flow
+    2    2  vbe                 VBE A/B/recovery for OS
+ glob    3  firmware0           VBE simple
 =====  ===  ==================  =================================
 
 The fields are as follows:
@@ -73,30 +79,48 @@ Description:
     A friendly description for the bootmeth
 
 
+bootmeth set
+~~~~~~~~~~~~
+
+Allows setting of bootmeth specific configuration. This allows finer grain
+control over the boot process in specific instances.
+
+The following configuration options are currently supported:
+
+========  ===================  ========  ===============================
+Property  Supported bootmeths  Values    Description
+========  ===================  ========  ===============================
+fallback  extlinux, pxe        0 | 1     Enable or disable fallback path
+========  ===================  ========  ===============================
+
+A bootmeth which has no properties at all reports that its `set_property`
+method is missing.
+
+
 Example
 -------
 
-This shows listing bootmeths. All are present and in the normal order::
+This shows listing bootmeths on sandbox. All are present and in the normal
+order::
 
     => bootmeth list
     Order  Seq  Name                Description
     -----  ---  ------------------  ------------------
-        0    0  distro              Extlinux boot from a block device
+        0    0  extlinux            Extlinux boot from a block device
         1    1  efi                 EFI boot from an .efi file
-        2    2  pxe                 PXE boot from a network device
-        3    3  sandbox             Sandbox boot for testing
-        4    4  efi_mgr             EFI bootmgr flow
+        2    2  vbe                 VBE A/B/recovery for OS
+     glob    3  firmware0           VBE simple
     -----  ---  ------------------  ------------------
-    (5 bootmeths)
+    (4 bootmeths)
 
-Now the order is changed, to include only two of them::
+Now the order is changed, to include only two of them, with efi first::
 
-    => bootmeth order "sandbox distro"
+    => bootmeth order "efi extlinux"
     => bootmeth list
     Order  Seq  Name                Description
     -----  ---  ------------------  ------------------
-        0    3  sandbox             Sandbox boot for testing
-        1    0  distro              Extlinux boot from a block device
+        0    1  efi                 EFI boot from an .efi file
+        1    0  extlinux            Extlinux boot from a block device
     -----  ---  ------------------  ------------------
     (2 bootmeths)
 
@@ -106,32 +130,40 @@ which are not::
     => bootmeth list -a
     Order  Seq  Name                Description
     -----  ---  ------------------  ------------------
-        1    0  distro              Extlinux boot from a block device
-        -    1  efi                 EFI boot from an .efi file
-        -    2  pxe                 PXE boot from a network device
-        0    3  sandbox             Sandbox boot for testing
-        -    4  efi_mgr             EFI bootmgr flow
+        1    0  extlinux            Extlinux boot from a block device
+        0    1  efi                 EFI boot from an .efi file
+        -    2  vbe                 VBE A/B/recovery for OS
+     glob    3  firmware0           VBE simple
     -----  ---  ------------------  ------------------
-    (5 bootmeths)
+    (4 bootmeths)
 
+A name which no bootmeth has stops the command, leaving the ordering as it
+was::
 
-bootmeth set
-~~~~~~~~~~~~
+    => bootmeth order "efi fred"
+    Unknown bootmeth 'fred'
+    Failed (err=-19)
 
-Allows setting of bootmeth specific configuration. This allows finer grain
-control over the boot process in specific instances.
+With no argument every bootmeth is used again::
 
+    => bootmeth order
+    => bootmeth list
+    Order  Seq  Name                Description
+    -----  ---  ------------------  ------------------
+        0    0  extlinux            Extlinux boot from a block device
+        1    1  efi                 EFI boot from an .efi file
+        2    2  vbe                 VBE A/B/recovery for OS
+     glob    3  firmware0           VBE simple
+    -----  ---  ------------------  ------------------
+    (4 bootmeths)
 
-Supported Configuration Options
--------------------------------
+This enables the extlinux fallback path, then asks for a property which the
+bootmeth does not have::
 
-The following configuration options are currently supported:
-
-========  ===================  ======  ===============================
-Property  Supported Bootmeths  Values  Description
-========  ===================  ======  ===============================
-fallback  extlinux             0 | 1     Enable or disable fallback path
-========  ===================  ======  ===============================
+    => bootmeth set extlinux fallback 1
+    => bootmeth set extlinux fred 1
+    Invalid option
+    Failed (err=-22)
 
 
 Bootmeth set Example
@@ -148,3 +180,26 @@ after a failed update for example. So if `bootcmd` is set to::
 We would set "altbootcmd" to::
 
     bootmeth set extlinux fallback 1; bootflow scan -lb
+
+
+Return value
+------------
+
+The return value $? is 0 (true) if the command succeeds. It is 1 (false) if
+the arguments are wrong, if `bootmeth order` is given a name which no bootmeth
+has, or if `bootmeth set` is given fewer than three arguments, a bootmeth which
+does not exist or one which does not support the property or the value.
+
+For `bootmeth list` the return value is always 0, unless standard boot is
+unavailable.
+
+
+See also
+--------
+
+* :doc:`bootflow<bootflow>` for scanning with these bootmeths and booting what
+  they find
+* :doc:`bootdev<bootdev>` for the boot devices which each bootmeth scans
+* :doc:`bootstd<bootstd>` for the state which holds the bootmeth order
+* :doc:`vbe<vbe>` for the VBE bootmeths, which have settings of their own
+* :doc:`/develop/bootstd/index` for standard boot documentation
