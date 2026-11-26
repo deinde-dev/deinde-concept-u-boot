@@ -13,7 +13,7 @@ Synopsis
 
     luks detect <interface> <dev[:part]>
     luks info <interface> <dev[:part]>
-    luks unlock [-t] [-p] <interface> <dev[:part]> <passphrase>
+    luks unlock [-t | -p] <interface> <dev[:part]> <passphrase>
 
 Description
 -----------
@@ -26,7 +26,8 @@ This command supports:
 
 * Detection of LUKS encrypted partitions (LUKS1 and LUKS2)
 * Display of LUKS header information
-* Unlocking LUKS1 partitions with passphrase-based authentication
+* Unlocking LUKS1 and LUKS2 partitions with a passphrase, a pre-derived
+  master key or a TKey hardware token
 * Access to decrypted data via blkmap devices
 
 The LUKS format uses a distinctive header containing:
@@ -95,17 +96,21 @@ This command:
 2. Parses LUKS2 JSON metadata (if LUKS2) using FDT conversion
 3. Derives the encryption key:
 
-   - **Without -t**: Uses PBKDF2 or Argon2id with the provided passphrase
+   - **Without an option**: Uses PBKDF2 or Argon2id with the provided
+     passphrase
    - **With -t**: Uses TKey hardware token with passphrase as USS (User-Supplied
      Secret) to derive a disk encryption key. You can use 'tkey connect' to
      select which TKey to use, otherwise it uses the first one it finds.
+   - **With -p**: Takes the passphrase as the master key itself, so no key
+     derivation happens at all
 
 4. Attempts to unlock each active key slot
 5. Verifies the master key against the stored digest
 6. Creates a blkmap device providing on-the-fly decryption
 
 After successful unlock, the decrypted data is accessible through a blkmap
-device (typically ``blkmap 0``). Standard U-Boot filesystem commands can then
+device labelled ``luks-<interface>-<dev[:part]>``, whose number the command
+reports and ``blkmap info`` lists. Standard U-Boot filesystem commands can then
 be used to access files on the unlocked partition.
 
 **Supported LUKS versions:**
@@ -121,8 +126,11 @@ be used to access files on the unlocked partition.
 **Supported key derivation functions:**
 
 * **PBKDF2**: Traditional password-based key derivation (LUKS1 and LUKS2)
-* **Argon2id**: Memory-hard KDF resistant to GPU attacks (LUKS2 only, requires 
+* **Argon2id**: Memory-hard KDF resistant to GPU attacks (LUKS2 only, requires
   CONFIG_ARGON2)
+
+The two options choose how the key is obtained, so only one of them can be
+given.
 
 -t
     Optional flag to use TKey hardware security token. When specified, the
@@ -139,7 +147,8 @@ interface
     The storage interface type (e.g., mmc, usb, scsi)
 
 dev[:part]
-    The device number and optional partition number
+    The device number and optional partition number. If partition is omitted,
+    defaults to the whole device.
 
 passphrase
     The passphrase to unlock the LUKS partition. When using -t flag, this is
@@ -163,7 +172,8 @@ Check a USB device partition::
     => luks detect usb 0:1
     Not a LUKS partition (error -2: No such file or directory)
 
-Display LUKS header information for a LUKS2 partition::
+Display LUKS header information for a LUKS2 partition. The command shows the
+whole JSON metadata area, which this example cuts short::
 
     => luks info mmc 0:2
     Version:        2
@@ -189,7 +199,7 @@ Display LUKS header information for a LUKS2 partition::
           ...
         }
       },
-      "tokens": {},
+      "tokens": { ... },
       "segments": {
         "0": {
           "type": "crypt",
@@ -215,12 +225,8 @@ Display LUKS header information for a LUKS1 partition::
 Unlock a LUKS1 partition and access files::
 
     => luks unlock mmc 0:2 mypassword
-    Trying to unlock LUKS partition...
-    Key size: 32 bytes
-    Trying key slot 0...
-    Successfully unlocked with key slot 0!
+    Unlocking LUKS1 partition...
     Unlocked LUKS partition as blkmap device 'luks-mmc-0:2'
-    Access decrypted data via: blkmap 0
 
     => ls blkmap 0 /
                 ./
@@ -236,61 +242,63 @@ Unlock a LUKS1 partition and access files::
     => cat blkmap 0 /hello.txt
     Hello from LUKS!
 
+Report a passphrase which matches no key slot::
+
+    => luks unlock mmc 0:2 wrongpass
+    Unlocking LUKS1 partition...
+    Failed to unlock LUKS partition (err -13: Permission denied)
+
 Unlock and load a kernel from encrypted partition::
 
     => luks unlock mmc 0:2 ${rootfs_password}
-    Successfully unlocked with key slot 0!
+    Unlocking LUKS2 partition...
+    Unlocked LUKS partition as blkmap device 'luks-mmc-0:2'
 
     => ext4load blkmap 0 ${kernel_addr_r} /boot/vmlinuz
     5242880 bytes read in 123 ms (40.6 MiB/s)
 
     => bootz ${kernel_addr_r} - ${fdt_addr_r}
 
-Unlock using TKey hardware token::
+Unlock using a TKey hardware token, here the sandbox emulator, whose public
+key is fixed::
 
-    => luks unlock -t mmc 0:2 mypassword
-    Using TKey for disk encryption key
-    Loading TKey signer app (7168 bytes) with USS...
-    TKey public key: 3a b2 c4 ... (32 bytes)
-    TKey disk key derived successfully
+    => luks unlock -t mmc 0:2 test
     Unlocking LUKS2 partition...
-    Successfully unlocked with key slot 0!
+    Using TKey for disk encryption key
+    Loading TKey signer app (28024 bytes) with USS...
+    TKey public key:   50 51 52 53 54 55 56 57 58 59 5a 5b 5c 5d 5e 5f
+      50 51 52 53 54 55 56 57 58 59 5a 5b 5c 5d 5e 5f
+    TKey disk key derived successfully
+    TKey derived disk key:   e9 b0 59 92 68 ff 8b 08 3e f8 0d bd 04 be 20 7c
+      e9 a1 9a 60 a8 88 cc b3 fe 93 71 0a 0a 70 a3 4e
     Unlocked LUKS partition as blkmap device 'luks-mmc-0:2'
 
 Unlock using a pre-derived master key (hex-encoded)::
 
     => luks unlock -p mmc 0:2 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     Unlocking LUKS2 partition...
-    Successfully unlocked with key slot 0!
     Unlocked LUKS partition as blkmap device 'luks-mmc-0:2'
 
 Configuration
 -------------
 
-The luks command is available when CONFIG_CMD_LUKS is enabled.
+The command needs::
 
-For LUKS detection and info commands::
-
-    CONFIG_BLK_LUKS=y
-    CONFIG_CMD_LUKS=y
-
-For LUKS unlock functionality, additional options are required::
-
-    CONFIG_BLK_LUKS=y
-    CONFIG_CMD_LUKS=y
-    CONFIG_BLKMAP=y      # For blkmap device support
-    CONFIG_JSON=y        # For LUKS2 JSON metadata parsing (auto-selected by
-                         # CONFIG_BLK_LUKS)
-    CONFIG_AES=y         # For AES encryption
-    CONFIG_SHA256=y      # For SHA-256 hashing
-    CONFIG_PBKDF2=y      # For PBKDF2 key derivation
     CONFIG_MBEDTLS_LIB=y # For AES-XTS and mbedTLS crypto (LUKS2)
+    CONFIG_BLK_LUKS=y
+    CONFIG_CMD_LUKS=y
+    CONFIG_CMD_TKEY=y    # tkey_get_device(), which the -t flag calls
+
+CONFIG_BLK_LUKS selects the rest of what the command uses, so none of these
+need enabling by hand: CONFIG_BLKMAP for the device which gives access to the
+decrypted data, CONFIG_JSON for the LUKS2 metadata, and CONFIG_AES,
+CONFIG_SHA256 and CONFIG_PBKDF2 for the crypto.
 
 For Argon2id support (modern LUKS2 KDF)::
 
     CONFIG_ARGON2=y      # Argon2 password hashing (adds ~50KB to binary)
 
-For TKey hardware token support (requires -t flag)::
+For a TKey to be found at all, the board also needs a driver for it::
 
     CONFIG_TKEY=y        # TKey hardware security token support
 
