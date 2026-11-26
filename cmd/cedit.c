@@ -12,6 +12,7 @@
 #include <dm.h>
 #include <expo.h>
 #include <fs_legacy.h>
+#include <getopt.h>
 #include <malloc.h>
 #include <mapmem.h>
 #include <membuf.h>
@@ -30,9 +31,10 @@ static int check_cur_expo(void)
 	return 0;
 }
 
-static int do_cedit_load(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_cedit_load(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *fname;
 	struct expo *exp;
 	struct abuf buf;
@@ -70,13 +72,13 @@ static int do_cedit_load(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 #ifdef CONFIG_COREBOOT_SYSINFO
-static int do_cedit_cb_load(struct cmd_tbl *cmdtp, int flag, int argc,
-			    char *const argv[])
+static int do_cedit_cb_load(struct getopt_state *gs)
 {
 	struct expo *exp;
 	int ret;
 
-	if (argc > 1)
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->argc > 1)
 		return CMD_RET_USAGE;
 
 	ret = cb_expo_build(&exp);
@@ -91,9 +93,10 @@ static int do_cedit_cb_load(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif /* CONFIG_COREBOOT_SYSINFO */
 
-static int do_cedit_write_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_cedit_write_fdt(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *fname;
 	struct abuf buf;
 	loff_t bytes;
@@ -123,9 +126,10 @@ static int do_cedit_write_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cedit_read_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_cedit_read_fdt(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	const char *fname;
 	struct abuf buf;
 	oftree tree;
@@ -162,16 +166,27 @@ static int do_cedit_read_fdt(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cedit_write_env(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_cedit_write_env(struct getopt_state *gs)
 {
-	bool verbose;
-	int ret;
+	bool verbose = false;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	verbose = argc > 1 && !strcmp(argv[1], "-v");
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = cedit_write_settings_env(cur_exp, verbose);
 	if (ret) {
@@ -182,16 +197,27 @@ static int do_cedit_write_env(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cedit_read_env(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char *const argv[])
+static int do_cedit_read_env(struct getopt_state *gs)
 {
-	bool verbose;
-	int ret;
+	bool verbose = false;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	verbose = argc > 1 && !strcmp(argv[1], "-v");
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = cedit_read_settings_env(cur_exp, verbose);
 	if (ret) {
@@ -202,24 +228,28 @@ static int do_cedit_read_env(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cedit_write_cmos(struct cmd_tbl *cmdtp, int flag, int argc,
-			       char *const argv[])
+static int do_cedit_write_cmos(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	bool verbose = false;
-	int ret;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	if (argc > 1 && !strcmp(argv[1], "-v")) {
-		verbose = true;
-		argc--;
-		argv++;
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
-	if (argc > 1)
-		ret = uclass_get_device_by_name(UCLASS_RTC, argv[1], &dev);
+	if (gs->index < gs->argc)
+		ret = uclass_get_device_by_name(UCLASS_RTC,
+						gs->argv[gs->index], &dev);
 	else
 		ret = uclass_first_device_err(UCLASS_RTC, &dev);
 	if (ret) {
@@ -235,24 +265,28 @@ static int do_cedit_write_cmos(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cedit_read_cmos(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_cedit_read_cmos(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	bool verbose = false;
-	int ret;
+	int ret, opt;
 
 	if (check_cur_expo())
 		return CMD_RET_FAILURE;
 
-	if (argc > 1 && !strcmp(argv[1], "-v")) {
-		verbose = true;
-		argc--;
-		argv++;
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
 
-	if (argc > 1)
-		ret = uclass_get_device_by_name(UCLASS_RTC, argv[1], &dev);
+	if (gs->index < gs->argc)
+		ret = uclass_get_device_by_name(UCLASS_RTC,
+						gs->argv[gs->index], &dev);
 	else
 		ret = uclass_first_device_err(UCLASS_RTC, &dev);
 	if (ret) {
@@ -269,8 +303,7 @@ static int do_cedit_read_cmos(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_cedit_run(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_cedit_run(struct getopt_state *gs)
 {
 	ofnode node;
 	int ret;
@@ -298,8 +331,7 @@ static int do_cedit_run(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 #ifdef CONFIG_CMD_CEDIT_DUMP
-static int do_cedit_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_cedit_dump(struct getopt_state *gs)
 {
 	struct membuf mb;
 	char buf[256];
@@ -345,18 +377,18 @@ U_BOOT_LONGHELP(cedit,
 	"cedit run                                        - run config editor");
 
 U_BOOT_CMD_WITH_SUBCMDS(cedit, "Configuration editor", cedit_help_text,
-	U_BOOT_SUBCMD_MKENT(load, 5, 1, do_cedit_load),
+	U_BOOT_CMD_MKENT_NOOPTS(load, 5, 1, do_cedit_load, "", ""),
 #ifdef CONFIG_COREBOOT_SYSINFO
-	U_BOOT_SUBCMD_MKENT(cb_load, 5, 1, do_cedit_cb_load),
+	U_BOOT_CMD_MKENT_NOOPTS(cb_load, 5, 1, do_cedit_cb_load, "", ""),
 #endif
-	U_BOOT_SUBCMD_MKENT(read_fdt, 5, 1, do_cedit_read_fdt),
-	U_BOOT_SUBCMD_MKENT(write_fdt, 5, 1, do_cedit_write_fdt),
-	U_BOOT_SUBCMD_MKENT(read_env, 2, 1, do_cedit_read_env),
-	U_BOOT_SUBCMD_MKENT(write_env, 2, 1, do_cedit_write_env),
-	U_BOOT_SUBCMD_MKENT(read_cmos, 3, 1, do_cedit_read_cmos),
-	U_BOOT_SUBCMD_MKENT(write_cmos, 3, 1, do_cedit_write_cmos),
+	U_BOOT_CMD_MKENT_NOOPTS(read_fdt, 5, 1, do_cedit_read_fdt, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write_fdt, 5, 1, do_cedit_write_fdt, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(read_env, 2, 1, do_cedit_read_env, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(write_env, 2, 1, do_cedit_write_env, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(read_cmos, 3, 1, do_cedit_read_cmos, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(write_cmos, 3, 1, do_cedit_write_cmos, "", ""),
 #ifdef CONFIG_CMD_CEDIT_DUMP
-	U_BOOT_SUBCMD_MKENT(dump, 1, 1, do_cedit_dump),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 1, 1, do_cedit_dump, "", ""),
 #endif
-	U_BOOT_SUBCMD_MKENT(run, 1, 1, do_cedit_run),
+	U_BOOT_CMD_MKENT_NOOPTS(run, 1, 1, do_cedit_run, "", ""),
 );

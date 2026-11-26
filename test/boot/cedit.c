@@ -95,6 +95,36 @@ static int cedit_usage(struct unit_test_state *uts)
 }
 BOOTSTD_TEST(cedit_usage, UTF_CONSOLE);
 
+/* Check that the sub-commands refuse an option they do not take */
+static int cedit_opts(struct unit_test_state *uts)
+{
+	/* a sub-command which takes no options at all */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK)) {
+		ut_asserteq(1,
+			    run_command("cedit load -x hostfs - cedit.dtb", 0));
+		ut_assertok(check_usage(uts));
+	}
+
+	/* the rest need an editor, since they look for one before parsing */
+	ut_assertok(run_command("cedit load hostfs - cedit.dtb", 0));
+
+	/* an option which does not exist */
+	ut_asserteq(1, run_command("cedit read_cmos -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("cedit write_env -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* an argument which is not an option */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK)) {
+		ut_asserteq(1, run_command("cedit write_env fred", 0));
+		ut_assertok(check_usage(uts));
+	}
+
+	return 0;
+}
+BOOTSTD_TEST(cedit_opts, UTF_CONSOLE);
+
 /* Check the sub-commands which need an editor to have been loaded */
 static int cedit_no_expo(struct unit_test_state *uts)
 {
