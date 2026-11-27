@@ -156,6 +156,17 @@ The vbe-simple method has no recovery firmware::
     => vbe recovery
     VBE bootmeth 'firmware0' has no recovery firmware
 
+This shows the phases which used VBE, on a board where VPL loaded SPL with it
+and SPL then loaded U-Boot the same way::
+
+    => vbe state
+    Phases: VPL SPL
+
+A board which booted without VBE has no state to show::
+
+    => vbe state
+    No VBE state
+
 Configuration
 -------------
 
@@ -166,3 +177,13 @@ Return value
 ------------
 
 The return value $? is 0 (true) on success, 1 (false) on failure.
+
+See also
+--------
+
+* :doc:`bootmeth<bootmeth>` for all of the bootmeths, VBE and otherwise, and
+  the order they are tried in
+* :doc:`bootflow<bootflow>` for booting the OS which a VBE bootmeth finds
+* :doc:`bootstd<bootstd>` for the standard-boot state, which holds the
+  selection made by `vbe select`
+* :doc:`/develop/vbe` for how VBE works
