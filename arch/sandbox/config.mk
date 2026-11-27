@@ -64,6 +64,44 @@ cmd_u-boot__ = \
 	-Wl,--no-whole-archive \
 	$(RDYNAMIC) $(PLATFORM_LIBS) -Wl,-Map -Wl,u-boot.map -Wl,--gc-sections
 
+ifdef CONFIG_SANDBOX_WASM
+# wasm-ld has no linker scripts, so cannot sort the linker lists. Instead,
+# link U-Boot into a single relocatable object, sort the linker-list segments
+# in that with a script, then do the final link. Asyncify lets os_usleep()
+# return to the JavaScript event loop.
+WASM_LDFLAGS := -sINITIAL_MEMORY=512MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=1 \
+	-sMALLOC=emmalloc -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -O2
+
+# This produces a JavaScript loader called u-boot, along with u-boot.wasm,
+# which runs under node and can see the host's files
+cmd_u-boot__ = \
+	touch $(u-boot-main) ; \
+	$(LD) -r -o u-boot-unsorted.o $(u-boot-init) \
+	--whole-archive \
+		$(u-boot-main) \
+	--no-whole-archive && \
+	$(srctree)/scripts/wasm_sort_lists.py u-boot-unsorted.o \
+		u-boot-sorted.o && \
+	$(CC) -o $@ u-boot-sorted.o \
+	$(WASM_LDFLAGS) -sNODERAWFS=1 -sENVIRONMENT=node \
+	-Wl,-Map -Wl,u-boot.map
+
+# This produces u-boot-web.js and u-boot-web.wasm for use in a web page. The
+# devicetree is included, as /u-boot.dtb in the virtual filesystem.
+quiet_cmd_u-boot-web = WASMLD  $@
+cmd_u-boot-web = \
+	$(CC) -o $@ u-boot-sorted.o \
+	$(WASM_LDFLAGS) -sENVIRONMENT=web \
+	--embed-file u-boot.dtb@/u-boot.dtb
+
+u-boot-web.js: u-boot u-boot.dtb FORCE
+	$(call if_changed,u-boot-web)
+
+# objdump cannot read the loader, so take the symbols from the object which
+# the loader is linked from. The Python tests use this to find unit tests.
+cmd_sym = $(OBJDUMP) -t u-boot-sorted.o > $@
+endif
+
 cmd_u-boot-spl = (cd $(obj) && \
 	touch $(patsubst $(obj)/%,%,$(u-boot-spl-main)) && \
 	$(CC) -o $(XPL_BIN) -Wl,-T u-boot-spl.lds \
