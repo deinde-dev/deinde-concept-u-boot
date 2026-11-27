@@ -543,6 +543,7 @@ config CMD_SEAMA
 
 config CMD_UPL
 	bool "upl - Universal Payload Specification"
+	select GETOPT
 	help
 	  Provides commands to deal with UPL payloads and handoff information.
 	  U-Boot supports generating and accepting handoff information. The

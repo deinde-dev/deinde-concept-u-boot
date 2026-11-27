@@ -13,23 +13,38 @@
 #include <command.h>
 #include <display_options.h>
 #include <env.h>
+#include <getopt.h>
 #include <mapmem.h>
-#include <string.h>
 #include <upl.h>
 #include <dm/ofnode.h>
 #include <test/ut.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static int do_upl_info(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_upl_info(struct getopt_state *gs)
 {
 	const struct upl *upl = gd_upl();
+	bool verbose = false;
+	int opt;
+
+	while ((opt = getopt(gs, "+v")) > 0) {
+		switch (opt) {
+		case 'v':
+			verbose = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
+	}
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	printf("UPL state: %sactive\n", upl ? "" : "in");
 	if (!upl)
 		return 0;
-	if (argc > 1 && !strcmp("-v", argv[1])) {
+	if (verbose) {
 		int i;
 
 		printf("fit %lx\n", upl->fit);
@@ -47,8 +62,7 @@ static int do_upl_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_upl_write(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_upl_write(struct getopt_state *gs)
 {
 	struct upl s_upl, *upl = &s_upl;
 	struct unit_test_state uts = { 0 };
@@ -86,17 +100,16 @@ static int do_upl_write(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_upl_read(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_upl_read(struct getopt_state *gs)
 {
 	struct upl s_upl, *upl = &s_upl;
 	oftree tree;
 	ulong addr;
 	int ret;
 
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
-	addr = hextoul(argv[1], NULL);
+	addr = hextoul(gs->argv[1], NULL);
 
 	printf("Reading UPL at %lx\n", addr);
 	tree = oftree_from_fdt(map_sysmem(addr, 0));
@@ -116,6 +129,6 @@ U_BOOT_LONGHELP(upl,
 	"upl write         - Write handoff information");
 
 U_BOOT_CMD_WITH_SUBCMDS(upl, "Universal Payload support", upl_help_text,
-	U_BOOT_SUBCMD_MKENT(info, 2, 1, do_upl_info),
-	U_BOOT_SUBCMD_MKENT(read, 2, 1, do_upl_read),
-	U_BOOT_SUBCMD_MKENT(write, 1, 1, do_upl_write));
+	U_BOOT_CMD_MKENT_GETOPT(info, 2, 1, do_upl_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read, 2, 1, do_upl_read, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(write, 1, 1, do_upl_write, "", ""));

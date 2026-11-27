@@ -441,6 +441,36 @@ static int upl_test_read_write(struct unit_test_state *uts)
 }
 UPL_TEST(upl_test_read_write, UTF_CONSOLE);
 
+/* Test the options the command refuses */
+static int upl_test_options(struct unit_test_state *uts)
+{
+	/* info takes only -v */
+	ut_asserteq(1, run_command("upl info -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/*
+	 * The rest are refused by cmd_invoke_rep() and by the stray-argument
+	 * check, both of which CONFIG_CMD_ARG_CHECK can turn off
+	 */
+	if (!IS_ENABLED(CONFIG_CMD_ARG_CHECK))
+		return 0;
+
+	/* nor does it take a word which is not an option */
+	ut_asserteq(1, run_command("upl info foo", 0));
+	ut_assertok(check_usage(uts));
+
+	/* read wants an address, so an option is not one */
+	ut_asserteq(1, run_command("upl read -1000", 0));
+	ut_assertok(check_usage(uts));
+
+	/* write takes no option at all */
+	ut_asserteq(1, run_command("upl write -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+UPL_TEST(upl_test_options, UTF_CONSOLE);
+
 /* Test reading a handoff from an address which holds no handoff */
 static int upl_test_read_bad(struct unit_test_state *uts)
 {
