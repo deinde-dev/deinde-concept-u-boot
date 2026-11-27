@@ -226,6 +226,7 @@ ifdef CONFIG_CMD_USB
 obj-y += usb.o
 obj-$(CONFIG_USB_STORAGE) += usbboot.o
 endif
+obj-$(CONFIG_CMD_VBE) += vbe.o
 ifdef CONFIG_VIRTIO_SANDBOX_EMUL
 obj-$(CONFIG_CMD_VIRTIO) += virtio.o
 endif

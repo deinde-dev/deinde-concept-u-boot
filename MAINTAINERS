@@ -2020,6 +2020,7 @@ F:	cmd/vbe.c
 F:	doc/usage/cmd/vbe.rst
 F:	include/vbe.h
 F:	test/boot/vbe_abrec.c
+F:	test/cmd/vbe.c
 F:	test/py/tests/test_vbe_abrec_lab.py
 
 VIDEO
