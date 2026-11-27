@@ -176,6 +176,7 @@ obj-$(CONFIG_CMD_AES) += aes.o
 obj-$(CONFIG_CMD_BIND) += bind.o
 obj-$(CONFIG_CMD_BOOTCTL) += bootctl.o
 obj-$(CONFIG_CMD_BOOTI) += booti.o
+obj-$(CONFIG_CMD_BOOTM) += bootm.o
 obj-$(CONFIG_CMD_BOOTZ) += bootz.o
 obj-$(CONFIG_CMD_CPU) += cpu.o
 obj-$(CONFIG_CMD_ELF) += bootelf.o
