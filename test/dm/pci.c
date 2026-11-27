@@ -296,10 +296,14 @@ static int dm_test_pci_ea(struct unit_test_state *uts)
 	bar = dm_pci_map_bar(swap, PCI_BASE_ADDRESS_3, 0, 0, PCI_REGION_TYPE, 0);
 	ut_assertnull(bar);
 
-	bar = dm_pci_map_bar(swap, PCI_BASE_ADDRESS_4, 0, 0x100000ffff,
-			     PCI_REGION_TYPE, 0);
-	ut_assertnonnull(bar);
-	ut_asserteq(PCI_EA_BAR4_MAGIC, *(u32 *)bar);
+	/* the emulator only provides BAR4 on a 64-bit host */
+	if (IS_ENABLED(CONFIG_HOST_64BIT)) {
+		bar = dm_pci_map_bar(swap, PCI_BASE_ADDRESS_4, 0,
+				     (size_t)0x100000ffffULL, PCI_REGION_TYPE,
+				     0);
+		ut_assertnonnull(bar);
+		ut_asserteq(PCI_EA_BAR4_MAGIC, *(u32 *)bar);
+	}
 
 	return 0;
 }
