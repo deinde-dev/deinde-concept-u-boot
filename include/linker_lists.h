@@ -29,6 +29,17 @@
 #define llsym(_type, _name, _list) \
 		((_type *)&_u_boot_list_2_##_list##_2_##_name)
 
+/*
+ * wasm-ld has no linker script with which to keep the entries, so each must
+ * be marked as needed. The sections are sorted by scripts/wasm_sort_lists.py
+ * rather than by the linker.
+ */
+#ifdef __wasm__
+#define __ll_keep	__attribute__((used, retain))
+#else
+#define __ll_keep
+#endif
+
 /**
  * ll_entry_declare() - Declare linker-generated array entry
  * @_type:	Data type of the entry
@@ -68,7 +79,7 @@
  *   };
  */
 #define ll_entry_declare(_type, _name, _list)				\
-	_type _u_boot_list_2_##_list##_2_##_name __aligned(4)		\
+	_type _u_boot_list_2_##_list##_2_##_name __aligned(4) __ll_keep	\
 			__section("__u_boot_list_2_"#_list"_2_"#_name)
 
 /**
@@ -91,6 +102,7 @@
  */
 #define ll_entry_declare_list(_type, _name, _list)			\
 	_type _u_boot_list_2_##_list##_2_##_name[] __aligned(4)		\
+			__ll_keep					\
 			__section("__u_boot_list_2_"#_list"_2_"#_name)
 
 /*
