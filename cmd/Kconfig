@@ -438,6 +438,7 @@ config CMD_BOOTM
 	depends on BOOT
 	depends on LMB
 	default y
+	select GETOPT
 	select LIB_BOOTM
 	help
 	  Boot an application image from the memory.
