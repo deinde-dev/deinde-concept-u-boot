@@ -73,6 +73,10 @@ RE_GIT_STAT_FILE = re.compile(r'^([^|]+)\s*\|')
 # Extract hash from line like "(cherry picked from commit abc123def)"
 RE_CHERRY_PICK = re.compile(r'cherry picked from commit ([a-f0-9]+)')
 
+# The line which 'git cherry-pick -x' adds, which nothing else should match
+RE_PICK_LINE = re.compile(r'^\(cherry picked from commit ([0-9a-f]{40})\)$',
+                          re.MULTILINE)
+
 # Detect subtree merge commits on the first-parent chain
 RE_SUBTREE_MERGE = re.compile(
     r"Subtree merge tag '([^']+)' of .* into (.*)")
@@ -653,6 +657,84 @@ def build_applied_map(commits, target_branch='ci/master'):
         tout.info(f'Found {len(applied_map)} potentially already applied'
                   ' commit(s)')
     return applied_map
+
+
+def find_missing(commits, branch_name, applied_map, external_paths):
+    """Find the commits of a set which are not on its branch
+
+    The agent may stop part-way through a set, e.g. on a conflict it cannot
+    resolve, and still report success. Recording the whole set as applied
+    would then lose the rest of it, so look on the branch for the line which
+    'git cherry-pick -x' adds for each commit.
+
+    Some commits have no such line and need none: one which the agent may
+    skip since it is already on the target, a savedefconfig resync which
+    qconfig.py makes again, and one which only changes tools maintained as
+    separate projects, which the agent drops.
+
+    Args:
+        commits (list of CommitInfo): Commits in the set
+        branch_name (str): Branch holding the picks
+        applied_map (dict): Commits which may already be on the target, from
+            build_applied_map()
+        external_paths (list of str): Paths of tools which are maintained as
+            separate projects
+
+    Returns:
+        list of CommitInfo: Commits which are not on the branch, in order
+    """
+    log = run_git(['log', '--format=%B', f'{BRANCH_MASTER}..{branch_name}'])
+    picked = set(RE_PICK_LINE.findall(log))
+    missing = []
+    for commit in commits:
+        if (commit.hash in picked or commit.hash in applied_map or
+                agent.is_qconfig_commit(commit.subject)):
+            continue
+        files = extern.changed_files(commit.hash) if external_paths else []
+        if files and all(any(extern.is_under(fname, path)
+                             for path in external_paths) for fname in files):
+            continue
+        missing.append(commit)
+    return missing
+
+
+def report_missing(branch_name, commits, missing):
+    """Say which commits of a set are not on its branch
+
+    Args:
+        branch_name (str): Branch holding the picks
+        commits (list of CommitInfo): Commits in the set
+        missing (list of CommitInfo): Result from find_missing()
+    """
+    if not missing:
+        return
+    if len(missing) == len(commits):
+        tout.warning(f'{branch_name}: none of the commits is on the branch')
+        return
+    tout.warning(f'{branch_name}: {len(missing)} of the {len(commits)} '
+                 'commit(s) are not on the branch, so are parked:')
+    for commit in missing[:5]:
+        tout.warning(f'  {commit.chash} {commit.subject}')
+    if len(missing) > 5:
+        tout.warning(f'  ... and {len(missing) - 5} more')
+
+
+def missing_note(missing):
+    """Describe the commits of a set which are not on its branch
+
+    Args:
+        missing (list of CommitInfo): Result from find_missing()
+
+    Return:
+        str: Text to add to the merge request, or '' if none is missing
+    """
+    if not missing:
+        return ''
+    out = ['### Not picked', '',
+           'These commits are not on the branch, so they are parked as '
+           "conflicts, for 'pickman parked --retry' to take again:", '']
+    out += [f'- `{commit.chash}` {commit.subject}' for commit in missing]
+    return '\n'.join(out) + '\n\n'
 
 
 def show_commit_diff(res, no_colour=False):
@@ -4673,24 +4755,27 @@ def handle_already_applied(dbs, source, commits, branch_name, conv_log, args,
 
 
 # pylint: disable-next=too-many-arguments
-def _apply_description(source, commits, branch_name, shared, port, conv_log):
+def _apply_description(source, commits, branch_name, shared, port, conv_log,
+                       missing):
     """Build the description of the merge request for a set of commits
 
     Args:
         source (str): Source branch name
-        commits (list): List of CommitInfo namedtuples
+        commits (list): List of CommitInfo namedtuples on the branch
         branch_name (str): Branch name for cherry-picks
         shared (dict): Files also touched by parked conflicts, from
             parked_overlap()
         port (extern.PortResult): Result of porting changes to separate
             projects
         conv_log (str): The agent's conversation output
+        missing (list): CommitInfo namedtuples of the commits in the set which
+            are not on the branch
 
     Returns:
         str: Description
     """
     summary = format_history(source, commits, branch_name)
-    note = parked_overlap_note(shared)
+    note = missing_note(missing) + parked_overlap_note(shared)
     ext_note = ''
     if port.urls:
         ext_note = 'Changes to separate projects:\n'
@@ -4721,8 +4806,9 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
             to skip source advancement (sub-merge batch)
 
     Returns:
-        tuple: (ret, success, conv_log) where ret is 0 on success,
-            1 on failure
+        tuple: (ret, picked, conv_log) where ret is 0 on success, 1 on
+            failure, and picked is a list of the CommitInfo namedtuples on the
+            branch, empty if there is no branch to push
     """
     # A change to a tool which has moved out of the tree has to go to its own
     # project, so stop before recording anything if pickman does not know
@@ -4733,7 +4819,7 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
             tout.error(f'{name} is maintained as a separate project, but '
                        f'{gitlab_api.CONFIG_FILE} has no [external:{name}] '
                        'section (see the README)')
-        return 1, False, ''
+        return 1, [], ''
 
     # Likewise, stop if pickman cannot open a pull request in one of them
     if args.push:
@@ -4741,7 +4827,7 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
         for problem in problems:
             tout.error(problem)
         if problems:
-            return 1, False, ''
+            return 1, [], ''
 
     # Check for already applied commits before proceeding
     applied_map = build_applied_map(commits)
@@ -4771,7 +4857,7 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
     port = extern.port_commits(commits, branch_name, source, args.push)
     if not port.ok:
         set_status(dbs, [c.hash for c in commits], 'conflict')
-        return 1, False, ''
+        return 1, [], ''
     if not port.tree_needed:
         tout.info('All changes are in separate projects, so there is nothing '
                   'to cherry-pick here')
@@ -4780,7 +4866,7 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
         if advance_to is not None:
             dbs.source_set(source, advance_to)
         dbs.commit()
-        return 0, False, ''
+        return 0, [], ''
 
     # Convert CommitInfo to AgentCommit format expected by agent
     agent_commits = [AgentCommit(c.hash, c.chash, c.subject,
@@ -4795,7 +4881,7 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
         ret = handle_already_applied(dbs, source, commits, branch_name,
                                      conv_log, args, signal_commit,
                                      advance_to)
-        return ret, False, conv_log
+        return ret, [], conv_log
 
     # Verify the branch actually exists - agent may have aborted and deleted it
     if success:
@@ -4822,18 +4908,25 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
     # This tree has its own version numbers, so never take upstream's
     success = success and keep_version_ok(BRANCH_MASTER, branch_name)
 
-    ret = 0 if success else 1
-    if not success:
-        set_status(dbs, [c.hash for c in commits], 'conflict')
+    # Only the commits which are really on the branch go in the merge request
+    missing = (find_missing(commits, branch_name, applied_map, port.paths)
+               if success else [])
+    picked = [c for c in commits if c not in missing] if success else []
+    report_missing(branch_name, commits, missing)
 
-    if success:
+    ret = 0 if picked else 1
+    if missing or not picked:
+        set_status(dbs, [c.hash for c in commits if c not in picked],
+                   'conflict')
+
+    if picked:
         # Push and create MR if requested
         if args.push:
-            title = f'[pickman] {commits[-1].subject}'
-            description = _apply_description(source, commits, branch_name,
-                                             shared, port, conv_log)
+            title = f'[pickman] {picked[-1].subject}'
+            description = _apply_description(source, picked, branch_name,
+                                             shared, port, conv_log, missing)
             mr_url = push_mr(args, branch_name, title, description)
-            hashes = [c.hash for c in commits]
+            hashes = [c.hash for c in picked]
             if mr_url:
                 record_mr(dbs, source, branch_name, mr_url, hashes)
             else:
@@ -4849,11 +4942,11 @@ def execute_apply(dbs, source, commits, branch_name, args, advance_to=None):  # 
     # Move on once the set is in a merge request, or recorded as unpushed so
     # that it is not lost. Running the agent again each time a push fails
     # would not help
-    if success and args.push and advance_to is not None:
+    if picked and args.push and advance_to is not None:
         dbs.source_set(source, advance_to)
         dbs.commit()
 
-    return ret, success, conv_log
+    return ret, picked, conv_log
 
 
 def do_apply(args, dbs, info=None):
@@ -4878,12 +4971,12 @@ def do_apply(args, dbs, info=None):
     branch_name = info.branch_name
     original_branch = info.original_branch
 
-    ret, success, conv_log = execute_apply(dbs, source, commits,
-                                           branch_name, args,
-                                           info.advance_to)
+    ret, picked, conv_log = execute_apply(dbs, source, commits,
+                                          branch_name, args,
+                                          info.advance_to)
 
     # Write history file if successful
-    if success and not write_history(source, commits, branch_name, conv_log):
+    if picked and not write_history(source, picked, branch_name, conv_log):
         ret = 1
 
     # Return to original branch
