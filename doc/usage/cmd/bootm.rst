@@ -15,7 +15,7 @@ Synopsis
     bootm [start|restart] [[<fit_addr>]:<os_subimg>] [[<fit_addr2>]:<rd_subimg2>] [[<fit_addr3>]:<fdt_subimg>]
     bootm <subcmd>
 
-    bootm <addr1> [[<addr2> [<addr3>]]    # Legacy boot
+    bootm <addr1> [<addr2> [<addr3>]]    # Legacy boot
 
 Description
 -----------
@@ -76,8 +76,10 @@ preload
     Deal with any preload step, sometimes used to do a full signature check of
     the FIT, before looking at any of the data within.
 
-    This cannot be selected from the bootm command, as it is implicit in
-    `start`.
+    This state is implicit in `start`. Where
+    `CONFIG_CMD_BOOTM_PRE_LOAD` is enabled it can also be selected on its
+    own, in which case it records the address it has checked in the
+    `loadaddr_verified` environment variable.
 
 findos
     Find the OS within the FIT, etc. and set up the images.os fields
@@ -130,12 +132,11 @@ prep
     are required. After this the OS itself is ready to boot.
 
 fake
-    This is only used for testing and only available when `CONFIG_BOOTM_FAKE_GO`
-    is
-    enabled. It fakes a boot of the OS, performs all the normal steps right up
-    to the point where U-Boot is about to jump to the OS. It then runs a list
-    of commands from the `fakegocmd` environment variable. Note that the
-    machine may not be stable after this occurs.
+    This is only used for testing and only available when
+    `CONFIG_BOOTM_FAKE_GO` is enabled. It fakes a boot of the OS, performs all
+    the normal steps right up to the point where U-Boot is about to jump to
+    the OS. It then runs a list of commands from the `fakegocmd` environment
+    variable. Note that the machine may not be stable after this occurs.
 
     This can be useful for debugging slow booting, for example. See
     :doc:`/develop/trace` for more details.
@@ -152,6 +153,15 @@ The first command must be `bootm start` after which the others can be used,
 normally in the order they are documented above. This can aid debugging but it
 can also help to see what happens at each stage and the state of U-Boot and
 memory after each stage.
+
+Which sub-commands exist depends on the configuration: `preload` needs
+`CONFIG_CMD_BOOTM_PRE_LOAD`, `ramdisk` needs `CONFIG_SYS_BOOT_RAMDISK_HIGH`,
+`fdt` needs `CONFIG_OF_LIBFDT` and `fake` needs `CONFIG_BOOTM_FAKE_GO`. The
+*help bootm* output lists the ones which are available.
+
+A name which is not a sub-command at all, and a sub-command which asks for a
+state the boot has already passed, both show the usage message. The second
+also reports that the state is out of order.
 
 See below for legacy boot. Booting using :doc:`../fit/index` is recommended.
 
@@ -361,6 +371,8 @@ at <addr1>, without initrd, and pass FDT blob <subimg3> from the image at
 
 Boot method: FDT
 
+::
+
     15. bootm [<addr1>]:<subimg1> -              <addr3>
 
 Similar to case 14, the difference being that <addr3> is the address
@@ -391,7 +403,7 @@ some other new uImage stored at address 800000::
 
     bootm 200000:kernel-1 800000:ramdisk-2
 
-boot "kernel-2" from a new uImage at 200000, with initrd "ramdisk-1" and FDT
+boot "kernel-1" from a new uImage at 200000, with initrd "ramdisk-1" and FDT
 "fdt-1", both stored in some other new uImage located at 800000::
 
     bootm 200000:kernel-1 800000:ramdisk-1 800000:fdt-1
@@ -405,6 +417,18 @@ boot kernel "kernel-2" from new uImage at 200000 with FDT "fdt-1" from the
 same new uImage::
 
     bootm 200000:kernel-2 - 200000:fdt-1
+
+Return value
+------------
+
+A successful boot does not return, since control passes to the OS. Where the
+OS hands control back, or the board cannot start it, the return value $? is 0
+(true).
+
+It is 1 (false) when there is nothing to boot: no image at the address, a bad
+checksum, an OS or architecture which this board cannot start, or a state which
+fails. It is 1 as well for a sub-command which is not recognised or which is
+out of order, both of which show the usage message.
 
 See also
 --------

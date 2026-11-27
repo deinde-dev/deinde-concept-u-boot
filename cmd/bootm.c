@@ -53,7 +53,9 @@ static struct cmd_tbl cmd_bootm_sub[] = {
 	U_BOOT_CMD_MKENT(cmdline, 0, 1, (void *)BOOTM_STATE_OS_CMDLINE, "", ""),
 	U_BOOT_CMD_MKENT(bdt, 0, 1, (void *)BOOTM_STATE_OS_BD_T, "", ""),
 	U_BOOT_CMD_MKENT(prep, 0, 1, (void *)BOOTM_STATE_OS_PREP, "", ""),
+#ifdef CONFIG_BOOTM_FAKE_GO
 	U_BOOT_CMD_MKENT(fake, 0, 1, (void *)BOOTM_STATE_OS_FAKE_GO, "", ""),
+#endif
 	U_BOOT_CMD_MKENT(go, 0, 1, (void *)BOOTM_STATE_OS_GO, "", ""),
 };
 
@@ -107,7 +109,7 @@ static int bootm_subcommand(int argc, char *const argv[])
 
 	if (((state & BOOTM_STATE_START) != BOOTM_STATE_START) &&
 	    images.state >= state) {
-		printf("Trying to execute a command out of order\n");
+		cmd_err("Trying to execute a command out of order\n");
 		return -EINVAL;
 	}
 
@@ -180,11 +182,11 @@ int bootm_boot_args(int argc, char *const argv[])
 	return ret ? -EIO : 0;
 }
 
-int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
+static int do_bootm(struct getopt_state *gs)
 {
 	int ret;
 
-	ret = bootm_boot_args(argc - 1, argv + 1);
+	ret = bootm_boot_args(gs->argc - 1, gs->argv + 1);
 	if (ret == -EINVAL)
 		return CMD_RET_USAGE;
 
@@ -241,12 +243,12 @@ U_BOOT_LONGHELP(bootm,
 	"\tcmdline - OS specific command line processing/setup\n"
 	"\tbdt     - OS specific bd_info processing\n"
 	"\tprep    - OS specific prep before relocation or go\n"
-#if defined(CONFIG_TRACE)
+#if defined(CONFIG_BOOTM_FAKE_GO)
 	"\tfake    - OS specific fake start without go\n"
 #endif
 	"\tgo      - start OS");
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	bootm,	CONFIG_SYS_MAXARGS,	1,	do_bootm,
 	"boot application image from memory", bootm_help_text
 );
