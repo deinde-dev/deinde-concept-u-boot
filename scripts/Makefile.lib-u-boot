@@ -11,12 +11,16 @@ quiet_cmd_S_ttf= TTF     $@
 # Modified for U-Boot
 cmd_S_ttf=						\
 (							\
-	echo '.section .rodata.ttf.init,"a"';		\
+	echo '.section .rodata.ttf.init,$(incbin_flags)';		\
 	echo '.balign 16';				\
 	echo '.global __ttf_$(*F)_begin';		\
+	$(call incbin_obj,__ttf_$(*F)_begin)		\
 	echo '__ttf_$(*F)_begin:';			\
 	echo '.incbin "$(src)/$(notdir $<)" ';				\
+	$(call incbin_size,__ttf_$(*F)_begin,. - __ttf_$(*F)_begin)				\
+	$(call incbin_obj,__ttf_$(*F)_end)			\
 	echo '__ttf_$(*F)_end:';			\
+	$(call incbin_size,__ttf_$(*F)_end,0)			\
 	echo '.global __ttf_$(*F)_end';			\
 	echo '.balign 16';				\
 ) > $@
@@ -31,12 +35,16 @@ $(obj)/%.ttf.S: $(src)/%.ttf FORCE
 quiet_cmd_S_signer= SIGNER  $@
 cmd_S_signer=						\
 (							\
-	echo '.section .rodata.signer.init,"a"';	\
+	echo '.section .rodata.signer.init,$(incbin_flags)';	\
 	echo '.balign 16';				\
 	echo '.global __signer_$(subst .,_,$(*F))_begin';		\
+	$(call incbin_obj,__signer_$(subst .,_,$(*F))_begin)		\
 	echo '__signer_$(subst .,_,$(*F))_begin:';			\
 	echo '.incbin "$(src)/$(notdir $<)" ';				\
+	$(call incbin_size,__signer_$(subst .,_,$(*F))_begin,. - __signer_$(subst .,_,$(*F))_begin)				\
+	$(call incbin_obj,__signer_$(subst .,_,$(*F))_end)			\
 	echo '__signer_$(subst .,_,$(*F))_end:';			\
+	$(call incbin_size,__signer_$(subst .,_,$(*F))_end,0)			\
 	echo '.global __signer_$(subst .,_,$(*F))_end';		\
 	echo '.balign 16';				\
 ) > $@
@@ -52,12 +60,16 @@ quiet_cmd_S_splash= SPLASH  $@
 # Modified for U-Boot
 cmd_S_splash=						\
 (							\
-	echo '.section .rodata.splash.init,"a"';		\
+	echo '.section .rodata.splash.init,$(incbin_flags)';		\
 	echo '.balign 16';				\
 	echo '.global __splash_$(*F)_logo_begin';		\
+	$(call incbin_obj,__splash_$(*F)_logo_begin)		\
 	echo '__splash_$(*F)_logo_begin:';			\
 	echo '.incbin "$(src)/$(notdir $<)" ';				\
+	$(call incbin_size,__splash_$(*F)_logo_begin,. - __splash_$(*F)_logo_begin)				\
+	$(call incbin_obj,__splash_$(*F)_logo_end)			\
 	echo '__splash_$(*F)_logo_end:';			\
+	$(call incbin_size,__splash_$(*F)_logo_end,0)			\
 	echo '.global __splash_$(*F)_logo_end';			\
 	echo '.balign 16';				\
 ) > $@
@@ -71,12 +83,16 @@ quiet_cmd_S_image= IMAGE   $@
 cmd_S_image=						\
 (							\
 	echo '\#include <video_defs.h>';		\
-	echo '.section .rodata.image.init,"a"';		\
+	echo '.section .rodata.image.init,$(incbin_flags)';		\
 	echo '.balign 16';				\
 	echo '.global __image_$(*F)_begin';		\
+	$(call incbin_obj,__image_$(*F)_begin)		\
 	echo '__image_$(*F)_begin:';			\
 	echo '.incbin "$(src)/$(notdir $<)" ';				\
+	$(call incbin_size,__image_$(*F)_begin,. - __image_$(*F)_begin)				\
+	$(call incbin_obj,__image_$(*F)_end)			\
 	echo '__image_$(*F)_end:';			\
+	$(call incbin_size,__image_$(*F)_end,0)			\
 	echo '.global __image_$(*F)_end';		\
 	echo '.balign 16';				\
 	echo '';					\
@@ -111,12 +127,16 @@ endif
 # Generate an assembly file to wrap the EFI app
 cmd_S_efi=					\
 (						\
-	echo '.section .rodata.$*.init,"a"';	\
+	echo '.section .rodata.$*.init,$(incbin_flags)';	\
 	echo '.balign 16';			\
 	echo '.global __efi_$*_begin';		\
+	$(call incbin_obj,__efi_$*_begin)		\
 	echo '__efi_$*_begin:';			\
 	echo '.incbin "$(src)/$(notdir $<)" ';			\
+	$(call incbin_size,__efi_$*_begin,. - __efi_$*_begin)			\
+	$(call incbin_obj,__efi_$*_end)			\
 	echo '__efi_$*_end:';			\
+	$(call incbin_size,__efi_$*_end,0)			\
 	echo '.global __efi_$*_end';		\
 	echo '.balign 16';			\
 ) > $@
