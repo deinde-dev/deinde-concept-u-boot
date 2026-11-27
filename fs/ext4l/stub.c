@@ -346,8 +346,9 @@ int inode_generic_drop(struct inode *inode)
 /* trace_ext4_drop_inode is now a macro in ext4_uboot.h */
 
 /* Shutdown stub */
-void ext4_force_shutdown(void *sb, int flags)
+int ext4_force_shutdown(struct super_block *sb, u32 flags)
 {
+	return 0;
 }
 
 /* Memory stubs */
