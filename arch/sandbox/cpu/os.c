@@ -602,6 +602,10 @@ void *os_realloc(void *ptr, size_t length)
 
 void os_usleep(unsigned long usec)
 {
+	if (IS_ENABLED(CONFIG_SANDBOX_WASM)) {
+		os_wasm_sleep(usec);
+		return;
+	}
 	usleep(usec);
 }
 

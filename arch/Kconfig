@@ -188,7 +188,7 @@ config RISCV
 config SANDBOX
 	bool "Sandbox"
 	select HAVE_SETJMP
-	select HAVE_INITJMP
+	select HAVE_INITJMP if !SANDBOX_WASM
 	select ARCH_SUPPORTS_LTO
 	select AXI
 	select BOARD_LATE_INIT

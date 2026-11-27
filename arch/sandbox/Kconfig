@@ -27,6 +27,7 @@ config SANDBOX_RAM_SIZE_MB
 
 config SANDBOX_MMAP_ADDR
 	hex "Address hint for memory allocated from the host"
+	default 0 if SANDBOX_WASM
 	default 0x10000000
 	help
 	  Sandbox allocates memory for its own use, such as the devicetree
