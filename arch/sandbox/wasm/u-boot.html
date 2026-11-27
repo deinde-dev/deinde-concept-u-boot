@@ -1,0 +1,91 @@
+<!doctype html>
+<!--
+  SPDX-License-Identifier: GPL-2.0+
+  Web page which runs U-Boot sandbox built as WebAssembly
+
+  Copyright 2026 Simon Glass <sjg@chromium.org>
+
+  Serve this from the build directory, next to u-boot-web.js and
+  u-boot-web.wasm, e.g. with 'python3 -m http.server'
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U-Boot sandbox</title>
+<link rel="stylesheet"
+ href="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.5.0/xterm.css">
+<style>
+  body { margin: 0; padding: 16px; background: #14171c; color: #cfd6df;
+         font-family: system-ui, sans-serif; }
+  header { display: flex; gap: 12px; align-items: baseline;
+           margin-bottom: 12px; flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  #status { font-size: 13px; color: #8b97a6; }
+  button { margin-left: auto; padding: 4px 12px; }
+  #term { padding: 8px; background: #000; border-radius: 6px;
+          overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>U-Boot sandbox</h1>
+  <span id="status">loading…</span>
+  <button id="restart" type="button">Restart</button>
+</header>
+<div id="term"></div>
+<script
+ src="https://cdnjs.cloudflare.com/ajax/libs/xterm/5.5.0/xterm.js"></script>
+<script>
+const statusEl = document.getElementById('status');
+const term = new Terminal({ convertEol: true, cursorBlink: true,
+                            fontSize: 14, rows: 30, cols: 100,
+                            scrollback: 5000 });
+term.open(document.getElementById('term'));
+term.focus();
+
+/* keys typed, waiting for U-Boot to read them from its serial port */
+const input = [];
+const encoder = new TextEncoder();
+term.onData(data => {
+  for (const ch of encoder.encode(data))
+    input.push(ch);
+});
+
+/* console output, collected and written when U-Boot next sleeps */
+let pending = [];
+let scheduled = false;
+function flush() {
+  scheduled = false;
+  if (pending.length) {
+    term.write(new Uint8Array(pending));
+    pending = [];
+  }
+}
+function output(ch) {
+  pending.push(ch & 0xff);
+  if (!scheduled) {
+    scheduled = true;
+    setTimeout(flush, 0);
+  }
+}
+
+document.getElementById('restart').addEventListener('click',
+                                                   () => location.reload());
+
+var Module = {
+  arguments: ['-d', '/u-boot.dtb'],
+  /* undefined means no data yet, so the read fails with EAGAIN */
+  stdin: () => (input.length ? input.shift() : undefined),
+  stdout: output,
+  stderr: output,
+  onRuntimeInitialized: () => { statusEl.textContent = 'running'; },
+  onExit: code => {
+    flush();
+    statusEl.textContent = `exited (${code}): press Restart`;
+  },
+};
+</script>
+<script src="u-boot-web.js"></script>
+</body>
+</html>
