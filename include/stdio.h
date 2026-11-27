@@ -4,6 +4,18 @@
 #include <stdarg.h>
 #include <linux/compiler.h>
 
+#ifdef __wasm__
+/*
+ * These have a different signature from the C library's functions of the
+ * same name. With WebAssembly a call with the wrong signature traps, so the
+ * C library cannot share U-Boot's versions: rename them.
+ */
+#define putc	ub_putc
+#define fputc	ub_fputc
+#define fputs	ub_fputs
+#define fflush	ub_fflush
+#endif
+
 /* stdin */
 int getchar(void);
 int tstc(void);
