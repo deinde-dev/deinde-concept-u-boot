@@ -6,6 +6,7 @@
 #include <bootstage.h>
 #include <command.h>
 #include <env.h>
+#include <mapmem.h>
 #include <vsprintf.h>
 #include <linux/string.h>
 
@@ -43,6 +44,7 @@ static int do_bootstage_stash(struct cmd_tbl *cmdtp, int flag, int argc,
 			      char *const argv[])
 {
 	ulong base, size;
+	void *ptr;
 	int ret;
 
 	if (get_base_size(argc, argv, &base, &size))
@@ -52,10 +54,12 @@ static int do_bootstage_stash(struct cmd_tbl *cmdtp, int flag, int argc,
 		return 1;
 	}
 
+	ptr = map_sysmem(base, size);
 	if (0 == strcmp(argv[0], "stash"))
-		ret = bootstage_stash((void *)base, size);
+		ret = bootstage_stash(ptr, size);
 	else
-		ret = bootstage_unstash((void *)base, size);
+		ret = bootstage_unstash(ptr, size);
+	unmap_sysmem(ptr);
 	if (ret)
 		return 1;
 
