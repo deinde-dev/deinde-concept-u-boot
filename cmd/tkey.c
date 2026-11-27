@@ -174,7 +174,7 @@ static int do_tkey_fwmode(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_tkey_signer(struct cmd_tbl *cmdtp, int flag, int argc,
 			  char *const argv[])
 {
-	printf("signer binary: %lx bytes at %p-%p\n", TKEY_SIGNER_SIZE,
+	printf("signer binary: %ld bytes at %p-%p\n", (long)TKEY_SIGNER_SIZE,
 	       __signer_1_0_0_begin, __signer_1_0_0_end);
 
 	return CMD_RET_SUCCESS;
@@ -203,7 +203,7 @@ static int do_tkey_getkey(struct cmd_tbl *cmdtp, int flag, int argc,
 	uss = argv[1];
 	uss_len = strlen(uss);
 	if (uss_len > TKEY_USS_MAX_SIZE) {
-		printf("USS too long (max %x bytes, got %x)\n",
+		printf("USS too long (max %d bytes, got %u)\n",
 		       TKEY_USS_MAX_SIZE, uss_len);
 		return CMD_RET_FAILURE;
 	}
@@ -217,7 +217,7 @@ static int do_tkey_getkey(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		/* Convert hex string to bytes */
 		if (strlen(hash) != TKEY_HASH_SIZE * 2) {
-			printf("Verification hash must be %x hex chars\n",
+			printf("Verification hash must be %d hex chars\n",
 			       TKEY_HASH_SIZE * 2);
 			return CMD_RET_USAGE;
 		}
@@ -278,13 +278,13 @@ static int do_tkey_loadapp(struct cmd_tbl *cmdtp, int flag, int argc,
 		uss = argv[1];
 		ulen = strlen(uss);
 		if (ulen > TKEY_USS_MAX_SIZE) {
-			printf("USS too long (max %x bytes, got %x)\n",
+			printf("USS too long (max %d bytes, got %u)\n",
 			       TKEY_USS_MAX_SIZE, ulen);
 			return CMD_RET_FAILURE;
 		}
 	}
 
-	printf("Loading signer app (%lx bytes)%s...", TKEY_SIGNER_SIZE,
+	printf("Loading signer app (%ld bytes)%s...", (long)TKEY_SIGNER_SIZE,
 	       uss ? " with USS" : "");
 	ret = tkey_load_app_with_uss(dev, (const u8 *)__signer_1_0_0_begin,
 				     TKEY_SIGNER_SIZE, (const u8 *)uss, ulen);
