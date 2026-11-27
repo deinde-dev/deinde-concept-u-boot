@@ -10,3 +10,4 @@ Sandbox
 
    sandbox
    block_impl
+   wasm
