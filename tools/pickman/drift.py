@@ -27,6 +27,8 @@ import fnmatch
 import hashlib
 import re
 
+from pickman import splitcfg
+
 # File holding the accepted (intentional) deltas from upstream
 ACCEPT_FILE = '.pickman-diverge'
 
@@ -78,7 +80,7 @@ Accept = namedtuple('Accept', ['pattern', 'fingerprint', 'reason'])
 # The outcome of classifying one hunk
 #
 # hunk: the Hunk itself
-# state: one of WANTED, ACCEPTED, REORDER, ABSENT or DRIFT
+# state: one of WANTED, ACCEPTED, REORDER, SPLIT, ABSENT or DRIFT
 # reason: for ACCEPTED, the reason from the accept file; for WANTED, the
 #     downstream commit which accounts for the hunk; None for the rest
 Verdict = namedtuple('Verdict', ['hunk', 'state', 'reason'])
@@ -91,6 +93,11 @@ ACCEPTED = 'accepted'
 
 # A hunk which only moves lines about, so it says the same thing as upstream
 REORDER = 'reorder'
+
+# A hunk which only makes the change which pickman makes to a commit picked
+# into a tree with a separate config for each phase, so it says the same thing
+# as upstream
+SPLIT = 'split'
 
 # A hunk in a file which upstream has and this tree never received.  Nothing
 # was mangled here: the change simply never arrived, so putting it back adds a
@@ -383,8 +390,8 @@ def _added_removed(hunks):
 
     Return:
         tuple:
-            list of str: Added lines, sorted
-            list of str: Removed lines, sorted
+            list of str: Added lines, in order
+            list of str: Removed lines, in order
     """
     added = []
     removed = []
@@ -394,7 +401,7 @@ def _added_removed(hunks):
                 added.append(line[1:])
             elif line.startswith('-'):
                 removed.append(line[1:])
-    return sorted(added), sorted(removed)
+    return added, removed
 
 
 def is_reorder(hunk):
@@ -413,7 +420,7 @@ def is_reorder(hunk):
             there is at least one of each
     """
     added, removed = _added_removed([hunk])
-    return bool(added) and added == removed
+    return bool(added) and sorted(added) == sorted(removed)
 
 
 def is_reorder_file(fdiff):
@@ -432,15 +439,46 @@ def is_reorder_file(fdiff):
     if fdiff.binary or not fdiff.hunks:
         return False
     added, removed = _added_removed(fdiff.hunks)
-    return bool(added) and added == removed
+    return bool(added) and sorted(added) == sorted(removed)
 
 
-def classify(fdiff, accepts, blame=None):
+def is_split_conversion(path, hunks, renamed):
+    """Check whether some hunks only adapt upstream to a split config
+
+    A picked commit is converted for a tree with a separate config for each
+    phase, e.g. CONFIG_IS_ENABLED(FOO) becomes IS_ENABLED(CONFIG_FOO). The
+    tree then differs from upstream, but says the same thing. So convert the
+    upstream side in the same way, with the same code, and see whether the
+    two sides then match. A savedefconfig may also move a renamed option, so
+    the order of the lines does not matter.
+
+    Args:
+        path (str): File the hunks apply to
+        hunks (list of Hunk): Hunks to examine
+        renamed (set of str): Old names of the options which the split config
+            renames, from splitcfg.get_renamed()
+
+    Return:
+        bool: True if the converted upstream lines are the same multiset as
+            the downstream ones, and there is at least one of each
+    """
+    added, removed = _added_removed(hunks)
+    if not added or not removed:
+        return False
+    where = {num: renamed for num in range(1, len(removed) + 1)}
+    conv = splitcfg.convert(path, '\n'.join(removed), where if renamed else
+                            None)
+    return sorted(conv.split('\n')) == sorted(added)
+
+
+def classify(fdiff, accepts, blame=None, renamed=None):
     """Classify each hunk of a file as wanted, accepted, reorder or drift
 
     A hunk is wanted if a downstream-original commit accounts for it, accepted
     if the accept file exempts it, a reorder if it only shuffles lines, absent
-    if the whole file never arrived from upstream, and drift otherwise.
+    if the whole file never arrived from upstream, split if nothing else
+    accounts for it but it only adapts upstream to a split config, and drift
+    otherwise.
 
     Where blame is available, a hunk which only removes lines is always
     treated as wanted, since blame can say who wrote a line but not who
@@ -461,7 +499,9 @@ def classify(fdiff, accepts, blame=None):
             commit which last touched that line, for the lines this file's
             hunks add; lines left by a cherry-pick are absent.  Pass None when
             no downstream-original commit has ever touched the file, which
-            makes every hunk in it drift
+            makes every hunk in it drift, unless it is split
+        renamed (set of str): Old names of the options which the split config
+            renames, or None if the tree does not have a split config
 
     Return:
         list of Verdict: One entry per hunk, in file order
@@ -469,6 +509,8 @@ def classify(fdiff, accepts, blame=None):
     # A line can move between hunks, so a file can be a pure reorder while
     # none of its hunks is
     file_reorder = is_reorder_file(fdiff)
+    file_split = renamed is not None and is_split_conversion(
+        fdiff.path, fdiff.hunks, renamed)
 
     verdicts = []
     for orig in fdiff.hunks:
@@ -485,16 +527,17 @@ def classify(fdiff, accepts, blame=None):
             verdicts.append(Verdict(hunk, ABSENT, None))
         elif file_reorder or is_reorder(hunk):
             verdicts.append(Verdict(hunk, REORDER, None))
-        elif blame is None:
-            verdicts.append(Verdict(hunk, DRIFT, None))
-        elif not hunk.added:
+        elif blame is not None and not hunk.added:
             verdicts.append(Verdict(hunk, WANTED, 'deletion'))
         else:
             owner = None
-            for line in hunk.added:
+            for line in hunk.added if blame is not None else []:
                 owner = owner or blame.get(line)
             if owner:
                 verdicts.append(Verdict(hunk, WANTED, owner))
+            elif file_split or (renamed is not None and is_split_conversion(
+                    hunk.path, [hunk], renamed)):
+                verdicts.append(Verdict(hunk, SPLIT, None))
             else:
                 verdicts.append(Verdict(hunk, DRIFT, None))
     return verdicts
