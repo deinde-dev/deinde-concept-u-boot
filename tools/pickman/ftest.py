@@ -10176,6 +10176,40 @@ class TestParked(unittest.TestCase):
         self.assertEqual(dbs.commit_get('a' * 40)[6], 'applied')
         self.assertEqual(dbs.commit_get('b' * 40)[6], 'conflict')
 
+    def test_retry_split_config(self):
+        """Test that a retry adapts each commit to a split config"""
+        self._add([('a' * 40, 'Now applies'), ('b' * 40, 'Still broken')])
+        self._mock_git({'a' * 40})
+        note = ('### Split config\nStill needs adapting:\n'
+                '- doc/a.rst:1 (not code, so not converted): '
+                'CONFIG_IS_ENABLED() FOO\n')
+        with mock.patch.object(control, 'uses_split_config',
+                               return_value=True), \
+             mock.patch.object(control, 'split_amend', return_value=(
+                 '[pickman] convert to per-phase config macros')) as amend, \
+             mock.patch.object(control, 'split_note',
+                               return_value=note) as split_note, \
+             mock.patch.object(gitlab, 'push_and_create_mr',
+                               return_value=MR_URL) as push:
+            with terminal.capture() as (stdout, _):
+                control.do_pickman(self._args(retry=True, push=True))
+        amend.assert_called_once_with()
+        self.assertIn(f"#1 {'a' * 11}: [pickman] convert to per-phase config "
+                      'macros', stdout.getvalue())
+        split_note.assert_called_once_with('ci/master', 'parked-retry')
+        self.assertTrue(push.call_args[0][4].endswith(
+            f"- {'a' * 11} Now applies\n\n{note}"))
+
+        # A dry run keeps nothing, so adapts nothing
+        self._mock_git({'b' * 40})
+        with mock.patch.object(control, 'uses_split_config',
+                               return_value=True), \
+             mock.patch.object(control, 'split_amend') as amend:
+            with terminal.capture() as (stdout, _):
+                control.do_pickman(self._args(retry=True, dry_run=True))
+        self.assertIn('1 now apply cleanly', stdout.getvalue())
+        amend.assert_not_called()
+
     def test_retry_all_apply(self):
         """Test that clearing the backlog gives a passing exit code"""
         self._add([('a' * 40, 'One'), ('b' * 40, 'Two')])
@@ -13510,6 +13544,59 @@ class TestSplitcfg(unittest.TestCase):
             [(item.path, item.line, item.kind, item.option)
              for item in found])
 
+    def test_renamed(self):
+        """Test finding the options renamed with the PPL_ prefix"""
+        self.assertEqual({'TEXT_BASE'}, splitcfg.get_renamed(
+            'config PPL_TEXT_BASE\nmenuconfig PPL_FOO\nconfig FOO\n'
+            'config SPL_TEXT_BASE\n'))
+        self.assertTrue(splitcfg.can_rename('arch/arm/dts/a-u-boot.dtsi'))
+        self.assertTrue(splitcfg.can_rename('board/a/Kconfig'))
+        self.assertTrue(splitcfg.can_rename('configs/a_defconfig'))
+        self.assertTrue(splitcfg.can_rename('board/a/spl.config'))
+        self.assertFalse(splitcfg.can_rename('doc/README.a'))
+
+        added = [
+            ('a.c', 1, 'p = (void *)CONFIG_TEXT_BASE + CONFIG_SPL_TEXT_BASE;'),
+            ('a.c', 2, 'q = CONFIG_TEXT_BASE_END + CONFIG_VAL(TEXT_BASE);'),
+            ('board/a/Kconfig', 3, 'config TEXT_BASE'),
+            ('board/a/Kconfig', 4, '\thelp CONFIG_TEXT_BASE'),
+            ('configs/a_defconfig', 5, 'CONFIG_TEXT_BASE=0x1000'),
+            ('doc/a.rst', 6, 'CONFIG_TEXT_BASE'),
+        ]
+        self.assertEqual(
+            [('a.c', 1, splitcfg.RENAMED, 'TEXT_BASE'),
+             ('a.c', 2, 'CONFIG_VAL()', 'TEXT_BASE'),
+             ('board/a/Kconfig', 3, splitcfg.RENAMED, 'TEXT_BASE'),
+             ('configs/a_defconfig', 5, splitcfg.RENAMED, 'TEXT_BASE')],
+            [(item.path, item.line, item.kind, item.option)
+             for item in splitcfg.find(added, {'TEXT_BASE'})])
+
+        # Nothing is renamed without the PPL_ option
+        self.assertEqual([], splitcfg.find(added[2:3]))
+
+    def test_rename(self):
+        """Test renaming options on the lines which use the old name"""
+        text = ('a = CONFIG_TEXT_BASE;\n'
+                'b = CONFIG_VAL(TEXT_BASE);\n'
+                'c = CONFIG_TEXT_BASE + CONFIG_TEXT_BASE;\n')
+        self.assertEqual(
+            'a = CONFIG_PPL_TEXT_BASE;\n'
+            'b = CONFIG_TEXT_BASE;\n'
+            'c = CONFIG_TEXT_BASE + CONFIG_TEXT_BASE;\n',
+            splitcfg.convert('a.c', text, {1: {'TEXT_BASE'}, 9: {'X'}}))
+        self.assertEqual(
+            'config PPL_TEXT_BASE\n\tdefault 0x1000\n',
+            splitcfg.convert('board/a/Kconfig',
+                             'config TEXT_BASE\n\tdefault 0x1000\n',
+                             {1: {'TEXT_BASE'}}))
+        self.assertEqual(
+            'CONFIG_PPL_TEXT_BASE=0x1000\n',
+            splitcfg.convert('configs/a_defconfig',
+                             'CONFIG_TEXT_BASE=0x1000\n',
+                             {1: {'TEXT_BASE'}}))
+        self.assertEqual('CONFIG_TEXT_BASE\n', splitcfg.convert(
+            'doc/a.rst', 'CONFIG_TEXT_BASE\n', {1: {'TEXT_BASE'}}))
+
     def test_options(self):
         """Test working out which options need adding to conf_nospl"""
         prefixes = splitcfg.get_prefixes('')
@@ -13636,6 +13723,11 @@ class TestSplitcfg(unittest.TestCase):
              'scripts/conf_nospl: FOO'],
             splitcfg.format_report(found, ['FOO']))
         self.assertEqual([], splitcfg.format_report([], []))
+        self.assertEqual(
+            ['board/a/Kconfig:2: TEXT_BASE is PPL_TEXT_BASE here'],
+            splitcfg.format_report([splitcfg.Finding(
+                'board/a/Kconfig', 2, splitcfg.RENAMED, 'TEXT_BASE', '')],
+                                   []))
 
 
 class TestSplitPrompt(unittest.TestCase):
@@ -13807,6 +13899,101 @@ class TestSplitCheck(unittest.TestCase):
             note = control.split_note('HEAD~1', 'HEAD')
         self.assertIn('### Split config\nStill needs adapting:\n', note)
         self.assertIn('- drivers/foo.c:1: CONFIG_IS_ENABLED() FOO\n', note)
+
+    def test_fix_renamed(self):
+        """Test renaming an option which this tree gives the PPL_ prefix"""
+        self._write('Kconfig', 'config PPL_TEXT_BASE\n\thex\n')
+        self._commit('rename')
+        self._write('arch/arm/mach-meson/spl.c',
+                    'void *f(void)\n{\n'
+                    '\treturn (void *)CONFIG_TEXT_BASE + 0x4000000;\n}\n')
+
+        # The pick adds the old option, which must not hide its use
+        self._write('board/a/Kconfig', 'config TEXT_BASE\n\tdefault 0x1000\n')
+        self._write('doc/a.rst', 'Uses CONFIG_TEXT_BASE\n')
+        self._commit('pick')
+        self.assertEqual(
+            (1, ['arch/arm/mach-meson/spl.c:3: TEXT_BASE is PPL_TEXT_BASE '
+                 'here',
+                 'board/a/Kconfig:1: TEXT_BASE is PPL_TEXT_BASE here']),
+            self._run('HEAD~1..HEAD'))
+
+        ret, lines = self._run('HEAD~1..HEAD', fix=True)
+        self.assertEqual(0, ret)
+        self.assertIn('note: [pickman] use PPL_TEXT_BASE', lines)
+        self.assertIn('CONFIG_PPL_TEXT_BASE + 0x4000000', tools.read_file(
+            'arch/arm/mach-meson/spl.c', binary=False))
+        self.assertEqual('config PPL_TEXT_BASE\n\tdefault 0x1000\n',
+                         tools.read_file('board/a/Kconfig', binary=False))
+        self.assertEqual('Uses CONFIG_TEXT_BASE\n',
+                         tools.read_file('doc/a.rst', binary=False))
+
+    @staticmethod
+    def _git(*args):
+        """Run git, returning its output"""
+        return subprocess.run(['git'] + list(args), check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def test_parked_retry(self):
+        """Test that a parked commit which now applies is adapted"""
+        self._write('Kconfig', 'config FOO\n\tbool\nconfig SPL_FOO\n\tbool\n'
+                    'config PPL_TEXT_BASE\n\thex\n')
+        self._write('drivers/bar.c', 'int y = IS_ENABLED(CONFIG_FOO);\n')
+        self._write('Makefile', 'VERSION = 2026\nPATCHLEVEL = 01\n')
+        self._commit('rename')
+        self._git('branch', 'target')
+
+        # Upstream, one commit uses the old macro and name, and another
+        # changes to a macro, which leaves it with nothing to do here
+        self._git('checkout', '-q', '-b', 'up')
+        self._write('drivers/foo.c', 'int x = CONFIG_IS_ENABLED(FOO);\n'
+                    'void *p = (void *)CONFIG_TEXT_BASE;\n')
+        self._commit('Add foo')
+        first = self._git('rev-parse', 'HEAD')
+        self._write('drivers/bar.c', 'int y = CONFIG_IS_ENABLED(FOO);\n')
+        self._commit('Use the macro')
+        second = self._git('rev-parse', 'HEAD')
+        self._write('drivers/baz.c', 'int z;\n')
+        self._commit('Add baz')
+        third = self._git('rev-parse', 'HEAD')
+        self._git('checkout', '-q', 'target')
+
+        tout.init(tout.INFO)
+        try:
+            with terminal.capture() as (out, err):
+                applied, still, name = control.parked_retry(
+                    mock.Mock(), [(1, first, 'Add foo'),
+                                  (2, second, 'Use the macro'),
+                                  (3, third, 'Add baz')], 'target')
+        finally:
+            tout.init(tout.WARNING)
+        self.assertEqual('', err.getvalue())
+        self.assertEqual(3, len(applied))
+        self.assertEqual([], still)
+        self.assertEqual('parked-retry', name)
+        self.assertIn(f'#1 {first[:11]}: [pickman] convert to per-phase '
+                      'config macros; use PPL_TEXT_BASE', out.getvalue())
+
+        self.assertEqual('int x = IS_ENABLED(CONFIG_FOO);\n'
+                         'void *p = (void *)CONFIG_PPL_TEXT_BASE;',
+                         self._git('show', 'parked-retry~2:drivers/foo.c'))
+        self.assertEqual(
+            f'Add foo\n\n(cherry picked from commit {first})\n\n'
+            '[pickman] convert to per-phase config macros; use PPL_TEXT_BASE',
+            self._git('log', '-1', '--format=%B', 'parked-retry~2'))
+
+        # The second commit is kept, though it now changes nothing
+        self.assertEqual('', self._git('diff', 'parked-retry~2',
+                                       'parked-retry~1'))
+        self.assertTrue(self._git('log', '-1', '--format=%B',
+                                  'parked-retry~1').endswith(
+            '\n\n[pickman] convert to per-phase config macros'))
+
+        # The third needs nothing, so is left as it is
+        self.assertEqual(f'Add baz\n\n(cherry picked from commit {third})',
+                         self._git('log', '-1', '--format=%B',
+                                   'parked-retry'))
+        self.assertEqual('', control.split_note('target', 'parked-retry'))
 
     def test_no_kconfig(self):
         """Test a tree with no xPL Kconfig options"""

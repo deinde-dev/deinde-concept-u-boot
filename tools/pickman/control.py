@@ -764,8 +764,29 @@ def uses_split_config(ref):
     return bool(kconfig_h) and splitcfg.is_split(kconfig_h)
 
 
+def _grep_kconfig(ref, regex):
+    """Find the lines in the Kconfig files which match a regex
+
+    Args:
+        ref (str): Commit to look in, or None for the working tree
+        regex (str): Extended regex
+
+    Returns:
+        str: Matching lines, or '' if there are none
+    """
+    grep_args = ['grep', '-h', '-E', regex] + ([ref] if ref else [])
+    try:
+        return command.output('git', *grep_args, '--', '*Kconfig*')
+    except command.CommandExc:
+        return ''
+
+
 def split_scan(base, head):
     """Find constructs which need adapting for a split config
+
+    The renamed options come from the base, so that a commit which adds an
+    option with the old name, e.g. a board's 'config TEXT_BASE', does not
+    hide its own use of it.
 
     Args:
         base (str): Commit to compare from
@@ -776,15 +797,11 @@ def split_scan(base, head):
             need is a list of options which need adding to conf_nospl
     """
     diff_args = ['diff', '-U0', base] + ([head] if head else [])
-    found = splitcfg.find(splitcfg.parse_added(run_git(diff_args)))
+    renamed = splitcfg.get_renamed(_grep_kconfig(base, splitcfg.KCONFIG_DEF))
+    found = splitcfg.find(splitcfg.parse_added(run_git(diff_args)), renamed)
     prefixes = splitcfg.get_prefixes(
         _read_tree_file(head, splitcfg.XPL_PHASES))
-    grep_args = ['grep', '-h', '-E', splitcfg.kconfig_regex(prefixes)]
-    grep_args += ([head] if head else []) + ['--', '*Kconfig*']
-    try:
-        kconfig = command.output('git', *grep_args)
-    except command.CommandExc:
-        kconfig = ''
+    kconfig = _grep_kconfig(head, splitcfg.kconfig_regex(prefixes))
     variants = splitcfg.get_variants(kconfig, prefixes)
     nospl = splitcfg.get_nospl(_read_tree_file(head, splitcfg.CONF_NOSPL))
     return found, splitcfg.needs_nospl(found, variants, nospl, prefixes)
@@ -804,8 +821,12 @@ def split_fix(found, need):
     for path in sorted({item.path for item in found}):
         if not os.path.exists(path):
             continue
+        where = {}
+        for item in found:
+            if item.path == path and item.kind == splitcfg.RENAMED:
+                where.setdefault(item.line, set()).add(item.option)
         old = tools.read_file(path, binary=False)
-        new = splitcfg.convert(path, old)
+        new = splitcfg.convert(path, old, where)
         if new != old:
             tools.write_file(path, new, binary=False)
             changed.append(path)
@@ -815,6 +836,57 @@ def split_fix(found, need):
                          binary=False)
         changed.append(splitcfg.CONF_NOSPL)
     return changed
+
+
+def split_fix_note(found, changed, need):
+    """Describe how split_fix() adapts a commit, for its commit message
+
+    Args:
+        found (list of splitcfg.Finding): Constructs found
+        changed (list of str): Files which split_fix() changed
+        need (list of str): Options added to conf_nospl
+
+    Returns:
+        str: Note line, starting '[pickman]'
+    """
+    parts = []
+    if any(item.kind != splitcfg.RENAMED and item.path in changed
+           for item in found):
+        parts.append('convert to per-phase config macros')
+    names = sorted({item.option for item in found
+                    if item.kind == splitcfg.RENAMED and item.path in changed})
+    if names:
+        parts.append('use ' + ', '.join(splitcfg.PPL_PREFIX + name
+                                        for name in names))
+    if need:
+        parts.append(f"add {', '.join(need)} to conf_nospl")
+    return f"[pickman] {'; '.join(parts)}"
+
+
+def split_amend():
+    """Adapt the commit at HEAD for a split config
+
+    This does what the agent is asked to do after each cherry-pick, for
+    picks which have no agent. Anything which cannot be converted is left
+    for split_note() to report.
+
+    Returns:
+        str: Note added to the end of the commit message, or '' if nothing
+            needs changing
+    """
+    found, need = split_scan('HEAD~1', 'HEAD')
+    changed = split_fix(found, need) if found or need else []
+    if not changed:
+        return ''
+    note = split_fix_note(found, changed, need)
+    msg = run_git(['log', '-1', '--format=%B'])
+    run_git(['add', '--'] + changed)
+
+    # The commit may now change nothing, if the tree already does what it
+    # intends, so keep it, empty, as a record of the pick
+    run_git(['commit', '-q', '--amend', '--allow-empty', '-m',
+             f'{msg}\n\n{note}'])
+    return note
 
 
 def split_note(base, head):
@@ -865,12 +937,7 @@ def do_split_check(args, dbs):  # pylint: disable=unused-argument
         changed = split_fix(found, need)
         if changed:
             tout.info(f"Adapted for the split config: {' '.join(changed)}")
-            parts = []
-            if any(path != splitcfg.CONF_NOSPL for path in changed):
-                parts.append('convert to per-phase config macros')
-            if need:
-                parts.append(f"add {', '.join(need)} to conf_nospl")
-            tout.info(f"note: [pickman] {'; '.join(parts)}")
+            tout.info(f'note: {split_fix_note(found, changed, need)}')
         found, need = split_scan(base, None)
     lines = splitcfg.format_report(found, need)
     for line in lines:
@@ -2908,6 +2975,9 @@ def parked_retry(dbs, parked, branch, dry_run=False):
     parked as a conflict, which says what it is. The commits which apply are
     only recorded as applied once they are in a merge request, by the caller.
 
+    If the tree has a split config, each commit which applies is adapted to
+    it as the agent would do, with split_amend().
+
     Merges are left alone, since a merge carries no change of its own.
 
     Args:
@@ -2932,6 +3002,7 @@ def parked_retry(dbs, parked, branch, dry_run=False):
     if gitutil.branch_exists(name):
         gitutil.delete_branch(name)
     gitutil.create_branch(name, branch)
+    split = not dry_run and uses_split_config(branch)
 
     applied = []
     still = []
@@ -2943,11 +3014,15 @@ def parked_retry(dbs, parked, branch, dry_run=False):
             continue
         try:
             run_git(['cherry-pick', '-x', chash])
-            applied.append(rec)
         except Exception:  # pylint: disable=broad-except
             # Still conflicts, so put it back and move on to the next
             _abort_in_progress()
             still.append(rec)
+            continue
+        applied.append(rec)
+        note = split_amend() if split else ''
+        if note:
+            tout.info(f'  #{rec[0]} {chash[:11]}: {note}')
 
     if applied and not dry_run and not keep_version_ok(branch, name):
         gitutil.checkout_branch(branch)
@@ -3025,11 +3100,14 @@ def do_parked(args, dbs):
         tout.info('Dry run, so nothing was kept')
     elif name:
         tout.info('')
+        note = split_note(args.branch, name)
         if args.push:
             title = f'[pickman] Retry {len(applied)} parked conflict(s)'
             desc = ('These commits were parked as conflicts and apply '
                     'cleanly now that the tree has moved on.\n\n' +
                     '\n'.join(f'- {rec[1][:11]} {rec[2]}' for rec in applied))
+            if note:
+                desc += f'\n\n{note}'
             mr_url = push_mr(args, name, title, desc)
             if not mr_url:
                 tout.error(f'Cannot push {name} or create its merge '

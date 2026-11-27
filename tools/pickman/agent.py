@@ -59,7 +59,10 @@ use them. After each cherry-pick, before the build test, run:
 
 This converts them in the files the commit adds them to, e.g.
 CONFIG_IS_ENABLED(FOO) becomes IS_ENABLED(CONFIG_FOO), and adds any option
-which the source only enables in U-Boot proper to scripts/conf_nospl. If it
+which the source only enables in U-Boot proper to scripts/conf_nospl. It also
+renames the options which the target renames so that they keep U-Boot
+proper's value in every phase, e.g. CONFIG_TEXT_BASE becomes
+CONFIG_PPL_TEXT_BASE. If it
 changes anything, amend the commit with 'git commit -a --amend' and add the
 note line it prints to the end of the commit message. If that leaves the
 commit with no changes, the target already does what the commit intended, so

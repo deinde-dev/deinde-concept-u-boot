@@ -19,6 +19,13 @@ upstream, CONFIG_IS_ENABLED(FOO) is false in SPL when there is no
 CONFIG_SPL_FOO, but here CONFIG_FOO takes U-Boot proper's value in SPL unless
 FOO is listed in scripts/conf_nospl.
 
+A few options are renamed, since the old name would take each phase's own
+value: CONFIG_TEXT_BASE is U-Boot proper's text base in every phase upstream,
+but here it would be SPL_TEXT_BASE in SPL, so the tree calls it
+CONFIG_PPL_TEXT_BASE. A commit which uses the old name still builds for SPL,
+silently with the wrong value, so this module renames it in the lines a
+commit adds.
+
 The functions here work on text, so the caller provides the git output.
 """
 
@@ -51,6 +58,16 @@ SKIP_PATHS = (
 # documentation, is reported but left for a person to update
 CODE_EXTS = ('.c', '.h', '.S', '.lds', '.dts', '.dtsi')
 MAKE_NAMES = ('Makefile', 'Kbuild')
+
+# Prefix of an option renamed so that it keeps U-Boot proper's value in every
+# phase
+PPL_PREFIX = 'PPL_'
+
+# Kind of Finding for a renamed option
+RENAMED = 'renamed option'
+
+# Extended regex matching the Kconfig lines which define any option
+KCONFIG_DEF = r'^\s*(menu)?config\s+[A-Z0-9_]+'
 
 # An old-style construct found in a line added by a commit
 #
@@ -108,6 +125,48 @@ def skip_path(path):
                for skip in SKIP_PATHS)
 
 
+def is_kconfig(path):
+    """Check whether a file is a Kconfig file
+
+    Args:
+        path (str): File path
+
+    Returns:
+        bool: True if the file holds Kconfig options
+    """
+    return os.path.basename(path).startswith('Kconfig')
+
+
+def can_rename(path):
+    """Check whether a file can refer to a renamed option
+
+    Documentation is left alone, since this tree keeps the old names there.
+
+    Args:
+        path (str): File path
+
+    Returns:
+        bool: True if the file is code, a Kconfig file or a defconfig
+    """
+    return (is_code(path) or is_kconfig(path) or
+            path.endswith(('_defconfig', '.config')))
+
+
+def rename_regex(path, names):
+    """Get a regex matching the use of renamed options in a file
+
+    Args:
+        path (str): File path
+        names (iterable of str): Old names of the options, e.g. 'TEXT_BASE'
+
+    Returns:
+        re.Pattern: Pattern whose group 1 is the old name; a Kconfig file
+            uses it bare, anything else with the CONFIG_ prefix
+    """
+    prefix = '' if is_kconfig(path) else 'CONFIG_'
+    return re.compile(rf"\b{prefix}({'|'.join(sorted(names))})\b")
+
+
 def is_code(path):
     """Check whether a file holds code which can be converted
 
@@ -149,11 +208,13 @@ def parse_added(diff):
     return added
 
 
-def find(added):
+def find(added, renamed=frozenset()):
     """Find old-style constructs in added lines
 
     Args:
         added (list of tuple): (path, line, text) as returned by parse_added()
+        renamed (set of str): Old names of renamed options, from
+            get_renamed()
 
     Returns:
         list of Finding: Constructs found, in order
@@ -165,6 +226,10 @@ def find(added):
         for kind, regex, group in KINDS:
             for match in regex.finditer(text):
                 found.append(Finding(path, line, kind, match.group(group),
+                                     text))
+        if renamed and can_rename(path):
+            for match in rename_regex(path, renamed).finditer(text):
+                found.append(Finding(path, line, RENAMED, match.group(1),
                                      text))
     return found
 
@@ -212,6 +277,22 @@ def get_variants(kconfig_grep, prefixes):
                              r'([A-Z0-9_]+)', kconfig_grep):
         variants.add(match.group(1))
     return variants
+
+
+def get_renamed(kconfig_grep):
+    """Get the options which this tree renames with the PPL_ prefix
+
+    Args:
+        kconfig_grep (str): Output of grepping the Kconfig files with
+            KCONFIG_DEF, e.g. 'config PPL_TEXT_BASE' lines
+
+    Returns:
+        set of str: Old names, e.g. 'TEXT_BASE', where the tree has an option
+            with the PPL_ prefix but none with the old name
+    """
+    symbols = set(re.findall(r'config\s+([A-Z0-9_]+)', kconfig_grep))
+    return {name[len(PPL_PREFIX):] for name in symbols
+            if name.startswith(PPL_PREFIX)} - symbols
 
 
 def get_nospl(text):
@@ -336,18 +417,52 @@ def _convert_coe(text):
     return ''.join(out)
 
 
-def convert(path, text):
+def rename(path, text, where):
+    """Use the new names of renamed options on some lines of a file
+
+    Only the lines given are changed. Elsewhere the old name may be one which
+    convert() produces, e.g. CONFIG_TEXT_BASE from CONFIG_VAL(TEXT_BASE),
+    which means the phase's own value, as it should.
+
+    Args:
+        path (str): File path
+        text (str): File contents
+        where (dict): Line number -> set of old names used on that line
+
+    Returns:
+        str: New contents
+    """
+    lines = text.splitlines(keepends=True)
+    for num, names in where.items():
+        if num <= len(lines):
+            lines[num - 1] = rename_regex(path, names).sub(
+                rf'{"" if is_kconfig(path) else "CONFIG_"}{PPL_PREFIX}\1',
+                lines[num - 1])
+    return ''.join(lines)
+
+
+def convert(path, text, where=None):
     """Convert old-style constructs in a file
+
+    Renamed options are renamed first, so that an old name which a
+    conversion produces is left alone.
 
     Args:
         path (str): File path, used to decide whether the file is code
         text (str): File contents
+        where (dict): Line number -> set of old names of renamed options
+            used on that line, or None if there are none
 
     Returns:
-        str: Converted contents, unchanged if the file is not code or is one
-            which mentions the old macros on purpose
+        str: Converted contents, unchanged if the file is neither code nor
+            able to use a renamed option, or is one which mentions the old
+            macros on purpose
     """
-    if skip_path(path) or not is_code(path):
+    if skip_path(path):
+        return text
+    if where and can_rename(path):
+        text = rename(path, text, where)
+    if not is_code(path):
         return text
     text = RE_CIE.sub(r'IS_ENABLED(\1CONFIG_\2', text)
     text = RE_VAL.sub(r'CONFIG_\1', text)
@@ -375,6 +490,10 @@ def format_report(found, need):
     lines = []
     for item in found:
         where = f'{item.path}:{item.line}'
+        if item.kind == RENAMED:
+            lines.append(f'{where}: {item.option} is {PPL_PREFIX}'
+                         f'{item.option} here')
+            continue
         if not is_code(item.path):
             where += ' (not code, so not converted)'
         lines.append(f'{where}: {item.kind} {item.option or ""}'.rstrip())
