@@ -115,3 +115,5 @@ See also
 * :doc:`dm<dm>` for the devices and uclasses driver model has bound
 * :doc:`demo<demo>` for the example uclass used to show how driver model
   works
+* :doc:`sb<sb>` for binding a sandbox device from its devicetree node,
+  which brings in the node's properties as well
