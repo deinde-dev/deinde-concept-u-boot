@@ -1,5 +1,8 @@
 .. SPDX-License-Identifier: GPL-2.0+:
 
+.. index::
+   single: upl (command)
+
 upl command
 ===========
 
@@ -8,9 +11,9 @@ Synopsis
 
 ::
 
-    upl write
-    upl read <addr>
     upl info [-v]
+    upl read <addr>
+    upl write
 
 Description
 -----------
@@ -20,31 +23,20 @@ Specification (UPL) firmware standard (see :doc:`../upl`). It allows creation of
 a fake handoff for use in testing.
 
 
-upl write
-~~~~~~~~~
-
-Write a fake UPL handoff structure. The `upladdr` environment variable is set to
-the address of this structure and `uplsize` is set to the size.
-
-
-upl read
-~~~~~~~~
-
-Read a UPL handoff structure into internal state. This allows testing that the
-handoff can be obtained.
-
 upl info
 ~~~~~~~~
 
-Show basic information about usage of UPL:
+Show whether U-Boot booted from a UPL handoff:
 
     UPL state
         active or inactive (indicates whether U-Boot booted from UPL or not)
 
+With -v, and only while UPL is active, the handoff itself is shown as well:
+
     fit
         Address of the FIT which was loaded
 
-    conf_offset 2a4
+    conf_offset
         FIT offset of the chosen configuration
 
 For each image the following information is shown:
@@ -65,25 +57,40 @@ For each image the following information is shown:
         Description of the image
 
 
+upl read
+~~~~~~~~
+
+Decode the UPL handoff structure at <addr>. This allows testing that the handoff
+can be obtained; the information read is discarded rather than becoming the
+state which *upl info* shows.
+
+
+upl write
+~~~~~~~~~
+
+Write a fake UPL handoff structure. The `upladdr` environment variable is set to
+the address of this structure and `uplsize` is set to the size.
+
+
 Example
 -------
 
-This shows checking whether a UPL handoff was read at start-up::
+This shows checking whether U-Boot booted from a UPL handoff. Sandbox did
+not, so the state is inactive::
 
     => upl info
-    UPL state: active
+    UPL state: inactive
 
 This shows how to use the command to write and display the handoff::
 
     => upl write
-    UPL handoff written to bc8a5e0 size 662
+    UPL handoff written to 66f55a0 size 662
     => print upladdr
-    upladdr=bc8a5e0
+    upladdr=66f55a0
     => print uplsize
     uplsize=662
-
-    > fdt addr ${upladdr}
-    Working FDT set to bc8a5e0
+    => fdt addr ${upladdr}
+    Working FDT set to 66f55a0
     => fdt print
     / {
         #address-cells = <0x00000001>;
@@ -114,7 +121,7 @@ This shows how to use the command to write and display the handoff::
             };
         };
         memory@0x10 {
-            reg = <0x00000010 0x00000020 0x00000030 0x00000040 0x00000050 0x00000060>;
+            reg = <0x00000010 0x00000020 0x00000030 0x00000040 0x00000040 0x00000050>;
         };
         memory@0x70 {
             reg = <0x00000070 0x00000080>;
@@ -136,8 +143,8 @@ This shows how to use the command to write and display the handoff::
             empty@0x25 {
                 reg = <0x00000025 0x00000026 0x00000027 0x00000028>;
             };
-            acpi-things@0x2a {
-                reg = <0x0000002a 0x00000000>;
+            acpi-things@0x29 {
+                reg = <0x00000029 0x0000002a>;
                 usage = "acpi-nvs", "runtime-code";
             };
         };
@@ -171,16 +178,34 @@ This shows how to use the command to write and display the handoff::
     };
     =>
 
-This showing reading the handoff into internal state::
+This shows reading the handoff back again::
 
-    => upl read bc8a5e0
-    Reading UPL at bc8a5e0
+    => upl read ${upladdr}
+    Reading UPL at 66f55a0
     =>
 
-This shows getting basic information about UPL:
+This shows the detail of a handoff which U-Boot really did boot from::
 
     => upl info -v
     UPL state: active
     fit 1264000
     conf_offset 2a4
     image 0: load 200000 size 105f5c8 offset a4: U-Boot 2024.07-00770-g739ee12e8358 for sandbox board
+
+
+Return value
+------------
+
+The return value $? is 0 (true) if the command succeeds. It is 1 (false) if
+the handoff cannot be written, if the data at <addr> cannot be decoded as a
+handoff, or if the arguments are wrong, in which case the command shows its
+usage message.
+
+
+See also
+--------
+
+* :doc:`../upl` for the specification and U-Boot's support for it
+* :doc:`fdt<fdt>` for inspecting the handoff which *upl write* leaves in memory
+* :doc:`printenv<printenv>` for showing the `upladdr` and `uplsize` variables
+  which *upl write* sets
