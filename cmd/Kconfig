@@ -3527,6 +3527,7 @@ config CMD_MALLOC
 	bool "malloc - Show malloc statistics"
 	depends on MALLOC_DEBUG
 	default y
+	select GETOPT
 	help
 	  This provides access to malloc information. It shows statistics
 	  about memory allocation, such as total memory allocated and

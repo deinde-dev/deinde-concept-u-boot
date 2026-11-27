@@ -12,6 +12,12 @@
 #include <test/cmd.h>
 #include <test/ut.h>
 
+/* First line of the usage message */
+#define USAGE_FIRST_LINE	"malloc - malloc information"
+
+/* Sequence which leaks the two allocations an environment variable needs */
+#define LEAK_SEQ	"malloc leak start; setenv mlkvar x; malloc leak end"
+
 /* Test 'malloc info' command */
 static int cmd_test_malloc_info(struct unit_test_state *uts)
 {
@@ -40,22 +46,110 @@ CMD_TEST(cmd_test_malloc_info, UTF_CONSOLE);
 /* Test 'malloc dump' command */
 static int cmd_test_malloc_dump(struct unit_test_state *uts)
 {
-	/* this takes a long time to dump, with truetype enabled, so skip it */
+	/*
+	 * The dump has a line for each chunk in the heap and there are over a
+	 * thousand of them by the time the suite reaches this test, which is
+	 * more than the console-record buffer holds: the run reports
+	 * 'Console record buffer too small:
+	 * CONFIG_CONSOLE_RECORD_OUT_SIZE=0x20000, need 0x2153a' and nothing
+	 * can be read back. So there is nothing to assert on here
+	 */
 	return -EAGAIN;
+}
+CMD_TEST(cmd_test_malloc_dump, UTF_CONSOLE);
 
-	ut_assertok(run_command("malloc dump", 0));
-	ut_assert_nextlinen("Heap dump: ");
-	ut_assert_nextline("%12s  %10s  %s", "Address", "Size", "Status");
-	ut_assert_nextline("----------------------------------");
-	ut_assert_nextline("%12lx  %10x  (chunk header)", mem_malloc_start, 0x10);
-	ut_assert_skip_to_line("----------------------------------");
-	ut_assert_nextlinen("Used: ");
-	ut_assert_nextlinen("Free: ");
+/* Test the 'malloc leak' sub-command */
+static int cmd_test_malloc_leak_cmd(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_CMD_MALLOC_LEAK))
+		return -EAGAIN;
+
+	/* Both forms need a snapshot to compare against */
+	ut_asserteq(1, run_command("malloc leak", 0));
+	ut_assert_nextline("No snapshot taken, use 'malloc leak start'");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("malloc leak end", 0));
+	ut_assert_nextline("No snapshot taken, use 'malloc leak start'");
+	ut_assert_console_end();
+
+	/*
+	 * Take the snapshot and check it on the same command line. The shell
+	 * allocates a dozen chunks while it parses a line, so those are in
+	 * the snapshot and nothing counts as new; a snapshot taken on a line
+	 * of its own would see the next line's chunks as leaks
+	 */
+	ut_assertok(run_command("malloc leak start; malloc leak", 0));
+	ut_assert_nextlinen("Heap snapshot: ");
+	ut_assert_nextline("No leaks");
+	ut_assert_console_end();
+
+	/*
+	 * 'end' lists what the environment variable costs: one allocation for
+	 * the name and one for the value
+	 */
+	ut_assertok(run_command(LEAK_SEQ, 0));
+	ut_assert_nextlinen("Heap snapshot: ");
+	ut_assert_nextlinen("  ");
+	ut_assert_nextlinen("  ");
+	ut_assert_nextline("2 leaked allocs");
+	ut_assert_console_end();
+
+	/* Put the environment back as it was */
+	ut_assertok(run_command("setenv mlkvar", 0));
+
+	/* The snapshot is gone, so the first check applies again */
+	ut_asserteq(1, run_command("malloc leak", 0));
+	ut_assert_nextline("No snapshot taken, use 'malloc leak start'");
 	ut_assert_console_end();
 
 	return 0;
 }
-CMD_TEST(cmd_test_malloc_dump, UTF_CONSOLE);
+CMD_TEST(cmd_test_malloc_leak_cmd, UTF_CONSOLE);
+
+/* Test the usage message, for the command and for each sub-command */
+static int cmd_test_malloc_usage(struct unit_test_state *uts)
+{
+	/*
+	 * A sub-command is required. Only the first line of help text is
+	 * checked, since the rest depends on which sub-commands the board has
+	 */
+	ut_asserteq(1, run_command("malloc", 0));
+	ut_assert_nextline(USAGE_FIRST_LINE);
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline("malloc info - display malloc statistics");
+	console_record_reset();
+
+	/* An unknown sub-command shows the same message */
+	ut_asserteq(1, run_command("malloc fred", 0));
+	ut_assert_nextline(USAGE_FIRST_LINE);
+	console_record_reset();
+
+	/* 'info' and 'dump' take no argument */
+	ut_asserteq(1, run_command("malloc info extra", 0));
+	ut_assert_nextline(USAGE_FIRST_LINE);
+	console_record_reset();
+
+	ut_asserteq(1, run_command("malloc dump extra", 0));
+	ut_assert_nextline(USAGE_FIRST_LINE);
+	console_record_reset();
+
+	if (IS_ENABLED(CONFIG_CMD_MALLOC_LEAK)) {
+		ut_asserteq(1, run_command("malloc leak fred", 0));
+		ut_assert_nextline(USAGE_FIRST_LINE);
+		console_record_reset();
+	}
+
+	if (IS_ENABLED(CONFIG_CMD_MALLOC_LOG)) {
+		ut_asserteq(1, run_command("malloc log fred", 0));
+		ut_assert_nextline(USAGE_FIRST_LINE);
+		console_record_reset();
+	}
+
+	return 0;
+}
+CMD_TEST(cmd_test_malloc_usage, UTF_CONSOLE);
 
 /* Test 'malloc leak' command using the C API directly */
 static int cmd_test_malloc_leak(struct unit_test_state *uts)
@@ -115,7 +209,7 @@ static int cmd_test_malloc_leak(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_malloc_leak, UTF_CONSOLE);
 
-#if IS_ENABLED(CONFIG_MCHECK_LOG)
+#if IS_ENABLED(CONFIG_CMD_MALLOC_LOG)
 /* Test 'malloc log' command */
 static int cmd_test_malloc_log(struct unit_test_state *uts)
 {
@@ -157,7 +251,15 @@ static int cmd_test_malloc_log(struct unit_test_state *uts)
 				(ulong)map_to_sysmem(ptr2));
 	console_record_reset_enable();	/* discard remaining output */
 
+	/* 'dump' is the same thing said explicitly */
+	ut_assertok(run_command("malloc log dump", 0));
+	ut_assert_nextlinen("Malloc log: ");
+	ut_assert_nextline("%4s  %-8s  %10s  %8s  %s",
+			   "Seq", "Type", "Address", "Size", "Caller");
+	ut_assert_nextline("----  --------  ----------  --------  ------");
+	console_record_reset_enable();	/* discard remaining output */
+
 	return 0;
 }
 CMD_TEST(cmd_test_malloc_log, UTF_CONSOLE);
-#endif /* MCHECK_LOG */
+#endif /* CMD_MALLOC_LOG */

@@ -9,10 +9,10 @@
 #include <command.h>
 #include <linux/string.h>
 #include <display_options.h>
+#include <getopt.h>
 #include <malloc.h>
 
-static int do_malloc_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_malloc_info(struct getopt_state *gs)
 {
 	struct malloc_info info;
 	char buf[12];
@@ -34,17 +34,18 @@ static int do_malloc_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_malloc_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_malloc_dump(struct getopt_state *gs)
 {
 	malloc_dump();
 
 	return 0;
 }
 
-static int __maybe_unused do_malloc_log(struct cmd_tbl *cmdtp, int flag,
-					int argc, char *const argv[])
+static int __maybe_unused do_malloc_log(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+
 	if (argc < 2) {
 		malloc_log_dump();
 		return 0;
@@ -66,18 +67,21 @@ static int __maybe_unused do_malloc_log(struct cmd_tbl *cmdtp, int flag,
 }
 
 #if IS_ENABLED(CONFIG_CMD_MALLOC_LEAK)
+/* Shown by both forms of the check when no snapshot has been taken */
+#define NO_SNAPSHOT	"No snapshot taken, use 'malloc leak start'\n"
+
 static struct malloc_leak_snap leak_snap;
 
-static int do_malloc_leak(struct cmd_tbl *cmdtp, int flag,
-			  int argc, char *const argv[])
+static int do_malloc_leak(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+
 	if (argc < 2) {
 		int leaks;
 
-		if (!leak_snap.addr) {
-			printf("No snapshot taken, use 'malloc leak start'\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!leak_snap.addr)
+			return cmd_fail(0, NO_SNAPSHOT);
 
 		leaks = malloc_leak_check_count(&leak_snap);
 		if (leaks > 0)
@@ -100,10 +104,8 @@ static int do_malloc_leak(struct cmd_tbl *cmdtp, int flag,
 	} else if (!strcmp(argv[1], "end")) {
 		int leaks;
 
-		if (!leak_snap.addr) {
-			printf("No snapshot taken, use 'malloc leak start'\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!leak_snap.addr)
+			return cmd_fail(0, NO_SNAPSHOT);
 
 		leaks = malloc_leak_check_end(&leak_snap);
 		if (leaks > 0)
@@ -122,7 +124,8 @@ static int do_malloc_leak(struct cmd_tbl *cmdtp, int flag,
 	"    start - snapshot current heap allocations\n" \
 	"    end   - show allocations not in the snapshot\n" \
 	"    (none) - count new allocations without freeing snapshot\n"
-#define MALLOC_LEAK_SUBCMD , U_BOOT_SUBCMD_MKENT(leak, 3, 1, do_malloc_leak)
+#define MALLOC_LEAK_SUBCMD \
+	, U_BOOT_CMD_MKENT_NOOPTS(leak, 3, 1, do_malloc_leak, "", "")
 #else
 #define MALLOC_LEAK_HELP
 #define MALLOC_LEAK_SUBCMD
@@ -134,7 +137,8 @@ static int do_malloc_leak(struct cmd_tbl *cmdtp, int flag,
 	"    start - start recording malloc/free calls\n" \
 	"    stop  - stop recording\n" \
 	"    dump  - print the log (or just 'malloc log')\n"
-#define MALLOC_LOG_SUBCMD , U_BOOT_SUBCMD_MKENT(log, 3, 1, do_malloc_log)
+#define MALLOC_LOG_SUBCMD \
+	, U_BOOT_CMD_MKENT_NOOPTS(log, 3, 1, do_malloc_log, "", "")
 #else
 #define MALLOC_LOG_HELP
 #define MALLOC_LOG_SUBCMD
@@ -147,7 +151,7 @@ U_BOOT_LONGHELP(malloc,
 	MALLOC_LOG_HELP);
 
 U_BOOT_CMD_WITH_SUBCMDS(malloc, "malloc information", malloc_help_text,
-	U_BOOT_SUBCMD_MKENT(info, 1, 1, do_malloc_info),
-	U_BOOT_SUBCMD_MKENT(dump, 1, 1, do_malloc_dump)
+	U_BOOT_CMD_MKENT_NOOPTS(info, 1, 1, do_malloc_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 1, 1, do_malloc_dump, "", "")
 	MALLOC_LEAK_SUBCMD
 	MALLOC_LOG_SUBCMD);
