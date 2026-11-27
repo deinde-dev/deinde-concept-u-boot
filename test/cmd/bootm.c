@@ -301,6 +301,23 @@ static int cmd_test_bootm_unknown(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_bootm_unknown, UTF_CONSOLE);
 
+/* Test that the fake sub-command is offered only where it does something */
+static int cmd_test_bootm_fake(struct unit_test_state *uts)
+{
+	/* with the option enabled the sub-command starts a boot instead */
+	if (IS_ENABLED(CONFIG_BOOTM_FAKE_GO))
+		return -EAGAIN;
+
+	ut_asserteq(1, run_command("bootm fake", 0));
+	ut_assert_nextline("bootm - boot application image from memory");
+	ut_assert_nextline_empty();
+
+	console_record_reset();
+
+	return 0;
+}
+CMD_TEST(cmd_test_bootm_fake, UTF_CONSOLE);
+
 /* Test that the preload state records the address it has checked */
 static int cmd_test_bootm_preload(struct unit_test_state *uts)
 {

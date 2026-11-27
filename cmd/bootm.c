@@ -53,7 +53,9 @@ static struct cmd_tbl cmd_bootm_sub[] = {
 	U_BOOT_CMD_MKENT(cmdline, 0, 1, (void *)BOOTM_STATE_OS_CMDLINE, "", ""),
 	U_BOOT_CMD_MKENT(bdt, 0, 1, (void *)BOOTM_STATE_OS_BD_T, "", ""),
 	U_BOOT_CMD_MKENT(prep, 0, 1, (void *)BOOTM_STATE_OS_PREP, "", ""),
+#ifdef CONFIG_BOOTM_FAKE_GO
 	U_BOOT_CMD_MKENT(fake, 0, 1, (void *)BOOTM_STATE_OS_FAKE_GO, "", ""),
+#endif
 	U_BOOT_CMD_MKENT(go, 0, 1, (void *)BOOTM_STATE_OS_GO, "", ""),
 };
 
@@ -241,7 +243,7 @@ U_BOOT_LONGHELP(bootm,
 	"\tcmdline - OS specific command line processing/setup\n"
 	"\tbdt     - OS specific bd_info processing\n"
 	"\tprep    - OS specific prep before relocation or go\n"
-#if defined(CONFIG_TRACE)
+#if defined(CONFIG_BOOTM_FAKE_GO)
 	"\tfake    - OS specific fake start without go\n"
 #endif
 	"\tgo      - start OS");
