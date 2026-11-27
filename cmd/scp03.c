@@ -6,14 +6,11 @@
 
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
 #include <scp03.h>
 
-int do_scp03_enable(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char *const argv[])
+static int do_scp03_enable(struct getopt_state *gs)
 {
-	if (argc != 1)
-		return CMD_RET_USAGE;
-
 	if (tee_enable_scp03()) {
 		printf("TEE failed to enable SCP03\n");
 		return CMD_RET_FAILURE;
@@ -24,12 +21,8 @@ int do_scp03_enable(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-int do_scp03_provision(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_scp03_provision(struct getopt_state *gs)
 {
-	if (argc != 1)
-		return CMD_RET_USAGE;
-
 	if (tee_provision_scp03()) {
 		printf("TEE failed to provision SCP03 keys\n");
 		return CMD_RET_FAILURE;
@@ -47,5 +40,5 @@ U_BOOT_LONGHELP(scp03,
 
 U_BOOT_CMD_WITH_SUBCMDS(scp03, "Secure Channel Protocol 03 control",
 	scp03_help_text,
-	U_BOOT_SUBCMD_MKENT(enable, 1, 1, do_scp03_enable),
-	U_BOOT_SUBCMD_MKENT(provision, 1, 1, do_scp03_provision));
+	U_BOOT_CMD_MKENT_NOOPTS(enable, 1, 1, do_scp03_enable, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(provision, 1, 1, do_scp03_provision, "", ""));
