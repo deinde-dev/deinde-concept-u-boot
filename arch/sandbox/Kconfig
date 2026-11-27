@@ -25,6 +25,16 @@ config SANDBOX_RAM_SIZE_MB
 	  The minimum value is 64 MiB. The maximum value is 4095 MiB for the
 	  32bit sandbox.
 
+config SANDBOX_MMAP_ADDR
+	hex "Address hint for memory allocated from the host"
+	default 0x10000000
+	help
+	  Sandbox allocates memory for its own use, such as the devicetree
+	  and files which it reads, with os_malloc(), which uses mmap(). This
+	  is the address which it passes to mmap() as a hint, so that pointers
+	  to this memory are fairly obvious. If the host uses a different
+	  address, that is fine too. Use 0 to let the host choose.
+
 config SANDBOX_SPL
 	bool "Enable SPL for sandbox"
 	depends on !COMPILE_TEST
