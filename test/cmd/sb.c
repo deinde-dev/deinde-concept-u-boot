@@ -8,8 +8,147 @@
 #include <dm.h>
 #include <asm/state.h>
 #include <dm/test.h>
+#include <test/cmd.h>
 #include <test/test.h>
 #include <test/ut.h>
+
+#define MAP_HEADING	"    Addr           Mapping  Refcnt"
+
+#define USAGE_FIRST_LINE	"sb - Sandbox status commands"
+#define USAGE_DEVOFF	\
+	"sb devoff <node>  - Disable device from device tree node"
+#define USAGE_DEVON	\
+	"sb devon <node>   - Enable device from device tree node"
+#define USAGE_GRID	\
+	"sb grid <0|1> [<size>] - Enable/disable grid overlay on video"
+#define USAGE_HANDOFF	\
+	"sb handoff        - Show handoff data received from SPL"
+#define USAGE_MAP	"sb map            - Show mapped memory"
+#define USAGE_STATE	"sb state          - Show sandbox state"
+
+/* Check the usage message, which every bad command line shows */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline(USAGE_FIRST_LINE);
+	ut_assert_nextline_empty();
+	ut_assert_nextline("Usage:");
+	ut_assert_nextline(USAGE_DEVOFF);
+	ut_assert_nextline(USAGE_DEVON);
+	ut_assert_nextline(USAGE_GRID);
+	ut_assert_nextline(USAGE_HANDOFF);
+	ut_assert_nextline(USAGE_MAP);
+	ut_assert_nextline(USAGE_STATE);
+	ut_assert_console_end();
+
+	return 0;
+}
+
+/* Test 'sb map' and 'sb state' */
+static int cmd_test_sb_base(struct unit_test_state *uts)
+{
+	struct sandbox_state *state = state_get_current();
+
+	ut_assertok(run_command("sb map", 0));
+	ut_assert_nextline("Sandbox memory-mapping");
+	ut_assert_nextline(MAP_HEADING);
+
+	/*
+	 * Which mappings exist depends on what the sandbox process has asked
+	 * map_sysmem() for so far, so there is nothing stable to check
+	 */
+	console_record_reset();
+
+	ut_assertok(run_command("sb state", 0));
+	ut_assert_nextline("Arguments:");
+	ut_assert_nextlinen("%s", state->argv[0]);
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_sb_base, UTF_CONSOLE);
+
+/* Test 'sb handoff' */
+static int cmd_test_sb_handoff(struct unit_test_state *uts)
+{
+	if (IS_ENABLED(CONFIG_HANDOFF)) {
+		/*
+		 * The message says whether the handoff arrived, which depends
+		 * on whether SPL ran, so check only as far as both agree
+		 */
+		ut_assertok(run_command("sb handoff", 0));
+		ut_assert_nextlinen("SPL handoff");
+		ut_assert_console_end();
+	} else {
+		ut_asserteq(1, run_command("sb handoff", 0));
+		ut_assert_nextline("Command not supported");
+		ut_assertok(check_usage(uts));
+	}
+
+	return 0;
+}
+CMD_TEST(cmd_test_sb_handoff, UTF_CONSOLE);
+
+/* Test the usage message */
+static int cmd_test_sb_usage(struct unit_test_state *uts)
+{
+	/* a missing sub-command */
+	ut_asserteq(1, run_command("sb", 0));
+	ut_assertok(check_usage(uts));
+
+	/* a sub-command which does not exist */
+	ut_asserteq(1, run_command("sb fred", 0));
+	ut_assertok(check_usage(uts));
+
+	/* 'devon' and 'devoff' want a node name */
+	ut_asserteq(1, run_command("sb devon", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb devoff", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb devon mmc11 extra", 0));
+	ut_assertok(check_usage(uts));
+
+	/* 'grid' wants a value */
+	ut_asserteq(1, run_command("sb grid", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb grid 1 20 extra", 0));
+	ut_assertok(check_usage(uts));
+
+	/* 'handoff', 'map' and 'state' take no argument */
+	ut_asserteq(1, run_command("sb handoff extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb map extra", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb state extra", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_sb_usage, UTF_CONSOLE);
+
+/* Test that the sub-commands refuse an option */
+static int cmd_test_sb_opt(struct unit_test_state *uts)
+{
+	/*
+	 * 'devon' and 'devoff' read an option as the node name, so this used
+	 * to report a missing node, and 'grid' read it as a value of zero
+	 */
+	ut_asserteq(1, run_command("sb devon -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb devoff -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb grid -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_sb_opt, UTF_CONSOLE);
 
 /* Basic test of 'sb devon' and 'sb devoff' commands */
 static int dm_test_sb_devon_devoff(struct unit_test_state *uts)
