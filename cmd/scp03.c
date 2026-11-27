@@ -11,10 +11,11 @@
 
 static int do_scp03_enable(struct getopt_state *gs)
 {
-	if (tee_enable_scp03()) {
-		printf("TEE failed to enable SCP03\n");
-		return CMD_RET_FAILURE;
-	}
+	int ret;
+
+	ret = tee_enable_scp03();
+	if (ret)
+		return cmd_fail(ret, "TEE failed to enable SCP03\n");
 
 	printf("SCP03 is enabled\n");
 
@@ -23,10 +24,11 @@ static int do_scp03_enable(struct getopt_state *gs)
 
 static int do_scp03_provision(struct getopt_state *gs)
 {
-	if (tee_provision_scp03()) {
-		printf("TEE failed to provision SCP03 keys\n");
-		return CMD_RET_FAILURE;
-	}
+	int ret;
+
+	ret = tee_provision_scp03();
+	if (ret)
+		return cmd_fail(ret, "TEE failed to provision SCP03 keys\n");
 
 	printf("SCP03 is provisioned\n");
 

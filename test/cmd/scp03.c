@@ -61,12 +61,22 @@ static int cmd_test_scp03_no_tee(struct unit_test_state *uts)
 	ut_assertok(device_unbind(dev));
 	ut_asserteq(-ENODEV, uclass_first_device_err(UCLASS_TEE, &dev));
 
+	/*
+	 * Without CONFIG_CMD_ERR_MSG the messages are compiled out and
+	 * cmd_process() reports the command and the error number instead
+	 */
 	ut_asserteq(1, run_command("scp03 enable", 0));
-	ut_assert_nextline("TEE failed to enable SCP03");
+	if (IS_ENABLED(CONFIG_CMD_ERR_MSG))
+		ut_assert_nextline("TEE failed to enable SCP03");
+	else
+		ut_assert_nextline("scp03: failed, err %d", -ENODEV);
 	ut_assert_console_end();
 
 	ut_asserteq(1, run_command("scp03 provision", 0));
-	ut_assert_nextline("TEE failed to provision SCP03 keys");
+	if (IS_ENABLED(CONFIG_CMD_ERR_MSG))
+		ut_assert_nextline("TEE failed to provision SCP03 keys");
+	else
+		ut_assert_nextline("scp03: failed, err %d", -ENODEV);
 	ut_assert_console_end();
 
 	return 0;
