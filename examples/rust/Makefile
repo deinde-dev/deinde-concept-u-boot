@@ -37,6 +37,13 @@ endif
 # Default target - build both static and dynamic versions like examples_ulib
 all: $(OUTDIR)/demo $(OUTDIR)/demo_static
 
+# An in-tree build puts both cargo target directories in the package
+# directory. Before running the build script, cargo scans that directory,
+# and the scan fails if the other build is creating its target directory at
+# the same time, since cargo makes a temporary directory and renames it. Run
+# the two builds one after the other.
+.NOTPARALLEL:
+
 # Create output directory
 $(OUTDIR):
 	@mkdir -p $(OUTDIR)
