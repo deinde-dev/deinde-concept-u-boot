@@ -57,20 +57,14 @@ static int do_vbe_info(struct getopt_state *gs)
 	ret = bootstd_get_priv(&std);
 	if (ret)
 		return CMD_RET_FAILURE;
-	if (!std->vbe_bootmeth) {
-		printf("No VBE bootmeth selected\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!std->vbe_bootmeth)
+		return cmd_fail(0, "No VBE bootmeth selected\n");
 	ret = bootmeth_get_state_desc(std->vbe_bootmeth, buf, sizeof(buf));
-	if (ret) {
-		printf("Failed (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed (err=%d)\n", ret);
 	len = strnlen(buf, sizeof(buf));
-	if (len >= sizeof(buf)) {
-		printf("Buffer overflow\n");
-		return CMD_RET_FAILURE;
-	}
+	if (len >= sizeof(buf))
+		return cmd_fail(0, "Buffer overflow\n");
 
 	puts(buf);
 	if (buf[len] != '\n')
@@ -92,10 +86,8 @@ static int do_vbe_state(struct getopt_state *gs)
 		handoff = bloblist_find(BLOBLISTT_VBE,
 					sizeof(struct vbe_handoff));
 	}
-	if (!handoff) {
-		printf("No VBE state\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!handoff)
+		return cmd_fail(0, "No VBE state\n");
 
 	printf("Phases:");
 	for (i = PHASE_NONE; i < PHASE_COUNT; i++) {
@@ -143,7 +135,7 @@ static int get_abrec(struct udevice **devp)
 		return -ENOENT;
 	ret = device_probe(dev);
 	if (ret) {
-		printf("Cannot probe '%s' (err=%d)\n", dev->name, ret);
+		cmd_err("Cannot probe '%s' (err=%d)\n", dev->name, ret);
 		return ret;
 	}
 	*devp = dev;
@@ -157,13 +149,11 @@ static int do_vbe_recovery(struct getopt_state *gs)
 	bool recovery;
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_BOOTMETH_VBE_ABREC)) {
-		printf("Recovery is not supported\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!IS_ENABLED(CONFIG_BOOTMETH_VBE_ABREC))
+		return cmd_fail(0, "Recovery is not supported\n");
 	ret = get_abrec(&dev);
 	if (ret == -ENOENT)
-		printf("No VBE bootmeth has recovery firmware\n");
+		return cmd_fail(ret, "No VBE bootmeth has recovery firmware\n");
 	if (ret)
 		return CMD_RET_FAILURE;
 
@@ -178,13 +168,12 @@ static int do_vbe_recovery(struct getopt_state *gs)
 	} else {
 		ret = vbe_abrec_get_recovery(dev, &recovery);
 	}
-	if (ret == -ENOSYS) {
-		printf("VBE bootmeth '%s' has no recovery firmware\n", dev->name);
-		return CMD_RET_FAILURE;
-	} else if (ret) {
-		printf("Failed (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret == -ENOSYS)
+		return cmd_fail(ret,
+				"VBE bootmeth '%s' has no recovery firmware\n",
+				dev->name);
+	else if (ret)
+		return cmd_fail(ret, "Failed (err=%d)\n", ret);
 	printf("Recovery: %s\n", recovery ? "on" : "off");
 
 	return 0;
@@ -196,13 +185,11 @@ static int do_vbe_try(struct getopt_state *gs)
 	bool try;
 	int ret, count;
 
-	if (!IS_ENABLED(CONFIG_BOOTMETH_VBE_ABREC)) {
-		printf("Trying B is not supported\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!IS_ENABLED(CONFIG_BOOTMETH_VBE_ABREC))
+		return cmd_fail(0, "Trying B is not supported\n");
 	ret = get_abrec(&dev);
 	if (ret == -ENOENT)
-		printf("No VBE bootmeth has B firmware\n");
+		return cmd_fail(ret, "No VBE bootmeth has B firmware\n");
 	if (ret)
 		return CMD_RET_FAILURE;
 
@@ -218,13 +205,11 @@ static int do_vbe_try(struct getopt_state *gs)
 	}
 	if (!ret)
 		ret = vbe_abrec_get_try(dev, &try, &count);
-	if (ret == -ENOSYS) {
-		printf("VBE bootmeth '%s' has no B firmware\n", dev->name);
-		return CMD_RET_FAILURE;
-	} else if (ret) {
-		printf("Failed (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret == -ENOSYS)
+		return cmd_fail(ret, "VBE bootmeth '%s' has no B firmware\n",
+				dev->name);
+	else if (ret)
+		return cmd_fail(ret, "Failed (err=%d)\n", ret);
 	if (try)
 		printf("Try B: yes, %d tries left\n", count);
 	else
