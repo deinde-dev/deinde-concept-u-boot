@@ -50,10 +50,8 @@ static int do_bootstage_stash(struct getopt_state *gs)
 
 	if (get_base_size(argc, argv, &base, &size))
 		return CMD_RET_USAGE;
-	if (base == -1UL) {
-		printf("No bootstage stash area defined\n");
-		return 1;
-	}
+	if (base == -1UL)
+		return cmd_fail(0, "No bootstage stash area defined\n");
 
 	ptr = map_sysmem(base, size);
 	if (0 == strcmp(argv[0], "stash"))
