@@ -90,10 +90,8 @@ static int do_upl_write(struct getopt_state *gs)
 	addr = map_to_sysmem(abuf_data(&buf));
 	printf("UPL handoff written to %lx size %zx\n", addr, abuf_size(&buf));
 	if (env_set_hex("upladdr", addr) ||
-	    env_set_hex("uplsize", abuf_size(&buf))) {
-		printf("Cannot set env var\n");
-		return CMD_RET_FAILURE;
-	}
+	    env_set_hex("uplsize", abuf_size(&buf)))
+		return cmd_fail(0, "Cannot set env var\n");
 
 	log_debug("done\n");
 
