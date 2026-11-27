@@ -119,8 +119,8 @@ int upl_get_test_data(struct unit_test_state *uts, struct upl *upl)
 	ut_assertnonnull(alist_add(&upl->memmap, memmap));
 
 	/* memres[0]: 1 region */
-	alist_init_struct(&memres.region, struct memregion);
 	memset(&memres, '\0', sizeof(memres));
+	alist_init_struct(&memres.region, struct memregion);
 	memres.name = "mmio";
 	ut_assertok(add_region(uts, &memres.region, 0x2b, 0x2c));
 	ut_assertnonnull(alist_add(&upl->memres, memres));
