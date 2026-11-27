@@ -130,6 +130,26 @@ static int cmd_test_sb_usage(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_sb_usage, UTF_CONSOLE);
 
+/* Test that the sub-commands refuse an option */
+static int cmd_test_sb_opt(struct unit_test_state *uts)
+{
+	/*
+	 * 'devon' and 'devoff' read an option as the node name, so this used
+	 * to report a missing node, and 'grid' read it as a value of zero
+	 */
+	ut_asserteq(1, run_command("sb devon -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb devoff -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("sb grid -x", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_sb_opt, UTF_CONSOLE);
+
 /* Basic test of 'sb devon' and 'sb devoff' commands */
 static int dm_test_sb_devon_devoff(struct unit_test_state *uts)
 {
