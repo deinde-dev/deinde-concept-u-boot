@@ -12,19 +12,18 @@
 #include <command.h>
 #include <dm.h>
 #include <dm/device-internal.h>
+#include <getopt.h>
 #include <spl.h>
 #include <vbe.h>
 
-static int do_vbe_list(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_vbe_list(struct getopt_state *gs)
 {
 	vbe_list();
 
 	return 0;
 }
 
-static int do_vbe_select(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char *const argv[])
+static int do_vbe_select(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	struct udevice *dev;
@@ -33,11 +32,11 @@ static int do_vbe_select(struct cmd_tbl *cmdtp, int flag, int argc,
 	ret = bootstd_get_priv(&std);
 	if (ret)
 		return CMD_RET_FAILURE;
-	if (argc < 2) {
+	if (gs->argc < 2) {
 		std->vbe_bootmeth = NULL;
 		return 0;
 	}
-	if (vbe_find_by_any(argv[1], &dev))
+	if (vbe_find_by_any(gs->argv[1], &dev))
 		return CMD_RET_FAILURE;
 
 	std->vbe_bootmeth = dev;
@@ -45,12 +44,15 @@ static int do_vbe_select(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_vbe_info(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_vbe_info(struct getopt_state *gs)
 {
 	struct bootstd_priv *std;
 	char buf[256];
 	int ret, len;
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	ret = bootstd_get_priv(&std);
 	if (ret)
@@ -77,11 +79,14 @@ static int do_vbe_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_vbe_state(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_vbe_state(struct getopt_state *gs)
 {
 	struct vbe_handoff *handoff = NULL;
 	int i;
+
+	/* a stray argument would otherwise be ignored */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK) && gs->index != gs->argc)
+		return CMD_RET_USAGE;
 
 	if (IS_ENABLED(CONFIG_BLOBLIST)) {
 		handoff = bloblist_find(BLOBLISTT_VBE,
@@ -146,8 +151,7 @@ static int get_abrec(struct udevice **devp)
 	return 0;
 }
 
-static int do_vbe_recovery(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_vbe_recovery(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	bool recovery;
@@ -163,10 +167,10 @@ static int do_vbe_recovery(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (ret)
 		return CMD_RET_FAILURE;
 
-	if (argc > 1) {
-		if (!strcmp(argv[1], "on"))
+	if (gs->argc > 1) {
+		if (!strcmp(gs->argv[1], "on"))
 			recovery = true;
-		else if (!strcmp(argv[1], "off"))
+		else if (!strcmp(gs->argv[1], "off"))
 			recovery = false;
 		else
 			return CMD_RET_USAGE;
@@ -186,8 +190,7 @@ static int do_vbe_recovery(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_vbe_try(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_vbe_try(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	bool try;
@@ -204,10 +207,10 @@ static int do_vbe_try(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_FAILURE;
 
 	ret = 0;
-	if (argc > 1) {
-		if (!strcmp(argv[1], "on"))
+	if (gs->argc > 1) {
+		if (!strcmp(gs->argv[1], "on"))
 			try = true;
-		else if (!strcmp(argv[1], "off"))
+		else if (!strcmp(gs->argv[1], "off"))
 			try = false;
 		else
 			return CMD_RET_USAGE;
@@ -239,9 +242,9 @@ U_BOOT_LONGHELP(vbe,
 	"vbe try [on|off] - show or change whether to try the B firmware");
 
 U_BOOT_CMD_WITH_SUBCMDS(vbe, "Verified Boot for Embedded", vbe_help_text,
-	U_BOOT_SUBCMD_MKENT(list, 1, 1, do_vbe_list),
-	U_BOOT_SUBCMD_MKENT(select, 2, 1, do_vbe_select),
-	U_BOOT_SUBCMD_MKENT(state, 2, 1, do_vbe_state),
-	U_BOOT_SUBCMD_MKENT(info, 2, 1, do_vbe_info),
-	U_BOOT_SUBCMD_MKENT(recovery, 2, 1, do_vbe_recovery),
-	U_BOOT_SUBCMD_MKENT(try, 2, 1, do_vbe_try));
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 1, do_vbe_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(select, 2, 1, do_vbe_select, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(state, 2, 1, do_vbe_state, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, 2, 1, do_vbe_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(recovery, 2, 1, do_vbe_recovery, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(try, 2, 1, do_vbe_try, "", ""));

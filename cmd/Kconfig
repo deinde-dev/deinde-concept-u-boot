@@ -553,6 +553,7 @@ config CMD_VBE
 	bool "vbe - Verified Boot for Embedded"
 	depends on BOOTMETH_VBE
 	default y if BOOTSTD_FULL
+	select GETOPT
 	help
 	  Provides various subcommands related to VBE, such as listing the
 	  available methods, looking at the state and changing which method

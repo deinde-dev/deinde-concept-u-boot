@@ -208,3 +208,31 @@ static int cmd_test_vbe_args(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_vbe_args, UTF_CONSOLE);
+
+/* Test the options and the stray arguments which no sub-command accepts */
+static int cmd_test_vbe_opt(struct unit_test_state *uts)
+{
+	static const char * const cmds[] = {
+		"vbe list -x",
+		"vbe select -x",
+		"vbe state -x",
+		"vbe info -x",
+		"vbe recovery -x",
+		"vbe try -x",
+		"vbe state extra",
+		"vbe info extra",
+	};
+	int i;
+
+	/* the command framework only looks for an option with this on */
+	if (!IS_ENABLED(CONFIG_CMD_ARG_CHECK))
+		return -EAGAIN;
+
+	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
+		ut_asserteq(1, run_command(cmds[i], 0));
+		ut_assertok(check_usage(uts));
+	}
+
+	return 0;
+}
+CMD_TEST(cmd_test_vbe_opt, UTF_CONSOLE);
