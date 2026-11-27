@@ -13,6 +13,11 @@
 #include <stddef.h>
 #include <linux/kconfig.h>
 
+#ifdef __wasm__
+/* the C library's getopt_long() calls its own getopt(): see stdio.h */
+#define getopt	ub_getopt
+#endif
+
 /**
  * struct getopt_state - Saved state across getopt() calls
  */
