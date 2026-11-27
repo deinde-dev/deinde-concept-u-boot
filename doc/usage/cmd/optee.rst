@@ -63,3 +63,11 @@ Configuration
 -------------
 
 The optee command is enabled by CONFIG_OPTEE=y and CONFIG_CMD_OPTEE=y.
+
+See also
+--------
+
+* :doc:`scp03<scp03>` for bringing up the secure channel between the
+  processor and a secure element, which is another Trusted Application
+* :doc:`avb<avb>` for Android Verified Boot, whose rollback indexes live in
+  storage which a Trusted Application protects

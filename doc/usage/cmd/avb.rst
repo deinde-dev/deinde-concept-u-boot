@@ -170,3 +170,5 @@ See also
   covers
 * :doc:`gpt<gpt>` for writing the partition table the sub-commands read
 * :doc:`part<part>` for listing the partitions of a device
+* :doc:`scp03<scp03>` for the secure channel to a secure element, which is
+  another Trusted Application
