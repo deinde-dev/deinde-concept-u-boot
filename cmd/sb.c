@@ -26,7 +26,7 @@ static int do_sb_handoff(struct getopt_state *gs)
 
 	return 0;
 #else
-	printf("Command not supported\n");
+	cmd_err("Command not supported\n");
 
 	return CMD_RET_USAGE;
 #endif
@@ -63,33 +63,26 @@ static int do_sb_devon(struct getopt_state *gs)
 	/* Find the specified device tree node */
 	root = oftree_root(oftree_default());
 	node = ofnode_find_subnode(root, argv[1]);
-	if (!ofnode_valid(node)) {
-		printf("Device tree node '%s' not found\n", argv[1]);
-		return CMD_RET_FAILURE;
-	}
+	if (!ofnode_valid(node))
+		return cmd_fail(0, "Device tree node '%s' not found\n",
+				argv[1]);
 
 	/* Check if device is already bound */
 	ret = device_find_global_by_ofnode(node, &dev);
-	if (!ret) {
-		printf("Device '%s' is already enabled\n", argv[1]);
-		return CMD_RET_FAILURE;
-	}
+	if (!ret)
+		return cmd_fail(0, "Device '%s' is already enabled\n", argv[1]);
 
 	/* Bind the device from device tree */
 	ret = lists_bind_fdt(gd->dm_root, node, &dev, NULL, false);
-	if (ret) {
-		printf("Failed to bind device '%s' (err %dE)\n", argv[1],
-		       ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to bind device '%s' (err %dE)\n",
+				argv[1], ret);
 
 	/* Probe the device */
 	ret = device_probe(dev);
-	if (ret) {
-		printf("Failed to probe device '%s' (err %dE)\n", argv[1],
-		       ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to probe device '%s' (err %dE)\n",
+				argv[1], ret);
 
 	printf("Device '%s' enabled\n", dev->name);
 
@@ -126,34 +119,28 @@ static int do_sb_devoff(struct getopt_state *gs)
 	/* Find the specified device tree node */
 	root = oftree_root(oftree_default());
 	node = ofnode_find_subnode(root, argv[1]);
-	if (!ofnode_valid(node)) {
-		printf("Device tree node '%s' not found\n", argv[1]);
-		return CMD_RET_FAILURE;
-	}
+	if (!ofnode_valid(node))
+		return cmd_fail(0, "Device tree node '%s' not found\n",
+				argv[1]);
 
 	/* Find the device bound to this node */
 	ret = device_find_global_by_ofnode(node, &dev);
-	if (ret) {
-		printf("Device '%s' not found or not bound (err %dE)\n",
-		       argv[1], ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"Device '%s' not found or not bound (err %dE)\n",
+				argv[1], ret);
 
 	/* Remove the device (deactivate it) */
 	ret = device_remove(dev, DM_REMOVE_NORMAL);
-	if (ret) {
-		printf("Failed to remove device '%s' (err %dE)\n", argv[1],
-		       ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to remove device '%s' (err %dE)\n",
+				argv[1], ret);
 
 	/* Unbind the device */
 	ret = device_unbind(dev);
-	if (ret) {
-		printf("Failed to unbind device '%s' (err %dE)\n", argv[1],
-		       ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Failed to unbind device '%s' (err %dE)\n",
+				argv[1], ret);
 
 	printf("Device '%s' disabled\n", argv[1]);
 
