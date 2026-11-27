@@ -165,6 +165,10 @@ def add_main_commands(subparsers):
 
     subparsers.add_parser('list-sources', help='List tracked source branches')
 
+    missed = subparsers.add_parser(
+        'missed', help='Report commits which pickman never considered')
+    missed.add_argument('source', help='Source branch name')
+
     parked = subparsers.add_parser(
         'parked', help='Report commits parked as conflicts, and retry them')
     parked.add_argument('source', help='Source branch name')

@@ -3382,6 +3382,11 @@ def find_unprocessed_commits(dbs, last_commit, source, merge_hashes):
         # Check for subtree merge (e.g. dts/upstream update)
         result = _check_subtree_merge(merge_hash)
         if result is not None:
+            # Take any mainline commits before the subtree merge first,
+            # since the subtree update does not include them
+            commits = _mega_get_batch(dbs, prev_commit, f'{merge_hash}^1')
+            if commits:
+                return NextCommitsInfo(commits, True, commits[-1].hash)
             name, tag = result
             if name:
                 return NextCommitsInfo([], True, merge_hash,
@@ -3861,6 +3866,83 @@ def do_count_merges(args, dbs):
     count = len([line for line in fp_output.split('\n') if line])
     tout.info(f'{count} merges remaining from {source}')
 
+    return 0
+
+
+def missed_start(oldest, last_commit):
+    """Find where pickman started on the first-parent chain of a source
+
+    Takes the oldest commit in the database which the source contains, then
+    searches the first-parent chain for the first commit to contain it. The
+    commits before that one predate pickman.
+
+    Args:
+        oldest (list of str): Oldest commit of each source, oldest first
+        last_commit (str): Current position of the source
+
+    Returns:
+        str: First-parent commit just before pickman started, or None if
+            the source contains none of the commits
+    """
+    first = next((c for c in oldest if gitutil.is_ancestor(c, last_commit)),
+                 None)
+    if not first:
+        return None
+    chain = run_git(['rev-list', '--first-parent', '--reverse',
+                     last_commit]).split()
+    low, high = 0, len(chain) - 1
+    while low < high:
+        mid = (low + high) // 2
+        if gitutil.is_ancestor(first, chain[mid]):
+            high = mid
+        else:
+            low = mid + 1
+    return chain[max(low - 1, 0)]
+
+
+def do_missed(args, dbs):
+    """Report commits from a source which pickman never considered
+
+    Lists the commits between pickman's first commit and the current
+    source position which have no row in the database. Since one source
+    may take over from another, a row from any source counts.
+
+    Args:
+        args (Namespace): Parsed arguments with 'source' attribute
+        dbs (Database): Database instance
+
+    Returns:
+        int: 0 on success, 1 if the source is not found
+    """
+    source = args.source
+    last_commit = dbs.source_get(source)
+    if not last_commit:
+        tout.error(f"Source '{source}' not found in database")
+        return 1
+    start = missed_start(dbs.commit_get_oldest(), last_commit)
+    if not start:
+        tout.error(f"Cannot find where pickman started on '{source}'")
+        return 1
+
+    known = dbs.commit_get_hashes()
+    out = run_git(['log', '--reverse', '--no-merges', '--format=%H|%h|%s',
+                   f'{start}..{last_commit}'])
+    missed = [line.split('|', 2) for line in out.splitlines()
+              if line.split('|')[0] not in known]
+    if not missed:
+        tout.info(f'Every commit from {source} has a row in the database')
+        return 0
+
+    subjects = set(run_git(['log', '--no-merges', '--format=%s',
+                            BRANCH_MASTER, f'^{start}']).splitlines())
+    tout.info(f'{len(missed)} commit(s) from {source} have no row in the '
+              'database, so pickman never considered them')
+    for title, want in (('Not', False), ('Already', True)):
+        group = [m for m in missed if (m[2] in subjects) == want]
+        if group:
+            tout.info(f'\n{title} on {BRANCH_MASTER} (by subject):')
+            for _, chash, subject in group:
+                tout.info(f'  {chash} {subject}')
     return 0
 
 
@@ -7183,6 +7265,7 @@ COMMANDS = {
     'drift-accept': do_drift_accept,
     'drift-fix': do_drift_fix,
     'list-sources': do_list_sources,
+    'missed': do_missed,
     'next-merges': do_next_merges,
     'next-set': do_next_set,
     'parked': do_parked,
