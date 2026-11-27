@@ -18,6 +18,42 @@
 /* Declare a new upl test */
 #define UPL_TEST(_name, _flags)	UNIT_TEST(_name, _flags, upl)
 
+/* Address holding something which is not a handoff, clear of other tests */
+#define BAD_ADDR	(CONFIG_SYS_LOAD_ADDR + 0x2000)
+
+/*
+ * Messages the live-tree code and the command print when the data at that
+ * address cannot be read, each preceded by the emitting function name where
+ * CONFIG_LOGF_FUNC is enabled
+ */
+#define MSG_TREE	"Failed to create live tree: err=-22"
+#define MSG_READ	"Failed to read (err=-22: Invalid argument)"
+#define FUNC_TREE	"       oftree_ensure()"
+#define FUNC_READ	"         do_upl_read()"
+
+/**
+ * check_usage() - Check the usage message the command shows
+ *
+ * @uts: Test state
+ * Return: 0 if OK, other value on error
+ */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("upl - Universal Payload support");
+	ut_assert_nextline_empty();
+
+	/* the rest of the message is there only where the long help is */
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP)) {
+		ut_assert_nextline("Usage:");
+		ut_assert_nextline("upl info [-v]     - Check UPL status");
+		ut_assert_nextline("upl read <addr>   - Read handoff information");
+		ut_assert_nextline("upl write         - Write handoff information");
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+
 static int add_region(struct unit_test_state *uts, struct alist *lst,
 		      ulong base, ulong size)
 {
@@ -368,6 +404,11 @@ static int upl_test_info(struct unit_test_state *uts)
 	ut_assert_nextline("UPL state: inactive");
 	ut_assert_console_end();
 
+	/* there is nothing more to show while UPL is inactive */
+	ut_assertok(run_command("upl info -v", 0));
+	ut_assert_nextline("UPL state: inactive");
+	ut_assert_console_end();
+
 	gd_set_upl((struct upl *)uts);	/* set it to any non-zero value */
 	ut_assertok(run_command("upl info", 0));
 	ut_assert_nextline("UPL state: active");
@@ -399,6 +440,60 @@ static int upl_test_read_write(struct unit_test_state *uts)
 	return 0;
 }
 UPL_TEST(upl_test_read_write, UTF_CONSOLE);
+
+/* Test reading a handoff from an address which holds no handoff */
+static int upl_test_read_bad(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_OFNODE_MULTI_TREE))
+		return -EAGAIN;  /* skip test */
+
+	/* clear the magic word, so the data cannot be read as a devicetree */
+	ut_assertok(run_commandf("mw.l %lx 0 1", (ulong)BAD_ADDR));
+	ut_asserteq(1, run_commandf("upl read %lx", (ulong)BAD_ADDR));
+
+	ut_assert_nextline("Reading UPL at %lx", (ulong)BAD_ADDR);
+	if (IS_ENABLED(CONFIG_LOGF_FUNC)) {
+		ut_assert_nextline(FUNC_TREE " " MSG_TREE);
+		ut_assert_nextline(FUNC_READ " " MSG_READ);
+	} else {
+		ut_assert_nextline(MSG_TREE);
+		ut_assert_nextline(MSG_READ);
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+UPL_TEST(upl_test_read_bad, UTF_CONSOLE);
+
+/* Test the arguments the command refuses */
+static int upl_test_usage(struct unit_test_state *uts)
+{
+	/* the command does nothing without a sub-command */
+	ut_asserteq(1, run_command("upl", 0));
+	ut_assertok(check_usage(uts));
+
+	/* nor with a sub-command which does not exist */
+	ut_asserteq(1, run_command("upl bogus", 0));
+	ut_assertok(check_usage(uts));
+
+	/* read needs an address, and takes only one */
+	ut_asserteq(1, run_command("upl read", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("upl read 1000 2000", 0));
+	ut_assertok(check_usage(uts));
+
+	/* write takes no arguments at all */
+	ut_asserteq(1, run_command("upl write extra", 0));
+	ut_assertok(check_usage(uts));
+
+	/* info takes nothing beyond its option */
+	ut_asserteq(1, run_command("upl info -v extra", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+UPL_TEST(upl_test_usage, UTF_CONSOLE);
 
 /* Test UPL passthrough */
 static int upl_test_info_norun(struct unit_test_state *uts)
