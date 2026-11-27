@@ -410,17 +410,34 @@ dtc-option = $(call try-run,\
 # DTC 1.8.0 and newer, add the option conditionally.
 DTC_FLAGS += $(call dtc-option, -Eno-node_name_not_empty)
 
+# Rules which wrap a binary file in assembly use these. The WebAssembly
+# assembler has its own form of section flags and needs to be told the type
+# and size of each data symbol.
+ifdef CONFIG_SANDBOX_WASM
+incbin_flags := "",@
+incbin_obj = echo '.type $(1),@object';
+incbin_size = echo '.size $(1), $(2)';
+else
+incbin_flags := "a"
+incbin_obj =
+incbin_size =
+endif
+
 # Generate an assembly file to wrap the output of the device tree compiler
 quiet_cmd_dt_S_dtb= DTBS    $@
 # Modified for U-Boot
 cmd_dt_S_dtb=						\
 {							\
-	echo '.section .dtb.init.rodata,"a"';		\
+	echo '.section .dtb.init.rodata,$(incbin_flags)';		\
 	echo '.balign 16';				\
 	echo '.global __dtb_$(subst -,_,$(*F))_begin';	\
+	$(call incbin_obj,__dtb_$(subst -,_,$(*F))_begin)	\
 	echo '__dtb_$(subst -,_,$(*F))_begin:';		\
 	echo '.incbin "$<" ';				\
+	$(call incbin_size,__dtb_$(subst -,_,$(*F))_begin,. - __dtb_$(subst -,_,$(*F))_begin)				\
+	$(call incbin_obj,__dtb_$(subst -,_,$(*F))_end)		\
 	echo '__dtb_$(subst -,_,$(*F))_end:';		\
+	$(call incbin_size,__dtb_$(subst -,_,$(*F))_end,0)		\
 	echo '.global __dtb_$(subst -,_,$(*F))_end';	\
 	echo '.balign 16';				\
 } > $@
@@ -433,12 +450,16 @@ quiet_cmd_dt_S_dtbo= DTBOS   $@
 # Modified for U-Boot
 cmd_dt_S_dtbo=						\
 {							\
-	echo '.section .dtb.init.rodata,"a"';		\
+	echo '.section .dtb.init.rodata,$(incbin_flags)';		\
 	echo '.balign 16';				\
 	echo '.global __dtbo_$(subst -,_,$(*F))_begin';	\
+	$(call incbin_obj,__dtbo_$(subst -,_,$(*F))_begin)	\
 	echo '__dtbo_$(subst -,_,$(*F))_begin:';	\
 	echo '.incbin "$<" ';				\
+	$(call incbin_size,__dtbo_$(subst -,_,$(*F))_begin,. - __dtbo_$(subst -,_,$(*F))_begin)				\
+	$(call incbin_obj,__dtbo_$(subst -,_,$(*F))_end)		\
 	echo '__dtbo_$(subst -,_,$(*F))_end:';		\
+	$(call incbin_size,__dtbo_$(subst -,_,$(*F))_end,0)		\
 	echo '.global __dtbo_$(subst -,_,$(*F))_end';	\
 	echo '.balign 16';				\
 } > $@

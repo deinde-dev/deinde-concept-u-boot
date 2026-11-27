@@ -24,12 +24,22 @@ typedef unsigned short		__kernel_dev_t;
 typedef unsigned long		__kernel_ino_t;
 typedef unsigned short		__kernel_mode_t;
 typedef unsigned short		__kernel_nlink_t;
+#if defined(__wasm__)
+/* file offsets are 64-bit in the C library, which os.c is built against */
+typedef long long		__kernel_off_t;
+#else
 typedef long			__kernel_off_t;
+#endif
 typedef int			__kernel_pid_t;
 typedef unsigned short		__kernel_ipc_pid_t;
 typedef unsigned short		__kernel_uid_t;
 typedef unsigned short		__kernel_gid_t;
-#if CONFIG_SANDBOX_BITS_PER_LONG == 32
+#if defined(__wasm__)
+/* wasm32 uses long for these, although it is a 32-bit type */
+typedef unsigned long		__kernel_size_t;
+typedef long			__kernel_ssize_t;
+typedef long			__kernel_ptrdiff_t;
+#elif CONFIG_SANDBOX_BITS_PER_LONG == 32
 typedef unsigned int		__kernel_size_t;
 typedef int			__kernel_ssize_t;
 typedef int			__kernel_ptrdiff_t;

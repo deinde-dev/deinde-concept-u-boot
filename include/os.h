@@ -288,6 +288,15 @@ void *os_realloc(void *ptr, size_t length);
 void os_usleep(unsigned long usec);
 
 /**
+ * os_wasm_sleep() - sleep when running as WebAssembly
+ *
+ * This yields to the JavaScript event loop while sleeping
+ *
+ * @usec:	time to sleep in micro seconds
+ */
+void os_wasm_sleep(unsigned long usec);
+
+/**
  * os_get_nsec() - get monotonically increasing number of nano seconds from OS
  *
  * Return:	a monotoniccally increasing time scaled in nano seconds

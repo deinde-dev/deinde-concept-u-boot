@@ -1212,7 +1212,12 @@ cmd_static_rela =
 endif
 
 # Always append INPUTS so that arch config.mk's can add custom ones
+ifdef CONFIG_SANDBOX_WASM
+# The output is not an ELF file, so objcopy and nm cannot be used on it
+INPUTS-y += u-boot-web.js u-boot.sym
+else
 INPUTS-y += u-boot.srec u-boot.bin u-boot.sym System.map binary_size_check
+endif
 
 ifeq ($(CONFIG_SPL_FSL_PBL),y)
 INPUTS-$(CONFIG_RAMBOOT_PBL) += u-boot-with-spl-pbl.bin
@@ -1446,7 +1451,10 @@ cmd_llcheck = $(srctree)/scripts/check_linker_lists.py $2
 	$(call cmd,llcheck,u-boot)
 	@touch $@
 
+# The check uses nm, which cannot read the WebAssembly loader
+ifndef CONFIG_SANDBOX_WASM
 all: .u-boot.llcheck
+endif
 
 # Timestamp file to make sure that binman always runs
 .binman_stamp: $(INPUTS-y) FORCE

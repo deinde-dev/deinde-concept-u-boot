@@ -11,6 +11,10 @@ void flush_cache(unsigned long addr, unsigned long size)
 {
 	void *ptr;
 
+	/* there is no instruction cache to flush */
+	if (IS_ENABLED(CONFIG_SANDBOX_WASM))
+		return;
+
 	ptr = map_sysmem(addr, size);
 
 	/* Clang uses (char *) parameters, GCC (void *) */
@@ -21,6 +25,9 @@ void flush_cache(unsigned long addr, unsigned long size)
 void invalidate_icache_all(void)
 {
 	struct sandbox_state *state = state_get_current();
+
+	if (IS_ENABLED(CONFIG_SANDBOX_WASM))
+		return;
 
 	/* Clang uses (char *) parameters, GCC (void *) */
 	__builtin___clear_cache((void *)state->ram_buf,

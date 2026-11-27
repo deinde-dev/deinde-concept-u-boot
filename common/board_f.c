@@ -296,10 +296,13 @@ static int setup_mon_len(void)
 	gd->mon_len = (ulong)__bss_end - (ulong)__image_copy_start;
 #elif defined(__ARM__) || defined(__MICROBLAZE__)
 	gd->mon_len = (ulong)__bss_end - (ulong)_start;
-#elif defined(CONFIG_SANDBOX) && !defined(__riscv)
+#elif defined(CONFIG_SANDBOX) && !defined(__riscv) && !defined(__wasm__)
 	gd->mon_len = gd_ulib() ? 0 : (ulong)_end - (ulong)_init;
 #elif defined(CONFIG_SANDBOX)
-	/* gcc does not provide _init in crti.o on RISC-V */
+	/*
+	 * gcc does not provide _init in crti.o on RISC-V and WebAssembly has
+	 * no such symbols
+	 */
 	gd->mon_len = 0;
 #elif defined(CONFIG_NIOS2) || defined(CONFIG_XTENSA)
 	gd->mon_len = CONFIG_SYS_MONITOR_LEN;

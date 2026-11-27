@@ -5,7 +5,16 @@
 # (C) Copyright 2000-2003
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 
-obj-y	:= start.o cache.o cpu.o mem.o state.o os.o tty.o initjmp.o
+obj-y	:= start.o cache.o cpu.o mem.o state.o os.o
+ifdef CONFIG_SANDBOX_WASM
+obj-y	+= wasm.o
+else
+obj-y	+= initjmp.o
+endif
+obj-$(CONFIG_TKEY) += tty.o
+
+# The Emscripten sysroot has no Linux UAPI headers
+ccflags-$(CONFIG_SANDBOX_WASM) += -isystem $(srctree)/arch/sandbox/wasm/include
 ifdef CONFIG_FUZZ
 obj-y	+= fuzz.o
 else
@@ -17,7 +26,8 @@ obj-$(CONFIG_ETH_SANDBOX_RAW)	+= eth-raw-os.o
 obj-$(CONFIG_BACKTRACE)	+= backtrace.o
 
 # Compile these files with system headers
-CFLAGS_USE_SYSHDRS := backtrace.o eth-raw-os.o fuzz.o main.o os.o sdl.o tty.o initjmp.o
+CFLAGS_USE_SYSHDRS := backtrace.o eth-raw-os.o fuzz.o main.o os.o sdl.o tty.o \
+	initjmp.o wasm.o
 
 # backtrace.c needs libbacktrace header from GCC
 LIBBT_INC := $(dir $(shell $(CC) -print-file-name=include/backtrace.h))

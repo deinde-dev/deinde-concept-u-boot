@@ -25,6 +25,17 @@ config SANDBOX_RAM_SIZE_MB
 	  The minimum value is 64 MiB. The maximum value is 4095 MiB for the
 	  32bit sandbox.
 
+config SANDBOX_MMAP_ADDR
+	hex "Address hint for memory allocated from the host"
+	default 0 if SANDBOX_WASM
+	default 0x10000000
+	help
+	  Sandbox allocates memory for its own use, such as the devicetree
+	  and files which it reads, with os_malloc(), which uses mmap(). This
+	  is the address which it passes to mmap() as a hint, so that pointers
+	  to this memory are fairly obvious. If the host uses a different
+	  address, that is fine too. Use 0 to let the host choose.
+
 config SANDBOX_SPL
 	bool "Enable SPL for sandbox"
 	depends on !COMPILE_TEST
@@ -51,6 +62,15 @@ config HOST_64BIT
 	def_bool $(cc-define,_LP64)
 	select 64BIT
 	select SPL_64BIT if SPL
+
+config SANDBOX_WASM
+	def_bool $(cc-define,__wasm__)
+	help
+	  This is set when sandbox is built for WebAssembly, e.g. with
+	  Emscripten's emcc as the compiler, so that it can run in a web
+	  browser or under node. There is no linker script in this case and
+	  features which need the host's kernel, or which run loaded code, are
+	  not available.
 
 config HOST_HAS_SDL
 	def_bool $(success,sdl2-config --version)

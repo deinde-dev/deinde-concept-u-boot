@@ -63,6 +63,14 @@ extern "C" {
 #define USE_DL_PREFIX
 #endif
 
+#ifdef __wasm__
+/*
+ * The C library's allocator obtains its memory with sbrk(), so it must not
+ * get U-Boot's version
+ */
+#define sbrk ub_sbrk
+#endif
+
 /*
  * When using simple malloc (SPL/TPL), redirect to simple implementations.
  * Skip this when compiling dlmalloc.c itself to avoid conflicts.

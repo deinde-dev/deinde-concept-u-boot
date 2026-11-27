@@ -49,6 +49,10 @@ class ConsoleSandbox(ConsoleBase):
         cmd = []
         if self.config.gdbserver:
             cmd += ['gdbserver', self.config.gdbserver]
+
+        # A WebAssembly build produces a JavaScript loader for node to run
+        if bcfg.get('config_sandbox_wasm', 'n') == 'y':
+            cmd.append('node')
         cmd += [self.config.build_dir + fname, '-v']
         if self.use_dtb:
             cmd += ['-d', self.config.dtb]
