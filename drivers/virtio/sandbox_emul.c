@@ -275,8 +275,8 @@ static int sandbox_emul_of_to_plat(struct udevice *dev)
 	}
 
 	priv->num_queues = MAX_VIRTIO_QUEUES;
-	priv->features = BIT(VIRTIO_F_VERSION_1) |
-				BIT(VIRTIO_RING_F_EVENT_IDX) |
+	priv->features = BIT_ULL(VIRTIO_F_VERSION_1) |
+				BIT_ULL(VIRTIO_RING_F_EVENT_IDX) |
 				ops->get_features(emul_dev);
 
 	log_debug("sandbox virtio emulator, mmio %p\n", priv->mmio.base);
