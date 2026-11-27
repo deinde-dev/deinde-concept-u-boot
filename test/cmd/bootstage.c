@@ -6,6 +6,7 @@
  */
 
 #include <bootstage.h>
+#include <command.h>
 #include <errno.h>
 #include <asm/global_data.h>
 #include <test/cmd.h>
@@ -140,6 +141,16 @@ static int cmd_test_bootstage_err(struct unit_test_state *uts)
 	ut_asserteq(1, run_command("bootstage nonsense", 0));
 	ut_assertok(check_usage(uts));
 
+	/* An option, which the command does not take */
+	ut_asserteq(1, run_command("bootstage -v", 0));
+	ut_assertok(check_usage(uts));
+
+	/* An argument a sub-command has no use for */
+	if (IS_ENABLED(CONFIG_BOOTSTAGE_SAVE)) {
+		ut_asserteq(1, run_command("bootstage save extra", 0));
+		ut_assertok(check_usage(uts));
+	}
+
 	if (IS_ENABLED(CONFIG_BOOTSTAGE_STASH)) {
 		/* An address which is not a number */
 		ut_asserteq(1, run_command("bootstage stash xyz", 0));
@@ -161,3 +172,32 @@ static int cmd_test_bootstage_err(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_bootstage_err, UTF_CONSOLE);
+
+/* Test that the dispatcher reports the repeatability of its sub-command */
+static int cmd_test_bootstage_repeat(struct unit_test_state *uts)
+{
+	char *const report_args[] = { "bootstage", "report", NULL };
+	char *const save_args[] = { "bootstage", "save", NULL };
+	int repeatable;
+
+	/* 'report' may be repeated by pressing Enter */
+	repeatable = -1;
+	ut_assertok(cmd_process(0, 2, report_args, &repeatable, NULL));
+	ut_asserteq(1, repeatable);
+	console_record_reset();
+
+	if (!IS_ENABLED(CONFIG_BOOTSTAGE_SAVE))
+		return 0;
+
+	/*
+	 * 'save' may not, and the dispatcher has to say so, since the command
+	 * itself is marked repeatable
+	 */
+	repeatable = -1;
+	ut_assertok(cmd_process(0, 2, save_args, &repeatable, NULL));
+	ut_asserteq(0, repeatable);
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_bootstage_repeat, UTF_CONSOLE);
