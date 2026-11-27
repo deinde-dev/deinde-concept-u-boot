@@ -206,6 +206,7 @@ ifdef CONFIG_REMOTEPROC_SANDBOX
 obj-$(CONFIG_CMD_REMOTEPROC) += rproc.o
 endif
 obj-y += sb.o
+obj-$(CONFIG_CMD_SCP03) += scp03.o
 obj-$(CONFIG_CMD_SCSI) += scsi.o scsiboot.o
 obj-$(CONFIG_CMD_SETEXPR) += setexpr.o
 obj-$(CONFIG_CMD_SMBIOS) += smbios.o
