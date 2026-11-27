@@ -2719,6 +2719,7 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
         os.close(fd)
         os.unlink(self.db_path)
         self.test_dir = tempfile.mkdtemp()
+        self.cancel = None
         self.orig_dir = os.getcwd()
         os.chdir(self.test_dir)
 
@@ -2990,6 +2991,9 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                                    return_value=''), \
                  mock.patch.object(gitlab, 'push_branch',
                                    side_effect=push_error) as push, \
+                 mock.patch.object(gitlab, 'get_busy_pipelines',
+                                   return_value=[7]), \
+                 mock.patch.object(gitlab, 'cancel_pipeline') as self.cancel, \
                  mock.patch.object(gitlab, 'reply_to_mr') as reply:
                 self.assertEqual(
                     1, control.process_mr_reviews('ci', mrs, dbs))
@@ -3005,10 +3009,14 @@ class TestProcessMrReviewsCommentTracking(unittest.TestCase):
                                      skip_ci=False)
         reply.assert_not_called()
 
+        # The pipeline for the older version is cancelled
+        self.cancel.assert_called_once_with('ci', 7)
+
     def test_review_subtree_push_fails(self):
         """Test that a subtree update which cannot be pushed is reported"""
         _, _, reply = self._review_subtree(
             push_error=command.CommandExc('push', None))
+        self.cancel.assert_not_called()
         reply.assert_called_once_with(
             'ci', 100, 'Cannot push the subtree update to the branch. Please '
             "check the branch; pickman's log has the error.")
@@ -10688,14 +10696,57 @@ class TestNarrowPipelines(unittest.TestCase):
         push.assert_called_once_with('ci', 'cherry-test', force=True,
                                      skip_ci=False)
 
-        # ...or if it has not finished, so its results are not known
+        # ...or if it has not finished, so its results are not known. It is
+        # for an older version, so it is cancelled
         with mock.patch.object(gitlab, 'get_pipeline_jobs') as get, \
+             mock.patch.object(gitlab, 'get_busy_pipelines',
+                               return_value=[100]), \
+             mock.patch.object(gitlab, 'cancel_pipeline',
+                               return_value=True) as cancel, \
              mock.patch.object(gitlab, 'push_branch') as push:
-            self.assertEqual('', control._push_with_ci(
-                'ci', self._mr(status='running'), self.dbs))
+            with terminal.capture():
+                self.assertEqual('', control._push_with_ci(
+                    'ci', self._mr(status='running'), self.dbs))
         get.assert_not_called()
         push.assert_called_once_with('ci', 'cherry-test', force=True,
                                      skip_ci=False)
+        cancel.assert_called_once_with('ci', 100)
+
+    def test_push_new_version(self):
+        """Test cancelling the pipelines for an older version"""
+        calls = mock.Mock()
+        calls.busy.return_value = [98, 100]
+        calls.cancel.side_effect = [False, True]
+        with mock.patch.object(gitlab, 'get_busy_pipelines', calls.busy), \
+             mock.patch.object(gitlab, 'push_branch', calls.push), \
+             mock.patch.object(gitlab, 'cancel_pipeline', calls.cancel):
+            tout.init(tout.INFO)
+            try:
+                with terminal.capture() as (out, _):
+                    control._push_new_version('ci', 1, 'cherry-test')
+            finally:
+                tout.init(tout.WARNING)
+
+        # The list comes before the push, so it cannot hold the new pipeline
+        self.assertEqual([
+            mock.call.busy('ci', 1, control.PIPELINE_BUSY),
+            mock.call.push('ci', 'cherry-test', force=True, skip_ci=False),
+            mock.call.cancel('ci', 98),
+            mock.call.cancel('ci', 100),
+        ], calls.mock_calls)
+        self.assertEqual(
+            'MR !1: cancelled pipeline 100, which is for an older version\n',
+            out.getvalue())
+
+        # If the push fails, the old pipelines still test the branch
+        with mock.patch.object(gitlab, 'get_busy_pipelines',
+                               return_value=[100]), \
+             mock.patch.object(gitlab, 'push_branch',
+                               side_effect=command.CommandExc('no', None)), \
+             mock.patch.object(gitlab, 'cancel_pipeline') as cancel:
+            with self.assertRaises(command.CommandExc):
+                control._push_new_version('ci', 1, 'cherry-test')
+        cancel.assert_not_called()
 
     def test_current_pipeline(self):
         """Test putting pickman's pipeline in place of the head pipeline"""
@@ -11070,6 +11121,51 @@ class TestPipelineApi(unittest.TestCase):
             with terminal.capture() as (_, err):
                 self.assertIsNone(gitlab.get_pipeline_jobs('ci', 7))
         self.assertIn('Could not read pipeline 7: gone', err.getvalue())
+
+    def test_get_busy_pipelines(self):
+        """Test finding the pipelines which have yet to finish"""
+        project = mock.Mock()
+        mr_pipes = project.mergerequests.get.return_value.pipelines
+        mr_pipes.list.return_value = [
+            mock.Mock(id=9, status='running'),
+            mock.Mock(id=8, status='success'),
+            mock.Mock(id=7, status='pending'),
+            mock.Mock(id=6, status='skipped')]
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            self.assertEqual([7, 9], gitlab.get_busy_pipelines(
+                'ci', 5, ('pending', 'running')))
+        project.mergerequests.get.assert_called_once_with(5)
+
+        with mock.patch.object(gitlab, 'get_project', return_value=None):
+            self.assertEqual([], gitlab.get_busy_pipelines(
+                'ci', 5, ('running',)))
+
+        mr_pipes.list.side_effect = gitlab.gitlab.exceptions.GitlabError(
+            'gone')
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            with terminal.capture() as (_, err):
+                self.assertEqual([], gitlab.get_busy_pipelines(
+                    'ci', 5, ('running',)))
+        self.assertIn('MR !5: could not read its pipelines: gone',
+                      err.getvalue())
+
+    def test_cancel_pipeline(self):
+        """Test cancelling a pipeline"""
+        project = mock.Mock()
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            self.assertTrue(gitlab.cancel_pipeline('ci', 7))
+        project.pipelines.get.assert_called_once_with(7, lazy=True)
+        project.pipelines.get.return_value.cancel.assert_called_once_with()
+
+        with mock.patch.object(gitlab, 'get_project', return_value=None):
+            self.assertFalse(gitlab.cancel_pipeline('ci', 7))
+
+        project.pipelines.get.return_value.cancel.side_effect = \
+            gitlab.gitlab.exceptions.GitlabError('done')
+        with mock.patch.object(gitlab, 'get_project', return_value=project):
+            with terminal.capture() as (_, err):
+                self.assertFalse(gitlab.cancel_pipeline('ci', 7))
+        self.assertIn('Could not cancel pipeline 7: done', err.getvalue())
 
 class TestRemovedIdentifiers(unittest.TestCase):
     """Tests for finding names a revert would take away"""

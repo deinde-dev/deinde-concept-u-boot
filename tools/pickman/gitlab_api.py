@@ -958,6 +958,53 @@ def get_last_pipeline(remote, mr_iid):
         return None
 
 
+def get_busy_pipelines(remote, mr_iid, busy):
+    """Get the pipelines for a merge request which have yet to finish
+
+    Args:
+        remote (str): Remote name
+        mr_iid (int): Merge request IID
+        busy (tuple of str): Statuses which mean that a pipeline has yet to
+            finish
+
+    Returns:
+        list of int: IDs of those pipelines, oldest first; empty if there
+            are none or the pipelines cannot be read
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return []
+        return sorted(pipe.id for pipe in
+                      project.mergerequests.get(mr_iid).pipelines.list(
+                          get_all=True)
+                      if pipe.status in busy)
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'MR !{mr_iid}: could not read its pipelines: {exc}')
+        return []
+
+
+def cancel_pipeline(remote, pipeline_id):
+    """Cancel a pipeline
+
+    Args:
+        remote (str): Remote name
+        pipeline_id (int): Pipeline ID
+
+    Returns:
+        bool: True if the pipeline is cancelled
+    """
+    try:
+        project = get_project(remote)
+        if not project:
+            return False
+        project.pipelines.get(pipeline_id, lazy=True).cancel()
+        return True
+    except gitlab.exceptions.GitlabError as exc:
+        tout.warning(f'Could not cancel pipeline {pipeline_id}: {exc}')
+        return False
+
+
 def push_and_create_mr(remote, branch, target, title, desc=''):
     """Push a branch and create a merge request
 
