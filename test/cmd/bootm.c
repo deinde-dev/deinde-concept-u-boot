@@ -257,7 +257,10 @@ static int cmd_test_bootm_order(struct unit_test_state *uts)
 
 	/* the second loados asks for a state which the boot has passed */
 	ut_asserteq(1, run_command("bootm loados", 0));
-	ut_assert_nextline("Trying to execute a command out of order");
+	if (IS_ENABLED(CONFIG_CMD_ERR_MSG))
+		ut_assert_nextline("Trying to execute a command out of order");
+	else
+		ut_assert_nextline("bootm: failed");
 	ut_assert_nextline("bootm - boot application image from memory");
 	ut_assert_nextline_empty();
 

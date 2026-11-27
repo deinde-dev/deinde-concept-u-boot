@@ -109,7 +109,7 @@ static int bootm_subcommand(int argc, char *const argv[])
 
 	if (((state & BOOTM_STATE_START) != BOOTM_STATE_START) &&
 	    images.state >= state) {
-		printf("Trying to execute a command out of order\n");
+		cmd_err("Trying to execute a command out of order\n");
 		return -EINVAL;
 	}
 
