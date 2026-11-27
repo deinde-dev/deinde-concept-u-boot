@@ -62,6 +62,15 @@ config HOST_64BIT
 	select 64BIT
 	select SPL_64BIT if SPL
 
+config SANDBOX_WASM
+	def_bool $(cc-define,__wasm__)
+	help
+	  This is set when sandbox is built for WebAssembly, e.g. with
+	  Emscripten's emcc as the compiler, so that it can run in a web
+	  browser or under node. There is no linker script in this case and
+	  features which need the host's kernel, or which run loaded code, are
+	  not available.
+
 config HOST_HAS_SDL
 	def_bool $(success,sdl2-config --version)
 

@@ -2,7 +2,19 @@
 # Copyright (c) 2011 The Chromium OS Authors.
 
 PLATFORM_CPPFLAGS += -D__SANDBOX__ -U_FORTIFY_SOURCE
+ifdef CONFIG_SANDBOX_WASM
+PLATFORM_CPPFLAGS += -ffunction-sections -fdata-sections
+
+# The textual assembler loses the type of WebAssembly globals, such as the
+# stack pointer, so objects then fail to link
+KBUILD_CFLAGS := $(filter-out -no-integrated-as,$(KBUILD_CFLAGS))
+KBUILD_AFLAGS := $(filter-out -no-integrated-as,$(KBUILD_AFLAGS))
+
+# emcc does not report where the compiler's own headers are in the usual way
+NOSTDINC_FLAGS := -nostdinc -isystem $(shell $(CC) -print-resource-dir)/include
+else
 PLATFORM_CPPFLAGS += -fPIC -ffunction-sections -fdata-sections
+endif
 
 ifeq ($(CONFIG_BACKTRACE),y)
 GCC_LIB_DIR := $(shell $(CC) -print-file-name=)

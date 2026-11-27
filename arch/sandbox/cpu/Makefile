@@ -6,6 +6,9 @@
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 
 obj-y	:= start.o cache.o cpu.o mem.o state.o os.o tty.o initjmp.o
+
+# The Emscripten sysroot has no Linux UAPI headers
+ccflags-$(CONFIG_SANDBOX_WASM) += -isystem $(srctree)/arch/sandbox/wasm/include
 ifdef CONFIG_FUZZ
 obj-y	+= fuzz.o
 else
