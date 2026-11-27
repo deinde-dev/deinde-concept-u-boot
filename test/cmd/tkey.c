@@ -179,6 +179,32 @@ static int cmd_test_tkey_loadapp(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_tkey_loadapp, UTF_DM | UTF_SCAN_FDT | UTF_CONSOLE);
 
+/* Test that a sub-command refuses an option */
+static int cmd_test_tkey_opt(struct unit_test_state *uts)
+{
+	static const char * const cmds[] = {
+		"tkey connect -x",
+		"tkey getkey -x",
+		"tkey loadapp -x",
+		"tkey wrapkey -x",
+	};
+	int i;
+
+	/* The command framework only looks for an option with this on */
+	if (!IS_ENABLED(CONFIG_CMD_ARG_CHECK))
+		return -EAGAIN;
+
+	for (i = 0; i < ARRAY_SIZE(cmds); i++) {
+		ut_asserteq(1, run_command(cmds[i], 0));
+		ut_assert_nextlinen("tkey - ");
+		ut_assert_skip_to_linen("tkey wrapkey");
+		ut_assert_console_end();
+	}
+
+	return 0;
+}
+CMD_TEST(cmd_test_tkey_opt, UTF_CONSOLE);
+
 /* Test the secret and the verification hash which 'tkey getkey' takes */
 static int cmd_test_tkey_uss(struct unit_test_state *uts)
 {

@@ -9,6 +9,7 @@
 #include <command.h>
 #include <console.h>
 #include <dm.h>
+#include <getopt.h>
 #include <hexdump.h>
 #include <malloc.h>
 #include <time.h>
@@ -50,15 +51,14 @@ static void print_hex(const char *label, const u8 *data, size_t len)
 	printf("\n");
 }
 
-static int do_tkey_connect(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_tkey_connect(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	int ret;
 
 	/* Check if device name is provided as optional first argument */
-	if (argc > 1) {
-		const char *dev_name = argv[1];
+	if (gs->argc > 1) {
+		const char *dev_name = gs->argv[1];
 
 		ret = uclass_get_device_by_name(UCLASS_TKEY, dev_name, &dev);
 		if (ret) {
@@ -82,8 +82,7 @@ static int do_tkey_connect(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_tkey_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_tkey_info(struct getopt_state *gs)
 {
 	char name0[TKEY_NAME_SIZE], name1[TKEY_NAME_SIZE];
 	u8 udi[TKEY_UDI_SIZE];
@@ -116,22 +115,21 @@ static int do_tkey_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_tkey_wrapkey(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_tkey_wrapkey(struct getopt_state *gs)
 {
 	u8 wrapping_key[TKEY_WRAPPING_KEY_SIZE];
 	const char *password;
 	struct udevice *dev;
 	int ret;
 
-	if (argc != 2)
+	if (gs->argc != 2)
 		return CMD_RET_USAGE;
 
 	dev = tkey_get_device();
 	if (!dev)
 		return CMD_RET_FAILURE;
 
-	password = argv[1];
+	password = gs->argv[1];
 
 	ret = tkey_derive_wrapping_key(dev, password, wrapping_key);
 	if (ret) {
@@ -147,8 +145,7 @@ static int do_tkey_wrapkey(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_tkey_fwmode(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_tkey_fwmode(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	int ret;
@@ -171,8 +168,7 @@ static int do_tkey_fwmode(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_tkey_signer(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_tkey_signer(struct getopt_state *gs)
 {
 	printf("signer binary: %ld bytes at %p-%p\n", (long)TKEY_SIGNER_SIZE,
 	       __signer_1_0_0_begin, __signer_1_0_0_end);
@@ -180,14 +176,15 @@ static int do_tkey_signer(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_tkey_getkey(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_tkey_getkey(struct getopt_state *gs)
 {
 	const char *hash = NULL;
 	u8 expect[TKEY_HASH_SIZE];
 	u8 disk_key[TKEY_DISK_KEY_SIZE];
 	u8 key_hash[TKEY_HASH_SIZE];
 	u8 pubkey[TKEY_PUBKEY_SIZE];
+	char *const *argv = gs->argv;
+	int argc = gs->argc;
 	bool verify = false;
 	struct udevice *dev;
 	u32 uss_len, ret;
@@ -259,23 +256,19 @@ static int do_tkey_getkey(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_tkey_loadapp(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_tkey_loadapp(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	const char *uss = NULL;
 	u32 ret, ulen = 0;
-
-	if (argc != 1 && argc != 2)
-		return CMD_RET_USAGE;
 
 	dev = tkey_get_device();
 	if (!dev)
 		return CMD_RET_FAILURE;
 
 	/* Optional USS parameter */
-	if (argc == 2) {
-		uss = argv[1];
+	if (gs->argc == 2) {
+		uss = gs->argv[1];
 		ulen = strlen(uss);
 		if (ulen > TKEY_USS_MAX_SIZE) {
 			printf("USS too long (max %d bytes, got %u)\n",
@@ -315,10 +308,10 @@ U_BOOT_LONGHELP(tkey,
 
 U_BOOT_CMD_WITH_SUBCMDS(tkey, "Tillitis TKey security token operations",
 			tkey_help_text,
-	U_BOOT_SUBCMD_MKENT(connect, 2, 1, do_tkey_connect),
-	U_BOOT_SUBCMD_MKENT(fwmode, 1, 1, do_tkey_fwmode),
-	U_BOOT_SUBCMD_MKENT(getkey, 3, 1, do_tkey_getkey),
-	U_BOOT_SUBCMD_MKENT(info, 1, 1, do_tkey_info),
-	U_BOOT_SUBCMD_MKENT(loadapp, 2, 1, do_tkey_loadapp),
-	U_BOOT_SUBCMD_MKENT(signer, 1, 1, do_tkey_signer),
-	U_BOOT_SUBCMD_MKENT(wrapkey, 2, 1, do_tkey_wrapkey));
+	U_BOOT_CMD_MKENT_NOOPTS(connect, 2, 1, do_tkey_connect, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(fwmode, 1, 1, do_tkey_fwmode, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(getkey, 3, 1, do_tkey_getkey, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, 1, 1, do_tkey_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(loadapp, 2, 1, do_tkey_loadapp, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(signer, 1, 1, do_tkey_signer, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(wrapkey, 2, 1, do_tkey_wrapkey, "", ""));
