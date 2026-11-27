@@ -1,4 +1,4 @@
-.. SPDX-License-Identifier: GPL-2.0+:
+.. SPDX-License-Identifier: GPL-2.0+
 
 .. index::
    single: tkey (command)
@@ -55,7 +55,9 @@ specific device.
 
 Once connected, the selected device is remembered and will be used by all
 subsequent tkey commands (info, getkey, loadapp, etc.) until a different device
-is selected with another connect command.
+is selected with another connect command. A connect which fails leaves the
+device chosen before it in place. Without a connect, each sub-command uses the
+first available device, without remembering it.
 
 device-name
     Optional name of a specific TKey device to connect to
@@ -85,8 +87,9 @@ The command performs these steps:
 
 #. Loads the embedded signer app with the provided USS
 #. Retrieves the public key from the signer app
-#. Derives the disk encryption key (BLAKE2b hash of the public key)
-#. Computes a verification hash (BLAKE2b hash of the disk key)
+#. Derives the disk encryption key (SHA-256 of the public key written out
+   as hex characters)
+#. Computes a verification hash (BLAKE2b-256 of the disk key)
 
 The USS is typically a user password or passphrase. The same USS always produces
 the same disk encryption key, making this suitable for unlocking encrypted
@@ -98,10 +101,11 @@ This is useful for validating user passwords before attempting to decrypt a
 disk.
 
 uss
-    User-Supplied Secret (password/passphrase) for key derivation
+    User-Supplied Secret (password/passphrase) for key derivation, at most
+    32 bytes long
 
 verify-hash
-    Optional 64-character hex string to verify the USS is correct
+    Optional hash to verify the USS is correct, as exactly 64 hex characters
 
 The command outputs:
 
@@ -109,10 +113,14 @@ Public Key
     32-byte Ed25519 public key derived from USS
 
 Disk Key
-    32-byte encryption key (BLAKE2b-256 of public key)
+    32-byte encryption key (SHA-256 of the public key's hex form)
 
 Verification Hash
     32-byte hash of disk key (save this for later verification)
+
+The verification hash is shown only when none is given on the command line.
+With one, the command reports whether it matches instead, and shows both
+hashes where it does not.
 
 
 tkey info
@@ -121,9 +129,11 @@ tkey info
 Display information about the TKey device, including its name, version, and
 Unique Device Identifier (UDI).
 
-The UDI is only available in firmware mode. If the device is in app mode, the
-command will report that the UDI is not available and suggest replugging the
-device.
+The name and version are available in both modes, so the first line always
+appears. The UDI is only available in firmware mode: in app mode the command
+reports the error the device gives for the request and returns failure. A
+device which rejects the request as unsupported, which is what the firmware
+does, brings the message 'UDI not available - replug device'.
 
 
 tkey loadapp
@@ -140,7 +150,7 @@ After loading, the device transitions to app mode and the UDI becomes
 inaccessible.
 
 uss
-    Optional User-Supplied Secret for the signer app
+    Optional User-Supplied Secret for the signer app, at most 32 bytes long
 
 
 tkey signer
@@ -171,96 +181,92 @@ password
 Example
 -------
 
-Connect to the first available device::
+This shows a session on sandbox, which has an emulated TKey called
+'tkey-emul'. Connect to it, look at it and derive both kinds of key::
 
-    => tkey connect
+    => tkey connect tkey-emul
     Connected to TKey device
-
-Connect to a specific device by name::
-
-    => tkey connect tkey@0
-    Connected to TKey device
-
-Check device mode::
-
+    => tkey info
+    Name0: tk1  Name1: mkdf Version: 4
+    UDI: a0a1a2a3a4a5a6a7
     => tkey fwmode
     firmware mode
+    => tkey signer
+    signer binary: 28024 bytes at 00005c5382a05160-00005c5382a0bed8
+    => tkey wrapkey hunter2
+    Wrapping Key: ae70b66ec52f60327bf4a60d51686f8314407102cbab35f40e57353091554d8c
+    => tkey getkey hunter2
+    Public Key: 505152535455565758595a5b5c5d5e5f505152535455565758595a5b5c5d5e5f
+    Disk Key: e9b0599268ff8b083ef80dbd04be207ce9a19a60a888ccb3fe93710a0a70a34e
+    Verification Hash: 8583a08d6c534e84ae81a8518071c16a8030893df05fecb84e514438591ba5ed
 
-    => tkey loadapp
-    Loading signer app (a9c bytes)...
+Deriving the disk key loads the signer app, so the device is in app mode
+afterwards::
 
     => tkey fwmode
     app mode
 
-Get device information (firmware mode)::
+Checking a secret against the verification hash saved from that run::
 
-    => tkey info
-    Name0: tk1  Name1: mkdf Version: 4
-    UDI: a0a1a2a3a4a5a6a7
-
-Get device information (app mode)::
-
-    => tkey info
-    Name0: tk1  Name1: sign Version: 4
-    UDI not available - replug device
-
-Derive disk encryption key without verification::
-
-    => tkey getkey mypassword
-    Public Key: 1a2b3c4d...
-    Disk Key: 9f8e7d6c...
-    Verification Hash: 5a4b3c2d...
-
-Derive disk encryption key with verification (correct password)::
-
-    => tkey getkey mypassword 5a4b3c2d1e0f...
-    Public Key: 1a2b3c4d...
-    Disk Key: 9f8e7d6c...
+    => tkey getkey hunter2 8583a08d6c534e84ae81a8518071c16a8030893df05fecb84e514438591ba5ed
+    Public Key: 505152535455565758595a5b5c5d5e5f505152535455565758595a5b5c5d5e5f
+    Disk Key: e9b0599268ff8b083ef80dbd04be207ce9a19a60a888ccb3fe93710a0a70a34e
 
     password correct
 
-Derive disk encryption key with verification (wrong password)::
+Where the hash does not match, the command shows both and returns failure::
 
-    => tkey getkey wrongpassword 5a4b3c2d1e0f...
-    Public Key: aaaa1111...
-    Disk Key: bbbb2222...
+    => tkey getkey hunter2 0000000000000000000000000000000000000000000000000000000000000000
+    Public Key: 505152535455565758595a5b5c5d5e5f505152535455565758595a5b5c5d5e5f
+    Disk Key: e9b0599268ff8b083ef80dbd04be207ce9a19a60a888ccb3fe93710a0a70a34e
 
     wrong password
-    Expected: 5a4b3c2d1e0f...
-    Got: cccc3333...
+    Expected: 0000000000000000000000000000000000000000000000000000000000000000
+    Got: 8583a08d6c534e84ae81a8518071c16a8030893df05fecb84e514438591ba5ed
 
-Load app without USS::
+Loading the signer app with a secret, on a device in firmware mode. The UDI
+is out of reach once it is loaded, so info then fails::
 
-    => tkey loadapp
-    Loading signer app (a9c bytes)...
+    => tkey connect tkey-emul
+    Connected to TKey device
+    => tkey loadapp hunter2
+    Loading signer app (28024 bytes) with USS...done
+    => tkey fwmode
+    app mode
+    => tkey info
+    Name0: tk1  Name1: sign Version: 4
+    Failed to get UDI (err -5: I/O error)
 
-Load app with USS::
 
-    => tkey loadapp mypassword
-    Loading signer app (a9c bytes) with USS...
+Return value
+------------
 
-Show signer binary information::
-
-    => tkey signer
-    signer binary: a9c bytes at 0x1234-0x5678
-
-Derive wrapping key from password::
-
-    => tkey wrapkey mypassword
-    Wrapping Key: 95229cd376898f3fb022a627349dc985bc4675da580d2696bdd6f71f488e306c
+The return value $? is 0 (true) if the sub-command succeeds. It is 1
+(false) if the device cannot be found, if the device reports an error, or
+if the secret given to getkey or loadapp is longer than 32 bytes. The
+usage message is shown, and $? is 1, where the sub-command does not exist
+or its arguments are wrong, which includes a verification hash which is
+not 64 hex characters long.
 
 
 Configuration
 -------------
 
-The tkey command is available if CONFIG_CMD_TKEY is enabled. The command
-requires a TKey driver to be configured (USB or serial).
+The tkey command is available if CONFIG_CMD_TKEY is enabled, which needs
+CONFIG_TKEY for the uclass the command talks to. The drivers in the tree
+are sandbox's: 'sandbox,tkey' reaches a real TKey through a host serial
+device such as /dev/ttyACM0 and 'tkey,emul' emulates one, which is what
+the tests use.
 
 
 See also
 --------
 
-* :doc:`../tkey-fde` - TKey full disk encryption guide
-* :doc:`luks` - LUKS command reference
-* :doc:`bootctl` - Boot control, which can unlock a volume with a TKey
-* `Tillitis TKey documentation <https://tillitis.se/>`_
+* :doc:`../tkey-fde` for the full-disk-encryption guide which puts these
+  sub-commands together, from deriving a key to unlocking a volume with it
+* :doc:`luks<luks>` for the command which uses such a key to open an
+  encrypted volume
+* :doc:`bootctl<bootctl>` for boot control, which can unlock a volume with
+  a TKey on the way to booting an Operating System
+* `Tillitis TKey documentation <https://tillitis.se/>`_ for the device
+  itself and the signer app this command loads
