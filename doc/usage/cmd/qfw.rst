@@ -39,7 +39,7 @@ must be updated to take account of the address to which the tables are copied.
 
 The *qfw arch* command shows some items marked as 'arch local' in QEMU.
 
-The *qfw read* command allowing a QEMU file to be read into memory.
+The *qfw read* command reads a QEMU file into memory.
 
 The *qfw e820* command shows the memory-map information provided by QEMU. It
 uses the x86 e820 format.
@@ -68,7 +68,7 @@ QEMU firmware files are listed via the *qfw list* command:
 ::
 
     => qfw list
-    Addr     Size Sel Name
+        Addr     Size Sel Name
     -------- -------- --- ------------
            0        0  20 bios-geometry
            0        0  21 bootorder
@@ -90,6 +90,8 @@ inspection, e.g. using the :doc:`md`.
 This shows the *qfw dump* command on an x86 target:
 
 ::
+
+    => qfw dump
     signature   = QEMU
     id          = 0x00000003
     uuid        = dc8275a0-59c6-11f0-b383-0f1ea10dd2f7
@@ -118,7 +120,7 @@ The available CPUs can be shown via the *qfw cpus* command:
 
 ::
 
-    => qfw cpu
+    => qfw cpus
     2 cpu(s) online
 
 The *-kernel* and *-initrd* parameters allow to specify a kernel and an
@@ -167,7 +169,7 @@ This shows the *qfw table* command on an x86 target:
      15 add-chksum offset 8 start 0 length 14 name 'etc/acpi/rsdp'
 
 
-This shows the *qfw table* command on an x86 target:
+This shows the *qfw arch* command on an x86 target:
 
 ::
 
@@ -215,7 +217,35 @@ reserved memory:
     =>
 
 
+Return value
+------------
+
+The return value $? is 0 (true) if the sub-command succeeds and 1 (false) if
+it fails. The command shows its usage message where there is no sub-command,
+where the sub-command is not one of those listed above, or where it is given
+the wrong number of arguments; it also does so where QEMU provides no fw_cfg
+interface, since the command then has nothing to work with.
+
+The load sub-command fails where either address is zero, and the read
+sub-command where QEMU offers no file of that name. The arch sub-command
+succeeds on an architecture which marks no items as 'arch local', showing
+nothing, while the e820 sub-command fails there, since the table is specific
+to x86.
+
 Configuration
 -------------
 
 The qfw command is only available if CONFIG_CMD_QFW=y.
+
+See also
+--------
+
+* :doc:`acpi<acpi>` for the tables which *qfw table* shows the instructions
+  for building
+* :doc:`smbios<smbios>` for the other set of tables QEMU passes through to
+  U-Boot
+* :doc:`md<md>` for inspecting a file which *qfw read* has placed in memory
+* :doc:`cpu<cpu>` for details of the CPUs which *qfw cpus* counts
+* :doc:`meminfo<meminfo>` for the memory map U-Boot itself uses, rather than
+  the one *qfw e820* reports
+* *zboot* for booting the kernel which *qfw load* places in memory
