@@ -325,9 +325,9 @@ static void pstore_print_buffer(char *type, char *buffer, u32 size)
  * @argv: Array of command-line arguments
  *
  * A 'record-type' can be given to only display records of this kind.
- * If no 'record-type' is given, all valid records are dispayed.
- * 'record-type' can be one of 'dump', 'console', 'ftrace' or 'user'. For 'dump'
- * and 'ftrace' types, a 'nb' can be given to only display one record.
+ * If no 'record-type' is given, all valid records are displayed.
+ * 'record-type' can be one of 'dump', 'console', 'ftrace' or 'user'. For the
+ * 'dump' type, a 'nb' can be given to only display one record.
  *
  * Return: zero on success, CMD_RET_USAGE in case of misuse and negative
  * on error.
@@ -653,7 +653,7 @@ clean_ramoops:
 
 U_BOOT_CMD(pstore, 10, 0, do_pstore,
 	   "Manage Linux Persistent Storage",
-	   "set <addr> <len> [record-size] [console-size] [ftrace-size] [pmsg_size] [ecc-size]\n"
+	   "set <addr> <len> [record-size] [console-size] [ftrace-size] [pmsg-size] [ecc-size]\n"
 	   "- Set pstore reserved memory info, starting at 'addr' for 'len' bytes.\n"
 	   "  Default length for records is 4K.\n"
 	   "  'record-size' is the size of one panic or oops record ('dump' type).\n"
@@ -666,8 +666,8 @@ U_BOOT_CMD(pstore, 10, 0, do_pstore,
 	   "pstore display [record-type] [nb]\n"
 	   "- Display existing records in pstore reserved memory. A 'record-type' can\n"
 	   "  be given to only display records of this kind. 'record-type' can be one\n"
-	   "  of 'dump', 'console', 'ftrace' or 'user'. For 'dump' and 'ftrace' types,\n"
-	   "  a 'nb' can be given to only display one record.\n"
+	   "  of 'dump', 'console', 'ftrace' or 'user'. For the 'dump' type, a 'nb'\n"
+	   "  can be given to only display one record.\n"
 	   "pstore save <interface> <dev[:part]> <directory-path>\n"
 	   "- Save existing records in pstore reserved memory under 'directory path'\n"
 	   "  to partition 'part' on device type 'interface' instance 'dev'.\n"
