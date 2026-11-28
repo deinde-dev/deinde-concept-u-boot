@@ -335,6 +335,40 @@ static int cmd_test_mmc_setdsr(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_mmc_setdsr, UTF_CONSOLE);
 
+/* Test that the command reports the repeatability of its sub-command */
+static int cmd_test_mmc_repeat(struct unit_test_state *uts)
+{
+	char *const list_args[] = { "mmc", "list", NULL };
+	char *const dev_args[] = { "mmc", "dev", NULL };
+	int repeatable;
+
+	ut_assertok(select_mmc(uts, 0));
+
+	/* 'list' may be repeated by pressing Enter */
+	repeatable = -1;
+	ut_assertok(cmd_process(0, 2, list_args, &repeatable, NULL));
+	ut_asserteq(1, repeatable);
+	console_record_reset();
+
+	/*
+	 * 'dev' may not, and the command is marked repeatable itself, so
+	 * without the dispatcher narrowing it every sub-command would look
+	 * repeatable
+	 */
+	repeatable = -1;
+	ut_assertok(cmd_process(0, 2, dev_args, &repeatable, NULL));
+	ut_asserteq(0, repeatable);
+	console_record_reset();
+
+	/* a repeat of it is refused before the sub-command runs */
+	ut_assertok(cmd_process(CMD_FLAG_REPEAT, 2, dev_args, &repeatable,
+				NULL));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_mmc_repeat, UTF_CONSOLE);
+
 /* Test the speed mode, which is an argument only where it can be set */
 static int cmd_test_mmc_speed_mode(struct unit_test_state *uts)
 {
