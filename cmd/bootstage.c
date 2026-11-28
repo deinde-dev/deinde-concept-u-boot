@@ -6,11 +6,12 @@
 #include <bootstage.h>
 #include <command.h>
 #include <env.h>
+#include <getopt.h>
+#include <mapmem.h>
 #include <vsprintf.h>
 #include <linux/string.h>
 
-static int do_bootstage_report(struct cmd_tbl *cmdtp, int flag, int argc,
-			       char *const argv[])
+static int do_bootstage_report(struct getopt_state *gs)
 {
 	bootstage_report();
 
@@ -39,23 +40,25 @@ static int get_base_size(int argc, char *const argv[], ulong *basep,
 	return 0;
 }
 
-static int do_bootstage_stash(struct cmd_tbl *cmdtp, int flag, int argc,
-			      char *const argv[])
+static int do_bootstage_stash(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	ulong base, size;
+	void *ptr;
 	int ret;
 
 	if (get_base_size(argc, argv, &base, &size))
 		return CMD_RET_USAGE;
-	if (base == -1UL) {
-		printf("No bootstage stash area defined\n");
-		return 1;
-	}
+	if (base == -1UL)
+		return cmd_fail(0, "No bootstage stash area defined\n");
 
+	ptr = map_sysmem(base, size);
 	if (0 == strcmp(argv[0], "stash"))
-		ret = bootstage_stash((void *)base, size);
+		ret = bootstage_stash(ptr, size);
 	else
-		ret = bootstage_unstash((void *)base, size);
+		ret = bootstage_unstash(ptr, size);
+	unmap_sysmem(ptr);
 	if (ret)
 		return 1;
 
@@ -63,16 +66,14 @@ static int do_bootstage_stash(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 #endif
 
-static int __maybe_unused do_bootstage_save(struct cmd_tbl *cmdtp, int flag,
-					    int argc, char *const argv[])
+static int __maybe_unused do_bootstage_save(struct getopt_state *gs)
 {
 	env_set_hex("bootstage_count", bootstage_get_rec_count());
 
 	return 0;
 }
 
-static int __maybe_unused do_bootstage_restore(struct cmd_tbl *cmdtp, int flag,
-					       int argc, char *const argv[])
+static int __maybe_unused do_bootstage_restore(struct getopt_state *gs)
 {
 	ulong count = env_get_hex("bootstage_count", 0);
 
@@ -83,39 +84,28 @@ static int __maybe_unused do_bootstage_restore(struct cmd_tbl *cmdtp, int flag,
 }
 
 static struct cmd_tbl cmd_bootstage_sub[] = {
-	U_BOOT_CMD_MKENT(report, 2, 1, do_bootstage_report, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(report, 2, 1, do_bootstage_report, "", ""),
 #if IS_ENABLED(CONFIG_BOOTSTAGE_SAVE)
-	U_BOOT_CMD_MKENT(save, 1, 0, do_bootstage_save, "", ""),
-	U_BOOT_CMD_MKENT(restore, 1, 0, do_bootstage_restore, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(save, 1, 0, do_bootstage_save, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(restore, 1, 0, do_bootstage_restore, "", ""),
 #endif
 #if IS_ENABLED(CONFIG_BOOTSTAGE_STASH)
-	U_BOOT_CMD_MKENT(stash, 4, 0, do_bootstage_stash, "", ""),
-	U_BOOT_CMD_MKENT(unstash, 4, 0, do_bootstage_stash, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(stash, 4, 0, do_bootstage_stash, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(unstash, 4, 0, do_bootstage_stash, "", ""),
 #endif
 };
 
 /*
  * Process a bootstage sub-command
  */
-static int do_boostage(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_bootstage(struct getopt_state *gs)
 {
-	struct cmd_tbl *c;
-
-	/* Strip off leading 'bootstage' command argument */
-	argc--;
-	argv++;
-
-	c = find_cmd_tbl(argv[0], cmd_bootstage_sub,
-			 ARRAY_SIZE(cmd_bootstage_sub));
-
-	if (c)
-		return cmd_invoke(c, flag, argc, argv);
-	else
-		return CMD_RET_USAGE;
+	return cmd_dispatch_subcmd(gs, cmd_bootstage_sub,
+				   ARRAY_SIZE(cmd_bootstage_sub));
 }
 
-U_BOOT_CMD(bootstage, 4, 1, do_boostage,
+U_BOOT_CMD_NOOPTS(
+	bootstage, 4, 1, do_bootstage,
 	"Boot stage command",
 	" - check boot progress and timing\n"
 	"report                      - Print a report\n"

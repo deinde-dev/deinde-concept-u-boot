@@ -3007,6 +3007,7 @@ source "cmd/ti/Kconfig"
 config CMD_BOOTSTAGE
 	bool "Enable the 'bootstage' command"
 	depends on BOOTSTAGE
+	select GETOPT
 	help
 	  Add a 'bootstage' command which supports printing a report
 	  and un/stashing of bootstage data.
