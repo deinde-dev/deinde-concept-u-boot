@@ -159,6 +159,7 @@ obj-$(CONFIG_CMD_PART) += part.o
 ifdef CONFIG_CONSOLE_RECORD
 obj-$(CONFIG_CMD_OSD) += osd.o
 obj-$(CONFIG_CMD_PMIC) += pmic.o
+obj-$(CONFIG_CMD_PSTORE) += pstore.o
 obj-$(CONFIG_CMD_PXE) += pxe.o
 endif
 obj-$(CONFIG_CMD_PART_FIND) += part_find.o
