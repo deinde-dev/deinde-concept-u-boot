@@ -21,13 +21,13 @@ cmd_extension_load_overlay_from_env(const struct extension *extension,
 
 	overlay_cmd = env_get("extension_overlay_cmd");
 	if (!overlay_cmd) {
-		printf("Environment extension_overlay_cmd is missing\n");
+		cmd_err("Environment extension_overlay_cmd is missing\n");
 		return -EINVAL;
 	}
 
 	overlay_addr = env_get_hex("extension_overlay_addr", 0);
 	if (!overlay_addr) {
-		printf("Environment extension_overlay_addr is missing\n");
+		cmd_err("Environment extension_overlay_addr is missing\n");
 		return -EINVAL;
 	}
 
@@ -57,7 +57,7 @@ static int cmd_extension_apply(int extension_num)
 	extension = alist_get(extension_list, extension_num,
 			      struct extension);
 	if (!extension) {
-		printf("Wrong extension number\n");
+		cmd_err("Wrong extension number\n");
 		return -ENODEV;
 	}
 
@@ -99,10 +99,8 @@ static int do_extension_list(struct getopt_state *gs)
 	int i = 0;
 
 	extension_list = extension_get_list();
-	if (!extension_list) {
-		printf("No extension device\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!extension_list)
+		return cmd_fail(0, "No extension device\n");
 	if (!alist_get_ptr(extension_list, 0)) {
 		printf("No extension registered - Please run \"extension scan\"\n");
 		return CMD_RET_SUCCESS;
@@ -140,11 +138,10 @@ static int do_extension_apply(struct getopt_state *gs)
 	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
-	if (!working_fdt) {
-		printf("No FDT memory address configured. Please configure\n"
-		       "the FDT address via \"fdt addr <address>\" command.\n");
-		return CMD_RET_FAILURE;
-	}
+	if (!working_fdt)
+		return cmd_fail(0,
+				"No FDT memory address configured. Please configure\n"
+				"the FDT address via \"fdt addr <address>\" command.\n");
 
 	if (strcmp(argv[1], "all") == 0) {
 		if (cmd_extension_apply_all())
