@@ -23,14 +23,14 @@ static int do_dev(struct getopt_state *gs)
 	case 2:
 		name = gs->argv[1];
 		ret = uclass_get_device_by_name(UCLASS_PINCTRL, name, &currdev);
-		if (ret) {
-			printf("Can't get the pin-controller: %s!\n", name);
-			return CMD_RET_FAILURE;
-		}
+		if (ret)
+			return cmd_fail(ret,
+					"Can't get the pin-controller: %s!\n",
+					name);
 		/* fall through */
 	case 1:
 		if (!currdev) {
-			printf("Pin-controller device is not set!\n");
+			cmd_err("Pin-controller device is not set!\n");
 			return CMD_RET_USAGE;
 		}
 
@@ -60,14 +60,15 @@ static int show_pinmux(struct udevice *dev, char *name)
 	pins_count = pinctrl_get_pins_count(dev);
 
 	if (pins_count == -ENOSYS) {
-		printf("Ops get_pins_count not supported by %s\n", dev->name);
+		cmd_err("Ops get_pins_count not supported by %s\n", dev->name);
 		return pins_count;
 	}
 
 	for (i = 0; i < pins_count; i++) {
 		ret = pinctrl_get_pin_name(dev, i, pin_name, PINNAME_SIZE);
 		if (ret) {
-			printf("Ops get_pin_name error (%d) by %s\n", ret, dev->name);
+			cmd_err("Ops get_pin_name error (%d) by %s\n", ret,
+				dev->name);
 			return ret;
 		}
 		if (name && strcmp(name, pin_name))
@@ -75,8 +76,8 @@ static int show_pinmux(struct udevice *dev, char *name)
 		found = true;
 		ret = pinctrl_get_pin_muxing(dev, i, pin_mux, PINMUX_SIZE);
 		if (ret) {
-			printf("Ops get_pin_muxing error (%d) by %s in %s\n",
-			       ret, pin_name, dev->name);
+			cmd_err("Ops get_pin_muxing error (%d) by %s in %s\n",
+				ret, pin_name, dev->name);
 			return ret;
 		}
 
@@ -110,10 +111,9 @@ static int do_status(struct getopt_state *gs)
 	name = getopt_pop(gs);
 
 	if (!all && !name) {
-		if (!currdev) {
-			printf("pin-controller device not selected\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!currdev)
+			return cmd_fail(0,
+					"pin-controller device not selected\n");
 		show_pinmux(currdev, NULL);
 		return CMD_RET_SUCCESS;
 	}
@@ -130,10 +130,8 @@ static int do_status(struct getopt_state *gs)
 			return CMD_RET_SUCCESS;
 	}
 
-	if (name) {
-		printf("%s not found\n", name);
-		return CMD_RET_FAILURE;
-	}
+	if (name)
+		return cmd_fail(-ENOENT, "%s not found\n", name);
 
 	return CMD_RET_SUCCESS;
 }
