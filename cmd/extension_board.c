@@ -144,7 +144,7 @@ static int do_extension_apply(struct cmd_tbl *cmdtp, int flag,
 	if (!working_fdt) {
 		printf("No FDT memory address configured. Please configure\n"
 		       "the FDT address via \"fdt addr <address>\" command.\n");
-		return -EINVAL;
+		return CMD_RET_FAILURE;
 	}
 
 	if (strcmp(argv[1], "all") == 0) {
