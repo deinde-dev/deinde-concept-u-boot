@@ -292,5 +292,5 @@ U_BOOT_CMD(
 	"    - load <kernel addr> <initrd addr> : load kernel and initrd (if any), and setup for zboot\n"
 	"    - table                            : show /etc/table-loader\n"
 	"    - arch                             : show arch-specific data\n"
-	"    - read <addr> <filename>           : read a flle into memory\n"
+	"    - read <addr> <filename>           : read a file into memory\n"
 	"    - e820                             : show QEMU e820 table");
