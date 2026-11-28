@@ -1913,6 +1913,7 @@ config CMD_PINMUX
 	bool "pinmux - show pins muxing"
 	depends on PINCTRL
 	default y if PINCTRL
+	select GETOPT
 	help
 	  Parse all available pin-controllers and show pins muxing. This
 	  is useful for debugging purposes to check the pin muxing and to know if
