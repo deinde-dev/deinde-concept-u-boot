@@ -90,3 +90,4 @@ See also
 * :doc:`load<load>` for reading a file into memory, which also sets filesize
 * :doc:`save<save>` for writing memory out to a file
 * :doc:`mount<mount>` for making a filesystem available to the VFS form
+* :doc:`host<host>` for the sandbox form which sizes a file on the host

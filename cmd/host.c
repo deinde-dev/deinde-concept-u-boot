@@ -7,6 +7,7 @@
 #include <dm.h>
 #include <env.h>
 #include <fs_cmd.h>
+#include <getopt.h>
 #include <part.h>
 #include <sandbox_host.h>
 #include <dm/device_compat.h>
@@ -15,51 +16,47 @@
 #include <linux/errno.h>
 #include <linux/log2.h>
 
-static int do_host_load(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_host_load(struct getopt_state *gs)
 {
-	return do_load(argc, argv, FS_TYPE_SANDBOX);
+	return do_load(gs->argc, gs->argv, FS_TYPE_SANDBOX);
 }
 
-static int do_host_ls(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_host_ls(struct getopt_state *gs)
 {
-	return do_ls(argc, argv, FS_TYPE_SANDBOX);
+	return do_ls(gs->argc, gs->argv, FS_TYPE_SANDBOX);
 }
 
-static int do_host_size(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_host_size(struct getopt_state *gs)
 {
-	return do_size(argc, argv, FS_TYPE_SANDBOX);
+	return do_size(gs->argc, gs->argv, FS_TYPE_SANDBOX);
 }
 
-static int do_host_save(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_host_save(struct getopt_state *gs)
 {
-	return do_save(argc, argv, FS_TYPE_SANDBOX);
+	return do_save(gs->argc, gs->argv, FS_TYPE_SANDBOX);
 }
 
-static int do_host_bind(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_host_bind(struct getopt_state *gs)
 {
 	bool removable = false;
 	struct udevice *dev;
 	const char *label;
+	char *const *argv;
 	char *file;
 	unsigned long blksz = DEFAULT_BLKSZ;
-	int ret;
+	int argc, opt, ret;
 
-	/* Skip 'bind' */
-	argc--;
-	argv++;
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
-	if (!strcmp(argv[0], "-r")) {
-		removable = true;
-		argc--;
-		argv++;
+	while ((opt = getopt(gs, "+r")) > 0) {
+		switch (opt) {
+		case 'r':
+			removable = true;
+			break;
+		default:
+			return CMD_RET_USAGE;
+		}
 	}
+	argc = gs->argc - gs->index;
+	argv = gs->argv + gs->index;
 
 	if (argc < 2 || argc > 3)
 		return CMD_RET_USAGE;
@@ -67,17 +64,14 @@ static int do_host_bind(struct cmd_tbl *cmdtp, int flag, int argc,
 	file = argv[1];
 	if (argc > 2) {
 		blksz = dectoul(argv[2], NULL);
-		if (blksz < DEFAULT_BLKSZ || !is_power_of_2(blksz)) {
-			printf("blksz must be >= 512 and power of 2\n");
-			return CMD_RET_FAILURE;
-		}
+		if (blksz < DEFAULT_BLKSZ || !is_power_of_2(blksz))
+			return cmd_fail(0,
+					"blksz must be >= 512 and power of 2\n");
 	}
 
 	ret = host_create_attach_file(label, file, removable, blksz, &dev);
-	if (ret) {
-		printf("Cannot create device / bind file\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot create device / bind file\n");
 
 	return 0;
 }
@@ -102,7 +96,7 @@ static struct udevice *parse_host_label(const char *label)
 		devnum = hextoul(label, &ep);
 		if (*ep ||
 		    uclass_find_device_by_seq(UCLASS_HOST, devnum, &dev)) {
-			printf("No such device '%s'\n", label);
+			cmd_err("No such device '%s'\n", label);
 			return NULL;
 		}
 	}
@@ -110,32 +104,27 @@ static struct udevice *parse_host_label(const char *label)
 	return dev;
 }
 
-static int do_host_unbind(struct cmd_tbl *cmdtp, int flag, int argc,
-			  char *const argv[])
+static int do_host_unbind(struct getopt_state *gs)
 {
 	struct udevice *dev;
 	const char *label;
 	int ret;
 
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
-	label = argv[1];
+	label = gs->argv[1];
 	dev = parse_host_label(label);
 	if (!dev)
 		return CMD_RET_FAILURE;
 
 	ret = host_detach_file(dev);
-	if (ret) {
-		printf("Cannot detach file (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot detach file (err=%d)\n", ret);
 
 	ret = device_unbind(dev);
-	if (ret) {
-		printf("Cannot unbind device '%s'\n", dev->name);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot unbind device '%s'\n", dev->name);
 
 	return 0;
 }
@@ -161,9 +150,10 @@ static void show_host_dev(struct udevice *dev)
 	       plat->label, plat->filename);
 }
 
-static int do_host_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			char *const argv[])
+static int do_host_info(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 
 	if (argc < 1)
@@ -193,9 +183,10 @@ static int do_host_info(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_host_dev(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[])
+static int do_host_dev(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct udevice *dev;
 	const char *label;
 
@@ -206,10 +197,8 @@ static int do_host_dev(struct cmd_tbl *cmdtp, int flag, int argc,
 		struct host_sb_plat *plat;
 
 		dev = host_get_cur_dev();
-		if (!dev) {
-			printf("No current host device\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!dev)
+			return cmd_fail(0, "No current host device\n");
 		plat = dev_get_plat(dev);
 		printf("Current host device: %d: %s\n", dev_seq(dev),
 		       plat->label);
@@ -227,34 +216,22 @@ static int do_host_dev(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 static struct cmd_tbl cmd_host_sub[] = {
-	U_BOOT_CMD_MKENT(load, 7, 0, do_host_load, "", ""),
-	U_BOOT_CMD_MKENT(ls, 3, 0, do_host_ls, "", ""),
-	U_BOOT_CMD_MKENT(save, 6, 0, do_host_save, "", ""),
-	U_BOOT_CMD_MKENT(size, 3, 0, do_host_size, "", ""),
-	U_BOOT_CMD_MKENT(bind, 4, 0, do_host_bind, "", ""),
-	U_BOOT_CMD_MKENT(unbind, 4, 0, do_host_unbind, "", ""),
-	U_BOOT_CMD_MKENT(info, 3, 0, do_host_info, "", ""),
-	U_BOOT_CMD_MKENT(dev, 0, 1, do_host_dev, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(load, 7, 0, do_host_load, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(ls, 4, 0, do_host_ls, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(save, 7, 0, do_host_save, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(size, 4, 0, do_host_size, "", ""),
+	U_BOOT_CMD_MKENT_GETOPT(bind, 5, 0, do_host_bind, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(unbind, 4, 0, do_host_unbind, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, 3, 0, do_host_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dev, 3, 1, do_host_dev, "", ""),
 };
 
-static int do_host(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char *const argv[])
+static int do_host(struct getopt_state *gs)
 {
-	struct cmd_tbl *c;
-
-	/* Skip past 'host' */
-	argc--;
-	argv++;
-
-	c = find_cmd_tbl(argv[0], cmd_host_sub, ARRAY_SIZE(cmd_host_sub));
-
-	if (c)
-		return cmd_invoke(c, flag, argc, argv);
-	else
-		return CMD_RET_USAGE;
+	return cmd_dispatch_subcmd(gs, cmd_host_sub, ARRAY_SIZE(cmd_host_sub));
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	host, 8, 1, do_host,
 	"Miscellaneous host commands",
 	"load hostfs - <addr> <filename> [<bytes> <offset>]  - "
