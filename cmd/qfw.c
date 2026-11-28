@@ -9,6 +9,7 @@
 #include <display_options.h>
 #include <env.h>
 #include <errno.h>
+#include <getopt.h>
 #include <qfw.h>
 #include <dm.h>
 #include <u-boot/uuid.h>
@@ -39,8 +40,7 @@ static int qemu_fwcfg_cmd_list_firmware(void)
 	return 0;
 }
 
-static int qemu_fwcfg_do_list(struct cmd_tbl *cmdtp, int flag,
-			      int argc, char *const argv[])
+static int qemu_fwcfg_do_list(struct getopt_state *gs)
 {
 	if (qemu_fwcfg_cmd_list_firmware() < 0)
 		return CMD_RET_FAILURE;
@@ -48,16 +48,16 @@ static int qemu_fwcfg_do_list(struct cmd_tbl *cmdtp, int flag,
 	return 0;
 }
 
-static int qemu_fwcfg_do_cpus(struct cmd_tbl *cmdtp, int flag,
-			      int argc, char *const argv[])
+static int qemu_fwcfg_do_cpus(struct getopt_state *gs)
 {
 	printf("%d cpu(s) online\n", qfw_online_cpus(qfw_dev));
 	return 0;
 }
 
-static int qemu_fwcfg_do_load(struct cmd_tbl *cmdtp, int flag,
-			      int argc, char *const argv[])
+static int qemu_fwcfg_do_load(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	char *env;
 	ulong load_addr;
 	ulong initrd_addr;
@@ -76,11 +76,11 @@ static int qemu_fwcfg_do_load(struct cmd_tbl *cmdtp, int flag,
 		0;
 #endif
 
-	if (argc == 2) {
-		load_addr = hextoul(argv[0], NULL);
-		initrd_addr = hextoul(argv[1], NULL);
-	} else if (argc == 1) {
-		load_addr = hextoul(argv[0], NULL);
+	if (argc == 3) {
+		load_addr = hextoul(argv[1], NULL);
+		initrd_addr = hextoul(argv[2], NULL);
+	} else if (argc == 2) {
+		load_addr = hextoul(argv[1], NULL);
 	}
 
 	if (!load_addr || !initrd_addr) {
@@ -100,8 +100,7 @@ static uint get_val(enum fw_cfg_selector sel)
 	return val;
 }
 
-static int do_dump(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char * const argv[])
+static int do_dump(struct getopt_state *gs)
 {
 	char uuid_str[UUID_STR_LEN + 1];
 	struct abuf buf;
@@ -159,8 +158,7 @@ nomem:
 	return CMD_RET_FAILURE;
 }
 
-static int do_table(struct cmd_tbl *cmdtp, int flag, int argc,
-		    char * const argv[])
+static int do_table(struct getopt_state *gs)
 {
 	struct bios_linker_entry *entry, *end;
 	struct abuf loader;
@@ -205,8 +203,7 @@ static int do_table(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_arch(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char * const argv[])
+static int do_arch(struct getopt_state *gs)
 {
 	if (!IS_ENABLED(CONFIG_X86))
 		return 0;
@@ -219,23 +216,22 @@ static int do_arch(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-static int do_read(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char * const argv[])
+static int do_read(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	int ret;
 
-	if (argc < 2)
+	if (gs->argc < 3)
 		return CMD_RET_USAGE;
 
-	ret = qfw_load_file(qfw_dev, argv[1], hextoul(argv[0], NULL));
+	ret = qfw_load_file(qfw_dev, argv[2], hextoul(argv[1], NULL));
 	if (ret)
 		return CMD_RET_FAILURE;
 
 	return 0;
 }
 
-static int do_e820(struct cmd_tbl *cmdtp, int flag, int argc,
-		   char * const argv[])
+static int do_e820(struct getopt_state *gs)
 {
 	if (!IS_ENABLED(CONFIG_X86)) {
 		printf("Not supported on this architecture\n");
@@ -248,21 +244,22 @@ static int do_e820(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 static struct cmd_tbl fwcfg_commands[] = {
-	U_BOOT_CMD_MKENT(list, 0, 1, qemu_fwcfg_do_list, "", ""),
-	U_BOOT_CMD_MKENT(cpus, 0, 1, qemu_fwcfg_do_cpus, "", ""),
-	U_BOOT_CMD_MKENT(load, 2, 1, qemu_fwcfg_do_load, "", ""),
-	U_BOOT_CMD_MKENT(dump, 0, 1, do_dump, "", ""),
-	U_BOOT_CMD_MKENT(table, 0, 1, do_table, "", ""),
-	U_BOOT_CMD_MKENT(arch, 0, 1, do_arch, "", ""),
-	U_BOOT_CMD_MKENT(read, 2, 1, do_read, "", ""),
-	U_BOOT_CMD_MKENT(e820, 0, 1, do_e820, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(list, 0, 1, qemu_fwcfg_do_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(cpus, 0, 1, qemu_fwcfg_do_cpus, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(load, 2, 1, qemu_fwcfg_do_load, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(dump, 0, 1, do_dump, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(table, 0, 1, do_table, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(arch, 0, 1, do_arch, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(read, 2, 1, do_read, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(e820, 0, 1, do_e820, "", ""),
 };
 
-static int do_qemu_fw(struct cmd_tbl *cmdtp, int flag, int argc,
-		      char *const argv[])
+static int do_qemu_fw(struct getopt_state *gs)
 {
-	int ret;
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct cmd_tbl *fwcfg_cmd;
+	int ret;
 
 	ret = qfw_get_dev(&qfw_dev);
 	if (ret) {
@@ -272,17 +269,15 @@ static int do_qemu_fw(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	fwcfg_cmd = find_cmd_tbl(argv[1], fwcfg_commands,
 				 ARRAY_SIZE(fwcfg_commands));
-	argc -= 2;
-	argv += 2;
-	if (!fwcfg_cmd || argc > fwcfg_cmd->maxargs)
+	if (!fwcfg_cmd || argc - 2 > fwcfg_cmd->maxargs)
 		return CMD_RET_USAGE;
 
-	ret = fwcfg_cmd->cmd(fwcfg_cmd, flag, argc, argv);
+	ret = cmd_invoke(fwcfg_cmd, gs->cmd_flag, argc - 1, argv + 1);
 
 	return cmd_process_error(fwcfg_cmd, ret);
 }
 
-U_BOOT_CMD(
+U_BOOT_CMD_NOOPTS(
 	qfw,	4,	1,	do_qemu_fw,
 	"QEMU firmware interface",
 	"<command>\n"

@@ -2879,6 +2879,7 @@ config CMD_SYSBOOT
 
 config CMD_QFW
 	bool "qfw"
+	select GETOPT
 	select QFW
 	default y if TARGET_QEMU_ARM_32BIT || TARGET_QEMU_ARM_64BIT || \
 		TARGET_QEMU_VIRT || TARGET_QEMU_X86 || TARGET_QEMU_X86_64
