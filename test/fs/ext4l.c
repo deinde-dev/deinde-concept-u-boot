@@ -15,6 +15,7 @@
 #include <fs_legacy.h>
 #include <linux/sizes.h>
 #include <mapmem.h>
+#include <os.h>
 #include <sandbox_host.h>
 #include <u-boot/uuid.h>
 #include <vfs.h>
@@ -732,3 +733,120 @@ FS_TEST_ARGS(fs_test_ext4l_dual_mount_norun,
 	     UTF_SCAN_FDT | UTF_CONSOLE | UTF_MANUAL,
 	     { "fs_image_a", UT_ARG_STR },
 	     { "fs_image_b", UT_ARG_STR });
+
+/**
+ * check_start() - Get the uclasses ready, then return the heap usage
+ *
+ * The first host device creates the uclasses it needs, which stay until
+ * the test ends, so create them before taking the starting point for a leak
+ * check
+ *
+ * @uts: Test state
+ * @mem_startp: Returns the starting point for ut_check_delta()
+ * Return: 0 if OK, other value on error
+ */
+static int check_start(struct unit_test_state *uts, ulong *mem_startp)
+{
+	struct udevice *dev;
+
+	ut_asserteq(-ENODEV, uclass_first_device_err(UCLASS_HOST, &dev));
+	ut_asserteq(-ENODEV, uclass_first_device_err(UCLASS_PARTITION, &dev));
+	*mem_startp = ut_check_delta(0);
+
+	return 0;
+}
+
+/**
+ * bind_image() - Attach a test image to a new host device
+ *
+ * @uts: Test state
+ * @label: Label for the host device
+ * @leaf: Leaf name of the image, created by test_ut_dm_init
+ * @devp: Returns the host device
+ * @blkp: Returns its block device, probed
+ * Return: 0 if OK, other value on error
+ */
+static int bind_image(struct unit_test_state *uts, const char *label,
+		      const char *leaf, struct udevice **devp,
+		      struct udevice **blkp)
+{
+	char fname[256];
+
+	ut_assertok(os_persistent_file(fname, sizeof(fname), leaf));
+	ut_assertok(host_create_device(label, true, DEFAULT_BLKSZ, devp));
+	ut_assertok(host_attach_file(*devp, fname));
+	ut_assertok(blk_get_from_parent(*devp, blkp));
+	ut_assertok(device_probe(*blkp));
+
+	return 0;
+}
+
+/**
+ * unbind_image() - Remove a host device created by bind_image()
+ *
+ * The block cache keeps what was read from the device after it is gone, so
+ * drop that too, to leave the heap as it was before bind_image()
+ *
+ * @uts: Test state
+ * @dev: Host device
+ * @blk: Its block device
+ * Return: 0 if OK, other value on error
+ */
+static int unbind_image(struct unit_test_state *uts, struct udevice *dev,
+			struct udevice *blk)
+{
+	struct blk_desc *desc = dev_get_uclass_plat(blk);
+
+	blkcache_invalidate(desc->uclass_id, desc->devnum);
+	ut_assertok(host_detach_file(dev));
+	ut_assertok(device_unbind(dev));
+
+	return 0;
+}
+
+/* A failed mount must not leave the shared caches allocated */
+static int fs_test_ext4l_bad_mount(struct unit_test_state *uts)
+{
+	struct ext4l_state state;
+	struct udevice *dev, *blk;
+	ulong mem_start;
+
+	ut_assertok(check_start(uts, &mem_start));
+	ut_assertok(bind_image(uts, "fat", "1MB.fat32.img", &dev, &blk));
+
+	ut_asserteq(-EINVAL, ext4l_mount(&state, blk, NULL));
+	ut_assertnull(state.sb);
+
+	ut_assertok(unbind_image(uts, dev, blk));
+	ut_asserteq(0, ut_check_delta(mem_start));
+
+	return 0;
+}
+FS_TEST(fs_test_ext4l_bad_mount, UTF_SCAN_FDT);
+
+/* A failed mount must leave alone the caches another mount is using */
+static int fs_test_ext4l_bad_mount_shared(struct unit_test_state *uts)
+{
+	struct ext4l_state good, bad;
+	struct udevice *dev, *blk, *fat_dev, *fat_blk;
+	ulong mem_start;
+
+	ut_assertok(check_start(uts, &mem_start));
+	ut_assertok(bind_image(uts, "ext", "2MB.ext2.img", &dev, &blk));
+	ut_assertok(bind_image(uts, "fat", "1MB.fat32.img", &fat_dev,
+			       &fat_blk));
+
+	ut_assertok(ext4l_mount(&good, blk, NULL));
+	ut_asserteq(-EINVAL, ext4l_mount(&bad, fat_blk, NULL));
+
+	/* The first mount still works, using the extent and journal caches */
+	ut_assertok(ext4l_ls(&good, "/"));
+	ext4l_umount(&good);
+
+	ut_assertok(unbind_image(uts, fat_dev, fat_blk));
+	ut_assertok(unbind_image(uts, dev, blk));
+	ut_asserteq(0, ut_check_delta(mem_start));
+
+	return 0;
+}
+FS_TEST(fs_test_ext4l_bad_mount_shared, UTF_SCAN_FDT);

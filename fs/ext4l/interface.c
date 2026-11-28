@@ -31,6 +31,64 @@
 /* Global state for the legacy filesystem interface */
 static struct ext4l_state efs;
 
+/* Number of mounted filesystems, legacy and VFS, which share the caches */
+static int ext4l_mounts;
+
+/**
+ * ext4l_init_caches() - Set up the caches which all mounts share
+ *
+ * Each init function does nothing if its cache is already set up, so this
+ * is safe to call for every mount.
+ *
+ * Return: 0 on success, -ve on error
+ */
+static int ext4l_init_caches(void)
+{
+	int ret;
+
+	if (IS_ENABLED(CONFIG_EXT4_JOURNAL)) {
+		ret = jbd2_journal_init_global();
+		if (ret)
+			return ret;
+	}
+
+	if (IS_ENABLED(CONFIG_EXT4_WRITE)) {
+		ret = ext4_init_mballoc();
+		if (ret)
+			return ret;
+	}
+
+	ret = ext4_init_es();
+	if (ret)
+		return ret;
+
+	return ext4_init_system_zone();
+}
+
+/**
+ * ext4l_put_caches() - Free the shared caches once nothing is mounted
+ *
+ * This lets them be set up afresh on the next mount. Even when an unmount
+ * skips I/O (the journal is not properly destroyed), the caches must go, to
+ * free all the orphaned journal_heads.
+ *
+ * Nothing is freed while another filesystem is still mounted, since it is
+ * using the caches.
+ */
+static void ext4l_put_caches(void)
+{
+	if (ext4l_mounts)
+		return;
+
+	ext4_exit_system_zone();
+	ext4_exit_es();
+	if (IS_ENABLED(CONFIG_EXT4_WRITE))
+		ext4_exit_mballoc();
+	if (IS_ENABLED(CONFIG_EXT4_JOURNAL))
+		jbd2_journal_exit_global();
+	destroy_inodecache();
+}
+
 /**
  * ext4l_get_uuid() - Get the filesystem UUID
  *
@@ -184,30 +242,16 @@ static void ext4l_umount_internal(struct ext4l_state *state, bool skip_io)
 	if (state->open_dirs > 0)
 		return;
 
-	if (sb)
+	if (sb) {
 		ext4l_free_sb(sb, skip_io);
+		ext4l_mounts--;
+	}
 
 	state->sb = NULL;
 	state->blk = NULL;
 	state->mounted = false;
 
-	/*
-	 * Clean up ext4 and JBD2 global state so it can be properly
-	 * reinitialised on the next mount. This is important in U-Boot
-	 * where we may mount/unmount filesystems multiple times in a
-	 * single session.
-	 *
-	 * Even when skip_io is true (journal wasn't properly destroyed),
-	 * we must destroy the caches to free all orphaned journal_heads.
-	 * The next mount will reinitialise fresh caches.
-	 */
-	ext4_exit_system_zone();
-	ext4_exit_es();
-	if (IS_ENABLED(CONFIG_EXT4_WRITE))
-		ext4_exit_mballoc();
-	if (IS_ENABLED(CONFIG_EXT4_JOURNAL))
-		jbd2_journal_exit_global();
-	destroy_inodecache();
+	ext4l_put_caches();
 }
 
 int ext4l_mount(struct ext4l_state *state, struct udevice *dev,
@@ -233,35 +277,16 @@ int ext4l_mount(struct ext4l_state *state, struct udevice *dev,
 	/* Initialise CRC32C table for checksum verification */
 	ext4l_crc32c_init();
 
-	/* Initialise journal subsystem if enabled */
-	if (IS_ENABLED(CONFIG_EXT4_JOURNAL)) {
-		ret = jbd2_journal_init_global();
-		if (ret)
-			return ret;
-	}
-
-	/* Initialise multi-block allocator for write support */
-	if (IS_ENABLED(CONFIG_EXT4_WRITE)) {
-		ret = ext4_init_mballoc();
-		if (ret)
-			return ret;
-	}
-
-	/* Initialise extent status cache */
-	ret = ext4_init_es();
+	/* Set up the journal, allocator, extent and system-zone caches */
+	ret = ext4l_init_caches();
 	if (ret)
-		return ret;
-
-	/* Initialise system zone for block validity checking */
-	ret = ext4_init_system_zone();
-	if (ret)
-		goto err_exit_es;
+		goto err_put_caches;
 
 	/* Allocate super_block */
 	sb = kzalloc(sizeof(struct super_block), GFP_KERNEL);
 	if (!sb) {
 		ret = -ENOMEM;
-		goto err_exit_es;
+		goto err_put_caches;
 	}
 	INIT_LIST_HEAD(&sb->s_inodes);
 
@@ -384,6 +409,7 @@ int ext4l_mount(struct ext4l_state *state, struct udevice *dev,
 
 	/* Store super_block for later operations */
 	state->sb = sb;
+	ext4l_mounts++;
 
 	/* Free mount context - no longer needed after successful mount */
 	kfree(ctx);
@@ -407,8 +433,8 @@ err_free_bdev:
 	kfree(sb->s_bdev);
 err_free_sb:
 	kfree(sb);
-err_exit_es:
-	ext4_exit_es();
+err_put_caches:
+	ext4l_put_caches();
 	return ret;
 }
 
