@@ -691,6 +691,7 @@ config CMD_FDT_RESERVED
 config CMD_EXTENSION
 	bool "Extension board management command"
 	select CMD_FDT
+	select GETOPT
 	depends on SUPPORT_EXTENSION_SCAN
 	help
 	  Enables the "extension" command, which allows to detect
