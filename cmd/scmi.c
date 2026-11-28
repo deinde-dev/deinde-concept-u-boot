@@ -46,7 +46,7 @@ static struct udevice *get_agent(void)
 	struct udevice *agent;
 
 	if (uclass_get_device(UCLASS_SCMI_AGENT, 0, &agent)) {
-		printf("Cannot find any SCMI agent\n");
+		cmd_err("Cannot find any SCMI agent\n");
 		return NULL;
 	}
 
@@ -72,7 +72,7 @@ static struct udevice *get_base_proto(struct udevice *agent)
 
 	base_proto = scmi_get_protocol(agent, SCMI_PROTOCOL_ID_BASE);
 	if (!base_proto) {
-		printf("SCMI base protocol not found\n");
+		cmd_err("SCMI base protocol not found\n");
 		return NULL;
 	}
 
@@ -134,8 +134,8 @@ static int do_scmi_info(struct getopt_state *gs)
 					       &agent_name);
 		if (ret) {
 			if (ret != -EOPNOTSUPP)
-				printf("base_discover_agent() failed for id: %d (%d)\n",
-				       i, ret);
+				cmd_err("base_discover_agent() failed for id: %d (%d)\n",
+					i, ret);
 			break;
 		}
 		printf("    %c%2d: %s\n", i == scmi_agent_id(agent) ? '>' : ' ',
@@ -195,18 +195,15 @@ static int do_scmi_set_dev(struct getopt_state *gs)
 	ret = scmi_base_protocol_message_attrs(base_proto,
 					       SCMI_BASE_SET_DEVICE_PERMISSIONS,
 					       &attributes);
-	if (ret) {
-		printf("This operation is not supported\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "This operation is not supported\n");
 
 	ret = scmi_base_set_device_permissions(base_proto, agent_id,
 					       device_id, flags);
-	if (ret) {
-		printf("%s access to device:%u failed (%d)\n",
-		       flags ? "Allowing" : "Denying", device_id, ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "%s access to device:%u failed (%d)\n",
+				flags ? "Allowing" : "Denying", device_id,
+				ret);
 
 	return CMD_RET_SUCCESS;
 }
@@ -255,20 +252,17 @@ static int do_scmi_set_proto(struct getopt_state *gs)
 	ret = scmi_base_protocol_message_attrs(base_proto,
 					       SCMI_BASE_SET_PROTOCOL_PERMISSIONS,
 					       &attributes);
-	if (ret) {
-		printf("This operation is not supported\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "This operation is not supported\n");
 
 	ret = scmi_base_set_protocol_permissions(base_proto, agent_id,
 						 device_id, protocol_id,
 						 flags);
-	if (ret) {
-		printf("%s access to protocol:0x%x on device:%u failed (%d)\n",
-		       flags ? "Allowing" : "Denying", protocol_id, device_id,
-		       ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret,
+				"%s access to protocol:0x%x on device:%u failed (%d)\n",
+				flags ? "Allowing" : "Denying", protocol_id,
+				device_id, ret);
 
 	return CMD_RET_SUCCESS;
 }
@@ -309,16 +303,12 @@ static int do_scmi_reset(struct getopt_state *gs)
 	ret = scmi_base_protocol_message_attrs(base_proto,
 					       SCMI_BASE_RESET_AGENT_CONFIGURATION,
 					       &attributes);
-	if (ret) {
-		printf("Reset is not supported\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Reset is not supported\n");
 
 	ret = scmi_base_reset_agent_configuration(base_proto, agent_id, flags);
-	if (ret) {
-		printf("Reset failed (%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Reset failed (%d)\n", ret);
 
 	return CMD_RET_SUCCESS;
 }
