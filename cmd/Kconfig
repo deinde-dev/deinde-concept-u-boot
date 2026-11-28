@@ -2889,6 +2889,7 @@ config CMD_QFW
 
 config CMD_PSTORE
 	bool "pstore"
+	select GETOPT
 	help
 	  This provides access to Linux PStore with Rammoops backend. The main
 	  feature is to allow to display or save PStore records.

@@ -8,6 +8,7 @@
 #include <div64.h>
 #include <fdtdec.h>
 #include <fs_cmd.h>
+#include <getopt.h>
 #include <log.h>
 #include <mapmem.h>
 #include <memalign.h>
@@ -231,10 +232,7 @@ static u32 pstore_get_zones(struct pstore_zones *zones)
 
 /**
  * pstore_set() - Initialize PStore settings from command line arguments
- * @cmdtp: Command data struct pointer
- * @flag: Command flag
- * @argc: Command-line argument count
- * @argv: Array of command-line arguments
+ * @gs: Command state, holding the arguments
  *
  * Set pstore reserved memory info, starting at 'addr' for 'len' bytes.
  * Default length for records is 4K.
@@ -253,9 +251,11 @@ static u32 pstore_get_zones(struct pstore_zones *zones)
  * Return: zero on success, CMD_RET_USAGE in case of misuse and negative
  * on error.
  */
-static int pstore_set(struct cmd_tbl *cmdtp, int flag,  int argc,
-		      char * const argv[])
+static int pstore_set(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
+
 	if (argc < 3)
 		return CMD_RET_USAGE;
 
@@ -287,7 +287,7 @@ static int pstore_set(struct cmd_tbl *cmdtp, int flag,  int argc,
 			    pstore_round_size(pstore_console_size) +
 			    pstore_round_size(pstore_ftrace_size) +
 			    pstore_round_size(pstore_pmsg_size)) {
-		printf("pstore <len> should be larger than the sum of all records sizes\n");
+		cmd_err("pstore <len> should be larger than the sum of all records sizes\n");
 		pstore_length = 0;
 	}
 
@@ -319,22 +319,20 @@ static void pstore_print_buffer(char *type, char *buffer, u32 size)
 
 /**
  * pstore_display() - Display existing records in pstore reserved memory
- * @cmdtp: Command data struct pointer
- * @flag: Command flag
- * @argc: Command-line argument count
- * @argv: Array of command-line arguments
+ * @gs: Command state, holding the arguments
  *
  * A 'record-type' can be given to only display records of this kind.
- * If no 'record-type' is given, all valid records are dispayed.
- * 'record-type' can be one of 'dump', 'console', 'ftrace' or 'user'. For 'dump'
- * and 'ftrace' types, a 'nb' can be given to only display one record.
+ * If no 'record-type' is given, all valid records are displayed.
+ * 'record-type' can be one of 'dump', 'console', 'ftrace' or 'user'. For the
+ * 'dump' type, a 'nb' can be given to only display one record.
  *
  * Return: zero on success, CMD_RET_USAGE in case of misuse and negative
  * on error.
  */
-static int pstore_display(struct cmd_tbl *cmdtp, int flag,  int argc,
-			  char * const argv[])
+static int pstore_display(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	int type = PSTORE_TYPE_ALL;
 	struct pstore_zones zones;
 	phys_addr_t ptr;
@@ -357,16 +355,15 @@ static int pstore_display(struct cmd_tbl *cmdtp, int flag,  int argc,
 	}
 
 	if (pstore_length == 0) {
-		printf("Please set PStore configuration\n");
+		cmd_err("Please set PStore configuration\n");
 		return CMD_RET_USAGE;
 	}
 
 	size = pstore_get_zones(&zones);
 	buffer = malloc_cache_aligned(size);
-	if (!buffer) {
-		printf("Cannot allocate %u bytes for the records\n", size);
-		return CMD_RET_FAILURE;
-	}
+	if (!buffer)
+		return cmd_fail(0, "Cannot allocate %u bytes for the records\n",
+				size);
 
 	if (type == PSTORE_TYPE_DMESG || type == PSTORE_TYPE_ALL) {
 		ptr = zones.dump.addr;
@@ -441,10 +438,7 @@ static int pstore_display(struct cmd_tbl *cmdtp, int flag,  int argc,
 
 /**
  * pstore_save() - Save existing records from pstore reserved memory
- * @cmdtp: Command data struct pointer
- * @flag: Command flag
- * @argc: Command-line argument count
- * @argv: Array of command-line arguments
+ * @gs: Command state, holding the arguments
  *
  * the records are saved under 'directory path', which should already exist,
  * to partition 'part' on device type 'interface' instance 'dev'
@@ -454,9 +448,10 @@ static int pstore_display(struct cmd_tbl *cmdtp, int flag,  int argc,
  * Return: zero on success, CMD_RET_USAGE in case of misuse and negative
  * on error.
  */
-static int pstore_save(struct cmd_tbl *cmdtp, int flag,  int argc,
-		       char * const argv[])
+static int pstore_save(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	struct pstore_zones zones;
 	phys_addr_t ptr, ptr_end;
 	char *buffer;
@@ -472,16 +467,15 @@ static int pstore_save(struct cmd_tbl *cmdtp, int flag,  int argc,
 		return CMD_RET_USAGE;
 
 	if (pstore_length == 0) {
-		printf("Please set PStore configuration\n");
+		cmd_err("Please set PStore configuration\n");
 		return CMD_RET_USAGE;
 	}
 
 	size = pstore_get_zones(&zones);
 	buffer = malloc_cache_aligned(size);
-	if (!buffer) {
-		printf("Cannot allocate %u bytes for the records\n", size);
-		return CMD_RET_FAILURE;
-	}
+	if (!buffer)
+		return cmd_fail(0, "Cannot allocate %u bytes for the records\n",
+				size);
 	sprintf(addr, "0x%p", buffer);
 
 	save_argv[0] = argv[0];
@@ -555,28 +549,15 @@ static int pstore_save(struct cmd_tbl *cmdtp, int flag,  int argc,
 }
 
 static struct cmd_tbl cmd_pstore_sub[] = {
-	U_BOOT_CMD_MKENT(set, 8, 0, pstore_set, "", ""),
-	U_BOOT_CMD_MKENT(display, 3, 0, pstore_display, "", ""),
-	U_BOOT_CMD_MKENT(save, 4, 0, pstore_save, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(set, 8, 0, pstore_set, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(display, 3, 0, pstore_display, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(save, 4, 0, pstore_save, "", ""),
 };
 
-static int do_pstore(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
+static int do_pstore(struct getopt_state *gs)
 {
-	struct cmd_tbl *c;
-
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
-	/* Strip off leading argument */
-	argc--;
-	argv++;
-
-	c = find_cmd_tbl(argv[0], cmd_pstore_sub, ARRAY_SIZE(cmd_pstore_sub));
-
-	if (!c)
-		return CMD_RET_USAGE;
-
-	return cmd_invoke(c, flag, argc, argv);
+	return cmd_dispatch_subcmd(gs, cmd_pstore_sub,
+				   ARRAY_SIZE(cmd_pstore_sub));
 }
 
 void fdt_fixup_pstore(void *blob)
@@ -651,27 +632,28 @@ clean_ramoops:
 	fdt_del_node_and_alias(blob, node);
 }
 
-U_BOOT_CMD(pstore, 10, 0, do_pstore,
-	   "Manage Linux Persistent Storage",
-	   "set <addr> <len> [record-size] [console-size] [ftrace-size] [pmsg_size] [ecc-size]\n"
-	   "- Set pstore reserved memory info, starting at 'addr' for 'len' bytes.\n"
-	   "  Default length for records is 4K.\n"
-	   "  'record-size' is the size of one panic or oops record ('dump' type).\n"
-	   "  'console-size' is the size of the kernel logs record.\n"
-	   "  'ftrace-size' is the size of the ftrace record(s), this can be a single\n"
-	   "  record or divided in parts based on number of CPUs.\n"
-	   "  'pmsg-size' is the size of the user space logs record.\n"
-	   "  'ecc-size' enables/disables ECC support and specifies ECC buffer size in\n"
-	   "  bytes (0 disables it, 1 is a special value, means 16 bytes ECC).\n"
-	   "pstore display [record-type] [nb]\n"
-	   "- Display existing records in pstore reserved memory. A 'record-type' can\n"
-	   "  be given to only display records of this kind. 'record-type' can be one\n"
-	   "  of 'dump', 'console', 'ftrace' or 'user'. For 'dump' and 'ftrace' types,\n"
-	   "  a 'nb' can be given to only display one record.\n"
-	   "pstore save <interface> <dev[:part]> <directory-path>\n"
-	   "- Save existing records in pstore reserved memory under 'directory path'\n"
-	   "  to partition 'part' on device type 'interface' instance 'dev'.\n"
-	   "  Filenames are automatically generated, depending on record type, like\n"
-	   "  in /sys/fs/pstore under Linux.\n"
-	   "  The 'directory-path' should already exist.\n"
+U_BOOT_CMD_NOOPTS(
+	pstore, 10, 0, do_pstore,
+	"Manage Linux Persistent Storage",
+	"set <addr> <len> [record-size] [console-size] [ftrace-size] [pmsg-size] [ecc-size]\n"
+	"- Set pstore reserved memory info, starting at 'addr' for 'len' bytes.\n"
+	"  Default length for records is 4K.\n"
+	"  'record-size' is the size of one panic or oops record ('dump' type).\n"
+	"  'console-size' is the size of the kernel logs record.\n"
+	"  'ftrace-size' is the size of the ftrace record(s), this can be a single\n"
+	"  record or divided in parts based on number of CPUs.\n"
+	"  'pmsg-size' is the size of the user space logs record.\n"
+	"  'ecc-size' enables/disables ECC support and specifies ECC buffer size in\n"
+	"  bytes (0 disables it, 1 is a special value, means 16 bytes ECC).\n"
+	"pstore display [record-type] [nb]\n"
+	"- Display existing records in pstore reserved memory. A 'record-type' can\n"
+	"  be given to only display records of this kind. 'record-type' can be one\n"
+	"  of 'dump', 'console', 'ftrace' or 'user'. For the 'dump' type, a 'nb'\n"
+	"  can be given to only display one record.\n"
+	"pstore save <interface> <dev[:part]> <directory-path>\n"
+	"- Save existing records in pstore reserved memory under 'directory path'\n"
+	"  to partition 'part' on device type 'interface' instance 'dev'.\n"
+	"  Filenames are automatically generated, depending on record type, like\n"
+	"  in /sys/fs/pstore under Linux.\n"
+	"  The 'directory-path' should already exist.\n"
 );
