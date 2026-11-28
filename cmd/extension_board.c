@@ -9,6 +9,7 @@
 #include <command.h>
 #include <env.h>
 #include <extension_board.h>
+#include <getopt.h>
 
 static int
 cmd_extension_load_overlay_from_env(const struct extension *extension,
@@ -91,8 +92,7 @@ static int cmd_extension_apply_all(void)
 	return 0;
 }
 
-static int do_extension_list(struct cmd_tbl *cmdtp, int flag,
-			     int argc, char *const argv[])
+static int do_extension_list(struct getopt_state *gs)
 {
 	struct alist *extension_list;
 	struct extension *extension;
@@ -118,8 +118,7 @@ static int do_extension_list(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_extension_scan(struct cmd_tbl *cmdtp, int flag,
-			     int argc, char *const argv[])
+static int do_extension_scan(struct getopt_state *gs)
 {
 	int extension_num;
 
@@ -133,12 +132,12 @@ static int do_extension_scan(struct cmd_tbl *cmdtp, int flag,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_extension_apply(struct cmd_tbl *cmdtp, int flag,
-			      int argc, char *const argv[])
+static int do_extension_apply(struct getopt_state *gs)
 {
+	char *const *argv = gs->argv;
 	int extension_id;
 
-	if (argc < 2)
+	if (gs->argc < 2)
 		return CMD_RET_USAGE;
 
 	if (!working_fdt) {
@@ -160,28 +159,19 @@ static int do_extension_apply(struct cmd_tbl *cmdtp, int flag,
 }
 
 static struct cmd_tbl cmd_extension[] = {
-	U_BOOT_CMD_MKENT(scan, 1, 1, do_extension_scan, "", ""),
-	U_BOOT_CMD_MKENT(list, 1, 0, do_extension_list, "", ""),
-	U_BOOT_CMD_MKENT(apply, 2, 0, do_extension_apply, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(scan, 1, 1, do_extension_scan, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(list, 1, 0, do_extension_list, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(apply, 2, 0, do_extension_apply, "", ""),
 };
 
-static int do_extensionops(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_extensionops(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	/* Drop the extension command */
-	argc--;
-	argv++;
-
-	cp = find_cmd_tbl(argv[0], cmd_extension, ARRAY_SIZE(cmd_extension));
-	if (cp)
-		return cmd_invoke(cp, flag, argc, argv);
-
-	return CMD_RET_USAGE;
+	return cmd_dispatch_subcmd(gs, cmd_extension,
+				   ARRAY_SIZE(cmd_extension));
 }
 
-U_BOOT_CMD(extension, 3, 1, do_extensionops,
+U_BOOT_CMD_NOOPTS(
+	extension, 3, 1, do_extensionops,
 	"Extension board management sub system",
 	"scan - scan plugged extension(s) board(s)\n"
 	"extension list - lists available extension(s) board(s)\n"

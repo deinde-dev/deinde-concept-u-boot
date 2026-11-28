@@ -97,6 +97,56 @@ static int cmd_test_extension_usage(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_extension_usage, UTF_CONSOLE);
 
+/* Test that a sub-command refuses an argument it has no use for */
+static int cmd_test_extension_strict(struct unit_test_state *uts)
+{
+	/* 'scan' takes no arguments */
+	ut_asserteq(1, run_command("extension scan extra", 0));
+	ut_assertok(check_usage(uts));
+
+	/* nor any options, which are refused only with CMD_ARG_CHECK */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK)) {
+		ut_asserteq(1, run_command("extension scan -x", 0));
+		ut_assertok(check_usage(uts));
+	}
+
+	/* 'apply' takes only the extension to apply */
+	ut_asserteq(1, run_command("extension apply 0 1", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_extension_strict, UTF_CONSOLE);
+
+/* Test that a repeat only runs a sub-command which allows one */
+static int cmd_test_extension_repeat(struct unit_test_state *uts)
+{
+	char *const scan_args[] = { "extension", "scan", NULL };
+	char *const list_args[] = { "extension", "list", NULL };
+	int repeatable;
+
+	/* pressing Enter after a scan scans again */
+	repeatable = -1;
+	ut_assertok(cmd_process(0, 2, scan_args, &repeatable, NULL));
+	ut_assert_nextline("Found 2 extension board(s).");
+	ut_asserteq(1, repeatable);
+	ut_assert_console_end();
+
+	/* the listing may not be repeated, and the dispatcher says so */
+	repeatable = -1;
+	ut_assertok(cmd_process(0, 2, list_args, &repeatable, NULL));
+	ut_asserteq(0, repeatable);
+	console_record_reset();
+
+	/* so a repeat of it does nothing at all */
+	ut_assertok(cmd_process(CMD_FLAG_REPEAT, 2, list_args, &repeatable,
+				NULL));
+	ut_assert_console_end();
+
+	return 0;
+}
+CMD_TEST(cmd_test_extension_repeat, UTF_CONSOLE | UTF_DM | UTF_SCAN_PDATA);
+
 /* Test what 'extension apply' reports when it cannot do its job */
 static int cmd_test_extension_apply_err(struct unit_test_state *uts)
 {
