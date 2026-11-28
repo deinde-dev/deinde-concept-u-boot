@@ -64,17 +64,14 @@ static int do_host_bind(struct getopt_state *gs)
 	file = argv[1];
 	if (argc > 2) {
 		blksz = dectoul(argv[2], NULL);
-		if (blksz < DEFAULT_BLKSZ || !is_power_of_2(blksz)) {
-			printf("blksz must be >= 512 and power of 2\n");
-			return CMD_RET_FAILURE;
-		}
+		if (blksz < DEFAULT_BLKSZ || !is_power_of_2(blksz))
+			return cmd_fail(0,
+					"blksz must be >= 512 and power of 2\n");
 	}
 
 	ret = host_create_attach_file(label, file, removable, blksz, &dev);
-	if (ret) {
-		printf("Cannot create device / bind file\n");
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot create device / bind file\n");
 
 	return 0;
 }
@@ -99,7 +96,7 @@ static struct udevice *parse_host_label(const char *label)
 		devnum = hextoul(label, &ep);
 		if (*ep ||
 		    uclass_find_device_by_seq(UCLASS_HOST, devnum, &dev)) {
-			printf("No such device '%s'\n", label);
+			cmd_err("No such device '%s'\n", label);
 			return NULL;
 		}
 	}
@@ -122,16 +119,12 @@ static int do_host_unbind(struct getopt_state *gs)
 		return CMD_RET_FAILURE;
 
 	ret = host_detach_file(dev);
-	if (ret) {
-		printf("Cannot detach file (err=%d)\n", ret);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot detach file (err=%d)\n", ret);
 
 	ret = device_unbind(dev);
-	if (ret) {
-		printf("Cannot unbind device '%s'\n", dev->name);
-		return CMD_RET_FAILURE;
-	}
+	if (ret)
+		return cmd_fail(ret, "Cannot unbind device '%s'\n", dev->name);
 
 	return 0;
 }
@@ -204,10 +197,8 @@ static int do_host_dev(struct getopt_state *gs)
 		struct host_sb_plat *plat;
 
 		dev = host_get_cur_dev();
-		if (!dev) {
-			printf("No current host device\n");
-			return CMD_RET_FAILURE;
-		}
+		if (!dev)
+			return cmd_fail(0, "No current host device\n");
 		plat = dev_get_plat(dev);
 		printf("Current host device: %d: %s\n", dev_seq(dev),
 		       plat->label);
