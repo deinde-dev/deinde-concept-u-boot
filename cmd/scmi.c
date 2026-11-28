@@ -8,6 +8,7 @@
 
 #include <command.h>
 #include <exports.h>
+#include <getopt.h>
 #include <scmi_agent.h>
 #include <scmi_agent-uclass.h>
 #include <stdlib.h>
@@ -101,25 +102,21 @@ static const char *get_proto_name(enum scmi_std_protocol id)
 /**
  * do_scmi_info() - get the information of SCMI services
  *
- * @cmdtp:	Command table
- * @flag:	Command flag
- * @argc:	Number of arguments
- * @argv:	Argument array
+ * @gs:		getopt state
  *
  * Get the information of SCMI services using various interfaces
  * provided by the Base protocol.
  *
  * Return:	CMD_RET_SUCCESS on success, CMD_RET_RET_FAILURE on failure
  */
-static int do_scmi_info(struct cmd_tbl *cmdtp, int flag, int argc,
-			char * const argv[])
+static int do_scmi_info(struct getopt_state *gs)
 {
 	struct udevice *agent, *base_proto;
 	u32 agent_id, num_protocols;
 	u8 *agent_name, *protocols;
 	int i, ret;
 
-	if (argc != 1)
+	if (gs->argc != 1)
 		return CMD_RET_USAGE;
 
 	agent = get_agent();
@@ -161,18 +158,16 @@ static int do_scmi_info(struct cmd_tbl *cmdtp, int flag, int argc,
 /**
  * do_scmi_set_dev() - set access permission to device
  *
- * @cmdtp:	Command table
- * @flag:	Command flag
- * @argc:	Number of arguments
- * @argv:	Argument array
+ * @gs:		getopt state
  *
  * Set access permission to device with SCMI_BASE_SET_DEVICE_PERMISSIONS
  *
  * Return:	CMD_RET_SUCCESS on success, CMD_RET_RET_FAILURE on failure
  */
-static int do_scmi_set_dev(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char * const argv[])
+static int do_scmi_set_dev(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	u32 agent_id, device_id, flags, attributes;
 	char *end;
 	struct udevice *base_proto;
@@ -219,18 +214,16 @@ static int do_scmi_set_dev(struct cmd_tbl *cmdtp, int flag, int argc,
 /**
  * do_scmi_set_proto() - set protocol permission to device
  *
- * @cmdtp:	Command table
- * @flag:	Command flag
- * @argc:	Number of arguments
- * @argv:	Argument array
+ * @gs:		getopt state
  *
  * Set protocol permission to device with SCMI_BASE_SET_PROTOCOL_PERMISSIONS
  *
  * Return:	CMD_RET_SUCCESS on success, CMD_RET_RET_FAILURE on failure
  */
-static int do_scmi_set_proto(struct cmd_tbl *cmdtp, int flag, int argc,
-			     char * const argv[])
+static int do_scmi_set_proto(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	u32 agent_id, device_id, protocol_id, flags, attributes;
 	char *end;
 	struct udevice *base_proto;
@@ -283,18 +276,16 @@ static int do_scmi_set_proto(struct cmd_tbl *cmdtp, int flag, int argc,
 /**
  * do_scmi_reset() - reset platform resource settings
  *
- * @cmdtp:	Command table
- * @flag:	Command flag
- * @argc:	Number of arguments
- * @argv:	Argument array
+ * @gs:		getopt state
  *
  * Reset platform resource settings with BASE_RESET_AGENT_CONFIGURATION
  *
  * Return:	CMD_RET_SUCCESS on success, CMD_RET_RET_FAILURE on failure
  */
-static int do_scmi_reset(struct cmd_tbl *cmdtp, int flag, int argc,
-			 char * const argv[])
+static int do_scmi_reset(struct getopt_state *gs)
 {
+	int argc = gs->argc;
+	char *const *argv = gs->argv;
 	u32 agent_id, flags, attributes;
 	char *end;
 	struct udevice *base_proto;
@@ -333,44 +324,29 @@ static int do_scmi_reset(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 static struct cmd_tbl cmd_scmi_sub[] = {
-	U_BOOT_CMD_MKENT(info, CONFIG_SYS_MAXARGS, 1,
-			 do_scmi_info, "", ""),
-	U_BOOT_CMD_MKENT(perm_dev, CONFIG_SYS_MAXARGS, 1,
-			 do_scmi_set_dev, "", ""),
-	U_BOOT_CMD_MKENT(perm_proto, CONFIG_SYS_MAXARGS, 1,
-			 do_scmi_set_proto, "", ""),
-	U_BOOT_CMD_MKENT(reset, CONFIG_SYS_MAXARGS, 1,
-			 do_scmi_reset, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(info, CONFIG_SYS_MAXARGS, 1,
+				do_scmi_info, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(perm_dev, CONFIG_SYS_MAXARGS, 1,
+				do_scmi_set_dev, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(perm_proto, CONFIG_SYS_MAXARGS, 1,
+				do_scmi_set_proto, "", ""),
+	U_BOOT_CMD_MKENT_NOOPTS(reset, CONFIG_SYS_MAXARGS, 1,
+				do_scmi_reset, "", ""),
 };
 
 /**
  * do_scmi() - SCMI utility
  *
- * @cmdtp:	Command table
- * @flag:	Command flag
- * @argc:	Number of arguments
- * @argv:	Argument array
+ * @gs:		getopt state
  *
  * Provide user interfaces to SCMI protocols.
  *
  * Return:	CMD_RET_SUCCESS on success,
  *		CMD_RET_USAGE or CMD_RET_RET_FAILURE on failure
  */
-static int do_scmi(struct cmd_tbl *cmdtp, int flag,
-		   int argc, char *const argv[])
+static int do_scmi(struct getopt_state *gs)
 {
-	struct cmd_tbl *cp;
-
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
-	argc--; argv++;
-
-	cp = find_cmd_tbl(argv[0], cmd_scmi_sub, ARRAY_SIZE(cmd_scmi_sub));
-	if (!cp)
-		return CMD_RET_USAGE;
-
-	return cmd_invoke(cp, flag, argc, argv);
+	return cmd_dispatch_subcmd(gs, cmd_scmi_sub, ARRAY_SIZE(cmd_scmi_sub));
 }
 
 U_BOOT_LONGHELP(scmi,
@@ -383,5 +359,5 @@ U_BOOT_LONGHELP(scmi,
 	" reset <agent-id in hex> <flags in hex>\n"
 	"   - reset platform resource settings\n");
 
-U_BOOT_CMD(scmi, CONFIG_SYS_MAXARGS, 0, do_scmi, "SCMI utility",
-	   scmi_help_text);
+U_BOOT_CMD_NOOPTS(scmi, CONFIG_SYS_MAXARGS, 0, do_scmi, "SCMI utility",
+		  scmi_help_text);
