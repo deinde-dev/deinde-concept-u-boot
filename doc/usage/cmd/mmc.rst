@@ -14,17 +14,26 @@ Synopsis
     mmc info
     mmc read addr blk# cnt
     mmc write addr blk# cnt
+    mmc swrite addr blk#
     mmc erase blk# cnt
     mmc erase partname
     mmc rescan [mode]
     mmc part
     mmc dev [dev] [part] [mode]
     mmc list
-    mmc wp
+    mmc wp [part]
+    mmc hwpartition <user> <gp> <mode>
     mmc bootbus <dev> <boot_bus_width> <reset_boot_bus_width> <boot_mode>
     mmc bootpart-resize <dev> <dev part size MB> <RPMB part size MB>
     mmc partconf <dev> [[varname] | [<boot_ack> <boot_partition> <partition_access>]]
     mmc rst-function <dev> <value>
+    mmc rpmb read addr blk# cnt [keyaddr]
+    mmc rpmb write addr blk# cnt keyaddr
+    mmc rpmb key keyaddr
+    mmc rpmb counter
+    mmc setdsr <value>
+    mmc bkops-enable <dev>
+    mmc bkops <dev> [auto|manual] [enable|disable]
     mmc reg read <reg> <offset> [env]
 
 Description
@@ -44,6 +53,15 @@ The 'mmc write' command writes raw data to MMC device from memory address with b
         start block offset
     cnt
         block count
+
+The 'mmc swrite' command writes an Android sparse image held in memory to the
+MMC device, starting at block offset *blk#*. The image says how large it is and
+which of its blocks hold data, so no count is given.
+
+    addr
+        memory address of the sparse image
+    blk#
+        start block offset
 
 The 'mmc erase' command erases *cnt* blocks on the MMC device starting at block *blk#* or
 the entire partition specified by *partname*.
@@ -119,6 +137,30 @@ The 'mmc dev' command shows or set current mmc device.
 The 'mmc list' command displays the list available devices.
 
 The 'mmc wp' command enables "power on write protect" function for boot partitions.
+The protection lasts until the device is powered off.
+
+    part
+        boot partition to protect, 0 for the first or 1 for the second. Both
+        are protected if it is left out.
+
+The 'mmc hwpartition' command sets up the hardware partitions of an eMMC
+device, in 512-byte blocks. The *mode* argument says what to do with the
+configuration given: *check* reports whether the device can take it, *set*
+writes it, and *complete* writes it and marks the partitioning done.
+
+**WARNING** : Partitioning is a write-once setting once it is set to complete,
+and the device must be power-cycled before the new partitions can be used.
+
+    user
+        attributes of the user data area, as
+        'user [enh <start> <cnt>] [wrrel <{on|off}>]'. The enhanced area may
+        be given a size of '-' to use the rest of the device.
+    gp
+        general-purpose partition, as
+        '<{gp1|gp2|gp3|gp4}> <cnt> [enh] [wrrel <{on|off}>]'. Up to four may
+        be given.
+    mode
+        one of 'check', 'set' or 'complete'
 
 The 'mmc bootbus' command sets the BOOT_BUS_WIDTH field. (*Refer to eMMC specification*)
 
@@ -190,6 +232,51 @@ The 'mmc rst-function' command changes the RST_n_FUNCTION field.
             RST_n signal is permanently disabled
         0x3
             Reserved
+
+The 'mmc rpmb' command reads and writes the Replay Protected Memory Block
+partition of an eMMC device, whose blocks are 256 bytes rather than 512. The
+'read' sub-command checks the data it has read against the authentication key
+if *keyaddr* is given; 'write' always needs the key. The 'counter'
+sub-command shows the write counter, which the device increases on every
+write.
+
+The 'mmc rpmb key' command programs the authentication key held at *keyaddr*
+into the device. It asks for confirmation first, since the key can be
+programmed only once.
+**WARNING** : This is a write-once field. (*Refer to eMMC specification*)
+
+    addr
+        memory address
+    blk#
+        start block offset
+    cnt
+        block count
+    keyaddr
+        memory address of the 32-byte authentication key
+
+The 'mmc setdsr' command sets the value to send in the SET_DSR command, which
+configures the driver stage of the cards on the bus, and rescans the current
+device so that it takes effect.
+
+    value
+        hexadecimal DSR value
+
+The 'mmc bkops-enable' command enables the background operations handshake on
+an eMMC device permanently.
+**WARNING** : This is a write-once setting.
+
+The 'mmc bkops' command enables or disables the automatic or the manual
+background operations handshake. The manual setting is the write-once one
+which 'mmc bkops-enable' writes; the automatic setting can be changed as
+often as needed.
+
+    dev
+        device number
+    auto|manual
+        'auto' lets the device run background operations by itself, 'manual'
+        leaves it to the host to ask for them
+    enable|disable
+        whether the handshake is on or off
 
 The 'mmc reg read <reg> <offset> [env]' reads eMMC card register and
 either print it to standard output, or store the value in environment
@@ -273,7 +360,7 @@ The current device can be shown or set via 'mmc dev' command:
 
     => mmc dev
     switch to partitions #0, OK
-    mmc0(part0) is current device
+    mmc0(part 0) is current device
     => mmc dev 2 0
     switch to partitions #0, OK
     mmc2 is current device
@@ -285,9 +372,19 @@ The list of available devices can be shown via 'mmc list' command:
 ::
 
     => mmc list
-    mmc list
     EXYNOS DWMMC: 0 (eMMC)
     EXYNOS DWMMC: 2 (SD)
+
+Return value
+------------
+
+The return value $? is 0 (true) on success and 1 (false) on failure, for
+example when no MMC device is present, the sub-command is not one the command
+knows, the device is an SD card and the sub-command works on eMMC only, or a
+transfer reports fewer blocks than were asked for.
+
+Note that 'mmc part' succeeds even where the device has no partition table it
+recognises, reporting the type it found instead.
 
 Configuration
 -------------
@@ -297,8 +394,21 @@ Some commands need to enable more configuration.
 
 write, erase
     CONFIG_MMC_WRITE
+swrite
+    CONFIG_CMD_MMC_SWRITE
+hwpartition
+    CONFIG_MMC_HW_PARTITIONING
 bootbus, bootpart-resize, partconf, rst-function
     CONFIG_SUPPORT_EMMC_BOOT=y
+rpmb
+    CONFIG_CMD_MMC_RPMB
+bkops, bkops-enable
+    CONFIG_CMD_BKOPS_ENABLE
+reg
+    CONFIG_CMD_MMC_REG
+
+The *mode* argument of 'mmc rescan' and 'mmc dev' needs
+CONFIG_MMC_SPEED_MODE_SET.
 
 See also
 --------
