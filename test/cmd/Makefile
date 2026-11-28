@@ -82,6 +82,7 @@ ifdef CONFIG_SANDBOX
 obj-$(CONFIG_CMD_EXT4) += ext4ls.o
 obj-$(CONFIG_CMD_EXT4_WRITE) += ext4write.o
 endif
+obj-$(CONFIG_CMD_EXTENSION) += extension.o
 endif
 ifdef CONFIG_CONSOLE_RECORD
 ifdef CONFIG_SANDBOX
