@@ -274,3 +274,20 @@ static int cmd_test_pstore_usage(struct unit_test_state *uts)
 	return 0;
 }
 CMD_TEST(cmd_test_pstore_usage, UTF_CONSOLE);
+
+/* Test that the command refuses arguments which it cannot use */
+static int cmd_test_pstore_extra_args(struct unit_test_state *uts)
+{
+	/* no sub-command takes an option, which the framework enforces */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK)) {
+		ut_asserteq(1, run_command("pstore set -x 1000", 0));
+		ut_assertok(check_usage(uts));
+	}
+
+	/* an argument too many for the sub-command */
+	ut_asserteq(1, run_command("pstore display dump 0 extra", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+CMD_TEST(cmd_test_pstore_extra_args, UTF_CONSOLE);
