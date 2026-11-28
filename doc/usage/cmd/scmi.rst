@@ -23,15 +23,15 @@ Arm System Control and Management Interface (SCMI hereafter) is a set of
 standardised interfaces to manage system resources, like clocks, power
 domains, pin controls, reset and so on, in a system-wide manner.
 
-An entity which provides those services is called a SCMI firmware (or
-SCMI server if you like) may be placed/implemented by EL3 software or
-by a dedicated system control processor (SCP) or else.
+An entity which provides those services is called a SCMI firmware, or SCMI
+server. It may be implemented by EL3 software, by a dedicated system control
+processor (SCP) or by something else again.
 
-A user of SCMI interfaces, including U-Boot, is called a SCMI agent and
-may issues commands, which are defined in each protocol for specific system
-resources, to SCMI server via a communication channel, called a transport.
-Those interfaces are independent from the server's implementation thanks to
-a transport layer.
+A user of SCMI interfaces, including U-Boot, is called a SCMI agent. It
+issues commands, which are defined in each protocol for specific system
+resources, to the SCMI server over a communication channel, called a
+transport. Those interfaces are independent from the server's implementation
+thanks to a transport layer.
 
 For more details, see the `SCMI specification`_.
 
@@ -53,7 +53,8 @@ scmi perm_proto
 
 scmi reset
 ~~~~~~~~~~
-    Reset the already-configured permissions against the device
+    Reset the platform resource settings which the agent has configured,
+    optionally together with its access permissions
 
 Parameters are used as follows:
 
@@ -74,9 +75,14 @@ Parameters are used as follows:
 <flags>
     Flags to control the action, hex value
 
-    0 to deny, 1 to allow. The other values are reserved and allowed
-    values may depend on the implemented version of SCMI server in
-    the future. See SCMI specification for more details.
+    For perm_dev and perm_proto, 0 denies access and 1 allows it.
+
+    For reset, 0 keeps the access permissions already configured, while
+    1 resets them along with the other resource settings.
+
+    The remaining bits are reserved, so a server rejects a value which
+    sets any of them. The values allowed may grow with the version of
+    SCMI the server implements. See SCMI specification for more details.
 
 Example
 -------
@@ -107,11 +113,40 @@ Ask for access permission to device#0:
 
     => scmi perm_dev 1 0 1
 
+Ask for access to the clock management protocol, 0x14, on device#0:
+
+::
+
+    => scmi perm_proto 1 0 14 1
+
 Reset configurations with all access permission settings retained:
 
 ::
 
     => scmi reset 1 0
+
+A request the server refuses reports the error it returned, here from a
+server which does not let this agent reset its access permissions:
+
+::
+
+    => scmi reset 1 1
+    Reset failed (-13)
+
+Return value
+------------
+
+The return value $? is 0 (true) if the sub-command succeeds and 1 (false) if
+it fails. A sub-command which the server completes shows nothing, apart from
+info, whose output is its result.
+
+The command shows its usage message where there is no sub-command, where the
+sub-command is not one of those listed above, where it is given the wrong
+number of arguments, or where one of those arguments is not a hex value.
+
+A sub-command fails where no SCMI agent is present, where the server does not
+support the request, and where the server refuses it, for instance because
+the agent or the device is not one it knows, or the flags set a reserved bit.
 
 Configuration
 -------------

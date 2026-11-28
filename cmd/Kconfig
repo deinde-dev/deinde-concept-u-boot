@@ -3218,6 +3218,7 @@ config CMD_CROS_EC
 config CMD_SCMI
 	bool "Enable scmi command"
 	depends on SCMI_FIRMWARE
+	select GETOPT
 	help
 	  This command provides user interfaces to several SCMI (System
 	  Control and Management Interface) protocols available on Arm

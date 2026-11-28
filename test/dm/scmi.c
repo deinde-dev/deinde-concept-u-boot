@@ -204,7 +204,47 @@ static int dm_test_scmi_base(struct unit_test_state *uts)
 }
 DM_TEST(dm_test_scmi_base, UTF_SCAN_FDT);
 
-static int dm_test_scmi_cmd(struct unit_test_state *uts)
+/*
+ * The usage lines which are too long to write out where they are used. The
+ * command's long help ends with a newline, so cmd_usage() leaves a blank line
+ * after the last of them.
+ */
+#define HELP_PERM_DEV \
+	" perm_dev <agent-id in hex> <device-id in hex> <flags in hex>"
+#define HELP_PERM_PROTO \
+	" perm_proto <agent-id in hex> <device-id in hex>" \
+	" <protocol-id in hex> <flags in hex>"
+
+/**
+ * check_usage() - Check the usage message the scmi command shows
+ *
+ * @uts: Test state
+ * Return: 0 if OK, other value on error
+ */
+static int check_usage(struct unit_test_state *uts)
+{
+	ut_assert_nextline("scmi - SCMI utility");
+	ut_assert_nextline_empty();
+
+	/* the rest of the message is there only where the long help is */
+	if (IS_ENABLED(CONFIG_SYS_LONGHELP)) {
+		ut_assert_nextline("Usage:");
+		ut_assert_nextline("scmi  - SCMI utility");
+		ut_assert_nextline(" info - get the info of SCMI services");
+		ut_assert_nextline(HELP_PERM_DEV);
+		ut_assert_nextline("   - set access permission to device");
+		ut_assert_nextline(HELP_PERM_PROTO);
+		ut_assert_nextline("   - set protocol permission to device");
+		ut_assert_nextline(" reset <agent-id in hex> <flags in hex>");
+		ut_assert_nextline("   - reset platform resource settings");
+		ut_assert_nextline_empty();
+	}
+	ut_assert_console_end();
+
+	return 0;
+}
+
+static int dm_test_scmi_cmd_base(struct unit_test_state *uts)
 {
 	struct udevice *agent_dev;
 	int num_proto = 0;
@@ -281,7 +321,85 @@ static int dm_test_scmi_cmd(struct unit_test_state *uts)
 
 	return 0;
 }
-DM_TEST(dm_test_scmi_cmd, UTF_SCAN_FDT | UTF_CONSOLE);
+DM_TEST(dm_test_scmi_cmd_base, UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test that the scmi command shows its usage message on a bad argument */
+static int dm_test_scmi_cmd_usage(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_CMD_SCMI))
+		return -EAGAIN;
+
+	/* a sub-command is needed, and must be one the command knows */
+	ut_asserteq(1, run_command("scmi", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("scmi bogus", 0));
+	ut_assertok(check_usage(uts));
+
+	/* each sub-command takes a fixed number of arguments */
+	ut_asserteq(1, run_command("scmi info 1", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("scmi perm_dev 1 0", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("scmi perm_dev 1 0 1 1", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("scmi perm_proto 1 0 14", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("scmi reset 1", 0));
+	ut_assertok(check_usage(uts));
+
+	/* every argument is a hex value, so trailing rubbish is refused */
+	ut_asserteq(1, run_command("scmi perm_dev 1 0 1z", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("scmi perm_proto 1 0 zz 1", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("scmi reset zz 1", 0));
+	ut_assertok(check_usage(uts));
+
+	return 0;
+}
+DM_TEST(dm_test_scmi_cmd_usage, UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test what the scmi command reports when the SCMI server refuses a request */
+static int dm_test_scmi_cmd_err(struct unit_test_state *uts)
+{
+	if (!IS_ENABLED(CONFIG_CMD_SCMI))
+		return -EAGAIN;
+
+	/*
+	 * The sandbox server knows agent 1 and device 0 only, and takes bit 0
+	 * of the flags, so each of these reaches a different status code
+	 */
+	ut_asserteq(1, run_command("scmi perm_dev 2 0 1", 0));
+	ut_assert_nextline("Allowing access to device:0 failed (-2)");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("scmi perm_dev 1 0 2", 0));
+	ut_assert_nextline("Allowing access to device:0 failed (-22)");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("scmi perm_proto 1 0 10 1", 0));
+	ut_assert_nextline(
+		"Allowing access to protocol:0x10 on device:0 failed (-2)");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("scmi reset 2 1", 0));
+	ut_assert_nextline("Reset failed (-2)");
+	ut_assert_console_end();
+
+	ut_asserteq(1, run_command("scmi reset 1 2", 0));
+	ut_assert_nextline("Reset failed (-22)");
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_scmi_cmd_err, UTF_SCAN_FDT | UTF_CONSOLE);
 
 static int dm_test_scmi_power_domains(struct unit_test_state *uts)
 {
