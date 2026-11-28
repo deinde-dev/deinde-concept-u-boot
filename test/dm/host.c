@@ -416,3 +416,66 @@ static int dm_test_cmd_host_usage(struct unit_test_state *uts)
 	return 0;
 }
 DM_TEST(dm_test_cmd_host_usage, UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test that the sub-commands refuse an option */
+static int dm_test_cmd_host_opt(struct unit_test_state *uts)
+{
+	char fname[256];
+
+	ut_assertok(os_persistent_file(fname, sizeof(fname), "1MB.fat32.img"));
+
+	/*
+	 * these read an option as a label, so 'host info -x' reports a
+	 * missing device and 'host bind -x <label> <file>' reads the
+	 * filename as a block size
+	 */
+	ut_asserteq(1, run_command("host info -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("host dev -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_command("host unbind -x", 0));
+	ut_assertok(check_usage(uts));
+
+	ut_asserteq(1, run_commandf("host bind -x label %s", fname));
+	ut_assertok(check_usage(uts));
+
+	/* the -r flag of 'host bind' is still accepted */
+	ut_assertok(run_commandf("host bind -r label %s", fname));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cmd_host_opt, UTF_SCAN_FDT | UTF_CONSOLE);
+
+/* Test that only a sub-command which allows it may be repeated */
+static int dm_test_cmd_host_repeat(struct unit_test_state *uts)
+{
+	char *const info_args[] = { "host", "info", NULL };
+	char *const dev_args[] = { "host", "dev", NULL };
+	int repeatable;
+
+	/*
+	 * the command itself is repeatable, so without the dispatcher
+	 * narrowing it, every sub-command would look repeatable
+	 */
+	repeatable = -1;
+	ut_assertok(cmd_process(0, 2, info_args, &repeatable, NULL));
+	ut_asserteq(0, repeatable);
+	console_record_reset();
+
+	/* 'host dev' may be repeated, whatever it reports */
+	repeatable = -1;
+	ut_asserteq(1, cmd_process(0, 2, dev_args, &repeatable, NULL));
+	ut_asserteq(1, repeatable);
+	console_record_reset();
+
+	/* a repeat of 'host info' is refused before it runs, so shows nothing */
+	ut_assertok(cmd_process(CMD_FLAG_REPEAT, 2, info_args, &repeatable,
+				NULL));
+	ut_assert_console_end();
+
+	return 0;
+}
+DM_TEST(dm_test_cmd_host_repeat, UTF_SCAN_FDT | UTF_CONSOLE);
