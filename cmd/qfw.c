@@ -263,7 +263,7 @@ static int do_qemu_fw(struct getopt_state *gs)
 
 	ret = qfw_get_dev(&qfw_dev);
 	if (ret) {
-		printf("QEMU fw_cfg interface not found\n");
+		cmd_err("QEMU fw_cfg interface not found\n");
 		return CMD_RET_USAGE;
 	}
 
