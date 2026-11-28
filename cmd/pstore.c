@@ -287,7 +287,7 @@ static int pstore_set(struct getopt_state *gs)
 			    pstore_round_size(pstore_console_size) +
 			    pstore_round_size(pstore_ftrace_size) +
 			    pstore_round_size(pstore_pmsg_size)) {
-		printf("pstore <len> should be larger than the sum of all records sizes\n");
+		cmd_err("pstore <len> should be larger than the sum of all records sizes\n");
 		pstore_length = 0;
 	}
 
@@ -355,16 +355,15 @@ static int pstore_display(struct getopt_state *gs)
 	}
 
 	if (pstore_length == 0) {
-		printf("Please set PStore configuration\n");
+		cmd_err("Please set PStore configuration\n");
 		return CMD_RET_USAGE;
 	}
 
 	size = pstore_get_zones(&zones);
 	buffer = malloc_cache_aligned(size);
-	if (!buffer) {
-		printf("Cannot allocate %u bytes for the records\n", size);
-		return CMD_RET_FAILURE;
-	}
+	if (!buffer)
+		return cmd_fail(0, "Cannot allocate %u bytes for the records\n",
+				size);
 
 	if (type == PSTORE_TYPE_DMESG || type == PSTORE_TYPE_ALL) {
 		ptr = zones.dump.addr;
@@ -468,16 +467,15 @@ static int pstore_save(struct getopt_state *gs)
 		return CMD_RET_USAGE;
 
 	if (pstore_length == 0) {
-		printf("Please set PStore configuration\n");
+		cmd_err("Please set PStore configuration\n");
 		return CMD_RET_USAGE;
 	}
 
 	size = pstore_get_zones(&zones);
 	buffer = malloc_cache_aligned(size);
-	if (!buffer) {
-		printf("Cannot allocate %u bytes for the records\n", size);
-		return CMD_RET_FAILURE;
-	}
+	if (!buffer)
+		return cmd_fail(0, "Cannot allocate %u bytes for the records\n",
+				size);
 	sprintf(addr, "0x%p", buffer);
 
 	save_argv[0] = argv[0];

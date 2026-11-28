@@ -23,6 +23,9 @@
 /* First line of a dump record, which holds the time of the crash */
 #define DUMP_HDR	"====1.0-D\n"
 
+/* Complaint about zones which do not fit in the memory */
+#define LEN_MSG	"pstore <len> should be larger than the sum of all records sizes"
+
 /*
  * Header at the start of a zone, as struct persistent_ram_buffer in
  * cmd/pstore.c. The command declares it privately, so the tests declare it
@@ -228,17 +231,27 @@ static int cmd_test_pstore_set(struct unit_test_state *uts)
 
 	/*
 	 * The zones must fit in the memory. The command says that they do not
-	 * and forgets the configuration
+	 * and forgets the configuration. Without CONFIG_CMD_ERR_MSG the
+	 * message is compiled out, and the sub-command succeeds, so there is
+	 * nothing in its place
 	 */
 	ut_assertok(run_commandf("pstore set 0x%lx 0x%x 0x%x 0x%x 0 0",
 				 (ulong)map_to_sysmem(buf), ZONE_SIZE, ZONE_SIZE,
 				 ZONE_SIZE));
-	ut_assert_nextline("pstore <len> should be larger than the sum of all records sizes");
+	if (IS_ENABLED(CONFIG_CMD_ERR_MSG))
+		ut_assert_nextline(LEN_MSG);
 	ut_assert_console_end();
 
-	/* with no memory to read there is nothing to display */
+	/*
+	 * With no memory to read there is nothing to display. Here the
+	 * sub-command fails, so cmd_process() reports it in place of the
+	 * message
+	 */
 	ut_asserteq(1, run_command("pstore display", 0));
-	ut_assert_nextline("Please set PStore configuration");
+	if (IS_ENABLED(CONFIG_CMD_ERR_MSG))
+		ut_assert_nextline("Please set PStore configuration");
+	else
+		ut_assert_nextline("pstore: failed");
 	ut_assertok(check_usage(uts));
 
 	free(buf);
