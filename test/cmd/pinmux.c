@@ -161,6 +161,23 @@ static int cmd_test_pinmux_status_pin(struct unit_test_state *uts)
 }
 CMD_TEST(cmd_test_pinmux_status_pin, UTF_CONSOLE);
 
+/* Test that a sub-command refuses an option which it does not have */
+static int cmd_test_pinmux_opts(struct unit_test_state *uts)
+{
+	/* 'status' takes only -a */
+	ut_asserteq(1, run_command("pinmux status -x", 0));
+	ut_assertok(check_usage(uts));
+
+	/* 'dev' takes none at all, which the command framework enforces */
+	if (IS_ENABLED(CONFIG_CMD_ARG_CHECK)) {
+		ut_asserteq(1, run_command("pinmux dev -x", 0));
+		ut_assertok(check_usage(uts));
+	}
+
+	return 0;
+}
+CMD_TEST(cmd_test_pinmux_opts, UTF_CONSOLE);
+
 /* Test that a repeat runs the sub-command again */
 static int cmd_test_pinmux_repeat(struct unit_test_state *uts)
 {
